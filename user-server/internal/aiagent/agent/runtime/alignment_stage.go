@@ -5,11 +5,10 @@ import (
 	"time"
 )
 
-
 // DefaultAlignmentScorer 默认 6 维拟人度评分器
 type DefaultAlignmentScorer struct {
 	RAGConfidenceFunc func(ctx context.Context, agentCtx *AgentContext, content string) float64
-	TurnCountFunc func(ctx context.Context, agentCtx *AgentContext, customerID string) int
+	TurnCountFunc     func(ctx context.Context, agentCtx *AgentContext, customerID string) int
 }
 
 // NewDefaultAlignmentScorer 构造默认评分器
@@ -111,9 +110,9 @@ func (s *DefaultAlignmentScorer) Score(ctx context.Context, ic *InferenceContext
 	case contentLen >= 10 && contentLen <= 200:
 		score.Clarity = 4
 	case contentLen < 10:
-		score.Clarity = 3 
+		score.Clarity = 3
 	default:
-		score.Clarity = 3 
+		score.Clarity = 3
 	}
 
 	politenessMarkers := []string{"请", "谢谢", "麻烦", "您好", "请帮我", "please", "thanks"}
@@ -134,7 +133,6 @@ func IntentAppreciIntent() Intent {
 	return IntentGreeting
 }
 
-// containsFold 不区分大小写包含
 func containsFold(s, substr string) bool {
 	return len(s) >= len(substr) && (indexFold(s, substr) >= 0)
 }
@@ -205,4 +203,3 @@ func itoa(n int) string {
 	}
 	return string(buf[i:])
 }
-

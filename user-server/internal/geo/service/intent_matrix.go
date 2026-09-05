@@ -4,19 +4,13 @@ import (
 	"strings"
 )
 
-// 意图策略矩阵（v3 GEO 决策链化 Phase1 / 论点三"挖掘用户思维链"落地）
-//
-// 设计依据：classifyIntent 已将查询划分为六类决策阶段意图，但原仅做统计分布。
-// 本矩阵让不同意图路由到差异化的信源类型与内容形态——同一品牌在
-// "疑问期/对比期/推荐期"的答案形态应当不同，而非一篇文章打天下。
-
 // IntentStrategy 单一意图的内容与信源策略
 type IntentStrategy struct {
-	Intent        string   // 意图名（与 classifyIntent 输出对齐）
-	Stage         string   // 决策链阶段（认知→比较→决策）
-	SourceTypes   []string // 应布控的信源类型
-	ContentFormat string   // 推荐内容形态
-	PromptHint    string   // 注入生成 prompt 的策略指令
+	Intent        string
+	Stage         string
+	SourceTypes   []string
+	ContentFormat string
+	PromptHint    string
 }
 
 // DefaultIntentMatrix 默认意图-策略矩阵

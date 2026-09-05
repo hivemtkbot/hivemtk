@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"strings"
 	"testing"
@@ -104,10 +103,10 @@ func TestNormalizeQuery(t *testing.T) {
 		want  string
 	}{
 		{"Hello World", "hello world"},
-		{"  Hello   World  ", "hello world"}, 
-		{"HELLO\tWORLD\n", "hello world"},    
+		{"  Hello   World  ", "hello world"},
+		{"HELLO\tWORLD\n", "hello world"},
 		{"", ""},
-		{"Hello世界", "hello世界"}, 
+		{"Hello世界", "hello世界"},
 	}
 	for _, c := range cases {
 		got := normalizeQuery(c.input)
@@ -132,4 +131,3 @@ func TestTruncateContent(t *testing.T) {
 		t.Errorf("truncated rune len=%d want=101", len(runes))
 	}
 }
-

@@ -27,15 +27,15 @@ func TestSOPDispatcher_SetCompensationManager(t *testing.T) {
 func TestSOPDispatcher_SetCompensationManager_NilSafe(t *testing.T) {
 	var d *SOPExecutionDispatcher
 	d.SetCompensationManager(NewCompensationManager(DefaultCompensationConfig()))
-	// 不应 panic
+
 }
 
 // TestSOPDispatcher_tryCompensate_NilMgr 验证 nil manager 不破坏 fail 路径
 func TestSOPDispatcher_tryCompensate_NilMgr(t *testing.T) {
 	d := &SOPExecutionDispatcher{}
-	// compensationMgr is nil → 应直接返回
+
 	d.tryCompensate(context.Background(), &model.SOPExecution{ID: 1})
-	// 不应 panic
+
 }
 
 // TestSOPDispatcher_tryCompensate_NilExec 验证 nil execution
@@ -43,7 +43,7 @@ func TestSOPDispatcher_tryCompensate_NilExec(t *testing.T) {
 	d := &SOPExecutionDispatcher{}
 	d.SetCompensationManager(NewCompensationManager(DefaultCompensationConfig()))
 	d.tryCompensate(context.Background(), nil)
-	// 不应 panic
+
 }
 
 // TestSOPDispatcher_tryCompensate_ZeroIDExec 验证 0 ID execution
@@ -51,14 +51,14 @@ func TestSOPDispatcher_tryCompensate_ZeroIDExec(t *testing.T) {
 	d := &SOPExecutionDispatcher{}
 	d.SetCompensationManager(NewCompensationManager(DefaultCompensationConfig()))
 	d.tryCompensate(context.Background(), &model.SOPExecution{ID: 0})
-	// 不应 panic
+
 }
 
 // TestSOPDispatcher_tryCompensate_NilDispatcher 验证 nil dispatcher
 func TestSOPDispatcher_tryCompensate_NilDispatcher(t *testing.T) {
 	var d *SOPExecutionDispatcher
 	d.tryCompensate(context.Background(), &model.SOPExecution{ID: 1})
-	// 不应 panic
+
 }
 
 // TestSOPDispatcher_tryCompensate_ConcurrentSafety 验证并发调用
@@ -75,7 +75,7 @@ func TestSOPDispatcher_tryCompensate_ConcurrentSafety(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	// 等待异步 goroutine 完成
+
 	time.Sleep(100 * time.Millisecond)
 }
 
@@ -87,11 +87,9 @@ func TestSOPDispatcher_FailExecutionTriggersCompensation(t *testing.T) {
 	mgr := NewCompensationManager(DefaultCompensationConfig())
 	d.SetCompensationManager(mgr)
 
-	// 调用 tryCompensate（failExecution 内部会调用）
-	// 关键：不应 panic
 	exec := &model.SOPExecution{ID: 100}
 	d.tryCompensate(context.Background(), exec)
-	// 等待异步完成
+
 	time.Sleep(100 * time.Millisecond)
 }
 
@@ -127,16 +125,12 @@ func TestSOPDispatcher_CompensationMgr_AfterFail(t *testing.T) {
 	mgr := NewCompensationManager(DefaultCompensationConfig())
 	d := &SOPExecutionDispatcher{compensationMgr: mgr}
 
-	// 验证初始无 plan
 	if mgr.GetPlan(1) != nil {
 		t.Error("initial state should have no plan")
 	}
 
-	// 模拟 fail：直接调用 tryCompensate（failExecution 内部会调）
 	d.tryCompensate(context.Background(), &model.SOPExecution{ID: 1})
 
-	// 当前 schema 缺 executed_nodes 字段，所以 plan 不会增加（仅 debug 日志）
-	// 验证：不应 panic 且状态正常
 	time.Sleep(100 * time.Millisecond)
 }
 

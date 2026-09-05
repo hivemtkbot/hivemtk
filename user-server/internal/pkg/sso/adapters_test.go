@@ -12,7 +12,6 @@ import (
 	"testing"
 )
 
-// mkClaims 构造带 Extra 的 ID Token claims
 func mkClaims(sub, name, email, username string, extra map[string]interface{}) *IDTokenClaims {
 	c := &IDTokenClaims{
 		Subject:           sub,
@@ -27,7 +26,6 @@ func mkClaims(sub, name, email, username string, extra map[string]interface{}) *
 	return c
 }
 
-// newTestAdapter 构建指定 provider 的测试适配器（Issuer 用占位，不发起网络请求）
 func newTestAdapter(t *testing.T, name string) Adapter {
 	t.Helper()
 	a, err := NewAdapter(name, OIDCConfig{
@@ -158,4 +156,3 @@ func TestAdapters_MapRoleFromRolesClaim(t *testing.T) {
 		t.Errorf("role should come from roles claim, got %q", nu.Role)
 	}
 }
-

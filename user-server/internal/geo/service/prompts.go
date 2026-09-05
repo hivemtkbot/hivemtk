@@ -204,10 +204,6 @@ func TopicClusterPrompt(brandName, keywords string) string {
 `, keywords, brandName)
 }
 
-// ContentGenerationPrompt 内容生成 Prompt（迁移自 GEO 内容生成逻辑）
-// brandName: 品牌, advantages: 品牌优势, keyword: 目标关键词, wordCount: 字数, style: 风格
-
-// geoLangPrompt 多语言 prompt 映射（v3 竞品对齐 A8：Peec 115+语言覆盖）
 var geoLangPrompts = map[string]struct{ instruction, tone string }{
 	"zh": {"请使用简体中文撰写", "专业但亲切的语调"},
 	"en": {"Write in English. Use professional B2B tone with clear structure.", "professional yet approachable tone"},
@@ -628,8 +624,6 @@ func NegativeMonitorPrompt(brandName string, probeResults string) string {
 
 【开始监控】`, brandName, probeResults)
 }
-
-// --- 辅助函数 ---
 
 // KeywordsToJSON 将字符串切片转为 JSON 数组字符串
 func KeywordsToJSON(keywords []string) string {

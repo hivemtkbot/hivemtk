@@ -72,7 +72,6 @@ func (s *InboxIngressService) DeliverOutbound(ctx context.Context, h *model.Mess
 		return err
 	}
 
-	// Phase 1: SSE 事件驱动通知（异步，不阻塞主路径）
 	if GlobalSSEPublisher != nil && h != nil && h.ID != 0 {
 		go func() {
 			defer func() {
@@ -392,9 +391,7 @@ func (s *InboxIngressService) AckOutboundDeliveredDetailed(
 		for _, id := range updatedIDs {
 			updatedIDSet[id] = struct{}{}
 		}
-		// 修复：批量更新成功的 msg_id 必须生成 acked/failed 明细项，
-		// 否则 affected>0 但 AckedItemsCount=0（2026-08-18 重构回归）。
-		// 按"入参 msg_id"粒度生成明细（跨会话同名 msg_id 多行更新仍只产一条明细）。
+
 		for _, id := range toAck {
 			if _, ok := updatedIDSet[id]; !ok {
 				continue
@@ -411,7 +408,7 @@ func (s *InboxIngressService) AckOutboundDeliveredDetailed(
 			}
 			result.Items = append(result.Items, item)
 		}
-		// 更新落空（affected 0 行）= 并发下已被其他请求翻转 → 幂等 duplicate。
+
 		for _, id := range toAck {
 			if _, ok := updatedIDSet[id]; ok {
 				continue

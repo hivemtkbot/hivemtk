@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupAIContentServiceTestDB 设置 AI 内容服务测试数据库
 func setupAIContentServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.AIGenerationRecord{},
@@ -416,7 +415,6 @@ func TestAIContentService_SaveRecord(t *testing.T) {
 		t.Fatalf("SaveRecord failed: %v", err)
 	}
 
-	// 验证记录已保存
 	var updatedRecord model.AIGenerationRecord
 	database.First(&updatedRecord, record.ID)
 
@@ -444,7 +442,6 @@ func TestAIContentService_FavoriteRecord(t *testing.T) {
 		t.Fatalf("FavoriteRecord failed: %v", err)
 	}
 
-	// 验证记录已收藏
 	var updatedRecord model.AIGenerationRecord
 	database.First(&updatedRecord, record.ID)
 
@@ -472,7 +469,6 @@ func TestAIContentService_RateRecord_Success(t *testing.T) {
 		t.Fatalf("RateRecord failed: %v", err)
 	}
 
-	// 验证记录已评分
 	var updatedRecord model.AIGenerationRecord
 	database.First(&updatedRecord, record.ID)
 
@@ -494,7 +490,7 @@ func TestAIContentService_RateRecord_InvalidRating(t *testing.T) {
 	}
 	database.Create(record)
 
-	err := service.RateRecord(record.ID, 10) 
+	err := service.RateRecord(record.ID, 10)
 	if err == nil {
 		t.Error("Expected error for invalid rating")
 	}
@@ -518,7 +514,6 @@ func TestAIContentService_DeleteRecord_Success(t *testing.T) {
 		t.Fatalf("DeleteRecord failed: %v", err)
 	}
 
-	// 验证记录已删除
 	var deletedRecord model.AIGenerationRecord
 	err = database.First(&deletedRecord, record.ID).Error
 
@@ -720,7 +715,6 @@ func TestPromptTemplateService_CreateTemplate(t *testing.T) {
 		t.Error("Expected user template to not be system template")
 	}
 
-	// 验证模板已保存到数据库
 	var savedTemplate model.PromptTemplate
 	database.First(&savedTemplate, createdTemplate.ID)
 
@@ -763,7 +757,6 @@ func TestPromptTemplateService_UpdateTemplate_Success(t *testing.T) {
 		t.Errorf("Expected type %s, got %s", req.Type, updatedTemplate.Type)
 	}
 
-	// 验证模板已更新
 	var savedTemplate model.PromptTemplate
 	database.First(&savedTemplate, template.ID)
 
@@ -842,7 +835,6 @@ func TestPromptTemplateService_DeleteTemplate_Success(t *testing.T) {
 		t.Fatalf("DeleteTemplate failed: %v", err)
 	}
 
-	// 验证模板已删除
 	var deletedTemplate model.PromptTemplate
 	err = database.First(&deletedTemplate, template.ID).Error
 
@@ -901,7 +893,6 @@ func TestPromptTemplateService_InitSystemTemplates(t *testing.T) {
 		t.Fatalf("InitSystemTemplates failed: %v", err)
 	}
 
-	// 验证系统模板已创建 - 直接从数据库查询
 	var templates []model.PromptTemplate
 	database.Where("is_system = ?", true).Find(&templates)
 
@@ -1064,4 +1055,3 @@ func TestAIContentService_buildDefaultPrompt_AllTypes(t *testing.T) {
 		})
 	}
 }
-

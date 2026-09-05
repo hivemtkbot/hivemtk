@@ -16,8 +16,8 @@ import "time"
 // scenario 为全局唯一键，与 dispatcher.DispatchScenario 一一对应。
 type LLMRoutingRule struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
-	Scenario  string    `gorm:"column:scenario;uniqueIndex;size:64" json:"scenario"` 
-	RouteJSON string    `gorm:"column:route_json;type:text" json:"route_json"`       
+	Scenario  string    `gorm:"column:scenario;uniqueIndex;size:64" json:"scenario"`
+	RouteJSON string    `gorm:"column:route_json;type:text" json:"route_json"`
 	Version   int       `gorm:"column:version;default:1" json:"version"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -25,4 +25,3 @@ type LLMRoutingRule struct {
 
 // TableName 指定表名
 func (LLMRoutingRule) TableName() string { return "llm_routing_rules" }
-

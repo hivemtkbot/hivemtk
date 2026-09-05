@@ -39,20 +39,20 @@ type AgentLifecycle interface {
 
 // LifecycleRequest 生命周期请求（被动/主动通用）。
 type LifecycleRequest struct {
-	Channel    string         
-	AccountID  string         
-	CustomerID string         
-	Content    string         
-	TraceID    string         
-	Raw        map[string]any 
+	Channel    string
+	AccountID  string
+	CustomerID string
+	Content    string
+	TraceID    string
+	Raw        map[string]any
 }
 
 // LifecycleResult 生命周期结果。
 type LifecycleResult struct {
-	ReplyContent string   
-	ToolsCalled  []string 
-	Handoff      bool     
-	StopReason   string   
+	ReplyContent string
+	ToolsCalled  []string
+	Handoff      bool
+	StopReason   string
 }
 
 // Resolver 按智能体模式选择生命周期实现。
@@ -65,4 +65,3 @@ func Resolver(passive, active AgentLifecycle) func(mode string) AgentLifecycle {
 		return passive
 	}
 }
-

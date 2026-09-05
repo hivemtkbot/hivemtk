@@ -68,4 +68,3 @@ func (c *SecurityAuditController) GetSecurityAudit(ctx *gin.Context) {
 	}
 	response.Success(ctx, audit, "ok")
 }
-

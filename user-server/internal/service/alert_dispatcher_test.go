@@ -16,10 +16,10 @@ func TestAlertDispatcher_DedupeWindow(t *testing.T) {
 	fn := func() { calls.Add(1) }
 
 	d.dispatchAt(base, "rule:cpu", fn)
-	d.dispatchAt(base.Add(1*time.Minute), "rule:cpu", fn) // 窗口内 → 丢弃
-	d.dispatchAt(base.Add(4*time.Minute), "rule:cpu", fn) // 窗口内 → 丢弃
-	d.dispatchAt(base.Add(6*time.Minute), "rule:cpu", fn) // 窗口过 → 放行
-	d.dispatchAt(base.Add(6*time.Minute), "rule:mem", fn) // 不同 key → 放行
+	d.dispatchAt(base.Add(1*time.Minute), "rule:cpu", fn)
+	d.dispatchAt(base.Add(4*time.Minute), "rule:cpu", fn)
+	d.dispatchAt(base.Add(6*time.Minute), "rule:cpu", fn)
+	d.dispatchAt(base.Add(6*time.Minute), "rule:mem", fn)
 
 	if got := d.DedupedCount.Load(); got != 2 {
 		t.Fatalf("DedupedCount = %d, want 2", got)
@@ -31,12 +31,12 @@ func TestAlertDispatcher_DedupeWindow(t *testing.T) {
 
 // TestAlertDispatcher_BufferFull 缓冲满非阻塞丢弃并计数
 func TestAlertDispatcher_BufferFull(t *testing.T) {
-	d := NewAsyncAlertDispatcher(1, 5*time.Minute) // 不 Start，任务滞留缓冲
+	d := NewAsyncAlertDispatcher(1, 5*time.Minute)
 	base := time.Now()
 
 	d.dispatchAt(base, "k1", func() {})
-	d.dispatchAt(base, "k2", func() {}) // 缓冲满 → 丢弃
-	d.dispatchAt(base, "k3", func() {}) // 缓冲满 → 丢弃
+	d.dispatchAt(base, "k2", func() {})
+	d.dispatchAt(base, "k3", func() {})
 
 	if got := d.DroppedCount.Load(); got != 2 {
 		t.Fatalf("DroppedCount = %d, want 2", got)
@@ -45,7 +45,7 @@ func TestAlertDispatcher_BufferFull(t *testing.T) {
 
 // TestAlertDispatcher_ConcurrentExec N=2 worker 并发执行 + panic recover + 执行计数
 func TestAlertDispatcher_ConcurrentExec(t *testing.T) {
-	d := NewAsyncAlertDispatcher(128, 5*time.Minute) // buffer > 任务数，全部入队
+	d := NewAsyncAlertDispatcher(128, 5*time.Minute)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	d.Start(ctx)
@@ -58,14 +58,14 @@ func TestAlertDispatcher_ConcurrentExec(t *testing.T) {
 			executed.Add(1)
 		})
 	}
-	// 混入一个 panic 任务，验证 recover 不拖垮 worker 且同样计数
+
 	d.Dispatch("panic_probe", func() { panic("boom") })
 	total++
 
 	for i := 0; i < 500 && executed.Load() < int64(total-1); i++ {
 		time.Sleep(10 * time.Millisecond)
 	}
-	// panic 任务的 fn 首行即 panic，不计入业务计数；total-1 为正常任务数
+
 	if got := executed.Load(); got != int64(total-1) {
 		t.Fatalf("业务执行数 = %d, want %d", got, total-1)
 	}
@@ -82,11 +82,11 @@ func TestAlertDispatcher_StopIdempotent(t *testing.T) {
 		}
 	}()
 	d := NewAsyncAlertDispatcher(8, 5*time.Minute)
-	d.StopAndWait() // 未 Start 直接停
+	d.StopAndWait()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	d.Start(ctx)
 	d.StopAndWait()
-	d.StopAndWait() // 重复调用安全
+	d.StopAndWait()
 }

@@ -99,7 +99,7 @@ type WorkflowResponse struct {
 type StepResult struct {
 	StepName    string                 `json:"step_name"`
 	StepType    string                 `json:"step_type"`
-	Status      string                 `json:"status"` // running, success, failed
+	Status      string                 `json:"status"`
 	Result      string                 `json:"result,omitempty"`
 	Error       string                 `json:"error,omitempty"`
 	StartedAt   time.Time              `json:"started_at"`

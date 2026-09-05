@@ -1,6 +1,5 @@
 package controller
 
-
 import (
 	"net/http"
 	"strconv"
@@ -76,4 +75,3 @@ func (c *RagHealthController) RegisterRoutes(auth *gin.RouterGroup) {
 		group.GET("/refresh", c.RefreshHealth)
 	}
 }
-

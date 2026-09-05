@@ -73,7 +73,7 @@ func TestInboxIngress_ExactMatch_InboundRowNotBlocked(t *testing.T) {
 		MsgID:          msgID,
 		Platform:       platform,
 		AccountID:      account,
-		Direction:      "inbound", // 方向守卫：入站行不得用于回显判定
+		Direction:      "inbound",
 		MsgType:        "text",
 		ConversationID: conv,
 		SenderID:       conv,

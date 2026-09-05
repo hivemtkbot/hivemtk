@@ -50,7 +50,6 @@ func NewBackupDataRepositoryWithDB(gormDB *gorm.DB) BackupDataRepository {
 	return &backupDataRepo{db: gormDB}
 }
 
-// DumpClues 导出最近 sinceUnix 之后创建的线索
 func (r *backupDataRepo) DumpClues(ctx context.Context, sinceUnix int64) (json.RawMessage, error) {
 	type clueRow struct {
 		ID       string `json:"id"`
@@ -72,14 +71,13 @@ func (r *backupDataRepo) DumpClues(ctx context.Context, sinceUnix int64) (json.R
 	return json.Marshal(rows)
 }
 
-// DumpUsers 导出 limit 个用户（v3 审计 P0-07 修复：分页支持；AD-P0-3 修复：包含 password）
 func (r *backupDataRepo) DumpUsers(ctx context.Context, limit, offset int) (json.RawMessage, error) {
 	type userRow struct {
 		ID       string `json:"id"`
 		Username string `json:"username"`
 		Email    string `json:"email"`
 		Phone    string `json:"phone"`
-		Password string `json:"password"` // bcrypt 哈希，恢复时原样写回
+		Password string `json:"password"`
 	}
 	var rows []userRow
 	if err := r.db.WithContext(ctx).Table("user").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
@@ -88,7 +86,6 @@ func (r *backupDataRepo) DumpUsers(ctx context.Context, limit, offset int) (json
 	return json.Marshal(rows)
 }
 
-// DumpShortLinks 导出 limit 个短链（v3 审计 P0-07 修复：分页支持）
 func (r *backupDataRepo) DumpShortLinks(ctx context.Context, limit, offset int) (json.RawMessage, error) {
 	type row struct {
 		ID        uint   `json:"id"`
@@ -102,7 +99,6 @@ func (r *backupDataRepo) DumpShortLinks(ctx context.Context, limit, offset int) 
 	return json.Marshal(rows)
 }
 
-// ClueExists 线索是否存在
 func (r *backupDataRepo) ClueExists(ctx context.Context, id string) (bool, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).Table("clues").Where("id = ?", id).Count(&count).Error; err != nil {
@@ -111,12 +107,10 @@ func (r *backupDataRepo) ClueExists(ctx context.Context, id string) (bool, error
 	return count > 0, nil
 }
 
-// RestoreClue 写入单条线索
 func (r *backupDataRepo) RestoreClue(ctx context.Context, row map[string]any) error {
 	return r.db.WithContext(ctx).Table("clues").Create(row).Error
 }
 
-// UserExistsByUsername 用户是否存在
 func (r *backupDataRepo) UserExistsByUsername(ctx context.Context, username string) (bool, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).Table("user").Where("username = ?", username).Count(&count).Error; err != nil {
@@ -125,12 +119,10 @@ func (r *backupDataRepo) UserExistsByUsername(ctx context.Context, username stri
 	return count > 0, nil
 }
 
-// RestoreUser 写入单条用户
 func (r *backupDataRepo) RestoreUser(ctx context.Context, row map[string]any) error {
 	return r.db.WithContext(ctx).Table("user").Create(row).Error
 }
 
-// ShortLinkExistsByCode 短链是否存在
 func (r *backupDataRepo) ShortLinkExistsByCode(ctx context.Context, code string) (bool, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).Table("short_links").Where("short_code = ?", code).Count(&count).Error; err != nil {
@@ -139,12 +131,10 @@ func (r *backupDataRepo) ShortLinkExistsByCode(ctx context.Context, code string)
 	return count > 0, nil
 }
 
-// RestoreShortLink 写入单条短链
 func (r *backupDataRepo) RestoreShortLink(ctx context.Context, row map[string]any) error {
 	return r.db.WithContext(ctx).Table("short_links").Create(row).Error
 }
 
-// AD-P0-2 备份扩表：安全白名单——仅允许导出/恢复这些表
 var allowedBackupTables = map[string]bool{
 	"user_mfa":              true,
 	"obs_config":            true,
@@ -156,7 +146,6 @@ var allowedBackupTables = map[string]bool{
 	"password_history":      true,
 }
 
-// DumpTable 通用全量导出任意表（AD-P0-2 备份扩表）
 func (r *backupDataRepo) DumpTable(ctx context.Context, tableName string) (json.RawMessage, error) {
 	if !allowedBackupTables[tableName] {
 		return nil, fmt.Errorf("表 %s 不在导出白名单内", tableName)
@@ -171,7 +160,6 @@ func (r *backupDataRepo) DumpTable(ctx context.Context, tableName string) (json.
 	return json.Marshal(rows)
 }
 
-// RestoreTable 通用恢复：幂等重建（DELETE + INSERT）
 func (r *backupDataRepo) RestoreTable(ctx context.Context, tableName string, rows []map[string]any) error {
 	if !allowedBackupTables[tableName] {
 		return fmt.Errorf("表 %s 不在恢复白名单内", tableName)
@@ -179,7 +167,7 @@ func (r *backupDataRepo) RestoreTable(ctx context.Context, tableName string, row
 	if len(rows) == 0 {
 		return nil
 	}
-	// 幂等：先清空目标表再批量写入
+
 	if err := r.db.WithContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", tableName)).Error; err != nil {
 		return fmt.Errorf("清空 %s 失败: %w", tableName, err)
 	}
@@ -191,7 +179,6 @@ func (r *backupDataRepo) RestoreTable(ctx context.Context, tableName string, row
 	return nil
 }
 
-// 防止 import time 未使用告警
 var _ = time.Now
 
 var _ BackupDataRepository = (*backupDataRepo)(nil)

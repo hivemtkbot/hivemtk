@@ -42,14 +42,12 @@ func (r *systemConfigRepo) SaveConfig(ctx context.Context, config *model.SystemC
 	return config, nil
 }
 
-// CountUsers 统计系统用户数
 func (r *systemConfigRepo) CountUsers(ctx context.Context) (int64, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Model(&model.SystemUser{}).Count(&n).Error
 	return n, err
 }
 
-// PingDB 检查数据库连通性
 func (r *systemConfigRepo) PingDB(ctx context.Context) bool {
 	return r.db.WithContext(ctx).Exec("SELECT 1").Error == nil
 }

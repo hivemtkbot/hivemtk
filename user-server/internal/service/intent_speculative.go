@@ -74,11 +74,6 @@ func (s *IntentRecognizer) RecognizeSpeculative(
 	return placeholder, ch, nil
 }
 
-// runLLMAsync LLM 异步执行 (后台 goroutine)
-//   - 必须使用 background ctx, 避免父 ctx 取消导致记录丢失
-//   - 完成后写 channel (非阻塞, buffer=1)
-//   - ruleHit=true: 规则已命中, LLM 结果仅落库 (用于统计 + 后续学习)
-//   - ruleHit=false: LLM 结果通过 channel 投递, 主流程可收割
 func (s *IntentRecognizer) runLLMAsync(
 	sessionID, customerID, text string,
 	ch chan<- *dto.RecognizeResult,

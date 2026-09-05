@@ -8,10 +8,8 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// merchantKey 单租户独立部署的本地标识（用于 platform 包内 API 调用的身份标记）
 var merchantKey string
 
-// generateRandomKey 生成指定长度的随机 key
 func generateRandomKey(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	key := make([]byte, length)
@@ -72,4 +70,3 @@ func GetMerchantKey() string {
 func SetMerchantKeyForTest(key string) {
 	merchantKey = key
 }
-

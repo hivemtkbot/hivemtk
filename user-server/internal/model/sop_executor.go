@@ -2,7 +2,6 @@ package model
 
 import "time"
 
-
 // SOPExecEvent SOP 执行事件流（审计 + 幂等性 + 调试回放）
 type SOPExecEvent struct {
 	ID           uint      `gorm:"primaryKey;autoIncrement" json:"id"`
@@ -68,4 +67,3 @@ type SOPOutbox struct {
 
 // TableName 指定表名
 func (SOPOutbox) TableName() string { return "sop_outbox" }
-

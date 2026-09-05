@@ -30,14 +30,13 @@ func TestInitTGBot_NoProxy(t *testing.T) {
 	}
 }
 
-
 // TestValidateBotToken_Valid 合法 Token 校验通过
 func TestValidateBotToken_Valid(t *testing.T) {
 	validTokens := []string{
-		"1234567890:AAEhBOweik6ad9JhbY4M9M3PqkfK1M3Pqkf", 
-		"123456:AAEhBOweik6ad9JhbY4M9M3PqkfK1M3Pqkf",     
-		"1234567:ABCDEFGHIJKLMNOPQRSTUVWXYZ0123abcde",    
-		"12345678:aBcDeFgHiJkLmNoPqRsTuVwXyZ_-0123456",   
+		"1234567890:AAEhBOweik6ad9JhbY4M9M3PqkfK1M3Pqkf",
+		"123456:AAEhBOweik6ad9JhbY4M9M3PqkfK1M3Pqkf",
+		"1234567:ABCDEFGHIJKLMNOPQRSTUVWXYZ0123abcde",
+		"12345678:aBcDeFgHiJkLmNoPqRsTuVwXyZ_-0123456",
 	}
 	for _, tok := range validTokens {
 		if err := ValidateBotToken(tok); err != nil {
@@ -146,4 +145,3 @@ func TestIsBotAdminLogic(t *testing.T) {
 		t.Error("Expected error for invalid token")
 	}
 }
-

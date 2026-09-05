@@ -12,7 +12,7 @@ type GeoCompetitor struct {
 	ID        uint           `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name      string         `gorm:"type:varchar(100);not null" json:"name"`
 	Domain    string         `gorm:"type:varchar(255);uniqueIndex;not null" json:"domain"`
-	Paths     datatypes.JSON `gorm:"column:paths;type:jsonb" json:"paths"` // ["","/product","/pricing"]
+	Paths     datatypes.JSON `gorm:"column:paths;type:jsonb" json:"paths"`
 	Category  string         `gorm:"type:varchar(50);index" json:"category"`
 	Priority  int            `gorm:"default:5" json:"priority"`
 	Status    string         `gorm:"type:varchar(20);default:active;index" json:"status"`

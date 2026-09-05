@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupUnifiedMessageTestDB 设置统一消息测试数据库
 func setupUnifiedMessageTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.UnifiedMessage{},
@@ -22,7 +21,6 @@ func setupUnifiedMessageTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupUnifiedMessageRepositories 创建测试用的仓库实例
 func setupUnifiedMessageRepositories(t *testing.T) (UnifiedMessageRepository, UnifiedReplyRepository, PlatformAccountRepository) {
 	setupUnifiedMessageTestDB(t)
 	return NewUnifiedMessageRepository(), NewUnifiedReplyRepository(), NewPlatformAccountRepository()

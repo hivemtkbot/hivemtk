@@ -25,4 +25,3 @@ type EmailSendResponse struct {
 	SendTime  *time.Time `json:"send_time,omitempty"`
 	CreatedAt time.Time  `json:"created_at"`
 }
-

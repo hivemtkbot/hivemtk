@@ -9,8 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// P1h SOP 热力图测试
-
 type fakeSopAgentGetter struct {
 	agent *model.SOPAgent
 }
@@ -94,7 +92,6 @@ func TestSopHeatmap_BasicAggregation(t *testing.T) {
 		t.Errorf("nodes = %d, want 5", len(rpt.Nodes))
 	}
 
-	// 验证 start: entered=2, completed=2, drop=0
 	found := false
 	for _, n := range rpt.Nodes {
 		if n.NodeID == "start" {
@@ -166,7 +163,7 @@ func TestSopHeatmap_EmptyGraphReturnsError(t *testing.T) {
 }
 
 func TestSopHeatmap_DynamicNodeFromExecution(t *testing.T) {
-	// 执行记录中出现图中未定义的节点（variant 差异），应动态纳入
+
 	agent := &model.SOPAgent{
 		ID:       4,
 		Name:     "动态节点SOP",

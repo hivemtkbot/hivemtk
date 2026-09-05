@@ -52,7 +52,6 @@ func (m *KnowledgeVectorMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 
-	// 1) 确认 pgvector 扩展可用
 	var extCount int64
 	if err := m.db.Raw(`SELECT COUNT(*) FROM pg_extension WHERE extname = 'vector'`).Scan(&extCount).Error; err != nil {
 		return fmt.Errorf("查询 pgvector 扩展失败: %w", err)
@@ -75,7 +74,6 @@ func (m *KnowledgeVectorMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("创建 HNSW 索引失败: %w", err)
 	}
 
-
 	return nil
 }
 
@@ -91,4 +89,3 @@ func (m *KnowledgeVectorMigration) Down(ctx context.Context) error {
 }
 
 var _ migration.Migration = (*KnowledgeVectorMigration)(nil)
-

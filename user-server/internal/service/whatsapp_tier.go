@@ -10,15 +10,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ===== R-7 WhatsApp 消息分层与发送节奏（tier + pacing） =====
-//
-// 决策依据 M17 R-7：
-//   - 模板类别（marketing/utility/authentication）优先决定分层，与 Meta 计费/质量语义对齐
-//   - 无模板类别时按意图关键词映射，默认 utility（最保守）
-//   - TierPacer 按 (peerKey, tier) 独立令牌桶：冷启动 ≤12 条/min、24h 窗 250 条/tier
-//   - 质量评级转黄（quality downgrade）速率减半（降幅 ≥50% 语义）
-//   - 超限不阻塞直接拒绝并返回重试间隔，W-10 队列语义由上层承接
-
 // Tier WhatsApp 消息分层
 type Tier string
 
@@ -70,7 +61,6 @@ func waContainsAny(s string, subs []string) bool {
 	return false
 }
 
-// tierBucket 单 (peer,tier) 令牌桶 + 24h 计数窗
 type tierBucket struct {
 	tokens   float64
 	lastAt   time.Time
@@ -88,7 +78,7 @@ type TierPacer struct {
 	TierQuotas map[WATier]int
 	// QualityDowngrade 评级转黄标志：true 时速率减半（≥50% 降速语义）
 	QualityDowngrade bool
-	// jitterFn 速率抖动因子（生产注入 [0.85,1.15] 随机；测试注入恒定值保确定性）
+
 	jitterFn func() float64
 
 	mu      sync.Mutex
@@ -101,7 +91,6 @@ const (
 	TierQuotaUtility   = 4
 )
 
-// tierQuota 查询 tier 日配额（<=0 不限）
 func (p *TierPacer) tierQuota(tier WATier) int {
 	if p.TierQuotas != nil {
 		return p.TierQuotas[tier]
@@ -140,7 +129,6 @@ func DefaultJitter() float64 { return 0.85 + 0.3*rand.Float64() }
 // QualityDowngradeFactor 质量降档系数（Exported 可调；生效速率 = 原速率 × 该系数）
 const QualityDowngradeFactor = 0.5
 
-// effectiveRate 当前生效速率（降档 × QualityDowngradeFactor + 抖动）
 func (p *TierPacer) effectiveRate(now time.Time) float64 {
 	rate := p.MinRatePerMin
 	if rate <= 0 {
@@ -165,7 +153,7 @@ func (p *TierPacer) Enforce(peerKey string, tier Tier, now time.Time) (allow boo
 	defer p.mu.Unlock()
 
 	rate := p.effectiveRate(now)
-	capacity := rate // 桶容量 = 1 分钟 burst
+	capacity := rate
 	if capacity < 1 {
 		capacity = 1
 	}
@@ -180,21 +168,19 @@ func (p *TierPacer) Enforce(peerKey string, tier Tier, now time.Time) (allow boo
 		p.buckets[key] = b
 	}
 
-	// 24h 窗口重置
 	if now.Sub(b.dayStart) >= TierDayWindow {
 		b.dayStart = now
 		b.dayCount = 0
 	}
-	// 日上限：不阻塞直接拒绝
+
 	if b.dayCount >= dayCap {
 		return false, TierDayWindow - now.Sub(b.dayStart)
 	}
-	// per-tier 日配额（marketing 1 / utility 4 / auth 不限）：不阻塞直接拒绝
+
 	if q := p.tierQuota(tier); q > 0 && b.dayCount >= q {
 		return false, TierDayWindow - now.Sub(b.dayStart)
 	}
 
-	// 按流逝时间补币
 	if elapsed := now.Sub(b.lastAt).Minutes(); elapsed > 0 {
 		b.tokens += elapsed * rate
 		if b.tokens > capacity {
@@ -229,7 +215,6 @@ func GetGlobalTierPacer() *TierPacer {
 	return tierPacer
 }
 
-// enforceWhatsAppTierPacing R-7 发送前一行式挂接：超限拒绝并记日志，错误走既有失败路径
 func enforceWhatsAppTierPacing(peerKey, templateCategory string, now time.Time) error {
 	tier := ClassifyTierOf(templateCategory, "")
 	allow, retryAfter := GetGlobalTierPacer().Enforce(peerKey, tier, now)
@@ -239,8 +224,6 @@ func enforceWhatsAppTierPacing(peerKey, templateCategory string, now time.Time) 
 	}
 	return nil
 }
-
-// ===== R-7 规格命名对齐（WATier / ClassifyWATier / EnforceTier） =====
 
 // WATier 规格命名别名（同 Tier）
 type WATier = Tier
@@ -270,7 +253,6 @@ func ClassifyWATier(templateCategory, intent string) WATier {
 	return ClassifyTierOf(templateCategory, intent)
 }
 
-// tierGlobalPeer per-tier 规格桶的固定 peer（peer 级限流见 Enforce）
 const tierGlobalPeer = "_global_tier"
 
 // EnforceTier 规格签名 per-tier 限流入口：Enforce(tier, now)→(allow, retryAfter)

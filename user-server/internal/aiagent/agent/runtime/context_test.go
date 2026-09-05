@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-
-// mockLLMClient 模拟LLM客户端
 type mockLLMClient struct {
 	response string
 	err      error
@@ -27,8 +25,8 @@ func TestSimpleTokenEstimator_Estimate(t *testing.T) {
 	}{
 		{"空文本", "", 0},
 		{"中文", "你好世界", 8},
-		{"英文", "hello world", 2}, 
-		{"混合", "你好world", 5},     
+		{"英文", "hello world", 2},
+		{"混合", "你好world", 5},
 	}
 
 	for _, tt := range tests {
@@ -208,4 +206,3 @@ func TestChannelStreamHandler(t *testing.T) {
 		t.Errorf("Received %d events, want 3", count)
 	}
 }
-

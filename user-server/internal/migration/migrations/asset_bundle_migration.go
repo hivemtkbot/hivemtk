@@ -10,7 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 // AssetBundleMigration 资产包模式迁移
 type AssetBundleMigration struct {
 	db *gorm.DB
@@ -60,6 +59,4 @@ func (m *AssetBundleMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// 编译期接口断言
 var _ migration.Migration = (*AssetBundleMigration)(nil)
-

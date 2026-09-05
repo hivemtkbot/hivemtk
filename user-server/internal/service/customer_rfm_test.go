@@ -134,8 +134,6 @@ func TestCalcChurnRisk(t *testing.T) {
 	}
 }
 
-// --- 测试用桩仓储 ---
-
 type stubRFMRepo struct {
 	CustomerRFMSaver func(ctx context.Context, rfm *model.CustomerRFM) error
 }

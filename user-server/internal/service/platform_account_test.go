@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupPlatformAccountServiceTestDB 设置平台账号服务测试数据库
 func setupPlatformAccountServiceTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.PlatformAccount{},
@@ -206,7 +205,6 @@ func TestPlatformAccountService_Login(t *testing.T) {
 	t.Skip("Login test requires chromedp + real browser, skipping in unit test suite")
 }
 
-// platformAccountRepoForTest 基于 PostgreSQL 测试库的轻量 platformAccountRepository 实现（真实查询，非 mock）
 type platformAccountRepoForTest struct {
 	db *gorm.DB
 }

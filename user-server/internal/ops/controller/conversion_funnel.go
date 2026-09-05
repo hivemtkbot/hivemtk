@@ -44,7 +44,6 @@ func (c *ConversionFunnelController) GetStageDetails(ctx *gin.Context) {
 	response.Success(ctx, det, "查询成功")
 }
 
-// parseTimeRange 公共时间范围解析
 func parseTimeRange(ctx *gin.Context) (time.Time, time.Time) {
 	var start, end time.Time
 	if v := ctx.Query("start_time"); v != "" {
@@ -59,4 +58,3 @@ func parseTimeRange(ctx *gin.Context) (time.Time, time.Time) {
 	}
 	return start, end
 }
-

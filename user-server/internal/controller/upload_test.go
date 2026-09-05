@@ -301,8 +301,7 @@ func TestIsValidExtension(t *testing.T) {
 	}{
 		{".jpg", true}, {".jpeg", true}, {".png", true}, {".gif", true},
 		{".webp", true}, {".svg", false}, {".mp4", false}, {".pdf", true},
-		// .svg 已按 M9 治理从白名单移除（内嵌 <script> 的存储型 XSS 风险），必须拒绝
-		// .mp4 / .zip / .rar / 7z 等已按 P0-26 收紧白名单，只放行 image + PDF + Word
+
 		{".zip", false}, {".exe", false}, {".xyz", false}, {".php", false},
 		{"", false}, {".JPG", true}, {".docx", true}, {".doc", true},
 	}
@@ -423,7 +422,7 @@ func TestGetFileType(t *testing.T) {
 		want string
 	}{
 		{".jpg", "image"}, {".png", "image"},
-		// .mp4 / .zip 已按 P0-26 收紧白名单，不再在 allowedExtensions 中
+
 		{".mp4", "other"}, {".zip", "other"},
 		{".pdf", "doc"}, {".docx", "doc"}, {".xyz", "other"},
 	}
@@ -521,8 +520,7 @@ func TestUploadFile_DangerousExtensions_AreDeadCode(t *testing.T) {
 }
 
 func TestUploadFile_MP4_NotInAllowedMIME(t *testing.T) {
-	// P0-26 修复：video/mp4 及其扩展名 .mp4 已从白名单移除（可执行视频风险）。
-	// 此前 MIME 与扩展名不一致的 KNOWN BUG 已随扩展名一起移除而自然解决。
+
 	allowed := DefaultUploadConfig.AllowedTypes
 	if strings.Contains(allowed, "video/mp4") {
 		t.Log("video/mp4 is in allowed types")
@@ -532,8 +530,7 @@ func TestUploadFile_MP4_NotInAllowedMIME(t *testing.T) {
 }
 
 func TestUploadFile_SVG_NotInAllowedMIME(t *testing.T) {
-	// M9 治理 + P0-26 修复：image/svg+xml 及其扩展名 .svg 已从白名单移除（存储型 XSS 风险）。
-	// 此前 MIME 与扩展名不一致的 KNOWN BUG 已随扩展名一起移除而自然解决。
+
 	allowed := DefaultUploadConfig.AllowedTypes
 	if strings.Contains(allowed, "image/svg+xml") {
 		t.Log("image/svg+xml is in allowed types")
@@ -543,8 +540,7 @@ func TestUploadFile_SVG_NotInAllowedMIME(t *testing.T) {
 }
 
 func TestUploadFile_RAR_NotInAllowedMIME(t *testing.T) {
-	// P0-26 修复：application/x-rar-compressed 及其扩展名 .rar 已从白名单移除（压缩包可执行风险 + ZIP 炸弹）。
-	// 此前 MIME 与扩展名不一致的 KNOWN BUG 已随扩展名一起移除而自然解决。
+
 	allowed := DefaultUploadConfig.AllowedTypes
 	if strings.Contains(allowed, "rar") {
 		t.Log("rar type is in allowed types")
@@ -552,4 +548,3 @@ func TestUploadFile_RAR_NotInAllowedMIME(t *testing.T) {
 		t.Log("OK: rar MIME correctly removed from allowed types (P0-26)")
 	}
 }
-

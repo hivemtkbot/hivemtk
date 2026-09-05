@@ -73,9 +73,7 @@ type MessageNodeBase struct {
 	wsHub       *websocket.Hub
 	msgRepo     *repository.SessionMessageRepository
 	sessionRepo *repository.CustomerSessionRepository
-	// llmSem 与 LLMNodeExecutor 共享的全局 LLM 信号量。
-	// v7 审计修复：原 resolveContent 的 LLM 兜底路径不取信号量，
-	// 11 种消息类节点 ×16 worker 可绕过 4 并发限制打满 LLM 网关。
+
 	llmSem chan struct{}
 }
 
@@ -187,7 +185,7 @@ func (b *MessageNodeBase) resolveContent(ctx context.Context, ec *ExecutionConte
 	}
 
 	if b.dispatcher != nil {
-		// v7 审计修复：LLM 兜底路径必须与 LLMNodeExecutor 同样受信号量约束
+
 		if b.llmSem != nil {
 			select {
 			case b.llmSem <- struct{}{}:
@@ -218,7 +216,7 @@ func (b *MessageNodeBase) resolveContent(ctx context.Context, ec *ExecutionConte
 }
 
 func (b *MessageNodeBase) updateSessionLastMessage(ctx context.Context, sessionID, content string) {
-	// v7 审计修复：使用注入的 deps.SessionRepo，不再内联构造仓储
+
 	if b.sessionRepo == nil {
 		return
 	}
@@ -487,7 +485,7 @@ type llmDecision struct {
 
 func parseLLMDecision(content string) (*llmDecision, error) {
 	content = strings.TrimSpace(content)
-	// 直接解析
+
 	var d llmDecision
 	if err := json.Unmarshal([]byte(content), &d); err == nil {
 		return &d, nil
@@ -528,7 +526,6 @@ type WaitExecutor struct {
 	timerRepo *repository.SOPTimerRepository
 }
 
-// sopTimerDefaultMaxWait wait 节点缺省 max_wait 兜底（Customer.io：Max-time fallback 必须有否则卡死）
 const sopTimerDefaultMaxWait = 24 * time.Hour
 
 func (e *WaitExecutor) NodeType() string { return SOPNodeTypeWait }
@@ -540,7 +537,6 @@ func (e *WaitExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*Node
 	waitEventStr, _ := ec.Node.Config["wait_event"].(string)
 	waitUntilStr, _ := ec.Node.Config["wait_until"].(string)
 
-	// 计算等待截止时间
 	var waitUntil time.Time
 	waitEvent := WaitEventTimer
 
@@ -563,8 +559,7 @@ func (e *WaitExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*Node
 	}
 
 	if e.timerRepo != nil {
-		// S1-2 Wait 语义：创建时写 expires_at(=wait_until)+max_wait_at 双字段快照。
-		// max_wait_at 从进入时刻起算（Customer.io：时长进入时刻快照），超时视为满足立即跳过。
+
 		now := time.Now()
 		maxWaitSeconds, _ := ec.Node.Config["max_wait_seconds"].(float64)
 		if maxWaitSeconds <= 0 {
@@ -577,7 +572,7 @@ func (e *WaitExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*Node
 			WaitEvent:   waitEvent,
 			WaitUntil:   waitUntil,
 			Status:      "pending",
-			// M4 列下沉：同步落实体列（payload 保留旧字段兼容读取历史数据）
+
 			ExpiresAt: &waitUntil,
 			MaxWaitAt: &maxWaitAt,
 			Payload: model.JSONMap{
@@ -661,7 +656,6 @@ func RegisterAllNodeExecutors(registry *NodeExecutorRegistry, deps *SOPNodeExecu
 		Msg("all sop node executors registered")
 }
 
-// firstOrEmpty 返回切片第一个元素，空切片返回空字符串
 func firstOrEmpty(s []string) string {
 	if len(s) == 0 {
 		return ""
@@ -669,7 +663,6 @@ func firstOrEmpty(s []string) string {
 	return s[0]
 }
 
-// containsString 检查字符串切片是否包含指定值
 func containsString(s []string, v string) bool {
 	for _, item := range s {
 		if item == v {

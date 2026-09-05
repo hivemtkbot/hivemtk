@@ -112,4 +112,3 @@ func (ctrl *NotificationController) UnreadCount(c *gin.Context) {
 	}
 	response.Success(c, gin.H{"count": count}, "ok")
 }
-

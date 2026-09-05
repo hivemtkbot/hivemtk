@@ -56,7 +56,6 @@ func DefaultCircuitBreakerConfig() CircuitBreakerConfig {
 	}
 }
 
-// toolCircuit 单工具的熔断器实例
 type toolCircuit struct {
 	state            atomic.Int32
 	consecutiveFails atomic.Int32
@@ -71,7 +70,6 @@ func newToolCircuit() *toolCircuit {
 	return c
 }
 
-// calculateCooldown 计算指数退避冷却时间
 func calculateCooldown(cfg CircuitBreakerConfig, openCount int32) time.Duration {
 	if openCount <= 1 {
 		return cfg.BaseCooldown
@@ -83,7 +81,6 @@ func calculateCooldown(cfg CircuitBreakerConfig, openCount int32) time.Duration 
 	return time.Duration(cooldown)
 }
 
-// Allow 判断是否允许请求通过
 func (c *toolCircuit) Allow(now time.Time, cfg CircuitBreakerConfig) bool {
 	state := CircuitState(c.state.Load())
 
@@ -118,7 +115,6 @@ func (c *toolCircuit) Allow(now time.Time, cfg CircuitBreakerConfig) bool {
 	return true
 }
 
-// RecordSuccess 记录一次成功
 func (c *toolCircuit) RecordSuccess() {
 	c.consecutiveFails.Store(0)
 	state := CircuitState(c.state.Load())
@@ -129,7 +125,6 @@ func (c *toolCircuit) RecordSuccess() {
 	}
 }
 
-// RecordFailure 记录一次失败
 func (c *toolCircuit) RecordFailure(now time.Time, cfg CircuitBreakerConfig) {
 	state := CircuitState(c.state.Load())
 
@@ -149,17 +144,14 @@ func (c *toolCircuit) RecordFailure(now time.Time, cfg CircuitBreakerConfig) {
 	}
 }
 
-// State 获取当前状态
 func (c *toolCircuit) State() CircuitState {
 	return CircuitState(c.state.Load())
 }
 
-// ConsecutiveFails 获取当前连续失败次数
 func (c *toolCircuit) ConsecutiveFails() int32 {
 	return c.consecutiveFails.Load()
 }
 
-// OpenCount 获取熔断次数
 func (c *toolCircuit) OpenCount() int32 {
 	return c.openCount.Load()
 }
@@ -234,8 +226,8 @@ func (r *CircuitBreakerRegistry) State(toolName string) CircuitState {
 // ToolCircuitInfo 工具熔断信息
 type ToolCircuitInfo struct {
 	State            CircuitState `json:"state"`
-	ConsecutiveFails int32         `json:"consecutive_fails"`
-	OpenCount        int32         `json:"open_count"`
+	ConsecutiveFails int32        `json:"consecutive_fails"`
+	OpenCount        int32        `json:"open_count"`
 }
 
 // AllStates 查询所有工具的熔断状态
@@ -291,9 +283,9 @@ func CircuitBreakerDecorator(registry *CircuitBreakerRegistry) ToolDecorator {
 // NoOpCircuitBreakerRegistry 空操作熔断器
 type NoOpCircuitBreakerRegistry struct{}
 
-func (NoOpCircuitBreakerRegistry) Allow(toolName string) bool                { return true }
-func (NoOpCircuitBreakerRegistry) RecordSuccess(toolName string)             {}
-func (NoOpCircuitBreakerRegistry) RecordFailure(toolName string)             {}
-func (NoOpCircuitBreakerRegistry) State(toolName string) CircuitState        { return CircuitClosed }
-func (NoOpCircuitBreakerRegistry) AllStates() map[string]ToolCircuitInfo    { return nil }
-func (NoOpCircuitBreakerRegistry) Config() CircuitBreakerConfig              { return DefaultCircuitBreakerConfig() }
+func (NoOpCircuitBreakerRegistry) Allow(toolName string) bool            { return true }
+func (NoOpCircuitBreakerRegistry) RecordSuccess(toolName string)         {}
+func (NoOpCircuitBreakerRegistry) RecordFailure(toolName string)         {}
+func (NoOpCircuitBreakerRegistry) State(toolName string) CircuitState    { return CircuitClosed }
+func (NoOpCircuitBreakerRegistry) AllStates() map[string]ToolCircuitInfo { return nil }
+func (NoOpCircuitBreakerRegistry) Config() CircuitBreakerConfig          { return DefaultCircuitBreakerConfig() }

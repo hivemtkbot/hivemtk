@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupAgentStatusTestDB S-3 测试库（Postgres 不可达时按设计跳过）
 func setupAgentStatusTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	database := testutil.NewTestDB(t,
@@ -64,8 +63,8 @@ func TestCheckStaleAgents_OfflineAndReturnSessionsToAI(t *testing.T) {
 	svc := NewAgentStatusService()
 	ctx := context.Background()
 
-	stale := time.Now().Add(-2 * HeartbeatOfflineTimeout) // 超时
-	fresh := time.Now()                                   // 未超时
+	stale := time.Now().Add(-2 * HeartbeatOfflineTimeout)
+	fresh := time.Now()
 	if err := db.GetDB().Create(&model.AgentStatus{
 		AgentID: 601, AgentName: "失联坐席", Status: "busy",
 		MaxSessions: 5, ActiveSessions: 1, LastActiveAt: &stale,
@@ -95,7 +94,6 @@ func TestCheckStaleAgents_OfflineAndReturnSessionsToAI(t *testing.T) {
 		t.Fatalf("应仅下线失联坐席 601, got %v", offlined)
 	}
 
-	// 坐席已 offline
 	a, _ := svc.GetAgentStatus(ctx, 601)
 	if a.Status != "offline" {
 		t.Errorf("失联坐席应为 offline, got %q", a.Status)
@@ -103,13 +101,12 @@ func TestCheckStaleAgents_OfflineAndReturnSessionsToAI(t *testing.T) {
 	if a.ActiveSessions != 0 {
 		t.Errorf("活跃会话数应递减为 0, got %d", a.ActiveSessions)
 	}
-	// 活跃坐席不受影响
+
 	a2, _ := svc.GetAgentStatus(ctx, 602)
 	if a2.Status != "online" {
 		t.Errorf("心跳正常的坐席不应被下线, got %q", a2.Status)
 	}
 
-	// 会话已转回 AI
 	got, err := repository.NewCustomerSessionRepository().GetByID(ctx, sess.ID)
 	if err != nil || got == nil {
 		t.Fatalf("get session: %v", err)

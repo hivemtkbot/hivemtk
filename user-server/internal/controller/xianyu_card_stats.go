@@ -217,4 +217,3 @@ func (c *XianyuCardStatsController) GetOverallStats(ctx *gin.Context) {
 
 	response.Success(ctx, data, "获取成功")
 }
-

@@ -9,7 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// mockScriptLibraryRepo 可注入 mock（T-2 归因闭环测试用）
 type mockScriptLibraryRepo struct {
 	mu         sync.Mutex
 	templates  []model.ScriptLibrary
@@ -66,7 +65,6 @@ func TestObjection_Handle_AutoRecordUsage(t *testing.T) {
 		t.Fatalf("resp.Template.ID = %+v, want 42", resp.Template)
 	}
 
-	// 异步记录：轮询等待 goroutine 完成
 	deadline := time.Now().Add(2 * time.Second)
 	for repo.callCount() == 0 && time.Now().Before(deadline) {
 		time.Sleep(5 * time.Millisecond)
@@ -82,7 +80,6 @@ func TestObjection_Handle_AutoRecordUsage(t *testing.T) {
 		t.Error("自动记录默认 success=false（仅计 usage_count）")
 	}
 
-	// 无模板推荐时不应记录
 	repo2 := &mockScriptLibraryRepo{}
 	s2 := &ObjectionHandlerService{scriptRepo: repo2}
 	if _, err := s2.Handle(context.Background(), HandleRequest{Text: "太贵了"}); err != nil {

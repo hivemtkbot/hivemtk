@@ -103,7 +103,6 @@ func (s *PlaybookService) Add(ctx context.Context, entry *PlaybookEntry) (*Playb
 	return entry, nil
 }
 
-// generatePlaybookID 生成唯一 ID（时间戳 + 随机后缀，避免高并发下 ID 冲突）
 func generatePlaybookID() string {
 	var b [4]byte
 	_, _ = rand.Read(b[:])
@@ -191,7 +190,6 @@ type PlaybookQuery struct {
 	Limit     int
 }
 
-// successRate 计算成功率
 func successRate(e *PlaybookEntry) float64 {
 	if e.UseCount == 0 {
 		return 0
@@ -199,7 +197,6 @@ func successRate(e *PlaybookEntry) float64 {
 	return float64(e.SuccessCount) / float64(e.UseCount)
 }
 
-// inferObjectionFromIntent 从意图推断异议类型
 func inferObjectionFromIntent(intent string) ObjectionType {
 	switch intent {
 	case IntentObjectionPrice:
@@ -243,8 +240,6 @@ func (s *PlaybookService) List(ctx context.Context, industry Industry, stage Jou
 	return out
 }
 
-// seedDefaults 预置基础话术（开箱即用）
-// 商业产品级：每个行业 × 每个阶段 × 常见异议 都有默认话术
 func (s *PlaybookService) seedDefaults(ctx context.
 	Context) {
 

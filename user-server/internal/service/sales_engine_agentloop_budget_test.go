@@ -68,7 +68,7 @@ func TestAgentLoopBudgetDefaults(t *testing.T) {
 	if agentLoopTotalTimeout != 180*time.Second {
 		t.Errorf("default agentLoopTotalTimeout = %s, want 180s", agentLoopTotalTimeout)
 	}
-	// 业界硬约束：单次超时 < 总超时
+
 	if agentLoopMaxPerIterTimeout >= agentLoopTotalTimeout {
 		t.Errorf("per-iter timeout (%s) must be < total timeout (%s) to leave budget for tool execution",
 			agentLoopMaxPerIterTimeout, agentLoopTotalTimeout)

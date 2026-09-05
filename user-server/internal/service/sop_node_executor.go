@@ -187,10 +187,6 @@ func (n *NoopExecutor) Execute(ctx context.Context, execCtx *ExecutionContext) (
 // IsAsync 同步执行
 func (n *NoopExecutor) IsAsync() bool { return false }
 
-// hasSideEffect 检查执行记录中是否已存在指定副作用标识
-//
-// 用于节点级幂等性保障：如 "message_sent:{execID}:{nodeID}" 标识消息已发送，
-// 重试时跳过实际发送，直接返回 completed。
 func hasSideEffect(exec *model.SOPExecution, effect string) bool {
 	if exec == nil {
 		return false
@@ -204,12 +200,6 @@ func hasSideEffect(exec *model.SOPExecution, effect string) bool {
 	return false
 }
 
-// extractSideEffects 从 ExecutionData 中提取已发生的副作用列表
-//
-// 副作用列表存储在 ExecutionData["_side_effects"] 字段。
-// 兼容两种类型：
-//   - []interface{}：JSON 反序列化后的标准类型（GORM Scan 路径）
-//   - []string：直接构造的内存类型（appendSideEffect 路径，单元测试场景）
 func extractSideEffects(data model.JSONMap) []string {
 	if data == nil {
 		return nil
@@ -235,7 +225,6 @@ func extractSideEffects(data model.JSONMap) []string {
 	return nil
 }
 
-// appendSideEffect 向 ExecutionData 追加副作用标识（去重）
 func appendSideEffect(data model.JSONMap, effect string) model.JSONMap {
 	if data == nil {
 		data = model.JSONMap{}

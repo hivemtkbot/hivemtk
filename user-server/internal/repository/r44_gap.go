@@ -11,8 +11,6 @@ import (
 	"hivemtk-user/internal/pkg/db"
 )
 
-// ==================== BackupGapRepo ====================
-
 // BackupGapRepo backup 断链相关仓储
 type BackupGapRepo struct {
 	db *gorm.DB
@@ -56,8 +54,6 @@ func (r *BackupGapRepo) TableStats(ctx context.Context) ([]TableStatsRow, error)
 		FROM pg_stat_user_tables ORDER BY n_live_tup DESC LIMIT 10`).Scan(&rows).Error
 	return rows, err
 }
-
-// ==================== RagEvalGapRepo ====================
 
 // RagEvalGapRepo RAG 评测仓储
 type RagEvalGapRepo struct {
@@ -136,8 +132,6 @@ func (r *RagEvalGapRepo) GetRun(ctx context.Context, id uint) (*model.RagEvalRun
 	return &run, nil
 }
 
-// ==================== CohortGapRepo ====================
-
 // CohortGapRepo 留存/路径分析仓储
 type CohortGapRepo struct {
 	db *gorm.DB
@@ -185,8 +179,6 @@ func (r *CohortGapRepo) ListCustomerEvents(ctx context.Context) ([]CustomerEvent
 	}
 	return evs, nil
 }
-
-// ==================== EmailGapRepo ====================
 
 // EmailGapRepo 邮件送达分析仓储
 type EmailGapRepo struct {

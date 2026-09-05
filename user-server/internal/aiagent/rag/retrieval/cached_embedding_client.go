@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"fmt"
@@ -15,17 +14,17 @@ import (
 
 // CachedEmbeddingClient Embedding 服务的 Redis 缓存装饰器
 type CachedEmbeddingClient struct {
-	inner        llm.EmbeddingServiceInterface 
+	inner        llm.EmbeddingServiceInterface
 	redis        RedisClient
 	db           *gorm.DB
-	ttlRedis     time.Duration 
-	ttlDB        time.Duration 
+	ttlRedis     time.Duration
+	ttlDB        time.Duration
 	disableCache bool
 
-	workerPool   chan func()
-	workerWg     sync.WaitGroup
-	closeOnce    sync.Once
-	closed       chan struct{}
+	workerPool chan func()
+	workerWg   sync.WaitGroup
+	closeOnce  sync.Once
+	closed     chan struct{}
 }
 
 const (
@@ -186,23 +185,18 @@ func (c *CachedEmbeddingClient) Close() {
 	c.workerWg.Wait()
 }
 
-// submit 提交任务到 worker pool；pool 满时降级为同步执行，不阻塞调用方
-//
-// BUG-8 修复：close 之后，禁止降级同步执行（task 会用 unconfigured db/redis，
-// 反而会写脏数据）。直接 drop 并 warning。
 func (c *CachedEmbeddingClient) submit(task func()) {
 	select {
 	case <-c.closed:
 		logger.Warnf("[cached_embedding] submit after close, task dropped")
 		return
 	case c.workerPool <- task:
-		// 已提交到 worker pool
+
 	default:
-		task() // pool 满，同步执行
+		task()
 	}
 }
 
-// startWorkers 启动 N 个后台 worker 协程
 func (c *CachedEmbeddingClient) startWorkers() {
 	for i := 0; i < defaultWorkerCount; i++ {
 		c.workerWg.Add(1)
@@ -215,16 +209,10 @@ func (c *CachedEmbeddingClient) startWorkers() {
 	}
 }
 
-// cacheKey 生成缓存 key
-//
-// 格式: rag:emb:{model}:{sha256(normalized_text)}
 func (c *CachedEmbeddingClient) cacheKey(model, text string) string {
 	return fmt.Sprintf("rag:emb:%s:%s", model, sha256Hex(normalizeQuery(text)))
 }
 
-// queryDBCache 查 DB embedding_cache 表
-//
-// 表不存在时返回 (nil, false)，不阻断主流程
 func (c *CachedEmbeddingClient) queryDBCache(ctx context.Context, model, text string, expectDim int) ([]float32, bool) {
 	var tableExists bool
 	if err := c.db.WithContext(ctx).Raw(
@@ -254,9 +242,6 @@ func (c *CachedEmbeddingClient) queryDBCache(ctx context.Context, model, text st
 	return vec, true
 }
 
-// persistDBCache 写入 DB embedding_cache 表
-//
-// best-effort: 失败仅记录日志，不影响主流程
 func (c *CachedEmbeddingClient) persistDBCache(ctx context.Context, model, text string, vec []float32) {
 	var tableExists bool
 	if err := c.db.WithContext(ctx).Raw(
@@ -284,6 +269,4 @@ func (c *CachedEmbeddingClient) persistDBCache(ctx context.Context, model, text 
 	}
 }
 
-// Compile-time 接口断言
 var _ llm.EmbeddingServiceInterface = (*CachedEmbeddingClient)(nil)
-

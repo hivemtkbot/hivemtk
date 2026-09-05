@@ -94,15 +94,6 @@ func (s *EvalService) MaybeEvaluate(ctx context.Context, log *model.LLMRoutingLo
 	go s.evaluate(context.Background(), log, query, candidate, reference)
 }
 
-// evaluate 执行同步评估（在 goroutine 中运行）。
-//
-// 流程：
-//  1. chrF++ 评估
-//  2. LLM-as-Judge（若 judge 已注入且启用）
-//  3. 综合分计算
-//  4. 回填到 llm_routing_logs（log.ID > 0 时）
-//
-// 安全：defer recover 兜底 panic；30s 超时保护避免 goroutine 泄漏。
 func (s *EvalService) evaluate(ctx context.Context, log *model.LLMRoutingLog, query, candidate, reference string) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -115,7 +106,6 @@ func (s *EvalService) evaluate(ctx context.Context, log *model.LLMRoutingLog, qu
 
 	chrFScore := s.chrF.Score(candidate, reference)
 
-	// 2. LLM-as-Judge（若注入）
 	var judgeScore float64
 	var issues string
 	if s.judge != nil {

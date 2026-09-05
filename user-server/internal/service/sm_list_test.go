@@ -15,7 +15,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupSmlistServiceTestDB 设置 SMList 服务测试数据库
 func setupSmlistServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.Smlist{},
@@ -24,7 +23,6 @@ func setupSmlistServiceTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// newTestSmlistRepository 创建测试仓库
 func newTestSmlistRepository(database *gorm.DB) repository.SmlistRepository {
 	return repository.NewSmlistRepository(database)
 }
@@ -297,7 +295,6 @@ func TestSmlistService_DeleteSmlist(t *testing.T) {
 		t.Fatalf("DeleteSmlist failed: %v", err)
 	}
 
-	// 验证已删除
 	var count int64
 	database.Unscoped().Model(&model.Smlist{}).Where("id = ?", smlist.ID).Count(&count)
 	if count != 1 {
@@ -450,7 +447,6 @@ func TestSmlistService_ConcurrentRegister(t *testing.T) {
 	repo := newTestSmlistRepository(database)
 	service := NewSmlistService(repo)
 
-	// 并发注册 10 条数据，使用互斥锁保护数据库写入
 	var mu sync.Mutex
 	done := make(chan bool, 10)
 	for i := 0; i < 10; i++ {

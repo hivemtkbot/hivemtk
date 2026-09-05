@@ -11,13 +11,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ===== T-7 A/B 实验框架 =====
-//
-// 决策依据 M17 T-7：
-//   - FNV-1a 稳定分桶：hash("expID:customerID")%100 <50 → control，否则 treatment（纯函数）
-//   - 曝光记录 fire-and-forget：buffered chan 异步落库，满则丢弃计数，绝不阻塞业务
-//   - lazy ensureSchema：仿 InitComplianceAuditLogger 先例，db 为 nil（纯逻辑模式）时跳过 AutoMigrate 安全降级
-
 // 变体常量
 const (
 	AbVariantControl   = "control"
@@ -38,7 +31,6 @@ type AbExposure struct {
 	ConvertedAt  *time.Time `json:"converted_at"`
 }
 
-// fnv1a32 FNV-1a 32 位哈希
 func fnv1a32(s string) uint32 {
 	h := uint32(2166136261)
 	for i := 0; i < len(s); i++ {
@@ -77,7 +69,6 @@ type ABExperiment struct {
 
 var abSchemaOnce sync.Once
 
-// abEnsureSchema lazy ensureSchema：db 为 nil 时跳过（纯逻辑模式）
 func abEnsureSchema(db *gorm.DB) {
 	abSchemaOnce.Do(func() {
 		if db == nil {
@@ -118,7 +109,6 @@ func NewABExperiment(db *gorm.DB, bufferSize int) *ABExperiment {
 	return a
 }
 
-// insert 单条曝光落库（nil db 跳过）
 func (a *ABExperiment) insert(e AbExposure) {
 	if a.db == nil {
 		return

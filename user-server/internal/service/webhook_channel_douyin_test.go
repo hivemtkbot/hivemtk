@@ -9,12 +9,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// ============================================================================
-// M14 W-5：抖音 generic 分支 MsgID 稳定化回归测试
-// 原实现用 UnixNano 时间戳生成 MsgID，同一事件重推/并发到达必然生成不同 ID，
-// 幂等去重完全失效。修复后 generic 分支 MsgID 基于「渠道+内容」哈希，天然稳定。
-// ============================================================================
-
 func newDouyinGenericTestService(t *testing.T) (*WebhookService, context.Context) {
 	t.Helper()
 	db := testutil.NewTestDB(t,
@@ -54,7 +48,6 @@ func TestDispatchDouyinGeneric_MsgIDStable(t *testing.T) {
 		t.Errorf("MsgID 应为内容哈希形态 dy_generic_mh:*，实际 %q", hub1.MsgID)
 	}
 
-	// 与 ContentHashMsgID 锚点一致：dy_generic_ + mh:<fnv32(douyin|content)>
 	wantSuffix := ContentHashMsgID("douyin", "", "你们产品多少钱")
 	if hub1.MsgID != "dy_generic_"+wantSuffix {
 		t.Errorf("MsgID expected dy_generic_%s, got %s", wantSuffix, hub1.MsgID)
@@ -99,13 +92,6 @@ func TestDispatchDouyinGeneric_EmptyContentStable(t *testing.T) {
 		t.Errorf("空内容兜底 MsgID 仍应稳定: %q vs %q", h1.MsgID, h2.MsgID)
 	}
 }
-
-// ============================================================================
-// M3：抖音结构化分支 MsgID 稳定化回归测试
-// 结构化 JSON 解析成功但 message_id 缺失时，原实现用 UnixNano 时间戳兜底，
-// 同一事件重推必然生成不同 ID，幂等去重失效。修复后与 generic 分支一致，
-// 改用 ContentHashMsgID 内容哈希。
-// ============================================================================
 
 // TestDispatchDouyinStructured_MissingMessageIDStable 结构化分支缺 message_id → 相同内容重推 MsgID 稳定
 func TestDispatchDouyinStructured_MissingMessageIDStable(t *testing.T) {

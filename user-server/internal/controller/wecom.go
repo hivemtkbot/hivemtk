@@ -339,4 +339,3 @@ func (c *WeComController) SyncTags(ctx *gin.Context) {
 
 	response.Success(ctx, gin.H{"count": count}, "同步成功")
 }
-

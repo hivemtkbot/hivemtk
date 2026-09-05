@@ -8,7 +8,6 @@ import (
 	i18npkg "hivemtk-user/internal/pkg/i18n"
 )
 
-// stubGlossary / stubCalibrator 用于验证 SalesEngine 语言链路接线（依赖倒置接口）。
 type stubGlossary struct{ block string }
 
 func (s *stubGlossary) Render(ctx context.Context, lang string) string { return s.block }

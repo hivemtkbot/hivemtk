@@ -1,13 +1,14 @@
 // Telegram 端到端冒烟测试（一次性 CLI 工具）
 //
 // 用途：
-//   1. 验证 bot token 有效
-//   2. 用新代码的 URL 推导逻辑 + PUBLIC_BASE_URL 注册 webhook 到 Telegram
-//   3. 调用 getWebhookInfo 验证 TG 侧已正确收到
-//   4. 验证后清理 webhook 释放 TG 侧资源
+//  1. 验证 bot token 有效
+//  2. 用新代码的 URL 推导逻辑 + PUBLIC_BASE_URL 注册 webhook 到 Telegram
+//  3. 调用 getWebhookInfo 验证 TG 侧已正确收到
+//  4. 验证后清理 webhook 释放 TG 侧资源
 //
 // 用法：
-//   go run scripts/telegram_smoke.go --token=<BOT_TOKEN> [--public-base=https://hivepaltformapi.xapptool.cn]
+//
+//	go run scripts/telegram_smoke.go --token=<BOT_TOKEN> [--public-base=https://hivepaltformapi.xapptool.cn]
 package main
 
 import (
@@ -62,8 +63,8 @@ func main() {
 	fmt.Println("== Step 2: setWebhook ==")
 	secret := randomHex(32)
 	params := map[string]string{
-		"url":         webhookURL,
-		"secret_token": secret,
+		"url":             webhookURL,
+		"secret_token":    secret,
 		"allowed_updates": `["message","edited_message","channel_post","callback_query","my_chat_member","chat_member"]`,
 	}
 	setRes, err := callTG(*token, "setWebhook", params)
@@ -161,12 +162,12 @@ func callTG(token, method string, params map[string]string) (map[string]any, err
 		return nil, fmt.Errorf("parse: %w (raw=%s)", err, string(body))
 	}
 	if !raw.OK {
-		// 解析 result 为 map（即使 ok=false 也可能有部分信息）
+
 		var m map[string]any
 		_ = json.Unmarshal(raw.Result, &m)
 		return m, fmt.Errorf("API 错误(%d): %s (raw=%s)", raw.ErrorCode, raw.Description, string(body))
 	}
-	// result 可能是 map、bool、string 等，这里只返回 map
+
 	var m map[string]any
 	if len(raw.Result) > 0 && raw.Result[0] == '{' {
 		_ = json.Unmarshal(raw.Result, &m)
@@ -185,8 +186,8 @@ func simulatePost(webhookURL, secret string) string {
 				"first_name": "smoke_test_user",
 			},
 			"chat": map[string]any{
-				"id":    12345,
-				"type":  "private",
+				"id":         12345,
+				"type":       "private",
 				"first_name": "smoke_test_user",
 			},
 			"date": time.Now().Unix(),
@@ -219,4 +220,3 @@ func statusFor(pending float64, lastErr string) string {
 	}
 	return "✅ 正常，TG 侧已正确接收 webhook 注册"
 }
-

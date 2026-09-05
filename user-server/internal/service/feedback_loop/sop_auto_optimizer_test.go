@@ -41,7 +41,6 @@ func TestSOPAutoOptimizer_ProcessPending_BranchPrune(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
 	ctx := context.Background()
 
-	// L-1 门禁依赖：golden 集表 + 聚合素材表
 	testutil.NewTestDB(t, &model.TraceEvalLog{}, &model.MessageTrace{})
 	seedGoldenCases(t, db, minGoldenCases+2)
 
@@ -77,21 +76,18 @@ func TestSOPAutoOptimizer_ProcessPending_BranchPrune(t *testing.T) {
 		t.Errorf("FailedCount = %d want 0", report.FailedCount)
 	}
 
-	// 验证 variant SOP 已创建
 	var sopCount int64
 	db.Model(&model.SOPAgent{}).Where("name LIKE ?", "%[优化-剪枝]%").Count(&sopCount)
 	if sopCount != 1 {
 		t.Errorf("variant SOP count = %d want 1", sopCount)
 	}
 
-	// 验证 A/B 测试已创建
 	var abTestCount int64
 	db.Model(&model.PromptABTest{}).Where("sop_id = ? AND experiment_type = ?", sop.ID, model.BanditExperimentTypeSOPVariant).Count(&abTestCount)
 	if abTestCount != 1 {
 		t.Errorf("A/B test count = %d want 1", abTestCount)
 	}
 
-	// 验证 bandit arms（arm_a_original + arm_b_variant）
 	var abTest model.PromptABTest
 	_ = db.Where("sop_id = ? AND experiment_type = ?", sop.ID, model.BanditExperimentTypeSOPVariant).First(&abTest).Error
 	var arms []model.BanditArm
@@ -112,7 +108,6 @@ func TestSOPAutoOptimizer_ProcessPending_BranchPrune(t *testing.T) {
 		t.Errorf("应包含 arm_a_original 和 arm_b_variant, got hasA=%v hasB=%v", hasArmA, hasArmB)
 	}
 
-	// 验证 suggestion 状态 → applied
 	var updated model.OptimizationSuggestion
 	_ = db.First(&updated, sug.ID).Error
 	if updated.Status != model.SuggestionStatusApplied {
@@ -242,7 +237,6 @@ func TestSOPAutoOptimizer_CheckAndPromote_Converged(t *testing.T) {
 		t.Errorf("PromotedCount = %d want 1", report.PromotedCount)
 	}
 
-	// 验证 A/B 测试状态 → completed
 	var updated model.PromptABTest
 	_ = db.First(&updated, abTest.ID).Error
 	if updated.Status != model.PromptABTestStatusCompleted {
@@ -340,14 +334,12 @@ func TestSOPAutoOptimizer_CheckAndRollback_ConversionDrop(t *testing.T) {
 		t.Errorf("RolledBackCount = %d want 1 (转化率下降 80%% > 20%%)", report.RolledBackCount)
 	}
 
-	// 验证 A/B 测试状态 → rolled_back
 	var updated model.PromptABTest
 	_ = db.First(&updated, abTest.ID).Error
 	if updated.Status != model.PromptABTestStatusRolledBack {
 		t.Errorf("abTest status = %q want rolled_back", updated.Status)
 	}
 
-	// 验证 bandit arms 状态 → retired
 	var retiredArmsCount int64
 	db.Model(&model.BanditArm{}).Where("experiment_id = ? AND status = ?", expID, model.BanditArmStatusRetired).Count(&retiredArmsCount)
 	if retiredArmsCount != 2 {
@@ -487,7 +479,6 @@ func TestSOPAutoOptimizer_RollbackTest(t *testing.T) {
 		t.Fatalf("rollbackTest: %v", err)
 	}
 
-	// 验证 abTest 状态
 	var updated model.PromptABTest
 	_ = db.First(&updated, abTest.ID).Error
 	if updated.Status != model.PromptABTestStatusRolledBack {
@@ -497,7 +488,6 @@ func TestSOPAutoOptimizer_RollbackTest(t *testing.T) {
 		t.Errorf("EndedAt 应非空")
 	}
 
-	// 验证 arms 状态 retired
 	var retiredCount int64
 	db.Model(&model.BanditArm{}).Where("experiment_id = ? AND status = ?", expID, model.BanditArmStatusRetired).Count(&retiredCount)
 	if retiredCount != 2 {

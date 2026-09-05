@@ -10,8 +10,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
-// eventBusEventSubscriber 事件订阅者
 type eventBusEventSubscriber struct {
 	runtime AgentRuntime
 }
@@ -27,14 +25,6 @@ func NewEventSubscriber(rt AgentRuntime) event.Handler {
 	return (&eventBusEventSubscriber{runtime: rt}).Handle
 }
 
-// Handle 处理事件总线消息
-//
-// 步骤:
-//  1. 类型断言:event.Payload 必须是 CustomerMessagePayload
-//  2. 调用 runtime.HandleCustomerMessage
-//  3. 错误处理:仅记录日志,不重试(主流程已 by design 不阻塞)
-//
-// 异常隔离:用 defer + recover 防止单个事件 panic 影响整个 worker
 func (s *eventBusEventSubscriber) Handle(evt event.Event) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -57,7 +47,6 @@ func (s *eventBusEventSubscriber) Handle(evt event.Event) error {
 	return s.handleMessage(context.Background(), payload)
 }
 
-// handleMessage 处理单条客户消息
 func (s *eventBusEventSubscriber) handleMessage(ctx context.Context, payload event.CustomerMessagePayload) error {
 	if HasReplied(payload.TraceID) {
 		logger.Infof("[agent_runtime] event=%s already replied by sync path, skip bus handling", payload.TraceID)
@@ -89,10 +78,6 @@ func (s *eventBusEventSubscriber) handleMessage(ctx context.Context, payload eve
 	return nil
 }
 
-// convertFromEventPayload event 包载荷 → agent_runtime 内部载荷
-//
-// 避免 agent_runtime 强依赖 event 包的具体类型
-// 当前两者结构相同,直接转换
 func convertFromEventPayload(ep event.CustomerMessagePayload) CustomerMessagePayload {
 	return CustomerMessagePayload{
 		ChannelType: ep.ChannelType,
@@ -106,4 +91,3 @@ func convertFromEventPayload(ep event.CustomerMessagePayload) CustomerMessagePay
 		Raw:         ep.Raw,
 	}
 }
-

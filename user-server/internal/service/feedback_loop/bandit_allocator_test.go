@@ -394,7 +394,7 @@ func TestBanditAllocator_PromoteArm(t *testing.T) {
 	if err := b.PromoteArm(context.Background(), expID, "arm_a"); err != nil {
 		t.Fatalf("PromoteArm: %v", err)
 	}
-	// 验证 arm_a 状态 promoted
+
 	var winner model.BanditArm
 	_ = db.Where("experiment_id = ? AND arm_key = ?", expID, "arm_a").First(&winner).Error
 	if winner.Status != model.BanditArmStatusPromoted {
@@ -403,7 +403,7 @@ func TestBanditAllocator_PromoteArm(t *testing.T) {
 	if winner.PromotedAt == nil {
 		t.Errorf("arm_a promoted_at 应非空")
 	}
-	// 验证 arm_b / arm_c 状态 retired
+
 	var losers []model.BanditArm
 	_ = db.Where("experiment_id = ? AND arm_key IN ?", expID, []string{"arm_b", "arm_c"}).Find(&losers).Error
 	if len(losers) != 2 {

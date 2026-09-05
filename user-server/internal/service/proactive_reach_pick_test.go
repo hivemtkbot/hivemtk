@@ -27,8 +27,6 @@ func TestProactiveReachService_PickChannel_OutboundChannels(t *testing.T) {
 	}{
 		{"sms_no_account_lookup", "sms", "13800138000"},
 		{"email_no_account_lookup", "email", "user@example.com"},
-		// dingtalk 不在 customer 身份字段中（customer 表无 dingtalk 字段），
-		// 只能通过显式 req.AccountID 传入 webhook URL 触发，不参与智能选
 	}
 
 	for _, tt := range tests {
@@ -70,7 +68,7 @@ func TestProactiveReachService_PickChannel_SkipsEmptyIdentity(t *testing.T) {
 		UnifiedID: "phone:13800138000",
 		Phone:     "13800138000",
 	}
-	// wechat 无身份 → 跳过
+
 	_, _, _, err := svc.pickChannel(context.Background(), []string{"wechat"}, customer)
 	if err == nil {
 		t.Fatalf("expected error when no wechat identity")
@@ -100,7 +98,7 @@ func TestProactiveReachService_PickChannel_UsesAccountLookup(t *testing.T) {
 func TestProactiveReachService_PickChannel_NoActiveAccount(t *testing.T) {
 	svc := NewProactiveReachService(nil, &mockAccountLookup{
 		supported: map[string]bool{"telegram": true},
-		results:   map[string]string{"telegram": ""}, // 空账号
+		results:   map[string]string{"telegram": ""},
 	})
 	customer := &model.Customer{
 		UnifiedID:      "telegram:12345",
@@ -112,7 +110,6 @@ func TestProactiveReachService_PickChannel_NoActiveAccount(t *testing.T) {
 	}
 }
 
-// mockAccountLookup 测试用 AccountLookup，支持指定 channel 列表和结果
 type mockAccountLookup struct {
 	supported map[string]bool
 	results   map[string]string

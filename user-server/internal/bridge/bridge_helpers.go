@@ -9,10 +9,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-
-// 单条 AI 回复最大字节数（DB 驱动，以下为 fallback 默认值）
-// 运行时通过 service.GlobalConfigParam() 按 group=bridge 读取 bridge.max_reply_content_bytes
-// 与前端 constants.SECURITY.maxReplyContentBytes 严格对齐
 const maxReplyContentBytes = 4 * 1024
 
 func runtimeMaxReplyContentBytes(ctx context.Context) int {
@@ -33,12 +29,6 @@ func RegisterOwnershipChecker(fn OwnershipChecker) {
 	GlobalOwnershipChecker = fn
 }
 
-// maskTokenBridge token 脱敏：避免完整 JWT 写入日志（私域部署仍按隐私基线）。
-// 与扩展端 bridge-client.js describeUpstreamParams 行为对齐：保留前 4 位 + 总长度。
-// token 为空时返回空串。
-//
-// 实现要点：按 rune 切片而非字节切片，避免多字节字符（如中文）被切断产生乱码。
-// 为保持与扩展端"保留前 4 位"语义一致，rune 数 <= 4 时整段保留（与字节版一致）。
 func maskTokenBridge(token string) string {
 	if token == "" {
 		return ""
@@ -50,7 +40,6 @@ func maskTokenBridge(token string) string {
 	return string(runes[:4]) + "***(" + itoa(len(token)) + " chars)"
 }
 
-// itoaLen 简单整数转字符串（避免引入 strconv 依赖膨胀）
 func itoa(n int) string {
 	if n == 0 {
 		return "0"
@@ -73,9 +62,6 @@ func itoa(n int) string {
 	return string(buf[i:])
 }
 
-// describeUpstreamQuery 把 query 解析为 map（token 字段脱敏）。
-// 用于日志展示，不影响真实请求处理。
-// 与扩展端 bridge-client.js describeUpstreamParams 输出结构对齐。
 func describeUpstreamQuery(values url.Values) map[string]string {
 	out := make(map[string]string, len(values))
 	for k, vs := range values {
@@ -92,13 +78,6 @@ func describeUpstreamQuery(values url.Values) map[string]string {
 	return out
 }
 
-// historyItemToEvent 把会话级 history 帧中的单轮（HistoryItem）映射为 model.MessageEvent。
-// 会话元数据（channel/account/conversation/群）取自帧顶层的 message，轮次字段取自 item。
-//
-// 2026-08-10 协议单源化：委托 channelgw.HistoryToEvent（HTTP/WS 传输共用同一转换器）。
 func historyItemToEvent(m *UnifiedMessage, it *HistoryItem) *model.MessageEvent {
 	return gw.HistoryToEvent(m, it)
 }
-
-
-

@@ -8,10 +8,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// S-5 单源化（2026-08-26）：本包不再维护关键词清单，VetoExplicit 的匹配函数
-// 由 service 包注入（nlp_keywords.Transfer ∪ Explicit，含否定窗口过滤）。
-// 本包单测通过 TestMain 注入等价 fixture，验证注入机制与触发语义；
-// 词表本身的一致性由 service 侧 nlp_keywords 测试与接线测试保证。
 var testExplicitKeywords = []string{
 	"转人工", "人工客服", "找人工", "真人客服", "转接人工", "找客服", "人工服务",
 	"real agent", "human agent", "transfer to human",

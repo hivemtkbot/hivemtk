@@ -7,8 +7,6 @@ import (
 	"time"
 )
 
-
-
 // TestPerceptionStage_Greeting 测试寒暄场景
 func TestPerceptionStage_Greeting(t *testing.T) {
 	ctx := context.Background()
@@ -112,7 +110,6 @@ func TestKeywordIntentRecognizer_OrderStatus(t *testing.T) {
 	}
 }
 
-
 // TestAlignmentStage_Empathy 验证同理心打分
 func TestAlignmentStage_Empathy(t *testing.T) {
 	stage := NewDefaultAlignmentScorer()
@@ -158,7 +155,6 @@ func TestAlignmentScore_MaxDimension(t *testing.T) {
 		t.Errorf("MaxDimension() = %s, want enthusiasm", a.MaxDimension())
 	}
 }
-
 
 // TestGatekeeper_Refund 验证退款触发转人工
 func TestGatekeeper_Refund(t *testing.T) {
@@ -234,7 +230,6 @@ func TestCrisisSignal_NeedsEscalation(t *testing.T) {
 		}
 	}
 }
-
 
 // TestPlanner_Greeting 验证寒暄规划
 func TestPlanner_Greeting(t *testing.T) {
@@ -327,7 +322,7 @@ func TestPlanner_NoRAG(t *testing.T) {
 		Payload: CustomerMessagePayload{Content: "产品多少钱？"},
 		Intent:  IntentResult{Primary: IntentInquiry},
 		AgentCtx: &AgentContext{
-			EnableRAG: false, 
+			EnableRAG: false,
 		},
 	}
 
@@ -341,7 +336,6 @@ func TestPlanner_NoRAG(t *testing.T) {
 		}
 	}
 }
-
 
 // TestInferenceCycle_Greeting 端到端：寒暄
 func TestInferenceCycle_Greeting(t *testing.T) {
@@ -506,7 +500,6 @@ func TestInferenceCycle_Stop(t *testing.T) {
 	cycle.Reset()
 }
 
-
 // TestInferenceCycle_100Runs 验证 100 次循环
 func TestInferenceCycle_100Runs(t *testing.T) {
 	if testing.Short() {
@@ -568,7 +561,6 @@ func TestInferenceCycle_PerfSingleRun(t *testing.T) {
 		t.Errorf("single run too slow: %s", dur)
 	}
 }
-
 
 // TestInferenceCycle_EmptyContent 空内容
 func TestInferenceCycle_EmptyContent(t *testing.T) {
@@ -710,4 +702,3 @@ func TestInferenceCycle_IntegrationWithTypes(t *testing.T) {
 		t.Error("plan confidence should be preserved")
 	}
 }
-

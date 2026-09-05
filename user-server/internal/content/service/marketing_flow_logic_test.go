@@ -113,7 +113,7 @@ func TestFlow_EvalEq(t *testing.T) {
 		{"bool_true", true, "true", true, false},
 		{"bool_false", false, "false", true, false},
 		{"int_5", 5, "5", true, false},
-		{"nil_with_empty", nil, "", false, false}, 
+		{"nil_with_empty", nil, "", false, false},
 	}
 
 	passed, failed := 0, 0
@@ -149,7 +149,7 @@ func TestFlow_EvalNe(t *testing.T) {
 		{"str_same", "active", "active", false},
 		{"num_diff", float64(5), "10", true},
 		{"num_same", float64(5), "5", false},
-		{"case_diff", "John", "JOHN", false}, 
+		{"case_diff", "John", "JOHN", false},
 		{"unicode", "北京", "上海", true},
 	}
 	passed, failed := 0, 0
@@ -367,7 +367,7 @@ func TestFlow_EvalContains(t *testing.T) {
 		{"unicode_value", "hello world", "WORLD", true},
 		{"full_match", "abc", "abc", true},
 		{"partial", "abcdef", "cde", true},
-		{"number_field", float64(123), "12", true}, 
+		{"number_field", float64(123), "12", true},
 		{"bool_field", true, "tru", true},
 		{"nil_field", nil, "abc", false},
 		{"long_text", "The quick brown fox jumps over the lazy dog", "fox", true},
@@ -411,7 +411,7 @@ func TestFlow_EvalIn(t *testing.T) {
 		{"missing_bracket_open", "a", "active,pending]", false, true},
 		{"missing_bracket_close", "a", "[active,pending", false, true},
 		{"no_bracket", "a", "active", false, true},
-		{"case_match", "John", "[JOHN,jane]", true, false}, 
+		{"case_match", "John", "[JOHN,jane]", true, false},
 		{"chinese", "北京", "[上海,北京,广州]", true, false},
 		{"numbers_as_strings", "5", "[1,5,10]", true, false},
 		{"empty_item_no_match", "a", "[,b,c]", false, false},
@@ -598,7 +598,7 @@ func TestFlow_EvaluateCondition(t *testing.T) {
 			"status invalid value",
 			map[string]any{"status": "active"},
 			[]string{"a", "b"},
-			false, false, 
+			false, false,
 		},
 		{
 			"matched_with_two_next",
@@ -690,7 +690,7 @@ func TestFlow_HandleDelay(t *testing.T) {
 	}
 	cases := []tc{
 		{"no_delay", 0, 1 * time.Second, false},
-		{"short_delay", 0.05, 1 * time.Second, false}, 
+		{"short_delay", 0.05, 1 * time.Second, false},
 		{"ctx_cancelled", 10.0, 50 * time.Millisecond, true},
 		{"zero_duration", 0, 0, false},
 	}
@@ -775,4 +775,3 @@ func TestFlow_ExecuteNode(t *testing.T) {
 	}
 	t.Logf("executeNode: %d/%d passed", passed, passed+failed)
 }
-

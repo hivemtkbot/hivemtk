@@ -15,18 +15,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// ============================================================================
-// 2026-08-25 微信机器人「无回复」修复回归测试
-//
-// 覆盖三个根因修复：
-//  A. sendOutbound 新增 ChannelWechat 分支（原先落入 default 被静默丢弃）
-//  B. runAIGeneration 所有失败退出路径释放 AI 处理锁（原先锁滞留 TTL 2min，
-//     会话被"AI 已在进行中"静音，期间消息全部不回复）
-//  C. wechat 渠道事件可穿透 HandleIngressMessage 触发 AI（渠道链路连通性）
-// ============================================================================
-
-// newFakeWechatAPIServer 启动仿微信 API 服务，捕获客服消息发送请求。
-// 返回 server 与读取已发送 payload 的函数。
 func newFakeWechatAPIServer(t *testing.T) (*httptest.Server, func() []map[string]any) {
 	t.Helper()
 	var mu sync.Mutex
@@ -147,7 +135,7 @@ func TestRunAIGeneration_ReleasesAILock_OnErrorExit(t *testing.T) {
 		db:                nil,
 		replySem:          make(chan struct{}, 4),
 		ingressSvc:        ingress,
-		smartOrchestrator: nil, // HandleIncomingWithAgent 对 nil receiver 返回错误 → 错误重试路径
+		smartOrchestrator: nil,
 	}
 
 	const conv = "conv-wx-lock-err"
@@ -194,7 +182,7 @@ func TestRunAIGeneration_ReleasesAILock_OnSemaphoreTimeout(t *testing.T) {
 	ingress := NewInboxIngressServiceWithDB(nil, _mc2)
 
 	sem := make(chan struct{}, 1)
-	sem <- struct{}{} // 占满信号量 → runAIGeneration 必走 sem 超时分支
+	sem <- struct{}{}
 	svc := &WebhookService{
 		db:         nil,
 		replySem:   sem,

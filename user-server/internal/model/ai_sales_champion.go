@@ -14,9 +14,9 @@ type MessageHub struct {
 	Platform       string     `gorm:"type:varchar(30);not null;index;uniqueIndex:uni_message_hub_platform_msg_conv,priority:1" json:"platform"`
 	MsgID          string     `gorm:"type:varchar(100);uniqueIndex:uni_message_hub_platform_msg_conv,priority:2" json:"msg_id"`
 	AccountID      string     `gorm:"type:varchar(100);not null;index" json:"account_id"`
-	Direction      string     `gorm:"type:varchar(10);not null" json:"direction"`             
-	Status         string     `gorm:"type:varchar(20);default:'pending';index" json:"status"` 
-	MsgType        string     `gorm:"type:varchar(20);not null" json:"msg_type"`              
+	Direction      string     `gorm:"type:varchar(10);not null" json:"direction"`
+	Status         string     `gorm:"type:varchar(20);default:'pending';index" json:"status"`
+	MsgType        string     `gorm:"type:varchar(20);not null" json:"msg_type"`
 	SenderID       string     `gorm:"type:varchar(100);index" json:"sender_id"`
 	SenderName     string     `gorm:"type:varchar(200)" json:"sender_name"`
 	ReceiverID     string     `gorm:"type:varchar(100)" json:"receiver_id"`
@@ -28,9 +28,9 @@ type MessageHub struct {
 	GroupID        string     `gorm:"type:varchar(100)" json:"group_id"`
 	IsAIReply      bool       `gorm:"default:false" json:"is_ai_reply"`
 	AIAgent        string     `gorm:"type:varchar(50)" json:"ai_agent"`
-	TraceID        string     `gorm:"type:varchar(64);index:idx_hub_trace" json:"trace_id"`       
-	DedupHash      string     `gorm:"type:varchar(64);index:idx_mh_dedup_hash" json:"dedup_hash"` 
-	ClaimedAt      *time.Time `gorm:"index" json:"claimed_at"`                                    
+	TraceID        string     `gorm:"type:varchar(64);index:idx_hub_trace" json:"trace_id"`
+	DedupHash      string     `gorm:"type:varchar(64);index:idx_mh_dedup_hash" json:"dedup_hash"`
+	ClaimedAt      *time.Time `gorm:"index" json:"claimed_at"`
 	IsRead         bool       `gorm:"default:false" json:"is_read"`
 	ReadAt         *time.Time `json:"read_at"`
 	SentAt         time.Time  `gorm:"index" json:"sent_at"`
@@ -89,23 +89,23 @@ func (DialogueMemory) TableName() string { return "dialogue_memories" }
 
 // SOPAgent SOP 智能体
 type SOPAgent struct {
-	ID             uint    `gorm:"primaryKey;autoIncrement" json:"id"`
-	Name           string  `gorm:"type:varchar(100);not null" json:"name"`
-	Scenario       string  `gorm:"type:varchar(50);not null;index" json:"scenario"`
-	Description    string  `gorm:"type:varchar(500)" json:"description"`
-	TriggerType    string  `gorm:"type:varchar(50)" json:"trigger_type"`
-	TriggerConfig  JSONMap `gorm:"type:text" json:"trigger_config"`
-	SOPGraph       JSONMap `gorm:"type:text;not null" json:"sop_graph"`
-	Version        int     `gorm:"default:1" json:"version"`
-	IsActive       bool    `gorm:"default:true;index" json:"is_active"`
-	Priority       int     `gorm:"default:0" json:"priority"`
-	ExecutionCount int     `gorm:"default:0" json:"execution_count"`
-	SuccessCount   int     `gorm:"default:0" json:"success_count"`
-	ABTestConfig JSONMap `gorm:"type:text" json:"ab_test_config"`
-	UseBandit bool      `gorm:"default:false" json:"use_bandit"`
-	CreatedBy uint      `json:"created_by"`
-	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Name           string    `gorm:"type:varchar(100);not null" json:"name"`
+	Scenario       string    `gorm:"type:varchar(50);not null;index" json:"scenario"`
+	Description    string    `gorm:"type:varchar(500)" json:"description"`
+	TriggerType    string    `gorm:"type:varchar(50)" json:"trigger_type"`
+	TriggerConfig  JSONMap   `gorm:"type:text" json:"trigger_config"`
+	SOPGraph       JSONMap   `gorm:"type:text;not null" json:"sop_graph"`
+	Version        int       `gorm:"default:1" json:"version"`
+	IsActive       bool      `gorm:"default:true;index" json:"is_active"`
+	Priority       int       `gorm:"default:0" json:"priority"`
+	ExecutionCount int       `gorm:"default:0" json:"execution_count"`
+	SuccessCount   int       `gorm:"default:0" json:"success_count"`
+	ABTestConfig   JSONMap   `gorm:"type:text" json:"ab_test_config"`
+	UseBandit      bool      `gorm:"default:false" json:"use_bandit"`
+	CreatedBy      uint      `json:"created_by"`
+	CreatedAt      time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt      time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 func (SOPAgent) TableName() string { return "sop_agents" }
@@ -123,7 +123,7 @@ type SOPExecution struct {
 	StartedAt      time.Time  `json:"started_at"`
 	CompletedAt    *time.Time `json:"completed_at"`
 	ErrorMessage   string     `gorm:"type:text" json:"error_message"`
-	Variant string `gorm:"type:varchar(50);index" json:"variant"`
+	Variant        string     `gorm:"type:varchar(50);index" json:"variant"`
 
 	LastEventAt  *time.Time `gorm:"index" json:"last_event_at"`
 	AttemptCount int        `gorm:"default:0" json:"attempt_count"`
@@ -145,11 +145,11 @@ type ReachPipeline struct {
 	ID           uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name         string    `gorm:"type:varchar(100);not null" json:"name"`
 	Description  string    `gorm:"type:varchar(500)" json:"description"`
-	Channel      string    `gorm:"type:varchar(30);not null;index" json:"channel"`        
-	Steps        JSONArray `gorm:"type:text;not null" json:"steps"`                       
-	RetryPolicy  JSONMap   `gorm:"type:text" json:"retry_policy"`                         
-	RateLimit    JSONMap   `gorm:"type:text" json:"rate_limit"`                           
-	Status       string    `gorm:"type:varchar(20);default:'active';index" json:"status"` 
+	Channel      string    `gorm:"type:varchar(30);not null;index" json:"channel"`
+	Steps        JSONArray `gorm:"type:text;not null" json:"steps"`
+	RetryPolicy  JSONMap   `gorm:"type:text" json:"retry_policy"`
+	RateLimit    JSONMap   `gorm:"type:text" json:"rate_limit"`
+	Status       string    `gorm:"type:varchar(20);default:'active';index" json:"status"`
 	Version      int       `gorm:"default:1" json:"version"`
 	TotalRuns    int64     `gorm:"default:0" json:"total_runs"`
 	TotalSuccess int64     `gorm:"default:0" json:"total_success"`
@@ -168,7 +168,7 @@ type ReachJob struct {
 	CustomerID   string     `gorm:"type:varchar(64);index" json:"customer_id"`
 	AccountID    string     `gorm:"type:varchar(100);index" json:"account_id"`
 	Payload      JSONMap    `gorm:"type:text;not null" json:"payload"`
-	State        string     `gorm:"type:varchar(20);default:'pending';index" json:"state"` 
+	State        string     `gorm:"type:varchar(20);default:'pending';index" json:"state"`
 	CurrentStep  int        `gorm:"default:0" json:"current_step"`
 	StepResults  JSONArray  `gorm:"type:text" json:"step_results"`
 	RetryCount   int        `gorm:"default:0" json:"retry_count"`
@@ -189,8 +189,8 @@ type WeComAccountHealth struct {
 	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	AccountID      uint      `gorm:"index;not null" json:"account_id"`
 	Platform       string    `gorm:"type:varchar(30);default:'wecom'" json:"platform"`
-	HealthScore    int       `gorm:"type:int;default:0" json:"health_score"`              
-	RiskLevel      string    `gorm:"type:varchar(20);default:'normal'" json:"risk_level"` 
+	HealthScore    int       `gorm:"type:int;default:0" json:"health_score"`
+	RiskLevel      string    `gorm:"type:varchar(20);default:'normal'" json:"risk_level"`
 	LoginState     string    `gorm:"type:varchar(20)" json:"login_state"`
 	QuotaUsed      int       `gorm:"default:0" json:"quota_used"`
 	QuotaTotal     int       `gorm:"default:0" json:"quota_total"`
@@ -239,9 +239,9 @@ type ScriptLibrary struct {
 	SuccessCount   int        `gorm:"default:0" json:"success_count"`
 	ConversionRate float64    `gorm:"type:decimal(5,2);default:0" json:"conversion_rate"`
 	IsFeatured     bool       `gorm:"default:false;index" json:"is_featured"`
-	Version        int        `gorm:"default:1" json:"version"`                                 // T-6: 当前生效版本号（递增整数，Langfuse 模式）
-	Status         string     `gorm:"type:varchar(20);default:'active';index" json:"status"`    // T-6: active/archived/expired
-	ExpiresAt      *time.Time `json:"expires_at,omitempty"`                                     // T-6: 过期时间（nil=不过期）
+	Version        int        `gorm:"default:1" json:"version"`
+	Status         string     `gorm:"type:varchar(20);default:'active';index" json:"status"`
+	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
 	CreatedBy      uint       `json:"created_by"`
 	CreatedAt      time.Time  `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt      time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
@@ -256,7 +256,7 @@ type ScriptVersion struct {
 	Version   int       `gorm:"not null;uniqueIndex:idx_script_version,priority:2" json:"version"`
 	Title     string    `gorm:"type:varchar(200)" json:"title"`
 	Content   string    `gorm:"type:text;not null" json:"content"`
-	Status    string    `gorm:"type:varchar(20);default:'archived'" json:"status"` // archived/active/expired
+	Status    string    `gorm:"type:varchar(20);default:'archived'" json:"status"`
 	Note      string    `gorm:"type:varchar(500)" json:"note"`
 	CreatedBy uint      `json:"created_by"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
@@ -269,7 +269,7 @@ type ScriptExposureLog struct {
 	ID             uint       `gorm:"primaryKey;autoIncrement" json:"id"`
 	ScriptID       uint       `gorm:"not null;index:idx_exposure_script_ver,priority:1" json:"script_id"`
 	Version        int        `gorm:"not null;default:1;index:idx_exposure_script_ver,priority:2" json:"version"`
-	Bucket         string     `gorm:"type:varchar(8);not null" json:"bucket"` // A/B（FNV-1a 确定性分桶）
+	Bucket         string     `gorm:"type:varchar(8);not null" json:"bucket"`
 	CustomerID     uint       `gorm:"index" json:"customer_id"`
 	OneID          string     `gorm:"type:varchar(64);index" json:"one_id"`
 	ConversationID string     `gorm:"type:varchar(64);index" json:"conversation_id"`
@@ -277,7 +277,7 @@ type ScriptExposureLog struct {
 	ExposedAt      time.Time  `gorm:"index" json:"exposed_at"`
 	Converted      bool       `gorm:"default:false" json:"converted"`
 	ConvertedAt    *time.Time `json:"converted_at,omitempty"`
-	Outcome        string     `gorm:"type:varchar(30)" json:"outcome"` // converted 事件类型（won/replied/positive）
+	Outcome        string     `gorm:"type:varchar(30)" json:"outcome"`
 }
 
 func (ScriptExposureLog) TableName() string { return "script_exposure_logs" }
@@ -329,8 +329,8 @@ type SalesPersona struct {
 	ConvertedCustomers int        `gorm:"default:0" json:"converted_customers"`
 	ConversionRate     float64    `gorm:"type:decimal(5,2);default:0" json:"conversion_rate"`
 	AvgResponseSec     int        `gorm:"default:0" json:"avg_response_seconds"`
-	AvgDealAmount      int64      `gorm:"type:bigint;default:0" json:"avg_deal_amount"` 
-	TotalRevenue       int64      `gorm:"type:bigint;default:0" json:"total_revenue"`   
+	AvgDealAmount      int64      `gorm:"type:bigint;default:0" json:"avg_deal_amount"`
+	TotalRevenue       int64      `gorm:"type:bigint;default:0" json:"total_revenue"`
 	SkillTags          JSONArray  `gorm:"type:text" json:"skill_tags"`
 	BestScenarios      JSONArray  `gorm:"type:text" json:"best_scenarios"`
 	WorkDays           int        `gorm:"default:0" json:"work_days"`
@@ -373,16 +373,16 @@ type InboxConversation struct {
 	CustomerID         string     `gorm:"type:varchar(100);not null;index" json:"customer_id"`
 	CustomerName       string     `gorm:"type:varchar(200)" json:"customer_name"`
 	ConversationID     string     `gorm:"type:varchar(100);index" json:"conversation_id"`
-	Status             string     `gorm:"type:varchar(20);default:'unread';index" json:"status"` 
-	AssignedTo         string     `gorm:"type:varchar(64);index" json:"assigned_to"`             
-	AssignedToSOP      uint       `gorm:"index" json:"assigned_to_sop"`                          
+	Status             string     `gorm:"type:varchar(20);default:'unread';index" json:"status"`
+	AssignedTo         string     `gorm:"type:varchar(64);index" json:"assigned_to"`
+	AssignedToSOP      uint       `gorm:"index" json:"assigned_to_sop"`
 	AssignedAt         *time.Time `json:"assigned_at"`
 	UnreadCount        int        `gorm:"default:0" json:"unread_count"`
 	TotalCount         int        `gorm:"default:0" json:"total_count"`
 	LastMessageID      uint       `json:"last_message_id"`
 	LastMessagePreview string     `gorm:"type:varchar(500)" json:"last_message_preview"`
 	LastMessageAt      *time.Time `gorm:"index" json:"last_message_at"`
-	LastMessageFrom    string     `gorm:"type:varchar(20)" json:"last_message_from"` 
+	LastMessageFrom    string     `gorm:"type:varchar(20)" json:"last_message_from"`
 	Pinned             bool       `gorm:"default:false;index" json:"pinned"`
 	Starred            bool       `gorm:"default:false" json:"starred"`
 	Muted              bool       `gorm:"default:false" json:"muted"`
@@ -402,10 +402,10 @@ type InboxAssignment struct {
 	Platform       string    `gorm:"type:varchar(30);json" json:"platform"`
 	AccountID      string    `gorm:"type:varchar(100)" json:"account_id"`
 	CustomerID     string    `gorm:"type:varchar(100)" json:"customer_id"`
-	Action         string    `gorm:"type:varchar(20);not null" json:"action"` 
-	FromType       string    `gorm:"type:varchar(20)" json:"from_type"`       
+	Action         string    `gorm:"type:varchar(20);not null" json:"action"`
+	FromType       string    `gorm:"type:varchar(20)" json:"from_type"`
 	FromUserID     string    `gorm:"type:varchar(64)" json:"from_user_id"`
-	ToType         string    `gorm:"type:varchar(20);index" json:"to_type"` 
+	ToType         string    `gorm:"type:varchar(20);index" json:"to_type"`
 	ToUserID       string    `gorm:"type:varchar(64);index" json:"to_user_id"`
 	ToSOPID        uint      `gorm:"index" json:"to_sop_id"`
 	OperatorID     string    `gorm:"type:varchar(64);index" json:"operator_id"`
@@ -476,4 +476,3 @@ func (j *JSONArray) Scan(value any) error {
 	}
 	return json.Unmarshal(data, j)
 }
-

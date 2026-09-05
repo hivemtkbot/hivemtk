@@ -89,7 +89,6 @@ func (s *DBTraceSink) Stop() {
 	})
 }
 
-// flushLoop 后台批量写库：定时 / 批次达阈值 / 退出信号三触发。
 func (s *DBTraceSink) flushLoop() {
 	defer close(s.doneCh)
 
@@ -146,10 +145,6 @@ func (s *DBTraceSink) flushLoop() {
 	}
 }
 
-// traceEventToRow 把 TraceEvent 序列化为 map 以便 Create() 写入。
-//
-// 为什么用 map 而非 *TraceEvent：避免 GORM 依赖 llm 包自身的 TableName（两表并存时不让 ORM 自动建表）。
-// 字段命名/类型与 migrations/m_p1_migration.go::createTraceEvents 严格对齐。
 func traceEventToRow(e TraceEvent) map[string]any {
 	row := map[string]any{
 		"trace_id":    e.TraceID,

@@ -14,10 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// L-2 经验沉淀（Sleep-time 轻量版）：
-// 批处理评估后，对 Bad(<BadThreshold) 样本调用 LLM 提取「错误模式」一句话，
-// 存入 learning_insights；SalesEngine 组 prompt 时按行业注入 top3。
-
 const insightSystemPrompt = `你是销售对话复盘专家。给定一次被评分为差评的【用户问题】与【AI 回复】，提炼一条可复用的「错误模式」经验教训，帮助 AI 在同行业的后续对话中避免重蹈覆辙。
 要求：
 - 一句话，不超过 80 字，中文
@@ -26,10 +22,8 @@ const insightSystemPrompt = `你是销售对话复盘专家。给定一次被评
 
 var insightJunkRe = regexp.MustCompile(`^[\s"'` + "`" + `]+|[\s"'` + "`" + `]+$`)
 
-// insightMaxLen 默认洞察文本长度上限（ConfigParam 驱动实际值）
 const insightMaxLen = 200
 
-// insightMaxLenProvider 返回实际生效的洞察长度上限，可被上层注入
 var insightMaxLenProvider = func() int { return insightMaxLen }
 
 // SetInsightMaxLenProvider 上层注入函数（ConfigParam 初始化后调用）
@@ -44,7 +38,6 @@ type InsightLLM interface {
 	Dispatch(ctx context.Context, req llm.DispatchRequest) (*llm.DispatchResult, error)
 }
 
-// shouldDistillInsight 判断该评估结果是否需要沉淀洞察（Bad 且分数低于阈值）
 func shouldDistillInsight(cfg Config, res *EvalResult) bool {
 	if res == nil {
 		return false
@@ -93,7 +86,6 @@ func aggReplyOf(agg *AggregatedTrace) string {
 	return agg.Reply
 }
 
-// normalizeInsight 清洗 LLM 输出：去包裹符/换行、截断到上限；空返回 ok=false
 func normalizeInsight(raw string) string {
 	s := strings.ReplaceAll(raw, "\n", " ")
 	s = insightJunkRe.ReplaceAllString(strings.TrimSpace(s), "")
@@ -109,15 +101,13 @@ func normalizeInsight(raw string) string {
 	return s
 }
 
-// distillInsightForTrace 差评样本沉淀入口：提取并落库（失败仅告警不阻断批处理）。
-// Industry 未配置时用 "general" 作为默认行业（R58: 此前空值跳过，导致 learning_insights 全空）。
 func (s *Service) distillInsightForTrace(ctx context.Context, agg *AggregatedTrace, res *EvalResult) {
 	if !shouldDistillInsight(s.cfg, res) {
 		return
 	}
 	industry := s.cfg.Industry
 	if industry == "" {
-		industry = "general" // R58 fallback: 无行业标签时用 general，保证洞察能沉淀
+		industry = "general"
 	}
 	text, err := ExtractErrorPattern(ctx, s.dispatcher, s.cfg.Scenario, agg)
 	if err != nil {
@@ -164,7 +154,7 @@ func TopInsights(ctx context.Context, db *gorm.DB, industry string, limit int) (
 	if err := db.WithContext(ctx).
 		Where("industry = ?", industry).
 		Order("created_at DESC").
-		Limit(limit * 4). // 预取冗余行用于去重
+		Limit(limit * 4).
 		Find(&rows).Error; err != nil {
 		return nil, err
 	}

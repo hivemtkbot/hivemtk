@@ -14,8 +14,8 @@ type RecoveryEnqueueRequest struct {
 type RecoveryMarkAttemptRequest struct {
 	Channel   string `json:"channel" binding:"required"`
 	Result    string `json:"result"`
-	Stage     string `json:"stage" binding:"required"` 
-	NextDelay int    `json:"next_delay_seconds"`       
+	Stage     string `json:"stage" binding:"required"`
+	NextDelay int    `json:"next_delay_seconds"`
 }
 
 // RecoveryMarkRecoveredRequest 标记挽回成功
@@ -59,4 +59,3 @@ type RecoveryDistributionResponse struct {
 	Distribution map[string]int64 `json:"distribution"`
 	Total        int64            `json:"total"`
 }
-

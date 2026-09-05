@@ -44,7 +44,7 @@ const (
 // 预生成一次，全进程共享；每行使用独立哈希种子，保证可复现
 type Projector struct {
 	TargetDim int
-	Matrix    [][]float32 
+	Matrix    [][]float32
 }
 
 // NewProjector 构造随机投影器（线程安全）
@@ -107,14 +107,6 @@ func (l *LocalEmbedding) Dimension() int {
 	return l.dim
 }
 
-// featurize 文本 → SourceDim 维稀疏特征向量
-//
-// 特征构成（带符号哈希 trick：避免 hash collision bias）：
-//   - 字符 2-gram 和 3-gram
-//   - 单词级（按空格切分）
-//   - 中文按字切分（unicode.IsLetter 都视为一个 token）
-//
-// 每个特征 hash 到 [0, SourceDim)，值用 ±1（带符号），权重 = 出现次数。
 func (l *LocalEmbedding) featurize(text string) []float32 {
 	text = normalize(text)
 	if text == "" {
@@ -138,7 +130,7 @@ func (l *LocalEmbedding) featurize(text string) []float32 {
 		if len([]rune(tok)) < 2 {
 			continue
 		}
-		addFeature(vec, "w:"+tok, 1.5) 
+		addFeature(vec, "w:"+tok, 1.5)
 	}
 
 	return vec
@@ -162,13 +154,12 @@ func (l *LocalEmbedding) EmbedBatch(texts []string) [][]float32 {
 	return out
 }
 
-// normalize 文本归一化：转小写、去空白、保留 unicode 字母/数字/汉字
 func normalize(text string) string {
 	text = strings.ToLower(strings.TrimSpace(text))
 	if text == "" {
 		return ""
 	}
-	// 过滤标点符号
+
 	var b strings.Builder
 	b.Grow(len(text))
 	for _, r := range text {
@@ -179,7 +170,6 @@ func normalize(text string) string {
 	return b.String()
 }
 
-// tokenize 简单分词：按空白切分，过滤短词
 func tokenize(text string) []string {
 	parts := strings.Fields(text)
 	out := parts[:0]
@@ -191,12 +181,11 @@ func tokenize(text string) []string {
 	return out
 }
 
-// addFeature 带符号哈希特征（Weinberger et al.）
 func addFeature(vec []float32, feature string, weight float32) {
 	h := fnv.New64a()
 	h.Write([]byte(feature))
 	sum := h.Sum64()
-	idx := sum & uint64(SourceDim-1) 
+	idx := sum & uint64(SourceDim-1)
 	sign := int8(1)
 	if (sum>>32)&1 == 1 {
 		sign = -1
@@ -204,7 +193,6 @@ func addFeature(vec []float32, feature string, weight float32) {
 	vec[idx] += weight * float32(sign)
 }
 
-// l2normalize L2 归一化
 func l2normalize(v []float32) []float32 {
 	var norm float64
 	for _, x := range v {
@@ -220,4 +208,3 @@ func l2normalize(v []float32) []float32 {
 	}
 	return out
 }
-

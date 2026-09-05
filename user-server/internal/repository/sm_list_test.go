@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupSmlistTestDB 设置短信列表测试数据库
 func setupSmlistTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.Smlist{},
@@ -21,7 +20,6 @@ func setupSmlistTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupSmlistRepository 创建测试用的短信列表仓库实例
 func setupSmlistRepository(t *testing.T) SmlistRepository {
 	setupSmlistTestDB(t)
 	return NewSmlistRepository()

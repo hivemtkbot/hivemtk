@@ -9,9 +9,6 @@ import (
 	"hivemtk-user/internal/aiagent/agent/tooluse"
 )
 
-
-
-// mockProvider 测试用 Provider
 type mockProvider struct {
 	name        string
 	category    tooluse.ToolCategory
@@ -30,7 +27,6 @@ func (p *mockProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.Tool, err
 	return p.tools, nil
 }
 
-// newMockProviderWithTools 构造携带 N 个 mock 工具的 Provider
 func newMockProviderWithTools(name string, toolCount int) *mockProvider {
 	tools := make([]tooluse.Tool, 0, toolCount)
 	for i := 0; i < toolCount; i++ {
@@ -43,7 +39,6 @@ func newMockProviderWithTools(name string, toolCount int) *mockProvider {
 		tools:       tools,
 	}
 }
-
 
 func TestProviderRegistry_RegisterAndGet(t *testing.T) {
 	registry := tooluse.NewProviderRegistry()
@@ -110,7 +105,6 @@ func TestProviderRegistry_ListProvidersOrder(t *testing.T) {
 	}
 }
 
-
 func TestProviderRegistry_RegisterAll_Success(t *testing.T) {
 	providerRegistry := tooluse.NewProviderRegistry()
 	toolRegistry := tooluse.NewToolRegistry()
@@ -153,7 +147,7 @@ func TestProviderRegistry_RegisterAll_SkippedByConfig(t *testing.T) {
 		DB: nil,
 		Config: tooluse.ProviderConfig{
 			Enabled: false,
-			Custom:  map[string]any{"test": true}, 
+			Custom:  map[string]any{"test": true},
 		},
 	}
 	results, err := providerRegistry.RegisterAll(ctx, toolRegistry)
@@ -229,7 +223,7 @@ func TestProviderRegistry_RegisterAll_ProvideError(t *testing.T) {
 	if len(results) != 2 {
 		t.Fatalf("results len = %d, want 2", len(results))
 	}
-	// fail Provider 应记录错误
+
 	var failResult *tooluse.ProviderRegistrationResult
 	for i := range results {
 		if results[i].ProviderName == "fail" {
@@ -262,7 +256,6 @@ func TestProviderRegistry_RegisterAll_NilToolRegistry(t *testing.T) {
 	}
 }
 
-
 func TestProviderRegistry_Results(t *testing.T) {
 	providerRegistry := tooluse.NewProviderRegistry()
 	toolRegistry := tooluse.NewToolRegistry()
@@ -280,7 +273,6 @@ func TestProviderRegistry_Results(t *testing.T) {
 		t.Errorf("Results len = %d, want 1", len(providerRegistry.Results()))
 	}
 }
-
 
 func TestAutoRegister_BasicFlow(t *testing.T) {
 	tooluse.ClearAutoRegisteredProviders()
@@ -303,7 +295,7 @@ func TestAutoRegister_DuplicateName(t *testing.T) {
 	defer tooluse.ClearAutoRegisteredProviders()
 
 	p1 := newMockProviderWithTools("dup", 1)
-	p2 := newMockProviderWithTools("dup", 2) 
+	p2 := newMockProviderWithTools("dup", 2)
 
 	tooluse.RegisterToolProvider(p1)
 	tooluse.RegisterToolProvider(p2)
@@ -318,7 +310,7 @@ func TestAutoRegister_Nil(t *testing.T) {
 	tooluse.ClearAutoRegisteredProviders()
 	defer tooluse.ClearAutoRegisteredProviders()
 
-	tooluse.RegisterToolProvider(nil) 
+	tooluse.RegisterToolProvider(nil)
 	if len(tooluse.GetAutoRegisteredProviders()) != 0 {
 		t.Error("nil provider should be ignored")
 	}
@@ -338,20 +330,19 @@ func TestAutoRegister_GetReturnsCopy(t *testing.T) {
 	}
 }
 
-
 func TestBuiltinProviders_ProvideToolCount(t *testing.T) {
 
 	cases := []struct {
 		name        string
 		provider    tooluse.ToolProvider
-		expectDBErr bool 
-		expectCount int  
+		expectDBErr bool
+		expectCount int
 		requireDB   bool
 	}{
 		{
 			name:        "ReachToolProvider",
 			provider:    &ReachToolProvider{},
-			expectDBErr: true, 
+			expectDBErr: true,
 			requireDB:   true,
 		},
 		{
@@ -428,7 +419,6 @@ func TestBuiltinProviders_MetaData(t *testing.T) {
 	}
 }
 
-
 func TestAutoRegister_IntegrationWithProviderRegistry(t *testing.T) {
 	tooluse.ClearAutoRegisteredProviders()
 	defer tooluse.ClearAutoRegisteredProviders()
@@ -462,7 +452,6 @@ func TestAutoRegister_IntegrationWithProviderRegistry(t *testing.T) {
 	}
 }
 
-
 func TestProviderRegistry_ConcurrentRegister(t *testing.T) {
 	providerRegistry := tooluse.NewProviderRegistry()
 	const N = 20
@@ -492,7 +481,6 @@ func TestProviderRegistry_ConcurrentRegister(t *testing.T) {
 	}
 }
 
-
 func TestInitBuiltinToolProviders_RegistersAll(t *testing.T) {
 	registry := tooluse.NewProviderRegistry()
 	initBuiltinToolProviders(registry)
@@ -508,7 +496,6 @@ func TestInitBuiltinToolProviders_RegistersAll(t *testing.T) {
 	}
 }
 
-
 func TestProviderContext_ZeroValue(t *testing.T) {
 	var ctx tooluse.ProviderContext
 	if ctx.DB != nil {
@@ -519,18 +506,12 @@ func TestProviderContext_ZeroValue(t *testing.T) {
 	}
 }
 
-
-
-// 确保 mockProvider 实现 tooluse.ToolProvider 接口
 var _ tooluse.ToolProvider = (*mockProvider)(nil)
 
-// 确保 5 个内置 Provider 实现 tooluse.ToolProvider 接口
 var _ tooluse.ToolProvider = (*ReachToolProvider)(nil)
 var _ tooluse.ToolProvider = (*PrivateMessageToolProvider)(nil)
 var _ tooluse.ToolProvider = (*CustomerToolProvider)(nil)
 var _ tooluse.ToolProvider = (*KnowledgeToolProvider)(nil)
 var _ tooluse.ToolProvider = (*BusinessToolProvider)(nil)
 
-// 占位：避免 import "context" 未使用（如果未来添加 ctx 相关测试）
 var _ = context.Background
-

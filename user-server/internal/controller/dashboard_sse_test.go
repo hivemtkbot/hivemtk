@@ -1,6 +1,5 @@
 package controller
 
-
 import (
 	"bufio"
 	"context"
@@ -139,7 +138,7 @@ func TestSnapshot_HTTPEndpoint(t *testing.T) {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 	var resp struct {
-		Code int `json:"code"`
+		Code    int                        `json:"code"`
 		Data    *service.DashboardSnapshot `json:"data"`
 		Message string                     `json:"message"`
 	}
@@ -248,7 +247,6 @@ func TestWriteDashboardEvent(t *testing.T) {
 	}
 }
 
-// ginTestResponseWriter 包装 httptest.ResponseRecorder，补齐 gin.ResponseWriter 缺失的方法
 type ginTestResponseWriter struct {
 	*httptest.ResponseRecorder
 	closeNotify chan bool
@@ -296,4 +294,3 @@ func contains(s, substr string) bool {
 	}
 	return false
 }
-

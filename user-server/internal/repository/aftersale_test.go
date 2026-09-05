@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ---------- helpers ----------
-
 func setupAfterSaleRepo(t *testing.T) (*AfterSaleRepository, context.Context) {
 	t.Helper()
 	db := testutil.NewTestDB(t, &model.AfterSale{})
@@ -35,25 +33,19 @@ func newTestAfterSale() *model.AfterSale {
 	}
 }
 
-// ---------- NewAfterSaleRepository / SetDB ----------
-
 func TestAfterSale_NewAndSetDB(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.AfterSale{})
 	ctx := context.Background()
 
 	repo := NewAfterSaleRepository()
-	// SetDB 注入真实 DB
+
 	repo.SetDB(ctx, db)
 
-	// SetDB 传入 nil 不应覆盖已有 DB（源码 if db != nil）
 	repo.SetDB(ctx, nil)
 
-	// 后续 Create 正常通过即可证明 DB 已注入
 	err := repo.Create(ctx, newTestAfterSale())
 	require.NoError(t, err)
 }
-
-// ---------- Create ----------
 
 func TestAfterSale_Create(t *testing.T) {
 	repo, ctx := setupAfterSaleRepo(t)
@@ -63,7 +55,6 @@ func TestAfterSale_Create(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotZero(t, as.ID, "Create 后 ID 应被自动填充")
 
-	// 再次读取验证持久化
 	got, err := repo.GetByID(ctx, as.ID)
 	require.NoError(t, err)
 	assert.Equal(t, as.Platform, got.Platform)
@@ -72,8 +63,6 @@ func TestAfterSale_Create(t *testing.T) {
 	assert.Equal(t, as.Amount, got.Amount)
 	assert.Equal(t, "pending", got.Status)
 }
-
-// ---------- GetByID ----------
 
 func TestAfterSale_GetByID_Found(t *testing.T) {
 	repo, ctx := setupAfterSaleRepo(t)
@@ -94,8 +83,6 @@ func TestAfterSale_GetByID_NotFound(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, got)
 }
-
-// ---------- Update ----------
 
 func TestAfterSale_Update(t *testing.T) {
 	repo, ctx := setupAfterSaleRepo(t)
@@ -119,17 +106,14 @@ func TestAfterSale_Update_NonExistent(t *testing.T) {
 
 	as := newTestAfterSale()
 	as.ID = 99999
-	// Save 一个不存在的记录会 INSERT 一条新记录（GORM Save 行为），这里只验证不 panic
+
 	err := repo.Update(ctx, as)
 	assert.NoError(t, err)
 }
 
-// ---------- ListByOrder ----------
-
 func TestAfterSale_ListByOrder_Match(t *testing.T) {
 	repo, ctx := setupAfterSaleRepo(t)
 
-	// 创建 2 条同平台同订单，和 1 条不同平台的
 	a1 := newTestAfterSale()
 	a2 := newTestAfterSale()
 	a3 := newTestAfterSale()
@@ -142,7 +126,7 @@ func TestAfterSale_ListByOrder_Match(t *testing.T) {
 	list, err := repo.ListByOrder(ctx, "taobao", "TB-20260831-001")
 	require.NoError(t, err)
 	assert.Len(t, list, 2)
-	// Order("id DESC") 验证排序
+
 	assert.GreaterOrEqual(t, list[0].ID, list[1].ID)
 }
 
@@ -153,8 +137,6 @@ func TestAfterSale_ListByOrder_NoMatch(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, list, 0)
 }
-
-// ---------- ListByCustomer ----------
 
 func TestAfterSale_ListByCustomer_WithPhone(t *testing.T) {
 	repo, ctx := setupAfterSaleRepo(t)
@@ -180,7 +162,6 @@ func TestAfterSale_ListByCustomer_EmptyPhone_ReturnAll(t *testing.T) {
 	other.CustomerPhone = "13900139000"
 	require.NoError(t, repo.Create(ctx, other))
 
-	// phone 为空 → 源码不追加 WHERE，返回全表
 	list, err := repo.ListByCustomer(ctx, "")
 	require.NoError(t, err)
 	assert.Len(t, list, 2)

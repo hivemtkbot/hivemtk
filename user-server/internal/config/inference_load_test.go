@@ -9,7 +9,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-
 // TestDefaultInferenceConfig 验证 DefaultInferenceConfig() 返回值的契约
 //
 // 当 config.yaml 缺失时（如 Docker 首次启动），GetAppConfig 会回落到此默认值。
@@ -112,18 +111,6 @@ func TestDefaultInferenceConfig(t *testing.T) {
 	})
 }
 
-// TestInferenceConfigLoads 集成测试：验证 user-server/config.yaml 的 inference 段契约
-//
-// 从 user-server 根目录读取 config.yaml（相对本包 2 级上；ADR-012 迁移后层级变化）。
-// dev 档统一切到 bge-m3 + bge-reranker-v2-m3 + Qwen2.5-1.5B-Instruct。
-//
-// 本测试与 DefaultInferenceConfig 的关系：
-//   - DefaultInferenceConfig 是 config.yaml 缺失时的回落，两者值应保持一致
-//   - 本测试额外验证实际 config.yaml 的字段完整性与私域基线
-// isPrivateDomainBaseURL 判定推理 base_url 是否落在私域内（不出域）。
-// 三种合法形态：宿主机直跑 127.0.0.1 / localhost，Docker 容器经 host.docker.internal
-// 直连宿主机 llama.cpp，以及容器内服务名 mtk-llm / mtk-embedding / mtk-rerank。
-// 私域基线的实质是「禁止云端/外部 API」，而非禁止某种部署形态。
 func isPrivateDomainBaseURL(u string) bool {
 	lower := strings.ToLower(u)
 	return strings.Contains(lower, "127.0.0.1") ||
@@ -188,8 +175,7 @@ func TestInferenceConfigLoads(t *testing.T) {
 		if !isPrivateDomainBaseURL(c.Inference.LLM.BaseURL) {
 			t.Errorf("llm base_url 必须落在私域内（127.0.0.1/localhost/host.docker.internal/mtk-*），实际 %s", c.Inference.LLM.BaseURL)
 		}
-		// llm.mode 允许 local 或 remote：config.yaml 是部署配置，主推理 provider 以
-		// DB llm_providers（运行时真相）为准；私域基线的「不出域」由 base_url 断言保证。
+
 		if c.Inference.LLM.Mode != InferenceModeLocal && c.Inference.LLM.Mode != InferenceModeRemote {
 			t.Errorf("llm mode 应为 local 或 remote，实际 %s", c.Inference.LLM.Mode)
 		}
@@ -266,4 +252,3 @@ func TestInferenceConfigLoads(t *testing.T) {
 		}
 	})
 }
-

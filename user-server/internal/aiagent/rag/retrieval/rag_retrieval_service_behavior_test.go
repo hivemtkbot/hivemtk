@@ -194,7 +194,7 @@ func TestRagRetrievalServiceImpl_matchFilters(t *testing.T) {
 	assert.True(t, service.matchFilters(chunk, map[string]any{"num": 3}))
 	assert.True(t, service.matchFilters(chunk, map[string]any{"rate": 0.9}))
 	assert.False(t, service.matchFilters(chunk, map[string]any{"rate": 0.1}))
-	assert.True(t, service.matchFilters(chunk, map[string]any{})) 
+	assert.True(t, service.matchFilters(chunk, map[string]any{}))
 }
 
 // TestRagRetrievalServiceImpl_rankResults 按分数降序
@@ -215,4 +215,3 @@ func TestRagRetrievalServiceImpl_calculateConfidence(t *testing.T) {
 	assert.Greater(t, mid, 0.5)
 	assert.Less(t, mid, 1.0)
 }
-

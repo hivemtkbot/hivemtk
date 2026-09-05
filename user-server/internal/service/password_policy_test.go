@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupPasswordPolicyTestDB 准备密码策略测试库
 func setupPasswordPolicyTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	database := testutil.NewTestDB(t,
@@ -270,7 +269,6 @@ func TestRecordPasswordHistory(t *testing.T) {
 		t.Fatalf("RecordPasswordHistory 失败: %v", err)
 	}
 
-	// 验证 DB 中有记录
 	var histories []model.PasswordHistory
 	if err := database.Where("user_id = ?", user.ID).Find(&histories).Error; err != nil {
 		t.Fatalf("查询历史失败: %v", err)

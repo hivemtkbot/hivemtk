@@ -24,10 +24,10 @@ type CardChatTemplateData struct {
 	ImageURL      string
 	Tags          string
 	TagList       []string
-	Platform      string 
-	PlatformLabel string 
-	ThemeColor    string 
-	ChatURL       string 
+	Platform      string
+	PlatformLabel string
+	ThemeColor    string
+	ChatURL       string
 }
 
 // LiveCodeTemplateData 活码模板数据
@@ -210,8 +210,7 @@ func ParseTagList(tags string) []string {
 // GenerateCardChatPage 生成卡片聊天页（抖音 / 快手 / 小红书 / 闲鱼 四平台统一模板）
 func (s *TemplateService) GenerateCardChatPage(data *CardChatTemplateData) (string, error) {
 	tmplPath := filepath.Join(s.templateDir, "card_chat.html")
-	tmpl, err := template.New("card_chat.html").Funcs(template.FuncMap{
-	}).ParseFiles(tmplPath)
+	tmpl, err := template.New("card_chat.html").Funcs(template.FuncMap{}).ParseFiles(tmplPath)
 	if err != nil {
 		return "", err
 	}
@@ -242,4 +241,3 @@ func (s *TemplateService) RenderCardChatPage(platform string, cardID uint, title
 	}
 	return s.GenerateCardChatPage(data)
 }
-

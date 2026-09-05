@@ -11,8 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ---- 路径级限流配额 ----
-
 // PathQuotaConfig 单路径限流配置
 type PathQuotaConfig struct {
 	Path       string  `json:"path"`
@@ -23,21 +21,20 @@ type PathQuotaConfig struct {
 // DefaultPathQuota 默认路径级配额
 var DefaultPathQuota = map[string]PathQuotaConfig{
 	"/api/integrations/external-orders-by-customer": {RPS: 5, BucketSize: 20},
-	"/api/ai-suggestions":                            {RPS: 3, BucketSize: 10},
-	"/api/monitor/trace-eval/trigger":                {RPS: 1, BucketSize: 5},
-	"/api/reach":                                     {RPS: 50, BucketSize: 500},
+	"/api/ai-suggestions":                           {RPS: 3, BucketSize: 10},
+	"/api/monitor/trace-eval/trigger":               {RPS: 1, BucketSize: 5},
+	"/api/reach":                                    {RPS: 50, BucketSize: 500},
 }
 
-// quotaUsageSnapshot 记录某路径当前分钟的用量
 type quotaUsageSnapshot struct {
-	Path          string    `json:"path"`
-	ConfiguredRPS float64   `json:"configured_rps"`
-	ConfiguredBurst int     `json:"configured_burst"`
-	CurrentMinute int64     `json:"current_minute"`
-	Used          int64     `json:"used"`
-	Remaining     int64     `json:"remaining"`
-	Triggered     int64     `json:"triggered"` // 累计 429 次数
-	LastTriggered *time.Time `json:"last_triggered,omitempty"`
+	Path            string     `json:"path"`
+	ConfiguredRPS   float64    `json:"configured_rps"`
+	ConfiguredBurst int        `json:"configured_burst"`
+	CurrentMinute   int64      `json:"current_minute"`
+	Used            int64      `json:"used"`
+	Remaining       int64      `json:"remaining"`
+	Triggered       int64      `json:"triggered"`
+	LastTriggered   *time.Time `json:"last_triggered,omitempty"`
 }
 
 // PathQuotaMiddleware 路径级限流中间件
@@ -52,7 +49,7 @@ func PathQuotaMiddleware() gin.HandlerFunc {
 		}
 		clientKey := "path:" + path
 		if !globalRateLimiter.Allow(c.Request.Context(), clientKey) {
-			// 记录到 Redis (异步打点，不阻塞响应)
+
 			go recordQuotaTrigger(path, c.ClientIP())
 			c.JSON(429, gin.H{
 				"code":        429,
@@ -68,13 +65,12 @@ func PathQuotaMiddleware() gin.HandlerFunc {
 	}
 }
 
-// recordQuotaTrigger 异步记录一次限流触发事件（Redis + 可选 DB 落地）
 func recordQuotaTrigger(path, clientIP string) {
 	if !cache.GlobalIsRedis() {
 		return
 	}
 	c := cache.GetGlobalCache()
-	// 路径级累计触发次数（全天窗口）
+
 	key := "mtk:ratelimit:triggered:" + path
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -92,10 +88,10 @@ func GetQuotaSnapshots() []quotaUsageSnapshot {
 
 	for path, cfg := range DefaultPathQuota {
 		snap := quotaUsageSnapshot{
-			Path:           path,
-			ConfiguredRPS:  cfg.RPS,
+			Path:            path,
+			ConfiguredRPS:   cfg.RPS,
 			ConfiguredBurst: cfg.BucketSize,
-			CurrentMinute:  minute,
+			CurrentMinute:   minute,
 		}
 
 		if isRedis {
@@ -107,7 +103,7 @@ func GetQuotaSnapshots() []quotaUsageSnapshot {
 				fmt.Sscanf(val, "%d", &used)
 				snap.Used = used
 			}
-			// 触发次数全天
+
 			triggeredKey := "mtk:ratelimit:triggered:" + path
 			tv, err := c.Get(context.Background(), triggeredKey)
 			if err == nil && tv != "" {

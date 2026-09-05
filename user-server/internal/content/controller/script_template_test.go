@@ -310,4 +310,3 @@ func TestScriptTemplateController_DeleteTemplate_Success(t *testing.T) {
 		t.Errorf("Expected 200, got %d. Body: %s", deleteW.Code, deleteW.Body.String())
 	}
 }
-

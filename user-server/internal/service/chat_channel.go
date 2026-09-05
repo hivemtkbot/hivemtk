@@ -308,7 +308,6 @@ func (s *ChatChannelService) GetOrCreateDefaultChannel(ctx context.Context) (*mo
 	return channel, nil
 }
 
-// cardChannelMeta 卡片渠道元数据（4 平台统一）
 type cardChannelMeta struct {
 	PlatformLabel string
 	ThemeColor    string
@@ -421,7 +420,6 @@ func (s *ChatChannelService) IncrementSessionCount(ctx context.Context, channelI
 	return s.repo.IncrementSessionCount(ctx, channelID)
 }
 
-// appKeyAlphabet AppKey 字符表（去歧义字符：0/O/1/l/I）
 const appKeyAlphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789"
 
 func generateAppKey() (string, error) {
@@ -447,19 +445,11 @@ func generateAppSecret() (string, error) {
 	return "sk_" + hex.EncodeToString(buf), nil
 }
 
-// hashAppSecret 计算 AppSecret 哈希
 func hashAppSecret(secret string) string {
 	h := sha256.Sum256([]byte(secret))
 	return hex.EncodeToString(h[:])
 }
 
-// ragProductIDStringToUint 把 RAG 产品 ID 字符串(UUID 等)稳定映射到 uint
-//
-// 实现：FNV-1a 64-bit hash 截断到 uint。空字符串返回 0。
-// 设计动机：chat_channel 表的 default_rag_product_id 是 uint 字段（历史 schema 约束），
-// 而 RagProduct.ID 是 string（UUID）。为了既保留历史 schema 兼容又支持 UUID 入参，
-// 这里采用稳定 hash 方案。优点：相同输入始终映射到相同 uint，便于跨重启关联；
-// 缺点：极端碰撞概率存在（可忽略）。
 func ragProductIDStringToUint(s string) uint {
 	if s == "" {
 		return 0
@@ -491,5 +481,4 @@ func defaultIfEmpty(s, def string) string {
 	return s
 }
 
-// 等待时间以避免 Go vet 警告
 var _ = time.Second

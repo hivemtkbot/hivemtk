@@ -9,7 +9,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// setupBlacklistServiceTestDB 初始化测试数据库（包含 customer_sessions + user_blacklist）
 func setupBlacklistServiceTestDB(t *testing.T) {
 	database := testutil.NewTestDB(t,
 		&model.CustomerSession{},
@@ -442,7 +441,6 @@ func TestPreCreateBlacklistGuard_Direct(t *testing.T) {
 	}
 }
 
-// contains 简单子串匹配（避免引入 strings 包与现有 import 冲突）
 func contains(s, sub string) bool {
 	if len(sub) == 0 {
 		return true

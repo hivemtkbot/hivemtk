@@ -76,8 +76,8 @@ type AgentInfo struct {
 	AgentName  string
 	Skills     []string
 	Online     bool
-	ActiveSess int // 正在进行的会话数
-	Capacity   int // 最大同时会话数
+	ActiveSess int
+	Capacity   int
 	LastAssign time.Time
 }
 
@@ -107,7 +107,6 @@ func (s *AssignmentService) AssignWithOwner(ctx context.Context, sess *model.Cus
 		return nil, errors.New("无可用坐席")
 	}
 
-	// 过滤：在线 + 未达上限
 	available := make([]AgentInfo, 0, len(candidates))
 	for _, a := range candidates {
 		if !a.Online {
@@ -122,7 +121,6 @@ func (s *AssignmentService) AssignWithOwner(ctx context.Context, sess *model.Cus
 		return nil, errors.New("所有坐席均已满载或离线")
 	}
 
-	// 0. S-4 专属坐席定向路由：owner 在可用集合内则直接命中
 	if ownerID > 0 {
 		for _, a := range available {
 			if a.AgentID == ownerID {
@@ -135,10 +133,9 @@ func (s *AssignmentService) AssignWithOwner(ctx context.Context, sess *model.Cus
 				}, nil
 			}
 		}
-		// owner 不在线/满载 → 回退现有算法
+
 	}
 
-	// 1. 优先匹配 skill
 	needSkills := extractSessionSkills(sess)
 	if len(needSkills) > 0 {
 		skillMatched := filterBySkills(available, needSkills)
@@ -147,13 +144,12 @@ func (s *AssignmentService) AssignWithOwner(ctx context.Context, sess *model.Cus
 		}
 	}
 
-	// 2. 排序：least_busy（最闲）+ 技能匹配
 	sort.SliceStable(available, func(i, j int) bool {
-		// 主排序：活跃会话数（少者优先）
+
 		if available[i].ActiveSess != available[j].ActiveSess {
 			return available[i].ActiveSess < available[j].ActiveSess
 		}
-		// 次排序：上次分配时间（早者优先，轮询效果）
+
 		return available[i].LastAssign.Before(available[j].LastAssign)
 	})
 
@@ -191,7 +187,6 @@ func (s *AssignmentService) AssignWithStrategy(ctx context.Context, sess *model.
 	return s.Assign(ctx, sess, candidates)
 }
 
-// assignRoundRobin 轮转分配：在可用坐席中按 LastAssign 时间最早者优先（稳定排序保证同刻 FIFO）。
 func (s *AssignmentService) assignRoundRobin(sess *model.CustomerSession, candidates []AgentInfo) (*AssignmentDecision, error) {
 	available := make([]AgentInfo, 0, len(candidates))
 	for _, a := range candidates {
@@ -221,7 +216,7 @@ func (s *AssignmentService) assignRoundRobin(sess *model.CustomerSession, candid
 }
 
 func extractSessionSkills(sess *model.CustomerSession) []string {
-	// 简化为按 platform + customer_tier 推断所需技能
+
 	var skills []string
 	switch sess.Platform {
 	case "wechat", "wecom":
@@ -235,10 +230,6 @@ func extractSessionSkills(sess *model.CustomerSession) []string {
 	return skills
 }
 
-// resolveOwnerAgentID S-4：解析会话客户的专属坐席（customers.owner_agent_id）。
-//
-// 身份匹配：优先 OneID（= customers.unified_id），为空回退 UserID。
-// 任何失败（未绑定/查询错误）返回 0，调用方回退现有算法——定向路由是增强而非依赖。
 func (s *AssignmentService) resolveOwnerAgentID(ctx context.Context, sess *model.CustomerSession) uint {
 	if s == nil || s.db == nil || sess == nil {
 		return 0

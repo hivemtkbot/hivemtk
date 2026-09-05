@@ -26,8 +26,8 @@ func TestPlanSend_ShortText(t *testing.T) {
 // TestPlanSend_LongText 验证长文本按句末标点分条
 func TestPlanSend_LongText(t *testing.T) {
 	cfg := DefaultBehaviorConfig()
-	cfg.EnableTypingDelay = false // 关闭延迟便于断言
-	// 构造 > 80 字符的多句文本（使用最常见标点 . ! ?）
+	cfg.EnableTypingDelay = false
+
 	text := "您好！我是智能助手，可以帮您处理订单查询、物流跟踪、退款申请、售后服务等常见问题。请您简要描述下您当前遇到的具体情况。我会立即为您查询相关数据并提供详细的解决方案，期待您的回复！祝您生活愉快！"
 	if len([]rune(text)) <= cfg.SplitThresholdChars {
 		t.Fatalf("test text must be > %d chars, got %d", cfg.SplitThresholdChars, len([]rune(text)))
@@ -36,7 +36,7 @@ func TestPlanSend_LongText(t *testing.T) {
 	if len(plan.Messages) < 2 {
 		t.Errorf("long text should split, got %d messages: %v", len(plan.Messages), plan.Messages)
 	}
-	// 重组应等于原文
+
 	reconstructed := strings.Join(plan.Messages, "")
 	if reconstructed != text {
 		t.Errorf("reconstruction mismatch:\n  got:  %q\n  want: %q", reconstructed, text)
@@ -48,7 +48,7 @@ func TestPlanSend_FirstMessage_NoThinkingPause(t *testing.T) {
 	cfg := DefaultBehaviorConfig()
 	cfg.EnableTypingDelay = true
 	cfg.ThinkingPauseSec = 5.0
-	cfg.TypingSpeedCPS = 100 // 100 cps → "你" 字只 0.01s
+	cfg.TypingSpeedCPS = 100
 	plan := PlanSend("你", cfg, true, nil)
 	if plan.TotalDelay > 0.5 {
 		t.Errorf("first message should not have thinking pause, got delay=%v", plan.TotalDelay)
@@ -60,7 +60,7 @@ func TestPlanSend_Continuation_HasThinkingPause(t *testing.T) {
 	cfg := DefaultBehaviorConfig()
 	cfg.EnableTypingDelay = true
 	cfg.ThinkingPauseSec = 3.0
-	cfg.TypingSpeedCPS = 1000 // 极快，1 字符仅 0.001s
+	cfg.TypingSpeedCPS = 1000
 	plan := PlanSend("x", cfg, false, nil)
 	if plan.TotalDelay < 2.5 || plan.TotalDelay > 3.5 {
 		t.Errorf("continuation should have thinking pause ~3s, got %v", plan.TotalDelay)
@@ -72,12 +72,12 @@ func TestPlanSend_SplitInterval_Respected(t *testing.T) {
 	cfg := DefaultBehaviorConfig()
 	cfg.EnableTypingDelay = true
 	cfg.SplitMinIntervalSec = 2.0
-	cfg.TypingSpeedCPS = 10000 // 极快，间隔时间可观察
+	cfg.TypingSpeedCPS = 10000
 	text := "第一句。第二句！"
 	plan := PlanSend(text, cfg, true, rand.New(rand.NewSource(42)))
 	if len(plan.Messages) >= 2 {
 		for i, iv := range plan.Intervals {
-			if iv < 1.6 || iv > 2.4 { // 允许 ±20% jitter
+			if iv < 1.6 || iv > 2.4 {
 				t.Errorf("interval[%d]=%v out of range [1.6, 2.4]", i, iv)
 			}
 		}
@@ -118,7 +118,7 @@ func TestShouldSplit(t *testing.T) {
 
 // TestSplitByPunctuation_Merge 验证过短段合并
 func TestSplitByPunctuation_Merge(t *testing.T) {
-	// 单字符 "你" 单独成段应被合并
+
 	text := "你好。x。"
 	segments := splitByPunctuation(text, rand.New(rand.NewSource(1)))
 	for _, s := range segments {
@@ -150,11 +150,11 @@ func TestTypingTime(t *testing.T) {
 	if dt := typingTime("hello", 25.0); math.Abs(dt-0.2) > 1e-9 {
 		t.Errorf("5 chars at 25 cps should be 0.2s, got %v", dt)
 	}
-	// 0 速度兜底
+
 	if dt := typingTime("hello", 0); dt <= 0 {
 		t.Error("zero speed should fall back to 25 cps")
 	}
-	// 负速度兜底
+
 	if dt := typingTime("hello", -1); dt <= 0 {
 		t.Error("negative speed should fall back to 25 cps")
 	}
@@ -171,14 +171,14 @@ func TestInjectTypos_ProbabilityZero(t *testing.T) {
 
 // TestInjectTypos_AllAscii 验证 ASCII 字母被随机替换
 func TestInjectTypos_AllAscii(t *testing.T) {
-	text := "aaaaaaaaaa" // 10 个 a
+	text := "aaaaaaaaaa"
 	rng := rand.New(rand.NewSource(1))
 	changed := 0
 	for i := 0; i < 100; i++ {
-		out := injectTypos(text, 1.0, rng) // 100% 概率
+		out := injectTypos(text, 1.0, rng)
 		if out != text {
 			changed++
-			// 验证只改 a 为相邻键（qwerty 中 a 的相邻是 s）
+
 			for _, r := range out {
 				if r != 'a' && r != 's' {
 					t.Errorf("expected a or s, got %q", r)

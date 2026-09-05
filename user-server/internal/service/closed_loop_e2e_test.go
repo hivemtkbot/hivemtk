@@ -12,7 +12,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// setupE2EStats 创建 DB 权威销售事件统计服务（无 PG 时测试自动跳过）
 func setupE2EStats(t *testing.T) *SalesEventStatsService {
 	database := testutil.NewTestDB(t,
 		&model.SalesEvent{},
@@ -326,7 +325,6 @@ func TestE2E_OrderIntent_AutoExtract(t *testing.T) {
 	t.Logf("✅ 订单意向闭环通过：%d 个动作触发", len(rec.Actions))
 }
 
-// modelDialogueMemoryFixture 构造测试用 DialogueMemory
 func modelDialogueMemoryFixture(customerID, demand, budget string) modelDialogueMemoryT {
 	return modelDialogueMemoryT{
 		CustomerID: customerID,
@@ -335,5 +333,4 @@ func modelDialogueMemoryFixture(customerID, demand, budget string) modelDialogue
 	}
 }
 
-// modelDialogueMemoryT 测试用 DialogueMemory（P0-7 后 SalesResponse.Memory 为 dto 镜像类型）
 type modelDialogueMemoryT = dto.DialogueMemory

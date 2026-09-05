@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupABExperimentServiceTestDB 设置测试数据库
 func setupABExperimentServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.ABExperiment{},
@@ -24,7 +23,6 @@ func setupABExperimentServiceTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupABExperimentService 设置测试服务
 func setupABExperimentService(t *testing.T) *ABExperimentService {
 	setupABExperimentServiceTestDB(t)
 	return NewABExperimentService()
@@ -430,7 +428,7 @@ func TestABExperimentService_hashSourceID(t *testing.T) {
 	hash1 := service.hashSourceID("test123")
 	hash2 := service.hashSourceID("test123")
 	hash3 := service.hashSourceID("test456")
-	_ = hash3 
+	_ = hash3
 
 	if hash1 != hash2 {
 		t.Error("Same input should produce same hash")
@@ -467,7 +465,7 @@ func TestABExperimentService_RecordConversion_Success(t *testing.T) {
 		variant.ID,
 		"purchase",
 		"click",
-		9999, 
+		9999,
 		"user_123",
 		metadata,
 	)
@@ -638,7 +636,7 @@ func TestABExperimentService_GetConversionEvents_Success(t *testing.T) {
 		VariantID:    variants[0].ID,
 		EventName:    "purchase",
 		EventType:    "click",
-		EventValue:   9999, 
+		EventValue:   9999,
 		UserID:       "user_123",
 	}
 	service.conversionRepo.Create(event)
@@ -655,4 +653,3 @@ func TestABExperimentService_GetConversionEvents_Success(t *testing.T) {
 		t.Errorf("Expected 1 event, got %d", len(events))
 	}
 }
-

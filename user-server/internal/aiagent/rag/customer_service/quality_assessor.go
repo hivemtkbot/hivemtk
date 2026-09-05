@@ -14,11 +14,11 @@ type QualityAssessorImpl struct {
 
 // QualityAssessmentConfig 质量评估配置
 type QualityAssessmentConfig struct {
-	RelevanceWeight   float64 `json:"relevance_weight"`   
-	AccuracyWeight    float64 `json:"accuracy_weight"`    
-	CoherenceWeight   float64 `json:"coherence_weight"`   
-	HelpfulnessWeight float64 `json:"helpfulness_weight"` 
-	MinimumScore      float64 `json:"minimum_score"`      
+	RelevanceWeight   float64 `json:"relevance_weight"`
+	AccuracyWeight    float64 `json:"accuracy_weight"`
+	CoherenceWeight   float64 `json:"coherence_weight"`
+	HelpfulnessWeight float64 `json:"helpfulness_weight"`
+	MinimumScore      float64 `json:"minimum_score"`
 }
 
 // NewQualityAssessorImpl 创建新的质量评估器
@@ -158,7 +158,6 @@ func (qa *QualityAssessorImpl) GetQualityMetrics(ctx context.Context, sessionID 
 	return metrics, nil
 }
 
-// calculateSemanticSimilarity 计算语义相似度
 func calculateSemanticSimilarity(text1, text2 string) float64 {
 	set1 := createWordSet(text1)
 	set2 := createWordSet(text2)
@@ -172,7 +171,7 @@ func calculateSemanticSimilarity(text1, text2 string) float64 {
 	}
 
 	intersection := 0
-	union := len(set2) 
+	union := len(set2)
 
 	for word := range set1 {
 		if set2[word] {
@@ -189,7 +188,6 @@ func calculateSemanticSimilarity(text1, text2 string) float64 {
 	return float64(intersection) / float64(union)
 }
 
-// createWordSet 创建词汇集合
 func createWordSet(text string) map[string]bool {
 	words := strings.Fields(strings.ToLower(text))
 	wordSet := make(map[string]bool)
@@ -204,7 +202,6 @@ func createWordSet(text string) map[string]bool {
 	return wordSet
 }
 
-// extractKeywords 提取关键词
 func extractKeywords(text string) []string {
 	words := strings.Fields(text)
 	var keywords []string
@@ -228,7 +225,6 @@ func extractKeywords(text string) []string {
 	return keywords
 }
 
-// extractReferenceSources 从搜索结果中提取参考源
 func extractReferenceSources(results []any) []string {
 	var sources []string
 
@@ -245,16 +241,14 @@ func extractReferenceSources(results []any) []string {
 	return sources
 }
 
-// calculateConsistencyScore 计算一致性分数
 func calculateConsistencyScore(response string, referenceSources []string) float64 {
 	if len(referenceSources) == 0 {
-		return 0.5 
+		return 0.5
 	}
 
 	return 0.8
 }
 
-// calculateCoherenceScore 计算连贯性分数
 func calculateCoherenceScore(response string) float64 {
 	if response == "" {
 		return 0.0
@@ -281,7 +275,6 @@ func calculateCoherenceScore(response string) float64 {
 	return finalScore
 }
 
-// splitIntoSentences 分割句子
 func splitIntoSentences(text string) []string {
 	separators := []string{".", "!", "?", "。", "！", "？"}
 
@@ -303,7 +296,6 @@ func splitIntoSentences(text string) []string {
 	return cleanedSentences
 }
 
-// evaluateSentenceCoherence 评估单个句子的连贯性
 func evaluateSentenceCoherence(sentence string) float64 {
 	words := strings.Fields(sentence)
 
@@ -313,7 +305,7 @@ func evaluateSentenceCoherence(sentence string) float64 {
 
 	meaningfulWords := 0
 	for _, word := range words {
-		if len([]rune(word)) > 1 { 
+		if len([]rune(word)) > 1 {
 			meaningfulWords++
 		}
 	}
@@ -327,33 +319,31 @@ func evaluateSentenceCoherence(sentence string) float64 {
 	return finalScore
 }
 
-// calculateLengthScore 计算长度分数
 func calculateLengthScore(length int) float64 {
 	if length < 2 {
-		return 0.1 
+		return 0.1
 	}
 	if length > 50 {
-		return 0.3 
+		return 0.3
 	}
 	if length >= 5 && length <= 20 {
-		return 1.0 
+		return 1.0
 	}
 
-	distance := math.Abs(float64(length) - 12.5) 
-	maxDistance := 37.5                          
+	distance := math.Abs(float64(length) - 12.5)
+	maxDistance := 37.5
 	normalizedDistance := distance / maxDistance
 
 	return 1.0 - normalizedDistance
 }
 
-// evaluateStructureCoherence 评估结构连贯性
 func evaluateStructureCoherence(sentences []string) float64 {
 	if len(sentences) == 0 {
 		return 0.0
 	}
 
 	if len(sentences) == 1 {
-		return 0.8 
+		return 0.8
 	}
 
 	connectedSentences := 0
@@ -372,7 +362,6 @@ func evaluateStructureCoherence(sentences []string) float64 {
 	return connectionRatio
 }
 
-// hasConnection 检查两个句子之间是否有连接
 func hasConnection(prev, curr string) bool {
 	prevWords := createWordSet(prev)
 	currWords := createWordSet(curr)
@@ -387,7 +376,6 @@ func hasConnection(prev, curr string) bool {
 	return sharedCount > 0
 }
 
-// evaluateHelpfulness 评估有用性
 func (qa *QualityAssessorImpl) evaluateHelpfulness(response, query string) float64 {
 	if response == "" || query == "" {
 		return 0.0
@@ -402,7 +390,6 @@ func (qa *QualityAssessorImpl) evaluateHelpfulness(response, query string) float
 
 	detailed := qa.isDetailedEnough(response)
 
-	// 综合评估
 	var helpfulness float64
 	if answered {
 		helpfulness += 0.5
@@ -417,7 +404,6 @@ func (qa *QualityAssessorImpl) evaluateHelpfulness(response, query string) float
 	return helpfulness
 }
 
-// directlyAnswersQuestion 检查是否直接回答问题
 func (qa *QualityAssessorImpl) directlyAnswersQuestion(response, query string) bool {
 	queryWords := strings.Fields(query)
 	responseWords := createWordSet(response)
@@ -433,7 +419,6 @@ func (qa *QualityAssessorImpl) directlyAnswersQuestion(response, query string) b
 	return float64(matchedKeywords)/float64(len(queryWords)) > 0.5
 }
 
-// containsUsefulInformation 检查是否包含有用信息
 func (qa *QualityAssessorImpl) containsUsefulInformation(response string) bool {
 	usefulPatterns := []string{
 		"电话", "微信", "地址", "时间", "价格", "费用", "数量", "日期", "号码",
@@ -456,7 +441,6 @@ func (qa *QualityAssessorImpl) containsUsefulInformation(response string) bool {
 	return false
 }
 
-// isDetailedEnough 检查回复是否足够详细
 func (qa *QualityAssessorImpl) isDetailedEnough(response string) bool {
 	words := strings.Fields(response)
 
@@ -464,4 +448,3 @@ func (qa *QualityAssessorImpl) isDetailedEnough(response string) bool {
 
 	return len(words) >= minWords
 }
-

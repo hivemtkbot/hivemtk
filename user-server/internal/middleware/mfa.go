@@ -19,11 +19,9 @@ const MFAVerifyContextKey = "mfa_verified"
 
 const (
 	mfaRecentVerifyTTL    = 5 * time.Minute
-	mfaRecentVerifyKeyFmt = "mfa:verified:%d" // key: mfa:verified:<user_id>
+	mfaRecentVerifyKeyFmt = "mfa:verified:%d"
 )
 
-// mfaRecentVerify 内存缓存（OPT-ARC-12 二期：与 Redis 双写）
-// 多副本部署时，优先读 Redis，Redis 不可达时回退内存
 var (
 	mfaRecentVerify      = make(map[uint]time.Time)
 	mfaRecentVerifyMutex sync.RWMutex
@@ -37,28 +35,22 @@ var (
 func MarkMFAVerified(userID uint) {
 	now := time.Now()
 
-	// 1) Redis 主写
 	key := fmt.Sprintf(mfaRecentVerifyKeyFmt, userID)
 	if err := cache.GetGlobalCache().Set(context.Background(), key, now.Unix(), mfaRecentVerifyTTL); err != nil {
 		logger.Warnf("MarkMFAVerified Redis Set failed, fallback to memory: %v", err)
-		// 2) Redis 失败时内存回退
+
 		mfaRecentVerifyMutex.Lock()
 		mfaRecentVerify[userID] = now
 		mfaRecentVerifyMutex.Unlock()
 	}
 
-	// v3 审计 P1-23 修复：cleanup 改为启动期单次 + 周期触发
-	// 原：每次 MarkMFAVerified 都 go func()，高频下产生大量 goroutine 阻塞持锁清理
-	// 新：sync.Once + 周期 ticker，所有实例共享同一个 cleanup goroutine
 	mfaCleanupTrigger.Do(func() {
 		go mfaCleanupLoop()
 	})
 }
 
-// mfaCleanupTrigger 防止重复启动 cleanup goroutine
 var mfaCleanupTrigger sync.Once
 
-// mfaCleanupLoop 周期清理过期 MFA 记录（启动期一次性启动）
 func mfaCleanupLoop() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
@@ -70,11 +62,11 @@ func mfaCleanupLoop() {
 // IsMFAVerifiedRecently 检查用户最近 5 分钟内是否通过 MFA 验证
 // OPT-ARC-12：优先读 Redis（多副本共享），失败回退内存
 func IsMFAVerifiedRecently(userID uint) bool {
-	// 1) Redis 优先
+
 	key := fmt.Sprintf(mfaRecentVerifyKeyFmt, userID)
 	val, err := cache.GetGlobalCache().Get(context.Background(), key)
 	if err == nil && val != "" {
-		// 解析时间戳
+
 		var ts int64
 		if _, scanErr := fmt.Sscanf(val, "%d", &ts); scanErr == nil {
 			verifiedAt := time.Unix(ts, 0)
@@ -84,7 +76,6 @@ func IsMFAVerifiedRecently(userID uint) bool {
 		}
 	}
 
-	// 2) Redis 失败/未命中 → 内存回退
 	mfaRecentVerifyMutex.RLock()
 	t, ok := mfaRecentVerify[userID]
 	mfaRecentVerifyMutex.RUnlock()
@@ -94,7 +85,6 @@ func IsMFAVerifiedRecently(userID uint) bool {
 	return time.Since(t) < mfaRecentVerifyTTL
 }
 
-// cleanupExpiredMFAVerified 清理过期内存记录（仅在 Redis 失败的实例上累积）
 func cleanupExpiredMFAVerified() {
 	mfaRecentVerifyMutex.Lock()
 	defer mfaRecentVerifyMutex.Unlock()

@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"errors"
@@ -11,13 +10,12 @@ import (
 	"hivemtk-user/internal/aiagent/llm"
 )
 
-// mockEmbeddingService mock llm.EmbeddingServiceInterface
 type mockEmbeddingService struct {
 	mu       sync.Mutex
 	called   int
 	lastText []string
 	vectors  [][]float32
-	useEmpty bool 
+	useEmpty bool
 	err      error
 }
 
@@ -66,7 +64,6 @@ func (m *mockEmbeddingService) callCount() int {
 	return m.called
 }
 
-// makeFixedVector 生成固定值的向量
 func makeFixedVector(dim int, val float32) []float32 {
 	v := make([]float32, dim)
 	for i := range v {
@@ -287,7 +284,5 @@ func TestCachedEmbedding_NilRedisAndDB_CallInner(t *testing.T) {
 	}
 }
 
-// 接口编译期断言
 var _ llm.EmbeddingServiceInterface = (*mockEmbeddingService)(nil)
 var _ llm.EmbeddingServiceInterface = (*CachedEmbeddingClient)(nil)
-

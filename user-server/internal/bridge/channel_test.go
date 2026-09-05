@@ -27,5 +27,3 @@ func TestIsBridgeChannel_AcceptsLegacyAliases(t *testing.T) {
 		}
 	}
 }
-
-

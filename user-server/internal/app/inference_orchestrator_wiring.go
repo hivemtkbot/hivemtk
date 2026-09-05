@@ -15,18 +15,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
-// memoryProviderAdapter 把 service.MemorySystem 适配为
-// agent_runtime.EpisodicMemoryProvider
-//
-// 签名完全一致（BuildFullContext 与 LoadEpisodicMemory 都是
-// (ctx, sessionID, customerID) → (string, error)），适配器仅做接口转换，
-// 避免 service 包反向依赖 agent_runtime 包
 type memoryProviderAdapter struct {
 	ms *service.MemorySystem
 }
 
-// LoadEpisodicMemory 实现 EpisodicMemoryProvider 接口
 func (a *memoryProviderAdapter) LoadEpisodicMemory(ctx context.Context, sessionID, customerID string) (string, error) {
 	if a == nil || a.ms == nil {
 		return "", nil
@@ -34,7 +26,6 @@ func (a *memoryProviderAdapter) LoadEpisodicMemory(ctx context.Context, sessionI
 	return a.ms.BuildFullContext(ctx, sessionID, customerID)
 }
 
-// 全局单例
 var (
 	globalInferenceOrchestrator *agent_runtime.CoreDataFlowOrchestrator
 	inferenceOrchestratorOnce   sync.Once
@@ -74,8 +65,6 @@ func GetInferenceOrchestrator() *agent_runtime.CoreDataFlowOrchestrator {
 	return globalInferenceOrchestrator
 }
 
-
-// inferenceRunRequest 推理闭环运行请求
 type inferenceRunRequest struct {
 	ChannelType string `json:"channel_type" binding:"required"`
 	CustomerID  string `json:"customer_id" binding:"required"`
@@ -97,7 +86,6 @@ func SetupInferenceRoutes(auth *gin.RouterGroup) {
 	auth.GET("/agent/inference/stats", handleInferenceStats)
 }
 
-// handleInferenceRun 处理推理闭环运行请求
 func handleInferenceRun(c *gin.Context) {
 	orch := GetInferenceOrchestrator()
 	if orch == nil {
@@ -158,7 +146,6 @@ func handleInferenceRun(c *gin.Context) {
 	})
 }
 
-// handleInferenceStats 返回编排器统计
 func handleInferenceStats(c *gin.Context) {
 	orch := GetInferenceOrchestrator()
 	if orch == nil {
@@ -173,9 +160,6 @@ func handleInferenceStats(c *gin.Context) {
 	}, "ok")
 }
 
-
-// 全局权限检查器单例（由 tool_executor_wiring.go 初始化时注入，
-// 或通过 SetGlobalPermissionChecker 手动注入；未初始化时返回 nil）
 var (
 	globalPermissionChecker     *tooluse.WhitelistPermissionChecker
 	globalPermissionCheckerOnce sync.Once
@@ -371,4 +355,3 @@ func handleRemoveAgentWhitelist(c *gin.Context) {
 		"message":  "whitelist removed, fallback to default policy",
 	})
 }
-

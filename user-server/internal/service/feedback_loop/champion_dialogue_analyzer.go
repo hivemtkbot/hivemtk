@@ -111,9 +111,6 @@ func (a *ChampionDialogueAnalyzer) AnalyzePipeline(ctx context.Context, since ti
 	return report, nil
 }
 
-// fetchCandidates 从 feedback_signals 拉取高价值候选对话
-//
-// SQL：聚合 reward + 关联最近一条 feedback_events 取 customer_msg / ai_reply 快照
 func (a *ChampionDialogueAnalyzer) fetchCandidates(ctx context.Context, since time.Time) ([]repository.ChampionDialogueRow, error) {
 	if a.repo == nil {
 		return nil, fmt.Errorf("repo is nil")
@@ -125,18 +122,11 @@ func (a *ChampionDialogueAnalyzer) fetchCandidates(ctx context.Context, since ti
 	return rows, nil
 }
 
-// championDialogueWithEmb 候选对话 + 向量
 type championDialogueWithEmb struct {
 	repository.ChampionDialogueRow
 	Embedding []float32
 }
 
-// clusterDialogues pgvector 余弦相似度聚类（简化 DBSCAN）
-//
-// 算法：
-//  1. 向量化每条对话（customer_msg + " || " + ai_reply）
-//  2. BFS 扩展：任取未访问样本，找到所有余弦相似度 ≥ ClusterSimThreshold 的样本形成一簇
-//  3. 簇大小 < MinClusterSize 视为噪声丢弃
 func (a *ChampionDialogueAnalyzer) clusterDialogues(ctx context.Context, rows []repository.ChampionDialogueRow) (map[uint][]championDialogueWithEmb, error) {
 	if a.embedder == nil {
 		return nil, ErrEmbedderNotConfig
@@ -184,7 +174,6 @@ func (a *ChampionDialogueAnalyzer) clusterDialogues(ctx context.Context, rows []
 	return clusters, nil
 }
 
-// cosineSimilarity 余弦相似度（1 - 余弦距离）
 func cosineSimilarity(v1, v2 []float32) float32 {
 	if len(v1) != len(v2) || len(v1) == 0 {
 		return 0
@@ -201,7 +190,6 @@ func cosineSimilarity(v1, v2 []float32) float32 {
 	return dot / (sqrtF32(norm1) * sqrtF32(norm2))
 }
 
-// takeTopK 每簇按 reward 排序取 Top-K
 func (a *ChampionDialogueAnalyzer) takeTopK(dialogues []championDialogueWithEmb, k int) []championDialogueWithEmb {
 	sort.Slice(dialogues, func(i, j int) bool {
 		return dialogues[i].Reward > dialogues[j].Reward
@@ -212,10 +200,6 @@ func (a *ChampionDialogueAnalyzer) takeTopK(dialogues []championDialogueWithEmb,
 	return dialogues[:k]
 }
 
-// extractScriptsWithLLM LLM 提取话术
-//
-// Prompt 模板：注入 llm.Dispatcher 的 ScenarioHighQuality 场景
-// 输出格式：JSON 数组 [{title, content, scenario, trigger_keywords, journey_stage, effectiveness_score}]
 func (a *ChampionDialogueAnalyzer) extractScriptsWithLLM(ctx context.Context, dialogues []championDialogueWithEmb) ([]dto.ExtractedScriptDTO, error) {
 	if a.dispatcher == nil {
 		return nil, ErrDispatcherNotConfig
@@ -255,7 +239,6 @@ func (a *ChampionDialogueAnalyzer) extractScriptsWithLLM(ctx context.Context, di
 	return scripts, nil
 }
 
-// extractJSON 从可能包含 markdown 围栏的字符串中提取 JSON 数组/对象子串
 func extractJSON(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -281,10 +264,6 @@ func extractJSON(s string) string {
 	return s[start : end+1]
 }
 
-// persistDialogue 持久化销冠对话到 champion_dialogues
-//
-// 注意：Embedding 字段用 pgvector 字符串字面量 '[v1,v2,...]' 通过原生 SQL 写入
-// GORM 不直接支持 vector 类型，Create 会失败
 func (a *ChampionDialogueAnalyzer) persistDialogue(ctx context.Context, d championDialogueWithEmb, clusterID uint) error {
 	if a.repo == nil {
 		return fmt.Errorf("repo is nil")
@@ -307,7 +286,6 @@ func (a *ChampionDialogueAnalyzer) persistDialogue(ctx context.Context, d champi
 	})
 }
 
-// formatEmbeddingForPgVector 格式化为 pgvector 字符串字面量 '[v1,v2,...]'
 func formatEmbeddingForPgVector(v []float32) string {
 	if len(v) == 0 {
 		return "[]"
@@ -324,14 +302,6 @@ func formatEmbeddingForPgVector(v []float32) string {
 	return b.String()
 }
 
-// saveScriptsToTemplate 写入话术库（script_templates）
-//
-// 写入时：
-//   - Source = 'champion_extract'
-//   - ChampionDialogueID = 最新 champion_dialogue.id（按 cluster_id 反查）
-//   - EffectivenessScore = LLM 返回的评分
-//   - TriggerKeywords = 逗号分隔的关键词
-//   - JourneyStage = 旅程阶段
 func (a *ChampionDialogueAnalyzer) saveScriptsToTemplate(ctx context.Context, scripts []dto.ExtractedScriptDTO, clusterID uint) {
 	if a.repo == nil || len(scripts) == 0 {
 		return
@@ -352,5 +322,4 @@ func (a *ChampionDialogueAnalyzer) saveScriptsToTemplate(ctx context.Context, sc
 	}
 }
 
-// _ 确保 math 包被引用（未来 sqrtF32 等函数可能扩展）
 var _ = math.Pi

@@ -128,4 +128,3 @@ func (r *KnowledgeImportLogRepository) AvgImportDurationMs(ctx context.Context, 
 	}
 	return avg, nil
 }
-

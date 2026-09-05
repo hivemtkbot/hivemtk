@@ -32,19 +32,16 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// newTestPipeline 构造一个测试用 Pipeline（使用 FuncChannelAdapter）
 func newTestPipeline(adapter ChannelAdapter) SendPipeline {
 	return NewSendPipeline(DefaultSendPipelineConfig(adapter))
 }
 
-// newSuccessAdapter 构造一个永远成功的 adapter
 func newSuccessAdapter(prefix string) *FuncChannelAdapter {
 	return NewFuncChannelAdapter(func(ctx context.Context, req *ReachSendRequest) (string, error) {
 		return fmt.Sprintf("%s-%s", prefix, req.RecipientID), nil
 	})
 }
 
-// findStepResult 在 StepResults 中查找指定步骤
 func findStepResult(resp *SendResponse, step string) *SendStepLog {
 	if resp == nil {
 		return nil
@@ -57,12 +54,10 @@ func findStepResult(resp *SendResponse, step string) *SendStepLog {
 	return nil
 }
 
-// stepExists 步骤是否执行过
 func stepExists(resp *SendResponse, step string) bool {
 	return findStepResult(resp, step) != nil
 }
 
-// denyAllPermission 拒绝所有权限
 type denyAllPermission struct{}
 
 func (denyAllPermission) CheckSendPermission(ctx context.Context, req *ReachSendRequest) error {
@@ -1052,13 +1047,10 @@ func TestMemorySendRateLimiter_BoundedByCap(t *testing.T) {
 	}
 }
 
-// ===== R-4 全渠道 quiet hours / R-5 频控分层 / R-6 DailyQuota Redis / R-8 审计落库 =====
-
-// fakeRedisCache 进程内模拟 Redis 语义的 Cache 实现（仅覆盖频控/配额用到的方法）
 type fakeRedisCache struct {
 	mu       sync.Mutex
 	counters map[string]int64
-	fail     bool // 模拟 Redis 故障
+	fail     bool
 }
 
 func newFakeRedisCache() *fakeRedisCache {
@@ -1112,7 +1104,6 @@ func (f *fakeRedisCache) LRange(_ context.Context, _ string, _, _ int64) ([]stri
 func (f *fakeRedisCache) LLen(_ context.Context, _ string) (int64, error) { return 0, nil }
 func (f *fakeRedisCache) Clear(_ context.Context) error                   { return nil }
 
-// cstTime 构造 CST 时刻
 func cstTime(hour, minute int) time.Time {
 	return time.Date(2026, 8, 20, hour, minute, 0, 0, cstZone)
 }
@@ -1163,7 +1154,7 @@ func TestQuietHours_Boundary_2201_Deferred(t *testing.T) {
 	if !resp.DeferredAt.Equal(want) {
 		t.Errorf("首发时间应为次日 08:00 CST，got %s", resp.DeferredAt)
 	}
-	// 后续步骤不应继续执行（rate_limit/send 不出现或 send 无 message_id）
+
 	for _, s := range resp.StepResults {
 		if s.Step == SendStepSend && s.Output != nil {
 			t.Errorf("延迟后不应执行 send 步骤输出: %+v", s.Output)
@@ -1238,8 +1229,6 @@ func TestCountedPipeline_QuietHoursDeferred(t *testing.T) {
 	}
 }
 
-// ===== R-5 频控分层 + transactional 豁免 =====
-
 // TestTransactionalBypass_PerUserLimit 交易类消息绕过 PerUser 频控
 func TestTransactionalBypass_PerUserLimit(t *testing.T) {
 	svc := &ReachPipelineService{}
@@ -1255,7 +1244,7 @@ func TestTransactionalBypass_PerUserLimit(t *testing.T) {
 	if svc.checkRateLimit(context.Background(), "wecom", "a", "u-tx", rl, false) {
 		t.Fatal("第 3 次普通触达应被 PerUser 频控拦截")
 	}
-	// transactional 豁免频控
+
 	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-tx", rl, true) {
 		t.Fatal("transactional 消息应绕过 PerUser 频控")
 	}
@@ -1292,8 +1281,6 @@ func TestIsTransactionalPayload(t *testing.T) {
 		t.Error("空 payload 应为非 transactional")
 	}
 }
-
-// ===== R-5 Redis 故障降级进程内计数 =====
 
 // TestPerUser_DegradedToMemoryOnRedisFailure Redis 不可用时降级进程内滑动窗口且仍然生效
 func TestPerUser_DegradedToMemoryOnRedisFailure(t *testing.T) {
@@ -1375,8 +1362,6 @@ func TestResolvePerUserLimit_Default(t *testing.T) {
 		t.Errorf("pipeline 显式配置优先，want 7 got %d", got)
 	}
 }
-
-// ===== R-8 合规日志异步批量落库 =====
 
 // TestComplianceAuditLogger_FlushWritesDB 缓冲记录经 Flush 批量写入 reach_compliance_log
 func TestComplianceAuditLogger_FlushWritesDB(t *testing.T) {

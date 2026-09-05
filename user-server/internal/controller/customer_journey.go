@@ -107,4 +107,3 @@ func (c *CustomerJourneyController) ListStages(ctx *gin.Context) {
 	}
 	response.Success(ctx, result, "查询成功")
 }
-

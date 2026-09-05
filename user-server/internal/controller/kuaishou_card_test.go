@@ -18,7 +18,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupKuaishouCardTestDB 设置快手卡片测试数据库
 func setupKuaishouCardTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.KuaishouCard{},
@@ -209,7 +208,7 @@ func TestKuaishouCardController_Update_IDMismatch(t *testing.T) {
 	router.PUT("/kuaishou/cards/:id", ctrl.Update)
 
 	updateReq := dto.KuaishouCardUpdateRequest{
-		ID:    999, 
+		ID:    999,
 		Title: "Test",
 	}
 	body, _ := json.Marshal(updateReq)
@@ -675,4 +674,3 @@ func TestKuaishouCardController_Update_ViewCount(t *testing.T) {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
-

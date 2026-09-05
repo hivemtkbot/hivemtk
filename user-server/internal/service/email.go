@@ -79,13 +79,13 @@ func (s *EmailService) Send(ctx context.Context, accountID uint, to, subject, co
 				return "", errors.New("email account quota exceeded")
 			}
 		} else {
-			// 选 quota 充足的 active 账号（不再硬编码取第一个 id ASC）
+
 			var candidates []EmailAccount
 			if err := s.db.WithContext(ctx).
 				Where("status = ? AND daily_used < daily_quota", "active").
 				Order("daily_used ASC").
 				Find(&candidates).Error; err != nil || len(candidates) == 0 {
-				// 无 DB / 无账号 / 全部 quota 用尽：尝试 env 兜底
+
 				acc = emailFromEnv()
 			} else {
 				chosen := candidates[0]
@@ -167,7 +167,7 @@ func (s *EmailService) smtpSend(ctx context.Context, acc *EmailAccount, to, subj
 	}
 
 	done := make(chan error, 1)
-	// 最高标准审计 P1-3 修复：SMTP 发送（消息外发路径）改走 SafeGo
+
 	utils.SafeGo(ctx, "email.send", func(_ context.Context) { done <- sendFn() })
 	select {
 	case err := <-done:

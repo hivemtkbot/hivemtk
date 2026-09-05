@@ -44,7 +44,6 @@ func NewLoginRiskRepositoryWithDB(gormDB *gorm.DB) LoginRiskRepository {
 	return &loginRiskRepo{db: gormDB}
 }
 
-// CountRecentFailures 统计 since 之后的失败次数(按 userID 或 username 过滤)
 func (r *loginRiskRepo) CountRecentFailures(ctx context.Context, userID uint, username string, since time.Time) (int64, error) {
 	q := r.db.WithContext(ctx).Model(&model.LoginEvent{}).
 		Where("success = ? AND login_at >= ?", false, since)
@@ -60,7 +59,6 @@ func (r *loginRiskRepo) CountRecentFailures(ctx context.Context, userID uint, us
 	return count, nil
 }
 
-// GetLastSuccessLocation 获取用户最近一次成功登录的 location / IP
 func (r *loginRiskRepo) GetLastSuccessLocation(ctx context.Context, userID uint) (location, ip string, found bool, err error) {
 	if userID == 0 {
 		return "", "", false, nil
@@ -76,7 +74,6 @@ func (r *loginRiskRepo) GetLastSuccessLocation(ctx context.Context, userID uint)
 	return prev.Location, prev.IP, true, nil
 }
 
-// CountDeviceFingerprintSince 统计 since 之后该指纹在该用户下的出现次数
 func (r *loginRiskRepo) CountDeviceFingerprintSince(ctx context.Context, userID uint, fingerprint string, since time.Time) (int64, error) {
 	if userID == 0 || fingerprint == "" {
 		return 0, nil
@@ -90,7 +87,6 @@ func (r *loginRiskRepo) CountDeviceFingerprintSince(ctx context.Context, userID 
 	return count, nil
 }
 
-// CreateLoginEvent 创建 login_events 记录
 func (r *loginRiskRepo) CreateLoginEvent(ctx context.Context, event *model.LoginEvent) (*model.LoginEvent, error) {
 	if err := r.db.WithContext(ctx).Create(event).Error; err != nil {
 		return nil, err
@@ -98,7 +94,6 @@ func (r *loginRiskRepo) CreateLoginEvent(ctx context.Context, event *model.Login
 	return event, nil
 }
 
-// ListLoginEvents 分页查询登录事件
 func (r *loginRiskRepo) ListLoginEvents(ctx context.Context, userID uint, page, pageSize int) ([]*model.LoginEvent, int64, error) {
 	if page <= 0 {
 		page = 1
@@ -127,7 +122,6 @@ func (r *loginRiskRepo) ListLoginEvents(ctx context.Context, userID uint, page, 
 	return events, total, nil
 }
 
-// CreateSecurityAlert 创建 security_alerts 记录
 func (r *loginRiskRepo) CreateSecurityAlert(ctx context.Context, alert *model.SecurityAlert) (*model.SecurityAlert, error) {
 	if err := r.db.WithContext(ctx).Create(alert).Error; err != nil {
 		return nil, err
@@ -135,14 +129,12 @@ func (r *loginRiskRepo) CreateSecurityAlert(ctx context.Context, alert *model.Se
 	return alert, nil
 }
 
-// MarkAlertNotified 标记告警已通知
 func (r *loginRiskRepo) MarkAlertNotified(ctx context.Context, alertID uint) error {
 	return r.db.WithContext(ctx).Model(&model.SecurityAlert{}).
 		Where("id = ?", alertID).
 		Update("notified", true).Error
 }
 
-// ListSecurityAlerts 分页查询安全告警
 func (r *loginRiskRepo) ListSecurityAlerts(ctx context.Context, userID uint, status string, page, pageSize int) ([]*model.SecurityAlert, int64, error) {
 	if page <= 0 {
 		page = 1
@@ -174,7 +166,6 @@ func (r *loginRiskRepo) ListSecurityAlerts(ctx context.Context, userID uint, sta
 	return alerts, total, nil
 }
 
-// ResolveSecurityAlert 标记告警已处理或已忽略
 func (r *loginRiskRepo) ResolveSecurityAlert(ctx context.Context, alertID, resolverUserID uint, note string, now time.Time, status string) error {
 	return r.db.WithContext(ctx).Model(&model.SecurityAlert{}).
 		Where("id = ?", alertID).
@@ -186,7 +177,6 @@ func (r *loginRiskRepo) ResolveSecurityAlert(ctx context.Context, alertID, resol
 		}).Error
 }
 
-// CreateNotification 创建站内通知
 func (r *loginRiskRepo) CreateNotification(ctx context.Context, notif *model.Notification) error {
 	return r.db.WithContext(ctx).Create(notif).Error
 }

@@ -13,14 +13,6 @@ import (
 	"hivemtk-user/internal/geo/repository"
 )
 
-// 决策链执行器（v3 GEO 决策链化 Phase2/Phase3）
-//
-// 在既有 7 个内置执行器生产线上追加四类步骤：
-//   query_probe       —— 变体提问探针（依赖 SearchProbe，红队 F1 换轨后实现）
-//   source_attribution—— 被引域 vs 自有域比对，产出 coverage_gap
-//   content_gap_fill  —— 缺口转补位任务落库（区别于"验证报告"的调控动作）
-//   capture_lead      —— 短链落地线索捕获（经 LeadCapturePort 接主域 OneID/clue）
-
 // LeadCapturePort 线索捕获端口（portcontract 模式：geo 不反向依赖业务层，
 // 由装配层在 router 注入主域 clue/identity 实现）
 type LeadCapturePort interface {
@@ -43,7 +35,7 @@ func (s *WorkflowService) RegisterDecisionChainExecutors(deps DecisionChainDeps)
 		deps.Probe = NewDefaultSearchProbe()
 	}
 	if deps.ChainRepo == nil || deps.TaskRepo == nil {
-		return // 无仓储则不注册，避免运行期 panic
+		return
 	}
 	registerQueryProbeExecutor(s, deps)
 	registerSourceAttributionExecutor(s, deps)
@@ -51,16 +43,13 @@ func (s *WorkflowService) RegisterDecisionChainExecutors(deps DecisionChainDeps)
 	registerCaptureLeadExecutor(s, deps)
 }
 
-// registerQueryProbeExecutor 变体提问探针：
-// 输入 keyword/intent → LLM 生成 N 个变体问法 → 探针逐一问询 →
-// 被引 URL 与品牌位置写入 geo_query_chains，聚合结果进 _step_results。
 func registerQueryProbeExecutor(s *WorkflowService, deps DecisionChainDeps) {
 	s.RegisterExecutor("query_probe", func(ctx context.Context, step map[string]interface{}) (string, error) {
 		keyword, _ := step["keyword"].(string)
 		if strings.TrimSpace(keyword) == "" {
 			return "", fmt.Errorf("query_probe 缺少 keyword")
 		}
-		// v3 成本护栏：当日探针写入条数超限即熔断（默认 200，step.budget 可调）
+
 		budget := 200
 		if b, ok := step["budget"].(float64); ok && b > 0 {
 			budget = int(b)
@@ -81,7 +70,7 @@ func registerQueryProbeExecutor(s *WorkflowService, deps DecisionChainDeps) {
 		for i, q := range variants {
 			pr, err := deps.Probe.Probe(ctx, q)
 			if err != nil {
-				continue // 单变体失败不中断整批
+				continue
 			}
 			domains := map[string]bool{}
 			for _, c := range pr.Citations {
@@ -110,8 +99,6 @@ func registerQueryProbeExecutor(s *WorkflowService, deps DecisionChainDeps) {
 	})
 }
 
-// registerSourceAttributionExecutor 信源归因：
-// 读 query_probe 上游产物，被引域 vs 自有域(step.our_domains)比对 → coverage_gap。
 func registerSourceAttributionExecutor(s *WorkflowService, deps DecisionChainDeps) {
 	s.RegisterExecutor("source_attribution", func(ctx context.Context, step map[string]interface{}) (string, error) {
 		raw := upstreamJSON(step, "query_probe")
@@ -150,8 +137,6 @@ func registerSourceAttributionExecutor(s *WorkflowService, deps DecisionChainDep
 	})
 }
 
-// registerContentGapFillExecutor 缺口补位：
-// coverage_gap → geo_content_tasks 落库（调控动作而非报告）。
 func registerContentGapFillExecutor(s *WorkflowService, deps DecisionChainDeps) {
 	s.RegisterExecutor("content_gap_fill", func(ctx context.Context, step map[string]interface{}) (string, error) {
 		raw := upstreamJSON(step, "source_attribution")
@@ -188,11 +173,9 @@ func registerContentGapFillExecutor(s *WorkflowService, deps DecisionChainDeps) 
 	})
 }
 
-// registerCaptureLeadExecutor 线索捕获（Phase3 决策链接线）：
-// 经 LeadCapturePort 写入主域 clue/OneID，链路在此接入销售引擎。
 func registerCaptureLeadExecutor(s *WorkflowService, deps DecisionChainDeps) {
 	if deps.LeadPort == nil {
-		return // 未注入端口则跳过注册（由装配层决定是否启用）
+		return
 	}
 	s.RegisterExecutor("capture_lead", func(ctx context.Context, step map[string]interface{}) (string, error) {
 		contact := stepString(step, "contact")
@@ -214,9 +197,6 @@ func registerCaptureLeadExecutor(s *WorkflowService, deps DecisionChainDeps) {
 	})
 }
 
-// ---- 共享小工具 ----
-
-// upstreamJSON 从 _step_results 取指定类型的最近一次输出
 func upstreamJSON(step map[string]interface{}, stepType string) string {
 	sr, ok := step["_step_results"].(map[string]*dto.StepResult)
 	if !ok {
@@ -225,7 +205,7 @@ func upstreamJSON(step map[string]interface{}, stepType string) string {
 	best := ""
 	for _, r := range sr {
 		if r != nil && r.StepType == stepType && r.Result != "" {
-			best = r.Result // 取该类型最近一次非空输出
+			best = r.Result
 		}
 	}
 	return best
@@ -246,7 +226,6 @@ func safeDiv(a, b int) float64 {
 	return float64(a) / float64(b)
 }
 
-// probeVariants 围绕关键词生成决策思维链变体问法（疑问→对比→推荐三段式）
 func probeVariants(keyword string) []string {
 	return []string{
 		keyword,
@@ -268,8 +247,6 @@ func (f CaptureLeadFunc) CaptureLead(ctx context.Context, contact, contactType, 
 func (s *WorkflowService) RegisterCaptureLeadExecutor(port LeadCapturePort) {
 	registerCaptureLeadExecutor(s, DecisionChainDeps{LeadPort: port})
 }
-
-// ---- 无 DB 环境的内存桩（测试/降级运行）----
 
 type memChainRepo struct{ rows []*model.GeoQueryChain }
 
@@ -339,7 +316,7 @@ func (s *InboxChainSync) HandleCustomerMessage(ctx context.Context, oneID, conte
 	}
 	rows, err := s.chainRepo.ListByOneID(ctx, oneID)
 	if err != nil || len(rows) == 0 {
-		return // 该客户无 GEO 归因链，非目标
+		return
 	}
 	_ = s.chainRepo.Append(ctx, &model.GeoQueryChain{
 		ChainID:   rows[0].ChainID,

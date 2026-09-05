@@ -9,14 +9,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ===== D-6 告警并发去抖 =====
-//
-// 决策依据 M17 D-6：
-//   - 同 key 在去抖窗口内重复告警直接丢弃（counter++），窗口默认 5min
-//   - 非阻塞投递：缓冲满则丢弃并计数，绝不阻塞告警调用方
-//   - N=2 worker 并发消费执行，单任务 panic recover 不拖垮 worker
-//   - 全局实例默认 nil（不改变既有同步告警路径）；由 main 装配 InitAlertDispatcher 后生效
-
 // 公开可调常量
 const (
 	// AlertDispatchBufferSize 投递缓冲容量
@@ -40,9 +32,9 @@ type AsyncAlertDispatcher struct {
 	mu     sync.Mutex
 	dedupe map[string]time.Time
 
-	DedupedCount  atomic.Int64 // 去重丢弃数
-	DroppedCount  atomic.Int64 // 缓冲满丢弃数
-	ExecutedCount atomic.Int64 // 实际执行数
+	DedupedCount  atomic.Int64
+	DroppedCount  atomic.Int64
+	ExecutedCount atomic.Int64
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -68,13 +60,12 @@ func (d *AsyncAlertDispatcher) Dispatch(key string, fn func()) {
 	d.dispatchAt(time.Now(), key, fn)
 }
 
-// dispatchAt 可注入时间的内部投递（供测试确定性）
 func (d *AsyncAlertDispatcher) dispatchAt(now time.Time, key string, fn func()) {
 	if fn == nil {
 		return
 	}
 	d.mu.Lock()
-	// 顺带清理过期项，防 map 无界增长（key 规模 = 告警 key 数量，代价可忽略）
+
 	for k, ts := range d.dedupe {
 		if now.Sub(ts) >= d.DedupeWindow {
 			delete(d.dedupe, k)
@@ -121,7 +112,6 @@ func (d *AsyncAlertDispatcher) worker(ctx context.Context, id int) {
 	}
 }
 
-// run 执行单任务：panic recover + 计数（panic 任务同样计入执行数）
 func (d *AsyncAlertDispatcher) run(task alertTask) {
 	defer func() {
 		if r := recover(); r != nil {

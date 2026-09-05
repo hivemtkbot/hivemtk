@@ -68,7 +68,6 @@ func TestInboxIngress_ClaimPendingOutbound_NoDuplicateForward(t *testing.T) {
 		t.Fatalf("二次认领应取回 0 条（不能重复转发），实际 %d", len(claimed2))
 	}
 
-	// 3) ack 后翻 delivered
 	var msgIDs []string
 	for _, m := range claimed1 {
 		msgIDs = append(msgIDs, m.MsgID)

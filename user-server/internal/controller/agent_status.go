@@ -189,9 +189,7 @@ func (c *AgentStatusController) GetAgentSessions(ctx *gin.Context) {
 		return
 	}
 
-	// S-3 HTTP 轮询兜底：工作台轮询会话即视为活跃，刷新心跳（失败不影响查询）
 	_ = c.agentService.TouchHeartbeat(ctx.Request.Context(), uint(id))
 
 	response.Success(ctx, sessions, "获取成功")
 }
-

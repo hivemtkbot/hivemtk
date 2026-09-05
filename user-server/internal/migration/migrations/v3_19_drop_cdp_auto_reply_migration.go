@@ -21,7 +21,6 @@ type DropCdpAutoReplyMigration struct {
 	db *gorm.DB
 }
 
-// 编译期断言实现 migration.Migration 接口
 var _ migration.Migration = (*DropCdpAutoReplyMigration)(nil)
 
 // NewDropCdpAutoReplyMigration 构造函数
@@ -78,7 +77,6 @@ func (m *DropCdpAutoReplyMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// tableExists 判断 public 下是否存在指定表，避免 ALTER 不存在的表导致整段迁移中止
 func tableExists(ctx context.Context, db *gorm.DB, name string) bool {
 	var n int64
 	if err := db.WithContext(ctx).
@@ -88,4 +86,3 @@ func tableExists(ctx context.Context, db *gorm.DB, name string) bool {
 	}
 	return n > 0
 }
-

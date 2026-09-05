@@ -249,4 +249,3 @@ func TestUpgrader_CheckOrigin(t *testing.T) {
 		t.Error("Expected CheckOrigin to return true")
 	}
 }
-

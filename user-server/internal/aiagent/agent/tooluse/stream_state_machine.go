@@ -9,31 +9,30 @@ import (
 	"time"
 )
 
-
 // StreamState 状态枚举
 type StreamState string
 
 const (
-	StateNormal StreamState = "normal"
-	StateDetected StreamState = "detected"
-	StateParsing StreamState = "parsing"
-	StateExecuting StreamState = "executing"
+	StateNormal       StreamState = "normal"
+	StateDetected     StreamState = "detected"
+	StateParsing      StreamState = "parsing"
+	StateExecuting    StreamState = "executing"
 	StateReassembling StreamState = "reassembling"
-	StateDone StreamState = "done"
+	StateDone         StreamState = "done"
 )
 
 // StreamEvent 状态机事件
 type StreamEvent string
 
 const (
-	EventChunk StreamEvent = "chunk"
+	EventChunk           StreamEvent = "chunk"
 	EventTriggerDetected StreamEvent = "trigger_detected"
-	EventJSONComplete StreamEvent = "json_complete"
-	EventParseError StreamEvent = "parse_error"
-	EventToolExecuted StreamEvent = "tool_executed"
+	EventJSONComplete    StreamEvent = "json_complete"
+	EventParseError      StreamEvent = "parse_error"
+	EventToolExecuted    StreamEvent = "tool_executed"
 	EventReassembleReady StreamEvent = "reassemble_ready"
-	EventStreamEnd StreamEvent = "stream_end"
-	EventTimeout StreamEvent = "timeout"
+	EventStreamEnd       StreamEvent = "stream_end"
+	EventTimeout         StreamEvent = "timeout"
 )
 
 // StreamStateMachine 流式状态机
@@ -57,24 +56,24 @@ const (
 type StreamStateMachine struct {
 	mu sync.Mutex
 
-	trigger   string 
-	maxBuffer int    
+	trigger   string
+	maxBuffer int
 	timeout   time.Duration
 
 	state     StreamState
-	buffer    strings.Builder 
-	toolName  string          
-	toolArgs  map[string]any  
-	jsonStart int             
-	jsonEnd   int             
+	buffer    strings.Builder
+	toolName  string
+	toolArgs  map[string]any
+	jsonStart int
+	jsonEnd   int
 
-	executor ToolExecutorAPI 
+	executor ToolExecutorAPI
 
 	transitions []StateTransition
 	startTime   time.Time
 
-	onToolCall func(toolName string, args map[string]any) 
-	onComplete func(reply string)                         
+	onToolCall func(toolName string, args map[string]any)
+	onComplete func(reply string)
 }
 
 // StateTransition 状态转换记录
@@ -98,17 +97,17 @@ type StreamAction string
 
 const (
 	ActionForwardToClient StreamAction = "forward"
-	ActionBuffer StreamAction = "buffer"
-	ActionExecuteTool StreamAction = "execute_tool"
-	ActionDone StreamAction = "done"
-	ActionFail StreamAction = "fail"
+	ActionBuffer          StreamAction = "buffer"
+	ActionExecuteTool     StreamAction = "execute_tool"
+	ActionDone            StreamAction = "done"
+	ActionFail            StreamAction = "fail"
 )
 
 // NewStreamStateMachine 默认状态机
 func NewStreamStateMachine() *StreamStateMachine {
 	return &StreamStateMachine{
 		trigger:   "调用工具：",
-		maxBuffer: 64 * 1024, 
+		maxBuffer: 64 * 1024,
 		timeout:   30 * time.Second,
 		state:     StateNormal,
 	}
@@ -179,10 +178,10 @@ func (sm *StreamStateMachine) Process(ctx context.Context, chunk string) (Stream
 	switch sm.state {
 	case StateNormal:
 		if idx := strings.Index(sm.buffer.String(), sm.trigger); idx >= 0 {
-			prefix := sm.buffer.String()[:idx] 
+			prefix := sm.buffer.String()[:idx]
 			sm.buffer.Reset()
-			sm.buffer.WriteString(prefix) 
-			sm.buffer.WriteString(chunk)  
+			sm.buffer.WriteString(prefix)
+			sm.buffer.WriteString(chunk)
 			sm.jsonStart = 0
 			sm.transition(StateDetected, EventTriggerDetected, "trigger found at "+itoa(idx))
 			return sm.processDetected()
@@ -205,9 +204,6 @@ func (sm *StreamStateMachine) Process(ctx context.Context, chunk string) (Stream
 	}
 }
 
-// processDetected 处理 Detected/Parsing 状态
-//
-// 在 Detected/Parsing 状态下累积 buffer，尝试找到完整 JSON
 func (sm *StreamStateMachine) processDetected() (StreamAction, error) {
 	jsonStartIdx := strings.Index(sm.buffer.String(), "{")
 	if jsonStartIdx < 0 {
@@ -273,7 +269,6 @@ func (sm *StreamStateMachine) MarkFailed(reason string) {
 	sm.transition(StateDone, EventParseError, reason)
 }
 
-// transition 状态转换
 func (sm *StreamStateMachine) transition(to StreamState, event StreamEvent, reason string) {
 	sm.transitions = append(sm.transitions, StateTransition{
 		From:   sm.state,
@@ -322,12 +317,6 @@ func (sm *StreamStateMachine) Reset() {
 	sm.startTime = time.Time{}
 }
 
-
-// matchJSONEnd 找 JSON 结束位置（考虑嵌套 {} 和字符串内的 {}）
-//
-// 返回 (endIdx, balanced)：
-//   - balanced=true 时，endIdx 是匹配 '}' 的索引
-//   - balanced=false 时，表示 JSON 还没结束
 func matchJSONEnd(s string, start int) (int, bool) {
 	if start >= len(s) || s[start] != '{' {
 		return -1, false
@@ -386,4 +375,3 @@ func itoa(n int) string {
 	}
 	return string(buf[i:])
 }
-

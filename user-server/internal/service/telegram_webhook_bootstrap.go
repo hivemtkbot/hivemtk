@@ -87,19 +87,6 @@ func ResolveTelegramWebhookURL(acc *model.TelegramAccount) (string, bool) {
 	return strings.TrimRight(publicBase, "/") + fmt.Sprintf("/api/webhook/telegram/%d", acc.ID), true
 }
 
-// verifyWebhookInfo 自检：调用 getWebhookInfo，发现异常立即告警
-//
-// 必要性（修复 S2-1）：
-//   - setWebhook 成功 ≠ Telegram 已就绪：可能因 URL 路径错误、SSL 证书无效、
-//     DNS 未生效等导致 TG 侧 pending_update 堆积或 last_error 已写入
-//   - 这种情况下用户发消息会被 TG 静默丢弃（返回 400 给发送者），
-//     「TG → AI销售 → 出站回复」全链路静默断链
-//   - 本函数为 best-effort：失败仅记录日志，不影响启动流程
-//
-// 检查项：
-//   - url 与我们刚注册的一致（防止 race / 同 token 另一进程覆盖）
-//   - pending_update_count > 阈值（堆积告警）
-//   - last_error_message 非空（最近一次推送失败的诊断信息）
 func verifyWebhookInfo(acc *model.TelegramAccount) {
 	if acc == nil || acc.BotToken == "" {
 		return

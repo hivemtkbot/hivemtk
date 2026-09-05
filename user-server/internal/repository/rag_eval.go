@@ -73,7 +73,7 @@ func (r *RagEvalRepository) ListQuestionsByRun(ctx context.Context, runID uint) 
 // CompleteRun 更新运行状态为 completed 并聚合指标
 // 使用 Raw SQL 直接指定列名，绕过 GORM map key→column 映射的诡异行为
 func (r *RagEvalRepository) CompleteRun(ctx context.Context, runID uint) error {
-	// 聚合问题级指标
+
 	var result struct {
 		Total        int64   `gorm:"column:total"`
 		HitCount     int64   `gorm:"column:hit_count"`

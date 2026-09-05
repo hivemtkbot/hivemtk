@@ -67,7 +67,6 @@ func (s *SystemConfigService) PingDB(ctx context.Context) bool {
 	return s.repo.PingDB(ctx)
 }
 
-// defaultConfig 返回默认配置
 func (s *SystemConfigService) defaultConfig(ctx context.Context) *model.SystemConfig {
 	return &model.SystemConfig{
 		Name:                 "",

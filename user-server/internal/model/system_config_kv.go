@@ -14,4 +14,3 @@ type SystemConfigKV struct {
 func (SystemConfigKV) TableName() string {
 	return "system_config_kv"
 }
-

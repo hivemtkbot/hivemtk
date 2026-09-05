@@ -70,4 +70,3 @@ func (c *SystemInfoController) SystemMenus(ctx *gin.Context) {
 func IsSystemInitialized() bool {
 	return install.GetStatus().Initialized
 }
-

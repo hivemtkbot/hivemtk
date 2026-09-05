@@ -15,19 +15,17 @@ import (
 )
 
 const (
-	apiLogReqBodyCap  = 8 * 1024  
-	apiLogRespBodyCap = 16 * 1024 
+	apiLogReqBodyCap  = 8 * 1024
+	apiLogRespBodyCap = 16 * 1024
 )
 
-// apiLogSkipPrefixes 不记录交互数据的路径（健康检查/指标等噪声端点）。
 var apiLogSkipPrefixes = []string{"/health", "/healthz", "/readyz", "/metrics", "/swagger"}
 
-// apiLogSensitiveKeys 请求体/query 中需要脱敏的字段（小写匹配）。
 var apiLogSensitiveKeys = map[string]struct{}{
 	"password":                        {},
 	"passwd":                          {},
 	"token":                           {},
-	"bridge_token":                   {},
+	"bridge_token":                    {},
 	"secret":                          {},
 	"authorization":                   {},
 	"access_token":                    {},
@@ -62,9 +60,6 @@ func APIInteractionLogger() gin.HandlerFunc {
 			}
 		}
 
-		// 以有界缓冲（TeeReader）在 handler 消费 body 时旁路捕获，避免对超大请求体执行
-		// io.ReadAll 导致整请求体常驻内存（内存放大 / DoS 风险）。捕获上限 apiLogReqBodyCap
-		// 同时作为日志截断上限；handler 仍读取原始 body 流，绝不被截断。
 		var reqCap *cappedBufferWriter
 		if c.Request.Body != nil {
 			reqCap = &cappedBufferWriter{cap: apiLogReqBodyCap}
@@ -114,8 +109,6 @@ func APIInteractionLogger() gin.HandlerFunc {
 	}
 }
 
-// apiLogResponseWriter 包装 gin.ResponseWriter，在透写的同时缓冲响应体（受上限约束）。
-// 对 SSE/流式 Content-Type 自动跳过缓冲，避免内存膨胀与破坏流式传输。
 type apiLogResponseWriter struct {
 	gin.ResponseWriter
 	buf   bytes.Buffer
@@ -156,7 +149,6 @@ func (w *apiLogResponseWriter) WriteString(s string) (int, error) {
 	return w.Write([]byte(s))
 }
 
-// snapshot 返回捕获到的响应体快照；流式响应返回提示文本。
 func (w *apiLogResponseWriter) snapshot() string {
 	if w.skip {
 		return "(streaming response, not captured)"
@@ -168,8 +160,6 @@ func (w *apiLogResponseWriter) snapshot() string {
 	return s
 }
 
-// cappedBufferWriter 有界写入器：最多保留 cap 字节，超出部分静默丢弃。
-// 用于 TeeReader 旁路捕获请求体，保证内存占用上限，杜绝超大请求体 OOM。
 type cappedBufferWriter struct {
 	buf  bytes.Buffer
 	cap  int
@@ -193,7 +183,6 @@ func (w *cappedBufferWriter) Write(p []byte) (int, error) {
 
 func (w *cappedBufferWriter) Bytes() []byte { return w.buf.Bytes() }
 
-// redactJSON 解析 JSON 并脱敏敏感字段；非 JSON 或超限则截断后原样返回。
 func redactJSON(b []byte, capSize int) string {
 	if len(b) == 0 {
 		return ""
@@ -216,7 +205,6 @@ func redactJSON(b []byte, capSize int) string {
 	return string(out)
 }
 
-// redactValue 递归脱敏 map/array 中的敏感字段（原地修改）。
 func redactValue(v any) {
 	switch t := v.(type) {
 	case map[string]any:
@@ -234,7 +222,6 @@ func redactValue(v any) {
 	}
 }
 
-// redactQuery 返回脱敏后的 query 字符串。
 func redactQuery(q url.Values) string {
 	clone := url.Values{}
 	for k, vs := range q {
@@ -246,4 +233,3 @@ func redactQuery(q url.Values) string {
 	}
 	return clone.Encode()
 }
-

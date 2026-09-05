@@ -16,7 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupChurnPredictionTestDB 设置测试数据库
 func setupChurnPredictionTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.ChurnPrediction{},
@@ -26,7 +25,6 @@ func setupChurnPredictionTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// setupChurnPredictionRouter 设置测试路由
 func setupChurnPredictionRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 
@@ -78,7 +76,7 @@ func TestChurnPredictionController_GetChurnPrediction(t *testing.T) {
 		{
 			name:           "user_not_found",
 			url:            "/api/churn/prediction?user_id=user-nonexistent",
-			expectedStatus: 200, 
+			expectedStatus: 200,
 			expectSuccess:  true,
 		},
 	}
@@ -562,4 +560,3 @@ func TestChurnPredictionController_GetRiskDistribution(t *testing.T) {
 		})
 	}
 }
-

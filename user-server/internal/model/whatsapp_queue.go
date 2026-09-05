@@ -22,4 +22,3 @@ type QueueStatus struct {
 	Created time.Time `json:"created"`
 	Updated time.Time `json:"updated"`
 }
-

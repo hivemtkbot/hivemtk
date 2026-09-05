@@ -11,7 +11,7 @@ type Document struct {
 	Title     string         `json:"title"`
 	Content   string         `json:"content"`
 	Metadata  map[string]any `json:"metadata"`
-	Embedding []float32      `json:"-"` 
+	Embedding []float32      `json:"-"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 }
@@ -23,11 +23,11 @@ type Chunk struct {
 	Content    string         `json:"content"`
 	Title      string         `json:"title"`
 	Metadata   map[string]any `json:"metadata"`
-	Embedding  []float32      `json:"-"`      
-	Score      float64        `json:"score"`  
-	Weight     float64        `json:"weight"` 
+	Embedding  []float32      `json:"-"`
+	Score      float64        `json:"score"`
+	Weight     float64        `json:"weight"`
 	TokenCount int            `json:"token_count"`
-	ChunkIndex int            `json:"chunk_index"` 
+	ChunkIndex int            `json:"chunk_index"`
 }
 
 // SearchResult 检索结果结构
@@ -35,18 +35,18 @@ type SearchResult struct {
 	DocumentID string         `json:"document_id"`
 	Content    string         `json:"content"`
 	Title      string         `json:"title"`
-	Score      float64        `json:"score"` 
+	Score      float64        `json:"score"`
 	Metadata   map[string]any `json:"metadata"`
-	Confidence float64        `json:"confidence"`  
-	ChunkIndex int            `json:"chunk_index"` 
+	Confidence float64        `json:"confidence"`
+	ChunkIndex int            `json:"chunk_index"`
 }
 
 // SearchParams 检索参数
 type SearchParams struct {
-	TopK                int            `json:"top_k"`                
-	SimilarityThreshold float64        `json:"similarity_threshold"` 
-	Filters             map[string]any `json:"filters"`              
-	RelevanceBoost      float64        `json:"relevance_boost"`      
+	TopK                int            `json:"top_k"`
+	SimilarityThreshold float64        `json:"similarity_threshold"`
+	Filters             map[string]any `json:"filters"`
+	RelevanceBoost      float64        `json:"relevance_boost"`
 }
 
 // KnowledgeBaseInfo 知识库信息
@@ -115,4 +115,3 @@ type IndexStats struct {
 	MemoryUsage int64     `json:"memory_usage"`
 	LastUpdated time.Time `json:"last_updated"`
 }
-

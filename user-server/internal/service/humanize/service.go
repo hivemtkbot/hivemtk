@@ -166,7 +166,6 @@ func (s *HumanizeEvalService) Evaluate(ctx context.Context, input *dto.HumanizeE
 	return ruleResult, nil
 }
 
-// evaluateWithRetry 含重生成循环（最多 maxRetry 次）
 func (s *HumanizeEvalService) evaluateWithRetry(ctx context.Context, input *dto.HumanizeEvalInput, lastResult *dto.HumanizeEvalResult) (*dto.HumanizeEvalResult, error) {
 	result := lastResult
 	allReplies := []string{input.AIReply}
@@ -210,7 +209,6 @@ func (s *HumanizeEvalService) evaluateWithRetry(ctx context.Context, input *dto.
 	return result, nil
 }
 
-// decideLowQualitySampleType 根据最低分维度决定低质样本类型
 func (s *HumanizeEvalService) decideLowQualitySampleType(ctx context.Context, result *dto.HumanizeEvalResult) string {
 	if result == nil || len(result.Scores) == 0 {
 		return "retry_exhausted"
@@ -233,7 +231,6 @@ func (s *HumanizeEvalService) decideLowQualitySampleType(ctx context.Context, re
 	}
 }
 
-// persist 持久化到 humanize_scores 表
 func (s *HumanizeEvalService) persist(ctx context.Context, r *dto.HumanizeEvalResult) {
 	if s.scoreRepo == nil || r == nil {
 		return
@@ -244,8 +241,6 @@ func (s *HumanizeEvalService) persist(ctx context.Context, r *dto.HumanizeEvalRe
 	}
 }
 
-// buildScoreFromResult 将 dto.HumanizeEvalResult 转换为 model.HumanizeScore + 维度明细
-// 五层架构：dto→model 转换在 service 层完成，repository 仅负责持久化
 func (s *HumanizeEvalService) buildScoreFromResult(ctx context.Context, r *dto.HumanizeEvalResult) (*model.HumanizeScore, []model.HumanizeDimensionRecord) {
 	score := &model.HumanizeScore{
 		TotalScore:         r.TotalScore,
@@ -270,7 +265,7 @@ func (s *HumanizeEvalService) buildScoreFromResult(ctx context.Context, r *dto.H
 		score.CustomerMessage = r.Input.CustomerMessage
 		score.AIReply = r.Input.AIReply
 	}
-	// 填充 5 维得分 + 构建维度明细
+
 	var dimensions []model.HumanizeDimensionRecord
 	reasonMap := make(map[string]string, len(r.Scores))
 	for _, sc := range r.Scores {
@@ -304,8 +299,6 @@ func (s *HumanizeEvalService) buildScoreFromResult(ctx context.Context, r *dto.H
 	return score, dimensions
 }
 
-// buildLowQualitySample 将 dto 评估结果转换为 model.LowQualitySample
-// 包含序列化维度得分和候选回复（原 repository 层逻辑，上移到 service）
 func (s *HumanizeEvalService) buildLowQualitySample(ctx context.Context, input *dto.HumanizeEvalInput, result *dto.HumanizeEvalResult, sampleType string) *model.LowQualitySample {
 	if input == nil || result == nil {
 		return nil
@@ -343,7 +336,6 @@ func (s *HumanizeEvalService) buildLowQualitySample(ctx context.Context, input *
 	}
 }
 
-// 编译时接口实现检查
 var (
 	_ HumanizeEvaluator = (*RuleScorerImpl)(nil)
 	_ HumanizeEvaluator = (*LLMScorerImpl)(nil)

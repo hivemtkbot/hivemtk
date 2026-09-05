@@ -1,9 +1,5 @@
 package service
 
-// P1g 情感分层响应策略（竞品吸收：小冠AI，见 AI_CORE_COMPETITIVE_ANALYSIS.md）
-// 愤怒→补偿+高级客服（转人工）；焦虑→进度可视化（不转人工，注入回复策略提示）；
-// 满意→裂变引导。替代原先"危机关键词一刀切转人工"的无差别行为。
-
 // EmotionType 客户情绪类型
 type EmotionType string
 
@@ -14,9 +10,6 @@ const (
 	EmotionSatisfied EmotionType = "satisfied"
 )
 
-// emotionKeywords 情绪关键词库：
-// Anger 与 Anxiety 两表对原 NLPKeywords.Urgent 全集做互斥拆分，
-// 保证旧 isUrgentOrComplaint=true 的内容必然落入二者之一（行为不产生第三态漂移）。
 var emotionKeywords = struct {
 	Anger     []string
 	Anxiety   []string

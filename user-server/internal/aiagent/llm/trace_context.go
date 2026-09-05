@@ -171,23 +171,19 @@ func (tc *TraceContext) InjectContext(ctx context.Context) context.Context {
 	return logger.WithTraceID(ctx, tc.traceID)
 }
 
-// generateTraceID 生成 trace_id（32 位 hex，符合 W3C traceparent 规范）
-// 使用 crypto/rand 生成 16 字节随机数，再编码为 32 字符 hex 字符串
 func generateTraceID() string {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
-		// 降级：使用 uuid，但需要去掉 '-'
+
 		return uuid.New().String()
 	}
 	return hex.EncodeToString(b)
 }
 
-// generateSpanID 生成 span_id（16 位 hex，符合 W3C traceparent 规范）
-// 使用 crypto/rand 生成 8 字节随机数，再编码为 16 字符 hex 字符串
 func generateSpanID() string {
 	b := make([]byte, 8)
 	if _, err := rand.Read(b); err != nil {
-		// 降级：使用 uuid 去掉 '-' 后取前 16 位
+
 		id := uuid.New().String()
 		return id[:8] + id[9:13]
 	}
@@ -251,7 +247,6 @@ func (b *InMemoryTraceBus) Stop() {
 	}
 }
 
-// dispatch 派发事件到订阅者
 func (b *InMemoryTraceBus) dispatch() {
 	for event := range b.eventQueue {
 		b.mu.RLock()
@@ -363,7 +358,6 @@ func PublishDBOp(traceID, spanID, parentSpanID, operation string, durationMs int
 	})
 }
 
-// mergeMetadata 合并元数据（不修改原 map）
 func mergeMetadata(a, b map[string]any) map[string]any {
 	out := make(map[string]any, len(a)+len(b))
 	for k, v := range a {

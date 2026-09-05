@@ -14,8 +14,8 @@ type FeatureFlag struct {
 	Name              string     `gorm:"type:varchar(200)" json:"name"`
 	Description       string     `gorm:"type:varchar(500)" json:"description"`
 	Enabled           bool       `gorm:"default:false;index" json:"enabled"`
-	RolloutPercentage int        `gorm:"default:100" json:"rollout_percentage"` // 0-100
-	Payload           string     `gorm:"type:text" json:"payload"`              // 开启时返回值（JSON 字符串，可空）
+	RolloutPercentage int        `gorm:"default:100" json:"rollout_percentage"`
+	Payload           string     `gorm:"type:text" json:"payload"`
 	Tags              string     `gorm:"type:varchar(200)" json:"tags"`
 	LastEvaluatedAt   *time.Time `json:"last_evaluated_at,omitempty"`
 	CreatedBy         uint       `json:"created_by"`
@@ -30,7 +30,7 @@ type FeatureFlagAuditLog struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	FlagID    uint      `gorm:"index" json:"flag_id"`
 	FlagKey   string    `gorm:"type:varchar(100);index" json:"flag_key"`
-	Action    string    `gorm:"type:varchar(50);not null" json:"action"` // create/update/enable/disable/rollout/delete
+	Action    string    `gorm:"type:varchar(50);not null" json:"action"`
 	ActorID   uint      `json:"actor_id"`
 	Detail    string    `gorm:"type:varchar(500)" json:"detail"`
 	CreatedAt time.Time `gorm:"autoCreateTime;index" json:"created_at"`
@@ -42,10 +42,10 @@ func (FeatureFlagAuditLog) TableName() string { return "feature_flag_audit_logs"
 type FeatureFlagEvalLog struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	FlagKey   string    `gorm:"type:varchar(100);index" json:"flag_key"`
-	ContextID string    `gorm:"type:varchar(100);index" json:"context_id"` // user_id/one_id/anonymous
+	ContextID string    `gorm:"type:varchar(100);index" json:"context_id"`
 	Enabled   bool      `json:"enabled"`
 	Value     string    `gorm:"type:text" json:"value"`
-	Reason    string    `gorm:"type:varchar(100)" json:"reason"` // disabled/not_found/rollout/rollout_excluded/payload
+	Reason    string    `gorm:"type:varchar(100)" json:"reason"`
 	CreatedAt time.Time `gorm:"autoCreateTime;index" json:"created_at"`
 }
 

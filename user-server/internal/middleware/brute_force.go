@@ -11,18 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// bruteForceDisabled 允许在非生产/测试环境关闭防暴破（如单 IP 跑全量深测时，
-// 错误密码用例会触发 IP 级锁并级联污染后续模块）。默认关闭，生产不受影响。
 var bruteForceDisabled = os.Getenv("BRUTE_FORCE_DISABLED") == "1" || os.Getenv("BRUTE_FORCE_DISABLED") == "true"
 
-// BruteForceGuard 防爆破中间件
-// 用于保护敏感接口（如授权码绑定、密码修改等）防暴力破解
-// 设计要点：
-//  1. 基于 IP + 端点 key 计数
-//  2. 滑动窗口（最近 15 分钟内）
-//  3. 超过阈值后锁定一段时间（递增）
-//
-// 4. 扩展：超过阈值后写入安全告警表（由调用方或 service 触发）
 type bruteForceEntry struct {
 	failures    int
 	firstAt     time.Time
@@ -34,17 +24,12 @@ type bruteForceProtector struct {
 	entries map[string]*bruteForceEntry
 }
 
-// globalBruteForce 全局防爆破注册表
 var globalBruteForce = &bruteForceProtector{
 	entries: make(map[string]*bruteForceEntry),
 }
 
-// bruteForceJanitorOnce 周期清理器单次启动开关
 var bruteForceJanitorOnce sync.Once
 
-// startBruteForceJanitor 周期清理过期条目（v3 审计 P2-6：
-// 配合 XFF 伪造可致 entries 无限膨胀；此处每 10 分钟清除
-// 无失败记录且锁定已过期的 entry，防止内存耗尽）。
 func startBruteForceJanitor() {
 	bruteForceJanitorOnce.Do(func() {
 		go func() {
@@ -70,7 +55,6 @@ func startBruteForceJanitor() {
 // retryAfter: 剩余锁定秒数
 type BruteForceLockCallback func(c *gin.Context, endpoint string, retryAfter int)
 
-// globalBruteForceOnLock 全局锁定回调（可选，由 service 层注册）
 var globalBruteForceOnLock BruteForceLockCallback
 
 // SetBruteForceLockCallback 注册锁定回调
@@ -81,9 +65,9 @@ func SetBruteForceLockCallback(cb BruteForceLockCallback) {
 
 // BruteForceConfig 防爆破配置
 type BruteForceConfig struct {
-	Endpoint string
-	Window time.Duration
-	MaxFailures int
+	Endpoint     string
+	Window       time.Duration
+	MaxFailures  int
 	LockDuration time.Duration
 }
 
@@ -100,7 +84,8 @@ var DefaultBruteForceConfig = BruteForceConfig{
 //	auth.POST("/license/bind", middleware.BruteForceGuard("license.bind"), controller.BindLicense)
 //	控制器中失败时调用：middleware.RecordBruteForceFailure(c, "license.bind")
 //	控制器中成功时调用：middleware.ClearBruteForceFailure(c, "license.bind")
-// BruteForceGuard 防爆破守卫前置检查
+//
+// # BruteForceGuard 防爆破守卫前置检查
 //
 // 职责仅限"判定是否已锁定"，避免把计数放在两条路径上引起歧义。
 // 真实计数 / 加锁由 RecordBruteForceFailure（控制器失败时调用）单点维护。
@@ -232,7 +217,6 @@ func ResetBruteForceForTest() {
 	globalBruteForce.entries = make(map[string]*bruteForceEntry)
 }
 
-// itoa 避免引入 strconv 依赖
 func itoa(i int) string {
 	if i == 0 {
 		return "0"
@@ -255,4 +239,3 @@ func itoa(i int) string {
 	}
 	return string(buf[pos:])
 }
-

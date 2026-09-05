@@ -153,4 +153,3 @@ func TestKuaishouCard_WithEmptyTags(t *testing.T) {
 		t.Errorf("Expected empty Tags, got %s", card.Tags)
 	}
 }
-

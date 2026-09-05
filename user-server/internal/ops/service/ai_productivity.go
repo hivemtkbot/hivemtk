@@ -24,9 +24,9 @@ type ProductivityReport struct {
 	TotalConversations int64     `json:"total_conversations"`
 	AIReplies          int64     `json:"ai_replies"`
 	HumanReplies       int64     `json:"human_replies"`
-	AIRatio            float64   `json:"ai_ratio"`          
-	AvgResponseTime    float64   `json:"avg_response_time"` 
-	ConversionRate     float64   `json:"conversion_rate"`   
+	AIRatio            float64   `json:"ai_ratio"`
+	AvgResponseTime    float64   `json:"avg_response_time"`
+	ConversionRate     float64   `json:"conversion_rate"`
 	TotalConversions   int64     `json:"total_conversions"`
 	LLMTokens          int64     `json:"llm_tokens"`
 	LLMCost            float64   `json:"llm_cost"`
@@ -113,4 +113,3 @@ func (s *AIProductivityService) DailyTrend(days int) ([]DailyMetric, error) {
 	}
 	return trend, nil
 }
-

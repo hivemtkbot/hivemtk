@@ -31,7 +31,6 @@ const (
 	EstimatorEmptyFallback = "empty_fallback"
 )
 
-// missingCounter 全局 missing 计数器（用于占比告警）
 var (
 	missingCounter   int64
 	totalCounter     int64
@@ -98,20 +97,17 @@ func ClassifyEstimator(tokenSource string) string {
 	}
 }
 
-// auditDB 全局审计 DB 句柄（由 InitGlobalDispatcher 注入）
 var (
 	auditDBMu sync.RWMutex
 	auditDB   *gorm.DB
 )
 
-// setAuditDB 设置审计 DB（main 启动时调用）
 func setAuditDB(d *gorm.DB) {
 	auditDBMu.Lock()
 	defer auditDBMu.Unlock()
 	auditDB = d
 }
 
-// getAuditDB 获取审计 DB
 func getAuditDB() *gorm.DB {
 	auditDBMu.RLock()
 	defer auditDBMu.RUnlock()
@@ -193,9 +189,7 @@ func NewLogEntry(scenario DispatchScenario, provider *ProviderConfig, model stri
 	if fromCache {
 		source = SourceCache
 	} else if isFallback {
-		// v3 审计 P2-6 修复：isFallback 路径 source 应为 SourceFallback
-		// 原：仅 fromCache 改 source，isFallback 路径仍记 SourceDispatch
-		//      降级占比无法统计
+
 		source = SourceFallback
 	}
 
@@ -225,7 +219,6 @@ func NewLogEntry(scenario DispatchScenario, provider *ProviderConfig, model stri
 	}
 }
 
-// providerName 安全获取 provider 名
 func providerName(p *ProviderConfig) string {
 	if p == nil {
 		return ""
@@ -233,10 +226,6 @@ func providerName(p *ProviderConfig) string {
 	return p.Name
 }
 
-// splitCost 按 prompt/completion token 比例拆分总成本
-//
-// 当 totalTokens == 0 时，全部计入 prompt_cost（避免除零）。
-// 本地模型 cost 通常为 0（CostPer1k=0），拆分后仍为 0。
 func splitCost(totalCost float64, promptTokens, completionTokens, totalTokens int) (promptCost, completionCost float64) {
 	if totalTokens <= 0 {
 		return totalCost, 0
@@ -296,13 +285,6 @@ func LogRoutingDecision(ctx context.Context, entry *LogEntry) {
 	updateMissingCounter(entry)
 }
 
-// updateMissingCounter 更新 missing 计数器并检查阈值
-//
-// 每 100 次调用检查一次 missing 占比，超过阈值时打印告警日志。
-// 计数器为进程级，重启后归零。
-//
-// 注意：source=cache 的缓存命中不计入统计——缓存命中无 LLM API 调用，
-// 不影响 missing 占比（missing 占比仅监控真实 LLM API 响应完整性）。
 func updateMissingCounter(entry *LogEntry) {
 	if entry == nil {
 		return
@@ -343,7 +325,6 @@ func GetTokenSourceStats() (total, missing int64) {
 	return total, missing
 }
 
-// queryTokenSourceStatsFromDB 从 llm_routing_logs 聚合 token_source 统计（M12 降级路径）
 func queryTokenSourceStatsFromDB() (total, missing int64) {
 	d := getAuditDB()
 	if d == nil {
@@ -523,8 +504,6 @@ func (d *Dispatcher) StartCacheJanitor(ctx context.Context, interval time.Durati
 	}
 }
 
-// sweepExpiredCache 响应缓存已迁至全局缓存（REDIS_HOST 配置时 Redis 共享、否则内存单例），
-// 由全局缓存按 TTL 自动过期，无需手动全扫。保留签名以兼容既有调用点。
 func (d *Dispatcher) sweepExpiredCache() {}
 
 // InitGlobalDispatcherWithDB 初始化全局 Dispatcher 并注入审计 DB

@@ -5,13 +5,12 @@ import (
 	"time"
 )
 
-
 // PendingAck 待 ACK 跟踪表
 // key: 会话 ID（visitor/agent 都用）
 // value: seq -> 首次发送时间
 type PendingAck struct {
 	mu    sync.RWMutex
-	items map[string]map[uint64]time.Time 
+	items map[string]map[uint64]time.Time
 }
 
 // NewPendingAck 创建 ACK 跟踪表
@@ -106,11 +105,9 @@ func (p *PendingAck) Drop(sessionID string) {
 	delete(p.items, sessionID)
 }
 
-// globalAckTracker 全局 ACK 跟踪器
 var globalAckTracker = NewPendingAck()
 
 // GlobalPendingAck 获取全局 ACK 跟踪器（供 visitor_handler.go 使用）
 func GlobalPendingAck() *PendingAck {
 	return globalAckTracker
 }
-

@@ -27,12 +27,12 @@ import "time"
 //   - INDEX(kb_type)             按类型过滤
 //   - INDEX(enabled)             过滤禁用绑定
 type AgentKBBinding struct {
-	ID       uint   `gorm:"primaryKey;autoIncrement" json:"id"`
-	AgentID  uint   `gorm:"not null;uniqueIndex:idx_agent_kb_unique,priority:1;index" json:"agent_id"`
-	KBID     uint   `gorm:"not null;uniqueIndex:idx_agent_kb_unique,priority:2;index" json:"kb_id"`
-	KBType   string `gorm:"type:varchar(16);not null;index" json:"kb_type"` 
-	Role     string `gorm:"type:varchar(16);not null;default:'primary'" json:"role"`
-	Priority int    `gorm:"type:integer;default:0" json:"priority"`
+	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	AgentID   uint      `gorm:"not null;uniqueIndex:idx_agent_kb_unique,priority:1;index" json:"agent_id"`
+	KBID      uint      `gorm:"not null;uniqueIndex:idx_agent_kb_unique,priority:2;index" json:"kb_id"`
+	KBType    string    `gorm:"type:varchar(16);not null;index" json:"kb_type"`
+	Role      string    `gorm:"type:varchar(16);not null;default:'primary'" json:"role"`
+	Priority  int       `gorm:"type:integer;default:0" json:"priority"`
 	Enabled   *bool     `gorm:"type:boolean;default:true;not null;index" json:"enabled"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
@@ -43,7 +43,6 @@ func (AgentKBBinding) TableName() string { return "agent_kb_bindings" }
 
 // AgentKBBindingRole 绑定角色枚举
 const (
-	AgentKBBindingRolePrimary   = "primary"   
-	AgentKBBindingRoleReference = "reference" 
+	AgentKBBindingRolePrimary   = "primary"
+	AgentKBBindingRoleReference = "reference"
 )
-

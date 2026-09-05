@@ -2,7 +2,7 @@ package model
 
 import (
 	"time"
-	
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -33,4 +33,3 @@ func (t *PasswordResetToken) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
-

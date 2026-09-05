@@ -12,10 +12,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// shouldTransferToHuman 是否应该转人工
-//
-// 升级：注入 ConfidenceAggregator 后改为基于 5 维信号 + 动态阈值的决策；
-// 未注入时保留原有静态规则（IntentChurn/IntentComplaint/MessageCount>30）作为兜底
 func (e *SalesEngine) shouldTransferToHuman(ctx context.Context, intent *dto.RecognizeResult, mem *model.DialogueMemory, req *SalesRequest) (bool, string) {
 	if intent == nil {
 		return false, ""
@@ -38,10 +34,6 @@ func (e *SalesEngine) shouldTransferToHuman(ctx context.Context, intent *dto.Rec
 	return false, ""
 }
 
-// shouldTransferByConfidence 基于置信度聚合的转人工决策
-//
-// 输入：意图 + 记忆 + 请求
-// 输出：(是否转人工, 原因)
 func (e *SalesEngine) shouldTransferByConfidence(ctx context.Context, intent *dto.RecognizeResult, mem *model.DialogueMemory, req *SalesRequest) (bool, string) {
 	if e.confidenceAggregator == nil {
 		return false, ""
@@ -98,7 +90,6 @@ func (e *SalesEngine) shouldTransferByConfidence(ctx context.Context, intent *dt
 	}
 }
 
-// inferCustomerLevelFromReq 推断客户等级（从请求或客户档案）
 func inferCustomerLevelFromReq(req *SalesRequest) string {
 	if req == nil || req.Config == nil {
 		return "normal"
@@ -109,7 +100,6 @@ func inferCustomerLevelFromReq(req *SalesRequest) string {
 	return "normal"
 }
 
-// extractLastTurnsFromMem 从记忆中提取最近 3 轮对话文本
 func extractLastTurnsFromMem(mem *model.DialogueMemory) []string {
 	if mem == nil || len(mem.KeyFacts) == 0 {
 		return nil
@@ -126,7 +116,6 @@ func extractLastTurnsFromMem(mem *model.DialogueMemory) []string {
 	return out
 }
 
-// transferReason 转人工原因（兼容旧调用方）
 func (e *SalesEngine) transferReason(ctx context.Context, intent *dto.RecognizeResult, mem *model.DialogueMemory) string {
 	if intent != nil {
 		switch intent.IntentType {
@@ -142,8 +131,6 @@ func (e *SalesEngine) transferReason(ctx context.Context, intent *dto.RecognizeR
 	return "触发转人工规则"
 }
 
-// truncateForReply 把长文本截断成适合作为访客回复的长度
-// 仅在 UTF-8 rune 粒度上截断，避免切到半个汉字
 func truncateForReply(s string, maxRunes int) string {
 	if maxRunes <= 0 {
 		return s
@@ -155,9 +142,6 @@ func truncateForReply(s string, maxRunes int) string {
 	return string(runes[:maxRunes]) + "…"
 }
 
-// customerNameOf 提取客户名
-// Customer 模型只有身份标识（Phone/Email/OpenID），没有昵称字段
-// 优先返回手机号作为标识
 func customerNameOf(c *model.Customer) string {
 	if c == nil {
 		return ""
@@ -180,7 +164,6 @@ type ChannelMessage struct {
 	ReceivedAt   int64  `json:"received_at"`
 }
 
-// normalizeChannelMessage 渠道特定清洗 → 通用字段
 func (e *SalesEngine) normalizeChannelMessage(ctx context.Context, msg *ChannelMessage) (content, sessionID, customerID string) {
 
 	if msg.MediaURL != "" {

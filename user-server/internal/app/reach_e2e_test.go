@@ -12,8 +12,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-
-// e2eMockSender 端到端测试用 mock sender
 type e2eMockSender struct {
 	count int32
 	err   error
@@ -34,7 +32,6 @@ func (m *e2eMockSender) SendFeishuMsg(_ context.Context, _ uint, _, _ string) er
 	return m.err
 }
 
-// e2eMockReachAdapter E2E 用 mock ReachAdapter
 type e2eMockReachAdapter struct {
 	*e2eMockSender
 	telegramCalls int32
@@ -70,7 +67,6 @@ func (m *e2eMockReachAdapter) SendWeb(_ context.Context, sessionID, content stri
 	return "e2e-web-msg", nil
 }
 
-// 实现 ReachAdapter 其他方法（NoOp）
 func (m *e2eMockReachAdapter) SendSMS(_ context.Context, _, _, _ string, _ map[string]string) (string, error) {
 	return "", nil
 }
@@ -111,7 +107,6 @@ func (m *e2eMockReachAdapter) AccountHealth(_ context.Context, _, _ string) (*to
 func (m *e2eMockReachAdapter) ListAccounts(_ context.Context, _ string) ([]tooluse.AccountInfo, error) {
 	return nil, nil
 }
-
 
 func TestE2E_ReachTelegram_FullPipeline(t *testing.T) {
 	db := testutil.NewTestDB(t)
@@ -162,7 +157,6 @@ func TestE2E_ReachTelegram_ErrorPropagation(t *testing.T) {
 	}
 }
 
-
 func TestE2E_ReachWhatsApp_FullPipeline(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	mock := &e2eMockReachAdapter{}
@@ -195,13 +189,12 @@ func TestE2E_ReachWhatsApp_TemplateWithoutContent(t *testing.T) {
 		"account_id":  "10",
 		"to_phone":    "+8613800138000",
 		"template_id": "utility_v1",
-		"content":     "x", 
+		"content":     "x",
 	})
 	if err != nil {
 		t.Fatalf("tool.Execute failed: %v", err)
 	}
 }
-
 
 func TestE2E_ReachFeishu_FullPipeline(t *testing.T) {
 	db := testutil.NewTestDB(t)
@@ -246,7 +239,6 @@ func TestE2E_ReachFeishu_AllMsgTypes(t *testing.T) {
 	}
 }
 
-
 func TestE2E_ReachNewChannels_LLMFunctionSerialization(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	registry := tooluse.NewToolRegistry()
@@ -287,7 +279,6 @@ func TestE2E_ReachNewChannels_LLMFunctionSerialization(t *testing.T) {
 	}
 }
 
-
 func TestE2E_ReachFullLoop_SalesReply(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	mock := &e2eMockReachAdapter{}
@@ -314,7 +305,6 @@ func TestE2E_ReachFullLoop_SalesReply(t *testing.T) {
 		t.Errorf("返回的 message_id 不正确：%s", string(data))
 	}
 }
-
 
 func TestE2E_ReachNewChannels_BatchDispatch(t *testing.T) {
 	db := testutil.NewTestDB(t)
@@ -350,7 +340,6 @@ func TestE2E_ReachNewChannels_BatchDispatch(t *testing.T) {
 	}
 }
 
-
 func TestE2E_ReachPipeline_ChannelDispatch(t *testing.T) {
 	mock := &e2eMockReachAdapter{}
 	bridge := &reachChannelAdapterBridge{adapter: mock}
@@ -376,4 +365,3 @@ func TestE2E_ReachPipeline_ChannelDispatch(t *testing.T) {
 		t.Error("bridge should dispatch feishu")
 	}
 }
-

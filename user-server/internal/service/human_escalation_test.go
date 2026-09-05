@@ -231,7 +231,6 @@ func TestHumanEscalation_GatekeeperIntegration(t *testing.T) {
 	}
 }
 
-// brokenCache 模拟 Redis 故障：Get 始终返回非 redis.Nil 错误
 type brokenCache struct {
 	cache.Cache
 }

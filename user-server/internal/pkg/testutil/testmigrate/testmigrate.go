@@ -38,7 +38,6 @@ func RunTestMigrations(t *testing.T, database *gorm.DB) {
 	}
 }
 
-// isMissingRelationErr 判断错误是否因目标表/列尚不存在（与本测试无关，可安全跳过）。
 func isMissingRelationErr(err error) bool {
 	if err == nil {
 		return false
@@ -48,4 +47,3 @@ func isMissingRelationErr(err error) bool {
 		strings.Contains(msg, "42704") ||
 		strings.Contains(msg, "42p01")
 }
-

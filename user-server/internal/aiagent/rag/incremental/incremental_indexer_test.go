@@ -13,9 +13,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-
-// longTestContent 写入临时文件的可切块长内容
-// 长度：~3000 字符 → 至少 2 个 chunk（默认 chunkSize 约 500 字符）
 const longTestContent = "营销自动化系统支持多渠道统一管理。" +
 	"第一段介绍：系统通过统一的接入网关，将微信公众号、企业微信、小程序、APP、网页等渠道汇总，" +
 	"并使用统一的用户身份识别机制。\n\n" +
@@ -32,8 +29,6 @@ const longTestContent = "营销自动化系统支持多渠道统一管理。" +
 	"第五段介绍：系统的私域独立部署模式（2026-07 决策）允许每个商户独立部署一套完整系统，" +
 	"数据完全隔离，满足数据安全合规要求。\n"
 
-// setupIndexerTestEnv 准备测试环境：DB + 临时文档文件 + indexer
-// 返回：indexer、临时文件路径、cleanup 函数
 func setupIndexerTestEnv(t *testing.T) (*IncrementalIndexer, string, uint64) {
 	t.Helper()
 	database := testutil.NewTestDB(t,
@@ -104,7 +99,7 @@ func TestIncrementalIndexer_Update(t *testing.T) {
 		t.Fatal("expected chunks after initial create")
 	}
 
-	time.Sleep(10 * time.Millisecond) 
+	time.Sleep(10 * time.Millisecond)
 
 	if err := indexer.Handle(event.Event{
 		Topic: event.TopicKnowledgeDocumentChanged,
@@ -244,7 +239,7 @@ func TestHashContent(t *testing.T) {
 	if h1 == h3 {
 		t.Errorf("different content should produce different hash: %s", h1)
 	}
-	if len(h1) != 64 { 
+	if len(h1) != 64 {
 		t.Errorf("hash length = %d, want 64", len(h1))
 	}
 }
@@ -359,7 +354,6 @@ func TestIncrementalIndexer_ChunksPersisted(t *testing.T) {
 		t.Fatalf("handle failed: %v", err)
 	}
 
-	// 验证 DB 中有 chunk
 	var chunks []knowledgemodel.KnowledgeChunk
 	if err := database.WithContext(context.Background()).
 		Where("document_id = ?", doc.ID).Find(&chunks).Error; err != nil {
@@ -378,12 +372,10 @@ func TestIncrementalIndexer_ChunksPersisted(t *testing.T) {
 	}
 }
 
-// uintToStr 辅助:uint → string
 func uintToStr(v uint) string {
 	return strings.TrimSpace(formatUint(v))
 }
 
-// intToStr 辅助:int → string
 func intToStr(v int) string {
 	if v == 0 {
 		return "0"
@@ -404,7 +396,6 @@ func intToStr(v int) string {
 	return string(digits)
 }
 
-// formatUint 格式化 uint
 func formatUint(v uint) string {
 	if v == 0 {
 		return "0"
@@ -416,4 +407,3 @@ func formatUint(v uint) string {
 	}
 	return string(digits)
 }
-

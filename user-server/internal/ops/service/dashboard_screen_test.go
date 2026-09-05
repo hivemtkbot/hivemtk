@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupDashboardScreenTestDB 设置数据大屏服务测试数据库
 func setupDashboardScreenTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.DashboardScreen{},
@@ -24,12 +23,10 @@ func setupDashboardScreenTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// newTestDashboardScreenRepository 创建测试仓库
 func newTestDashboardScreenRepository(database *gorm.DB) *repository.DashboardScreenRepository {
 	return repository.NewDashboardScreenRepository()
 }
 
-// newTestDashboardWidgetRepository 创建测试 Widget 仓库
 func newTestDashboardWidgetRepository(database *gorm.DB) *repository.DashboardWidgetRepository {
 	return repository.NewDashboardWidgetRepository()
 }
@@ -94,7 +91,6 @@ func TestDashboardScreenService_CreateScreen(t *testing.T) {
 		t.Error("Expected non-empty code")
 	}
 
-	// 验证大屏已保存到数据库
 	var count int64
 	database.Model(&model.DashboardScreen{}).Count(&count)
 	if count != 1 {
@@ -452,7 +448,6 @@ func TestDashboardScreenService_UpdateScreen(t *testing.T) {
 		t.Error("Expected IsPublic to be true")
 	}
 
-	// 验证 widget 已创建
 	var widgetCount int64
 	database.Model(&model.DashboardWidget{}).Where("screen_id = ?", screen.ID).Count(&widgetCount)
 	if widgetCount != 1 {
@@ -578,14 +573,12 @@ func TestDashboardScreenService_DeleteScreen(t *testing.T) {
 		t.Fatalf("DeleteScreen failed: %v", err)
 	}
 
-	// 验证大屏已被删除（硬删除，不是软删除）
 	var count int64
 	database.Model(&model.DashboardScreen{}).Where("id = ?", screen.ID).Count(&count)
 	if count != 0 {
 		t.Errorf("Expected screen to be deleted, got count %d", count)
 	}
 
-	// 验证 widget 已被删除
 	var widgetCount int64
 	database.Model(&model.DashboardWidget{}).Where("screen_id = ?", screen.ID).Count(&widgetCount)
 	if widgetCount != 0 {
@@ -654,7 +647,6 @@ func TestDashboardScreenService_GetPublicScreen(t *testing.T) {
 		t.Errorf("Expected name '公开大屏', got %s", retrievedScreen.Name)
 	}
 
-	// 验证访问次数已增加
 	var updatedScreen model.DashboardScreen
 	database.First(&updatedScreen, screen.ID)
 	if updatedScreen.ViewCount != 1 {
@@ -686,7 +678,6 @@ func TestDashboardScreenService_GetPublicScreen_MultipleViews(t *testing.T) {
 		}
 	}
 
-	// 验证访问次数
 	var updatedScreen model.DashboardScreen
 	database.First(&updatedScreen, screen.ID)
 	if updatedScreen.ViewCount != 5 {
@@ -817,14 +808,12 @@ func TestDashboardScreenService_updateWidgets(t *testing.T) {
 		t.Fatalf("UpdateScreen failed: %v", err)
 	}
 
-	// 验证旧 widgets 已被删除，新 widgets 已创建
 	var widgetCount int64
 	database.Model(&model.DashboardWidget{}).Where("screen_id = ?", screen.ID).Count(&widgetCount)
 	if widgetCount != 2 {
 		t.Errorf("Expected 2 widgets, got %d", widgetCount)
 	}
 
-	// 验证新 widgets 的内容
 	var widgets []model.DashboardWidget
 	database.Where("screen_id = ?", screen.ID).Order("sort_order").Find(&widgets)
 	if widgets[0].WidgetType != "chart" {
@@ -938,7 +927,6 @@ func TestDashboardScreenService_UpdateScreen_WithEmptyWidgets(t *testing.T) {
 		t.Fatalf("UpdateScreen failed: %v", err)
 	}
 
-	// 验证 widgets 已被清空
 	var widgetCount int64
 	database.Model(&model.DashboardWidget{}).Where("screen_id = ?", screen.ID).Count(&widgetCount)
 	if widgetCount != 0 {
@@ -1001,7 +989,6 @@ func TestDashboardScreenService_ConcurrentAccess(t *testing.T) {
 		}
 	}
 
-	// 验证访问次数
 	var updatedScreen model.DashboardScreen
 	database.First(&updatedScreen, screen.ID)
 	if updatedScreen.ViewCount != 10 {
@@ -1055,11 +1042,9 @@ func TestDashboardScreenService_WidgetConfigSerialization(t *testing.T) {
 		t.Fatalf("UpdateScreen failed: %v", err)
 	}
 
-	// 验证 widget 配置
 	var widget model.DashboardWidget
 	database.Where("screen_id = ?", screen.ID).First(&widget)
 	if widget.Config == "" {
 		t.Error("Expected non-empty widget config")
 	}
 }
-

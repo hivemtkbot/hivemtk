@@ -14,11 +14,11 @@ import (
 
 // FailureAttribution 单次 GEPA 迭代的失败归因
 type FailureAttribution struct {
-	LineageID   string  // 血缘 ID：同一 prompt 优化链路的标识（如建议版本链）
-	SampleScore float64 // 失败样本得分（相对比较用）
-	JudgeReason string  // 评审/门禁给出的失败原因
-	Decision    string  // 决策动作：gate_failed / rolled_back / manual_review 等
-	Delta       float64 // 相对基线分差，负值为退化
+	LineageID   string
+	SampleScore float64
+	JudgeReason string
+	Decision    string
+	Delta       float64
 }
 
 // Lesson 按 lineage 聚合后的失败教训
@@ -27,8 +27,8 @@ type Lesson struct {
 	Failures       int
 	AvgSampleScore float64
 	AvgDelta       float64
-	TopReason      string // 出现频次最高的失败原因（并列取字典序最小）
-	TopDecision    string // 出现频次最高的决策动作（并列取字典序最小）
+	TopReason      string
+	TopDecision    string
 }
 
 // FailureLedger 失败归因台账（并发安全）
@@ -100,7 +100,6 @@ func (l *FailureLedger) TopLessons(n int) []Lesson {
 	return lessons
 }
 
-// topCountedKey 取计数最大且字典序最小的键（并列时输出确定）
 func topCountedKey(counts map[string]int) string {
 	best, bestN := "", 0
 	for k, v := range counts {

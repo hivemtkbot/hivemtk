@@ -162,7 +162,6 @@ func (d *AnomalyLoginDetector) DetectAndAlert(ctx context.Context, lctx *LoginRi
 	return result, nil
 }
 
-// writeAuditLog 写审计日志（operation_logs 表）
 func (d *AnomalyLoginDetector) writeAuditLog(ctx context.Context, lctx *LoginRiskContext, result *LoginRiskResult) error {
 	if result.SecurityAlertID == 0 {
 		return errors.New("alert id is 0, alert not persisted")
@@ -185,7 +184,6 @@ func (d *AnomalyLoginDetector) writeAuditLog(ctx context.Context, lctx *LoginRis
 	return repo.Create(ctx, logEntry)
 }
 
-// writeInboxNotification 写站内通知
 func (d *AnomalyLoginDetector) writeInboxNotification(ctx context.Context, lctx *LoginRiskContext, result *LoginRiskResult) error {
 	notif := &model.Notification{
 		UserID:  lctx.UserID,
@@ -197,9 +195,6 @@ func (d *AnomalyLoginDetector) writeInboxNotification(ctx context.Context, lctx 
 	return riskRepo.CreateNotification(context.Background(), notif)
 }
 
-// sendEmailAlert 发送邮件告警
-//
-// 简化实现：仅当存在 SMTP 配置时尝试发送；私域部署允许无 SMTP（仅走审计+站内信）
 func (d *AnomalyLoginDetector) sendEmailAlert(ctx context.Context, lctx *LoginRiskContext, result *LoginRiskResult) error {
 	subject := fmt.Sprintf(d.config.EmailSubjectTemplate,
 		strings.ToUpper(string(result.RiskLevel)),

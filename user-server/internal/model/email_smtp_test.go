@@ -151,4 +151,3 @@ func TestEmailSmtp_BeforeCreate_NoChangeIfExists(t *testing.T) {
 		t.Errorf("Expected ID to remain 'existing-id', got %s", smtp.ID)
 	}
 }
-

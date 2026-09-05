@@ -36,16 +36,10 @@ type Clock interface {
 	Now() time.Time
 }
 
-// realClock 真实时钟实现
 type realClock struct{}
 
 func (realClock) Now() time.Time { return time.Now() }
 
-// faqRepoIface FAQ Repository 接口 (: 用于 WeekDecay 单测注入 mock)
-//
-// 与 *repository.FAQRepository 鸭子类型兼容, 生产代码无需感知。
-//
-// Task 15 变更: 新增 MatchByAgent / ListByAgent 接口方法 (按 agentID 过滤)
 type faqRepoIface interface {
 	MatchByKeyword(ctx context.Context, msg string, topK int) ([]model.FAQEntry, error)
 	MatchByAgent(ctx context.Context, agentID uint, msg string, topK int) ([]model.FAQEntry, error)
@@ -64,12 +58,6 @@ type faqRepoIface interface {
 	Delete(ctx context.Context, id uint) error
 }
 
-// faqBindingRepoIface 智能体知识库绑定仓库接口 (Task 15 注入)
-//
-// 与 *repository.AgentKBBindingRepository 鸭子类型兼容。
-// 引入此接口是为了避免 service 对 bindingRepo 实现细节的直接依赖,
-//
-//	同时方便单测注入 mock。
 type faqBindingRepoIface interface {
 	ListByAgent(ctx context.Context, agentID uint, kbType string) ([]model.AgentKBBinding, error)
 }
@@ -156,19 +144,6 @@ func (s *FAQService) SetClock(c Clock) {
 	}
 }
 
-// Match 在共享池中匹配用户消息,返回 Top K 候选
-//
-// 行为 (Task 15 改造后):
-//   - 仅查询 agent_id IS NULL 的全局共享 FAQ
-//   - 保留旧 Match API 用于调试 / 后台管理界面
-//   - 业务运行时应使用 MatchByAgent
-//
-// cachedEntries 返回指定 agent 的 FAQ 候选集（已启用）。优先命中内存缓存（TTL faqCacheTTL），
-// 避免每次 FAQ 匹配都从 DB 全量拉取最多 faqCacheMaxN 条 FAQ 再做内存打分。
-//
-// 语义与 repository.listEnabledForAgent 对齐：
-//   - agentID == 0: 全部已启用 FAQ（共享池）
-//   - agentID > 0: agent_id = agentID OR agent_id IS NULL（该 agent 私有 + 共享）
 func (s *FAQService) cachedEntries(ctx context.Context, agentID uint) ([]model.FAQEntry, error) {
 	s.mu.RLock()
 	if ents, ok := s.cache[agentID]; ok {
@@ -266,7 +241,6 @@ func (s *FAQService) MatchByAgentKB(ctx context.Context, agentID uint, kbIDs []u
 	return s.toMatchResults(scored, "agent_kb"), nil
 }
 
-// toMatchResults 转换为 DTO 列表
 func (s *FAQService) toMatchResults(entries []model.FAQEntry, matchType string) []dto.FAQMatchResult {
 	out := make([]dto.FAQMatchResult, 0, len(entries))
 	for i, e := range entries {
@@ -500,7 +474,6 @@ func (s *FAQService) WeekDecay(ctx context.Context) (int, error) {
 	return decayed, nil
 }
 
-// now 内部取时间 (便于 mock)
 func (s *FAQService) now() time.Time {
 	if s.clock == nil {
 		return time.Now()

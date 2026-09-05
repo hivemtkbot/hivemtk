@@ -28,7 +28,6 @@ type DomainPoolRepository interface {
 	DeactivateAll(ctx context.Context) error
 }
 
-// domainPoolRepository 域名池仓储实现
 type domainPoolRepository struct {
 	db *gorm.DB
 }
@@ -43,7 +42,6 @@ func NewDomainPoolRepositoryWithDB(db *gorm.DB) DomainPoolRepository {
 	return &domainPoolRepository{db: db}
 }
 
-// dbOrDefault 当未注入 db 时回退到全局
 func (r *domainPoolRepository) dbOrDefault(ctx context.Context) *gorm.DB {
 	if r.db != nil {
 		return r.db
@@ -51,22 +49,18 @@ func (r *domainPoolRepository) dbOrDefault(ctx context.Context) *gorm.DB {
 	return _db.GetDB()
 }
 
-// Create 创建域名池记录
 func (r *domainPoolRepository) Create(ctx context.Context, domainPool *model.DomainPool) error {
 	return r.dbOrDefault(ctx).Create(domainPool).Error
 }
 
-// Update 更新域名池记录
 func (r *domainPoolRepository) Update(ctx context.Context, domainPool *model.DomainPool) error {
 	return r.dbOrDefault(ctx).Save(domainPool).Error
 }
 
-// Delete 删除域名池记录
 func (r *domainPoolRepository) Delete(ctx context.Context, id int) error {
 	return r.dbOrDefault(ctx).Delete(&model.DomainPool{}, id).Error
 }
 
-// GetByID 根据ID获取域名池记录
 func (r *domainPoolRepository) GetByID(ctx context.Context, id int) (*model.DomainPool, error) {
 	var domainPool model.DomainPool
 	err := r.dbOrDefault(ctx).First(&domainPool, id).Error
@@ -76,7 +70,6 @@ func (r *domainPoolRepository) GetByID(ctx context.Context, id int) (*model.Doma
 	return &domainPool, nil
 }
 
-// GetByDomain 根据域名获取域名池记录
 func (r *domainPoolRepository) GetByDomain(ctx context.Context, domain string) (*model.DomainPool, error) {
 	var domainPool model.DomainPool
 	err := r.dbOrDefault(ctx).Where("domain = ?", domain).First(&domainPool).Error
@@ -86,7 +79,6 @@ func (r *domainPoolRepository) GetByDomain(ctx context.Context, domain string) (
 	return &domainPool, nil
 }
 
-// List 获取域名池列表
 func (r *domainPoolRepository) List(ctx context.Context, page, pageSize int, domain string, status int) ([]*model.DomainPool, int64, error) {
 	var domainPools []*model.DomainPool
 	var total int64
@@ -112,17 +104,14 @@ func (r *domainPoolRepository) List(ctx context.Context, page, pageSize int, dom
 	return domainPools, total, nil
 }
 
-// UpdateStatus 更新域名池状态
 func (r *domainPoolRepository) UpdateStatus(ctx context.Context, id, status int) error {
 	return r.dbOrDefault(ctx).Model(&model.DomainPool{}).Where("id = ?", id).Update("status", status).Error
 }
 
-// UpdateLastCheck 更新最后检查时间
 func (r *domainPoolRepository) UpdateLastCheck(ctx context.Context, id int, lastCheck time.Time) error {
 	return r.dbOrDefault(ctx).Model(&model.DomainPool{}).Where("id = ?", id).Update("last_check", lastCheck).Error
 }
 
-// UpdateHealth G 域 ：写入健康度评分
 func (r *domainPoolRepository) UpdateHealth(
 	ctx context.Context,
 	id int,
@@ -156,7 +145,6 @@ func (r *domainPoolRepository) UpdateHealth(
 	return r.dbOrDefault(ctx).Model(&model.DomainPool{}).Where("id = ?", id).Updates(updates).Error
 }
 
-// UpdateActive G 域 ：写入活跃状态与切换时间
 func (r *domainPoolRepository) UpdateActive(ctx context.Context, id int, isActive bool, switchedAt *time.Time, switchedFromID int) error {
 	updates := map[string]any{
 		"is_active":        isActive,
@@ -166,14 +154,12 @@ func (r *domainPoolRepository) UpdateActive(ctx context.Context, id int, isActiv
 	return r.dbOrDefault(ctx).Model(&model.DomainPool{}).Where("id = ?", id).Updates(updates).Error
 }
 
-// ListActive 返回所有当前标记为活跃的域名
 func (r *domainPoolRepository) ListActive(ctx context.Context) ([]*model.DomainPool, error) {
 	var rows []*model.DomainPool
 	err := r.dbOrDefault(ctx).Where("is_active = ?", true).Order("switched_at DESC NULLS LAST").Find(&rows).Error
 	return rows, err
 }
 
-// ListAvailable 返回评分 >= minScore、未在黑名单、状态为正常的可用域名
 func (r *domainPoolRepository) ListAvailable(ctx context.Context, minScore int) ([]*model.DomainPool, error) {
 	var rows []*model.DomainPool
 	err := r.dbOrDefault(ctx).
@@ -185,7 +171,6 @@ func (r *domainPoolRepository) ListAvailable(ctx context.Context, minScore int) 
 	return rows, err
 }
 
-// DeactivateAll 将所有域名标记为非活跃
 func (r *domainPoolRepository) DeactivateAll(ctx context.Context) error {
 	return r.dbOrDefault(ctx).Model(&model.DomainPool{}).Where("is_active = ?", true).Update("is_active", false).Error
 }
@@ -264,7 +249,7 @@ func (r *DomainBlacklistRepository) Add(ctx context.Context, domain, platform, r
 	if source == "" {
 		source = "system"
 	}
-	// upsert by domain
+
 	var existing model.DomainBlacklist
 	err := r.db.Where("domain = ?", domain).First(&existing).Error
 	if err != nil {

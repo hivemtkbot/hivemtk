@@ -10,8 +10,6 @@ import (
 	"hivemtk-user/internal/event"
 )
 
-
-// mockRuntime 模拟运行时
 type mockRuntime struct {
 	mu               sync.Mutex
 	receivedPayloads []CustomerMessagePayload
@@ -174,7 +172,7 @@ func TestEventSubscriber_Handle_AutoTraceID(t *testing.T) {
 		ChannelType: "telegram",
 		AccountID:   "tg_002",
 		Content:     "test",
-		TraceID:     "", 
+		TraceID:     "",
 	}
 
 	err := handler(event.Event{
@@ -226,7 +224,6 @@ func TestEventSubscriber_Handle_PointerPayload(t *testing.T) {
 	}
 }
 
-// contains 辅助函数
 func contains(s, substr string) bool {
 	for i := 0; i+len(substr) <= len(s); i++ {
 		if s[i:i+len(substr)] == substr {
@@ -235,4 +232,3 @@ func contains(s, substr string) bool {
 	}
 	return false
 }
-

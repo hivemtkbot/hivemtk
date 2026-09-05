@@ -28,8 +28,8 @@ import (
 //   - 客服场景：置信度 < 阈值 → 转人工
 //   - LLM 输出：单次 LLM 输出的事实性可声明 coverage guarantee
 type ConformalPredictor struct {
-	calibrationScores []float64 // 校准集的非一致性分数（升序）
-	delta             float64   // 显著性水平（如 0.1 → 90% 覆盖率）
+	calibrationScores []float64
+	delta             float64
 }
 
 // NewConformalPredictor 构造共形预测器
@@ -43,7 +43,7 @@ type ConformalPredictor struct {
 //   - 高频交易：delta=0.01（99% 覆盖率，极保守）
 func NewConformalPredictor(scores []float64, delta float64) *ConformalPredictor {
 	if delta <= 0 || delta >= 1 {
-		delta = 0.1 // 默认 90% 覆盖率
+		delta = 0.1
 	}
 	sorted := make([]float64, len(scores))
 	copy(sorted, scores)
@@ -69,10 +69,9 @@ func NewConformalPredictor(scores []float64, delta float64) *ConformalPredictor 
 func (c *ConformalPredictor) Quantile() float64 {
 	n := len(c.calibrationScores)
 	if n == 0 {
-		return math.Inf(1) // 无校准数据 → 永远 abstention
+		return math.Inf(1)
 	}
-	// Vovk's formula: q = ceil((n+1)*(1-δ)) / n
-	// 索引：1-based
+
 	idx := int(math.Ceil(float64(n+1) * (1 - c.delta)))
 	if idx < 1 {
 		idx = 1
@@ -80,7 +79,7 @@ func (c *ConformalPredictor) Quantile() float64 {
 	if idx > n {
 		idx = n
 	}
-	// 1-based to 0-based
+
 	return c.calibrationScores[idx-1]
 }
 
@@ -97,7 +96,7 @@ func (c *ConformalPredictor) PredictSet(scores []float64) []int {
 	out := make([]int, 0, len(scores))
 	for i, s := range scores {
 		if s <= threshold {
-			out = append(out, i+1) // 1-based
+			out = append(out, i+1)
 		}
 	}
 	return out
@@ -117,7 +116,7 @@ func (c *ConformalPredictor) CoverageGuarantee() float64 {
 func (c *ConformalPredictor) CalibrateOnline(newScore float64, maxRetained int) {
 	c.calibrationScores = append(c.calibrationScores, newScore)
 	if maxRetained > 0 && len(c.calibrationScores) > maxRetained {
-		// 滑动窗口：删除最早的
+
 		c.calibrationScores = c.calibrationScores[len(c.calibrationScores)-maxRetained:]
 	}
 	sort.Float64s(c.calibrationScores)

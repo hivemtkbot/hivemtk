@@ -9,11 +9,11 @@ import (
 )
 
 type Config struct {
-	Host     string 
-	Port     int    
-	From     string `json:"from"`     
-	Password string `json:"password"` 
-	SSL      bool   `json:"ssl"`      
+	Host     string
+	Port     int
+	From     string `json:"from"`
+	Password string `json:"password"`
+	SSL      bool   `json:"ssl"`
 }
 
 func SendMail(cfg Config, to []string, subject, body string, isHTML bool) error {
@@ -31,7 +31,6 @@ func SendMail(cfg Config, to []string, subject, body string, isHTML bool) error 
 		contentType = "text/html"
 	}
 	m.SetBody(contentType, body)
-
 
 	d := &gomail.Dialer{
 		Host:      cfg.Host,
@@ -51,7 +50,6 @@ func SendMail(cfg Config, to []string, subject, body string, isHTML bool) error 
 	return d.DialAndSend(m)
 }
 
-// 自动配置SMTP服务器参数
 func autoConfig(cfg *Config) {
 	domain := strings.Split(cfg.From, "@")
 
@@ -84,13 +82,12 @@ func autoConfig(cfg *Config) {
 
 	switch cfg.Host {
 	case "smtp.gmail.com", "smtp.live.com":
-		cfg.Port = 587 
+		cfg.Port = 587
 		cfg.SSL = false
 	case "":
-		cfg.Port = 587 
+		cfg.Port = 587
 	default:
-		cfg.Port = 465 
+		cfg.Port = 465
 		cfg.SSL = true
 	}
 }
-

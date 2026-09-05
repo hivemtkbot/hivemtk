@@ -110,27 +110,14 @@ func (p *PromptIterator) IterateForNode(ctx context.Context, sopID uint, nodeID 
 	return candidates, nil
 }
 
-// fetchNegativeSamples 拉取负反馈样本
-//
-// 查询 feedback_events 中 reward < NegativeRewardThreshold 的记录
-// 返回最多 20 条 reward 最低的样本（用于 LLM 上下文，避免 token 爆炸）
-//
-// 注意：本函数仅返回 Top-20 样本，不能用于阈值判定；
-// 阈值判定应使用 countNegativeSamples 查询全量计数。
 func (p *PromptIterator) fetchNegativeSamples(ctx context.Context, sopID uint, since time.Time) ([]repository.NegativeSample, error) {
 	return p.repo.FetchNegativeSamples(ctx, sopID, since, p.config.NegativeRewardThreshold)
 }
 
-// countNegativeSamples 统计指定时间窗口内的负反馈样本总数
-//
-// 用于 MinSamplesForIteration 阈值判定（与 fetchNegativeSamples 的 LIMIT 20 解耦）
 func (p *PromptIterator) countNegativeSamples(ctx context.Context, sopID uint, since time.Time) (int64, error) {
 	return p.repo.CountNegativeSamples(ctx, sopID, since, p.config.NegativeRewardThreshold)
 }
 
-// generateCandidates LLM 生成候选 Prompt
-//
-// Prompt 模板：当前 System/User Prompt + N 条负反馈样本 → 输出 N 个改进版本 JSON
 func (p *PromptIterator) generateCandidates(ctx context.Context, current model.PromptCandidate, samples []repository.NegativeSample) ([]model.PromptCandidate, error) {
 	if p.dispatcher == nil {
 		return nil, ErrDispatcherNotConfig
@@ -194,12 +181,6 @@ func (p *PromptIterator) generateCandidates(ctx context.Context, current model.P
 	return out, nil
 }
 
-// createABTest 自动创建 A/B 测试
-//
-// 实验 ID：sop{sopID}_node{nodeID}_{unix_time}
-// arm_keys：["arm_0_original", "arm_1_v1.1", "arm_2_v1.2", ...]
-// 原 Prompt 作为 arm_0（兜底臂，Beta(2,2) 弱先验）
-// 新候选作为 arm_1..N
 func (p *PromptIterator) createABTest(ctx context.Context, sopID uint, nodeID string, current model.PromptCandidate, newCandidates []model.PromptCandidate) {
 	experimentID := fmt.Sprintf("sop%d_node%s_%d", sopID, nodeID, time.Now().Unix())
 	armKeys := []string{"arm_0_original"}
@@ -250,7 +231,6 @@ func (p *PromptIterator) createABTest(ctx context.Context, sopID uint, nodeID st
 	_ = p.repo.CreateBanditArmsInBatches(ctx, arms, 100)
 }
 
-// armKeysToInterface 将 []string 转为 []interface{}（用于 JSONArray）
 func armKeysToInterface(keys []string) []any {
 	out := make([]any, len(keys))
 	for i, k := range keys {
@@ -259,10 +239,6 @@ func armKeysToInterface(keys []string) []any {
 	return out
 }
 
-// nextVersion 版本号递增
-//
-// 规则：v1.0 → v1.1 → ... → v1.9 → v2.0
-// 非法格式（如 "1.0" 无 v 前缀）则附加 .1
 func nextVersion(v string) string {
 	v = strings.TrimSpace(v)
 	if v == "" {

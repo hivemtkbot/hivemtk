@@ -8,9 +8,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-// openAPISourceAdapter P2-3：service.OpenAPIService → knowledgectrl.OpenAPISourcePort 适配器。
-//
-// 装配期在 router 注入，使 aiagent/knowledge/controller 不再 import service。
 type openAPISourceAdapter struct {
 	svc *service.OpenAPIService
 }
@@ -62,4 +59,3 @@ func (a *openAPISourceAdapter) SyncSource(ctx context.Context, productID string,
 func (a *openAPISourceAdapter) TestConnection(ctx context.Context, src *knowledgemodel.KnowledgeOpenAPISource) (map[string]any, error) {
 	return a.svc.TestConnection(ctx, src)
 }
-

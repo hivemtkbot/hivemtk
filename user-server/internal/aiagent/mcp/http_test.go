@@ -1,7 +1,5 @@
 package mcp
 
-// TL-2 单测：版本协商矩阵 / Session-Id 缺失与错误 / Accept 校验
-
 import (
 	"encoding/json"
 	"net/http/httptest"
@@ -11,19 +9,17 @@ import (
 	"hivemtk-user/internal/aiagent/agent/tooluse"
 )
 
-// ---------- 版本协商矩阵 ----------
-
 func TestNegotiateProtocolVersion_Matrix(t *testing.T) {
 	cases := []struct {
 		requested string
 		want      string
 	}{
-		{"2025-06-18", "2025-06-18"},   // 支持的旧版 → 原样
-		{"2025-11-25", "2025-11-25"},   // 支持的最新版 → 原样
-		{"2025-03-26", "2025-11-25"},   // 已废弃版本 → 最新支持版
-		{"2030-01-01", "2025-11-25"},   // 未来版本 → 最新支持版
-		{"", "2025-11-25"},             // 缺失 → 最新支持版
-		{"garbage", "2025-11-25"},      // 非法值 → 最新支持版
+		{"2025-06-18", "2025-06-18"},
+		{"2025-11-25", "2025-11-25"},
+		{"2025-03-26", "2025-11-25"},
+		{"2030-01-01", "2025-11-25"},
+		{"", "2025-11-25"},
+		{"garbage", "2025-11-25"},
 	}
 	for _, c := range cases {
 		if got := NegotiateProtocolVersion(c.requested); got != c.want {
@@ -59,8 +55,6 @@ func TestInitialize_NegotiationMatrix(t *testing.T) {
 	}
 }
 
-// ---------- Session-Id ----------
-
 func TestInitialize_SessionIDVisibleASCII(t *testing.T) {
 	s := NewServer(nil)
 	initializeReq(t, s)
@@ -78,7 +72,6 @@ func TestInitialize_SessionIDVisibleASCII(t *testing.T) {
 func TestHTTPHandler_SessionIDFlow(t *testing.T) {
 	h := NewHTTPHandler(tooluse.NewToolRegistry())
 
-	// 1. initialize → 200 + Mcp-Session-Id 头
 	req := httptest.NewRequest("POST", "/mcp", strings.NewReader(
 		`{"jsonrpc":"2.0","id":"1","method":"initialize","params":{"protocolVersion":"2025-11-25","clientInfo":{"name":"t","version":"0"}}}`))
 	req.Header.Set("Accept", "application/json")
@@ -94,7 +87,6 @@ func TestHTTPHandler_SessionIDFlow(t *testing.T) {
 
 	pingBody := `{"jsonrpc":"2.0","id":"2","method":"ping"}`
 
-	// 2a. 后续请求缺失 Session-Id → 400
 	req = httptest.NewRequest("POST", "/mcp", strings.NewReader(pingBody))
 	req.Header.Set("Accept", "application/json")
 	rec = httptest.NewRecorder()
@@ -103,7 +95,6 @@ func TestHTTPHandler_SessionIDFlow(t *testing.T) {
 		t.Errorf("missing session id: status = %d, want 400", rec.Code)
 	}
 
-	// 2b. 错误 Session-Id → 400
 	req = httptest.NewRequest("POST", "/mcp", strings.NewReader(pingBody))
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set(HeaderMcpSessionID, "bogus-session-id")
@@ -113,7 +104,6 @@ func TestHTTPHandler_SessionIDFlow(t *testing.T) {
 		t.Errorf("wrong session id: status = %d, want 400", rec.Code)
 	}
 
-	// 2c. 正确 Session-Id → 200
 	req = httptest.NewRequest("POST", "/mcp", strings.NewReader(pingBody))
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set(HeaderMcpSessionID, sid)
@@ -124,8 +114,6 @@ func TestHTTPHandler_SessionIDFlow(t *testing.T) {
 	}
 }
 
-// ---------- Accept 校验 ----------
-
 func TestHTTPHandler_AcceptValidation(t *testing.T) {
 	h := NewHTTPHandler(tooluse.NewToolRegistry())
 	body := `{"jsonrpc":"2.0","id":"1","method":"ping"}`
@@ -134,11 +122,11 @@ func TestHTTPHandler_AcceptValidation(t *testing.T) {
 		accept string
 		want   int
 	}{
-		{"", 406},                        // 缺失 → 406
-		{"text/html", 406},               // 不含合法类型 → 406
-		{"application/json", 400},        // 合法；无会话 → 下一层校验 400
-		{"text/event-stream", 400},       // 合法（SSE 类型）
-		{"text/html, application/json;q=0.9", 400}, // 带参数/多值仍命中
+		{"", 406},
+		{"text/html", 406},
+		{"application/json", 400},
+		{"text/event-stream", 400},
+		{"text/html, application/json;q=0.9", 400},
 	}
 	for _, c := range cases {
 		req := httptest.NewRequest("POST", "/mcp", strings.NewReader(body))
@@ -155,7 +143,7 @@ func TestHTTPHandler_AcceptValidation(t *testing.T) {
 
 func TestHTTPHandler_NotificationAccepted(t *testing.T) {
 	h := NewHTTPHandler(tooluse.NewToolRegistry())
-	// 先 initialize 拿会话
+
 	initBody := `{"jsonrpc":"2.0","id":"1","method":"initialize","params":{"protocolVersion":"2025-11-25"}}`
 	req := httptest.NewRequest("POST", "/mcp", strings.NewReader(initBody))
 	req.Header.Set("Accept", "application/json")
@@ -163,7 +151,6 @@ func TestHTTPHandler_NotificationAccepted(t *testing.T) {
 	h.ServeHTTP(rec, req)
 	sid := rec.Header().Get(HeaderMcpSessionID)
 
-	// notifications/initialized → 无响应体，返回 202
 	req = httptest.NewRequest("POST", "/mcp", strings.NewReader(`{"jsonrpc":"2.0","method":"notifications/initialized"}`))
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set(HeaderMcpSessionID, sid)
@@ -173,8 +160,6 @@ func TestHTTPHandler_NotificationAccepted(t *testing.T) {
 		t.Errorf("notification status = %d, want 202", rec.Code)
 	}
 }
-
-// ---------- 回归：HandleRequest 层协议版本协商不影响既有语义 ----------
 
 func TestInitialize_UnknownClientStillInitializes(t *testing.T) {
 	s := NewServer(tooluse.NewToolRegistry())

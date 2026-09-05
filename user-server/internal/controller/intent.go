@@ -41,7 +41,6 @@ type RecognizeRequest struct {
 	Platform   string `json:"platform"`
 }
 
-// resolveText 兼容 message/text 两种字段名
 func (r *RecognizeRequest) resolveText() string {
 	if r.Text != "" {
 		return r.Text
@@ -105,7 +104,6 @@ func (c *IntentController) BatchRecognize(ctx *gin.Context) {
 		return
 	}
 
-	// 归一化为统一列表
 	type item struct {
 		sessionID  string
 		customerID string
@@ -168,7 +166,6 @@ func (c *IntentController) Stats(ctx *gin.Context) {
 	response.Success(ctx, resp, "查询成功")
 }
 
-// sortDistributionDesc 按 count 倒序
 func sortDistributionDesc(arr []map[string]any) {
 	for i := 1; i < len(arr); i++ {
 		for j := i; j > 0; j-- {
@@ -214,7 +211,6 @@ func (c *IntentController) RecentIntents(ctx *gin.Context) {
 func (c *IntentController) Intents(ctx *gin.Context) {
 	response.Success(ctx, service.DefaultIntents, "查询成功")
 }
-
 
 // RecognizeFineRequest 精细识别请求
 type RecognizeFineRequest struct {
@@ -265,7 +261,6 @@ func (c *IntentController) IntentStatsFine(ctx *gin.Context) {
 	response.Success(ctx, stats, "查询成功")
 }
 
-
 // GetConfig 获取意图识别配置
 // GET /api/intent/config
 //
@@ -284,7 +279,7 @@ func (c *IntentController) GetConfig(ctx *gin.Context) {
 
 // UpdateConfigRequest 更新意图识别配置请求体
 type UpdateConfigRequest struct {
-	Enabled bool `json:"enabled"` 
+	Enabled bool `json:"enabled"`
 }
 
 // UpdateConfig 更新意图识别配置
@@ -320,9 +315,6 @@ func (c *IntentController) UpdateConfig(ctx *gin.Context) {
 	response.Success(ctx, cfg, "更新成功")
 }
 
-
-// ===== R55 T10：意图词表租户可配置 =====
-
 // GetKeywordOverride GET /api/intent-records/keywords-override
 func (c *IntentController) GetKeywordOverride(ctx *gin.Context) {
 	response.Success(ctx, service.GetIntentKeywordOverride(), "查询成功")
@@ -345,7 +337,7 @@ func (c *IntentController) UpdateKeywordOverride(ctx *gin.Context) {
 	if req.Override == nil {
 		req.Override = map[string][]string{}
 	}
-	// 白名单校验：意图类型必须存在于默认词典（防脏配置静默无效）
+
 	valid := make(map[string]bool, len(service.DefaultIntents))
 	for _, def := range service.DefaultIntents {
 		valid[def.Type] = true

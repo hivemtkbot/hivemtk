@@ -139,4 +139,3 @@ func TestDefaultIntentExtractor_NumberCapturedData(t *testing.T) {
 		t.Errorf("quantity = %s, want 3", ir.CapturedData["quantity"])
 	}
 }
-

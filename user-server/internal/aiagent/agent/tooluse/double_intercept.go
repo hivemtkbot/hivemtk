@@ -8,12 +8,11 @@ import (
 	"time"
 )
 
-
 // DoubleInterceptOrchestrator 双拦截编排器
 type DoubleInterceptOrchestrator struct {
 	stateMachine *StreamStateMachine
 	router       *ToolRouter
-	secondPass   SecondPassLLM 
+	secondPass   SecondPassLLM
 
 	mu          sync.Mutex
 	clientMsgs  []ClientMessage
@@ -34,7 +33,7 @@ type OrchestratorStats struct {
 // ClientMessage 客户端消息（推送或缓存）
 type ClientMessage struct {
 	Content   string
-	Forwarded bool 
+	Forwarded bool
 	Timestamp time.Time
 }
 
@@ -64,7 +63,7 @@ type SecondPassLLM interface {
 type OrchestratorConfig struct {
 	Trigger      string
 	Router       *ToolRouter
-	StateMachine *StreamStateMachine 
+	StateMachine *StreamStateMachine
 	SecondPass   SecondPassLLM
 }
 
@@ -153,7 +152,6 @@ func (o *DoubleInterceptOrchestrator) Run(ctx context.Context, originalContent s
 	return o.assembleDirectReply(), nil
 }
 
-// executeToolCall 执行检测到的工具调用
 func (o *DoubleInterceptOrchestrator) executeToolCall(ctx context.Context, originalContent string) error {
 	toolName := o.stateMachine.ToolName()
 	toolArgs := o.stateMachine.ToolArgs()
@@ -185,7 +183,6 @@ func (o *DoubleInterceptOrchestrator) executeToolCall(ctx context.Context, origi
 	return nil
 }
 
-// runSecondPass 二次推理
 func (o *DoubleInterceptOrchestrator) runSecondPass(ctx context.Context, originalContent string) (string, error) {
 	o.mu.Lock()
 	var lastRecord ToolExecutionRecord
@@ -194,7 +191,6 @@ func (o *DoubleInterceptOrchestrator) runSecondPass(ctx context.Context, origina
 	}
 	o.mu.Unlock()
 
-	// 通过 SecondPass LLM 重新生成
 	var sb strings.Builder
 	reply, err := o.secondPass.GenerateReassembledReply(
 		ctx,
@@ -209,13 +205,12 @@ func (o *DoubleInterceptOrchestrator) runSecondPass(ctx context.Context, origina
 	if err != nil {
 		return "", err
 	}
-	_ = sb.String() 
+	_ = sb.String()
 
 	o.recordClientMessage(reply, true)
 	return reply, nil
 }
 
-// recordClientMessage 记录客户端消息
 func (o *DoubleInterceptOrchestrator) recordClientMessage(content string, forwarded bool) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -226,14 +221,12 @@ func (o *DoubleInterceptOrchestrator) recordClientMessage(content string, forwar
 	})
 }
 
-// hasToolExecution 是否执行过工具
 func (o *DoubleInterceptOrchestrator) hasToolExecution() bool {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	return len(o.toolResults) > 0
 }
 
-// assembleDirectReply 拼装直接回复（无工具调用）
 func (o *DoubleInterceptOrchestrator) assembleDirectReply() string {
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -275,4 +268,3 @@ func (o *DoubleInterceptOrchestrator) GetStats() OrchestratorStats {
 func (o *DoubleInterceptOrchestrator) StateMachine() *StreamStateMachine {
 	return o.stateMachine
 }
-

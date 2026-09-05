@@ -13,14 +13,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// safeDiv 安全除法（避免除 0 触发 panic）
 func safeDiv(a, b float64) float64 {
 	if b == 0 {
 		return 0
 	}
 	return a / b
 }
-
 
 // TuningController 统一管理 Controller
 type TuningController struct {
@@ -31,7 +29,6 @@ type TuningController struct {
 func NewTuningController(svc service.TuningService) *TuningController {
 	return &TuningController{svc: svc}
 }
-
 
 // ListConfidenceSignals 信号列表
 func (c *TuningController) ListConfidenceSignals(ctx *gin.Context) {
@@ -77,7 +74,6 @@ func (c *TuningController) StatsConfidenceSignals(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"days": days, "bands": rows}, "")
 }
 
-
 // ListCalibrations 校准记录列表
 func (c *TuningController) ListCalibrations(ctx *gin.Context) {
 	page, pageSize, err := pagination.Parse(ctx)
@@ -94,7 +90,6 @@ func (c *TuningController) ListCalibrations(ctx *gin.Context) {
 	}
 	c.jsonList(ctx, rows, total, page, pageSize)
 }
-
 
 // ListThresholdPolicies 策略列表
 func (c *TuningController) ListThresholdPolicies(ctx *gin.Context) {
@@ -120,7 +115,6 @@ func (c *TuningController) UpsertThresholdPolicy(ctx *gin.Context) {
 	}
 	response.Success(ctx, policy, "")
 }
-
 
 // ListHumanizeScores 评分列表
 func (c *TuningController) ListHumanizeScores(ctx *gin.Context) {
@@ -172,7 +166,6 @@ func (c *TuningController) StatsHumanizeScores(ctx *gin.Context) {
 	}, "")
 }
 
-
 // ListChampionBaselines 基线列表
 func (c *TuningController) ListChampionBaselines(ctx *gin.Context) {
 	rows, err := c.svc.ListChampionBaselines(ctx.Request.Context())
@@ -182,7 +175,6 @@ func (c *TuningController) ListChampionBaselines(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"list": rows}, "")
 }
-
 
 // ListFeedbackEvents 事件列表
 func (c *TuningController) ListFeedbackEvents(ctx *gin.Context) {
@@ -218,7 +210,6 @@ func (c *TuningController) StatsFeedbackEvents(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"days": days, "signals": rows}, "")
 }
 
-
 // ListChampionDialogues 销冠对话列表
 func (c *TuningController) ListChampionDialogues(ctx *gin.Context) {
 	page, pageSize, err := pagination.Parse(ctx)
@@ -236,7 +227,6 @@ func (c *TuningController) ListChampionDialogues(ctx *gin.Context) {
 	}
 	c.jsonList(ctx, rows, total, page, pageSize)
 }
-
 
 // ListPromptCandidates 候选列表
 func (c *TuningController) ListPromptCandidates(ctx *gin.Context) {
@@ -270,7 +260,6 @@ func (c *TuningController) UpdatePromptCandidateStatus(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"id": id, "status": status}, "")
 }
 
-
 // ListBanditArms 臂列表
 func (c *TuningController) ListBanditArms(ctx *gin.Context) {
 	page, pageSize, err := pagination.Parse(ctx)
@@ -289,7 +278,6 @@ func (c *TuningController) ListBanditArms(ctx *gin.Context) {
 	c.jsonList(ctx, rows, total, page, pageSize)
 }
 
-
 // ListLowQualitySamples 低质样本列表
 func (c *TuningController) ListLowQualitySamples(ctx *gin.Context) {
 	page, pageSize, err := pagination.Parse(ctx)
@@ -307,8 +295,6 @@ func (c *TuningController) ListLowQualitySamples(ctx *gin.Context) {
 	c.jsonList(ctx, rows, total, page, pageSize)
 }
 
-
-// jsonList 通用列表响应(分页元数据)
 func (c *TuningController) jsonList(ctx *gin.Context, list any, total int64, page, pageSize int) {
 	response.Success(ctx, gin.H{
 		"list":  list,
@@ -317,4 +303,3 @@ func (c *TuningController) jsonList(ctx *gin.Context, list any, total int64, pag
 		"size":  pageSize,
 	}, "")
 }
-

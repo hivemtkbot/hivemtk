@@ -32,7 +32,7 @@ func verifyWeCom(token, aesKey string, body []byte, query map[string]string) (bo
 	if token == "" {
 		return false, errors.New("missing token")
 	}
-	// body 中取 msg_signature/timestamp/nonce
+
 	var p struct {
 		MsgSignature string `json:"msg_signature"`
 		Timestamp    string `json:"timestamp"`
@@ -61,10 +61,7 @@ func verifyWeCom(token, aesKey string, body []byte, query map[string]string) (bo
 	if p.MsgSignature == "" || p.Timestamp == "" || p.Nonce == "" {
 		return false, errors.New("missing msg_signature/timestamp/nonce")
 	}
-	// 官方四元组口径：
-	//   POST 加密事件: msg_signature = sha1(sort(token, timestamp, nonce, encrypt))
-	//   GET  URL验证 : msg_signature = sha1(sort(token, timestamp, nonce, echostr))
-	// v3 审计 P1-6 修复：原三元组不绑定报文内容，捕获一次合法签名即可永久重放任意伪造 payload。
+
 	fourth := p.Encrypt
 	if fourth == "" {
 		fourth = query["echostr"]
@@ -168,7 +165,6 @@ func VerifyURL(token, aesKey, msgSignature, timestamp, nonce, echostr string) (s
 	return plainStr, nil
 }
 
-// dispatchWeCom 企业微信业务分发
 func (s *WebhookService) dispatchWeCom(ctx context.Context, accountID string, p *ParsedPayload, raw []byte, headers map[string]string) (*model.MessageHub, error) {
 	if s.integration == nil {
 		return nil, nil
@@ -217,7 +213,6 @@ func (s *WebhookService) dispatchWeCom(ctx context.Context, accountID string, p 
 		return nil, nil
 	}
 
-	// accountID 转 uint
 	var accID uint64
 	if v, err := strconv.ParseUint(accountID, 10, 64); err == nil && v > 0 {
 		accID = v
@@ -247,7 +242,6 @@ func (s *WebhookService) dispatchWeCom(ctx context.Context, accountID string, p 
 		p.Sender = fromUser
 		p.ChatID = chatID
 
-		// 2026-08-19：接入通用线索发现（所有渠道复用）
 		if hubMsg != nil && content != "" && fromUser != "" && msgType != "event" {
 			MineUnifiedLead(ctx, s, hubMsg, WeComLeadAdapter{}, accountID, chatID, "", fromUser, fromName, "", content)
 		}
@@ -255,14 +249,6 @@ func (s *WebhookService) dispatchWeCom(ctx context.Context, accountID string, p 
 	return hubMsg, err
 }
 
-// parseWeComPlain 如果 body 包含 encrypt 字段，尝试解密（需要从 wecomRepo 拉 EncodingAESKey）
-//
-// W-2 解密精确路由：
-//  1. 优先按 account_id（路径参数）精确定位账号，用该账号 EncodingAESKey 解密；
-//     解密成功后校验 payload.AgentID 是否匹配账号配置的 AgentID（防 key 误配错解）。
-//  2. account_id 无法定位 / 解密失败 / AgentID 不匹配 → 回退全量遍历，
-//     遍历中同样校验 AgentID，首个匹配成功即返回；全量失败打 WARN。
-//  3. body 无 encrypt 字段（明文）直接返回 p。
 func (s *WebhookService) parseWeComPlain(ctx context.Context, accountID string, raw []byte) map[string]any {
 	var p map[string]any
 	if err := json.Unmarshal(raw, &p); err != nil {
@@ -277,7 +263,6 @@ func (s *WebhookService) parseWeComPlain(ctx context.Context, accountID string, 
 		return nil
 	}
 
-	// 1) 精确路由：按 account_id 取唯一账号的 EncodingAESKey + AgentID
 	if id, err := strconv.ParseUint(accountID, 10, 64); err == nil && id > 0 {
 		if acc, gerr := s.wecomRepo.GetByID(ctx, uint(id)); gerr == nil && acc != nil && acc.EncodingAESKey != "" {
 			if out := decryptWeComPayload(acc.EncodingAESKey, enc); out != nil {
@@ -294,7 +279,6 @@ func (s *WebhookService) parseWeComPlain(ctx context.Context, accountID string, 
 		logger.Warnf("[Webhook] wecom 解密缺少有效 account 标识 account=%q，回退全量遍历", accountID)
 	}
 
-	// 2) 回退：遍历所有账号逐个试 key，用 AgentID 精确匹配
 	accs, err := s.wecomRepo.GetByMerchant(ctx)
 	if err != nil || len(accs) == 0 {
 		return nil
@@ -313,7 +297,6 @@ func (s *WebhookService) parseWeComPlain(ctx context.Context, accountID string, 
 	return nil
 }
 
-// decryptWeComPayload 用指定 aesKey 解密并反序列化；任一步失败返回 nil
 func decryptWeComPayload(aesKey, enc string) map[string]any {
 	if aesKey == "" {
 		return nil
@@ -329,8 +312,6 @@ func decryptWeComPayload(aesKey, enc string) map[string]any {
 	return out
 }
 
-// validateWeComAgentID 从解密后的 payload 提取 AgentID 与账号配置比对。
-// payload 中 AgentID 缺失或类型不明时报 true（兼容 XML 明文消息无 AgentID 的场景）。
 func validateWeComAgentID(payload map[string]any, expected int) bool {
 	if payload == nil || expected == 0 {
 		return true
@@ -355,13 +336,6 @@ func validateWeComAgentID(payload map[string]any, expected int) bool {
 	return got == expected
 }
 
-// getWechatSecrets 读取 wechat 渠道 webhook 验签 token。
-//
-// W-6 修复：原实现恒返回空串，导致 verifyWechat 对任何请求都验签失败。
-// 现从公众号账号配置（wechat_accounts.token，即「服务器配置」里的验证 Token）读取：
-//   - accountID 可解析时优先精确匹配该账号；
-//   - 否则回退到第一个 active 账号；
-//   - 均未配置时返回空串，由调用方(webhook.go::Verify)记 WARN 并跳过该渠道验签。
 func (s *WebhookService) getWechatSecrets(ctx context.Context, accountID string) (string, string) {
 	if s.wechatIntegration == nil {
 		if s.db == nil {
@@ -391,8 +365,6 @@ func (s *WebhookService) GetWeComSecrets(ctx context.Context, accountID string) 
 	return s.getWeComSecrets(ctx, accountID)
 }
 
-// getWeComSecrets 从 wecom_accounts 读取 token + EncodingAESKey
-// accountID 优先按数字 ID 解析；解析失败则取第一条启用 webhook 的账号
 func (s *WebhookService) getWeComSecrets(ctx context.Context, accountID string) (string, string, error) {
 	if s.wecomRepo == nil {
 		return "", "", errors.New("wecomRepo nil")

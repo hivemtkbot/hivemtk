@@ -140,4 +140,3 @@ type UpdateLiveCodeQRRequest struct {
 	Status     *int `json:"status"`
 	ExpireDays *int `json:"expire_days"`
 }
-

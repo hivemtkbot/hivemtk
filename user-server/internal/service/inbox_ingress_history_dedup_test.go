@@ -58,7 +58,6 @@ func TestPersistBridgeHistory_HistoryEchoDedupHit_Skipped(t *testing.T) {
 		t.Fatalf("PersistBridgeHistory 不应报错（命中即幂等跳过）：%v", err)
 	}
 
-	// 关键回归点 1：history 项不得被落库为 inbound。
 	var inboundDupCount int64
 	db.Model(&model.MessageHub{}).
 		Where("platform=? AND conversation_id=? AND direction='inbound' AND msg_id=?", platform, conv, hashID).
@@ -67,7 +66,6 @@ func TestPersistBridgeHistory_HistoryEchoDedupHit_Skipped(t *testing.T) {
 		t.Fatalf("history 中的 AI 回复不得重入库为 inbound（应幂等跳过），实际 inbound 条数=%d", inboundDupCount)
 	}
 
-	// 关键回归点 2：原 outbound 仍存在（未被覆盖 / 删除 / 状态变更）。
 	var outboundRow model.MessageHub
 	if err := db.Where("msg_id=? AND direction='outbound'", hashID).First(&outboundRow).Error; err != nil {
 		t.Fatalf("原 outbound 应仍在：%v", err)
@@ -76,7 +74,6 @@ func TestPersistBridgeHistory_HistoryEchoDedupHit_Skipped(t *testing.T) {
 		t.Fatalf("原 outbound 状态不应被修改，仍应 delivered，实际=%s", outboundRow.Status)
 	}
 
-	// 关键回归点 3：该会话不应出现 inbound 条目（避免影子会话 / 触发 AI）。
 	var totalInboundForConv int64
 	db.Model(&model.MessageHub{}).
 		Where("platform=? AND conversation_id=? AND direction='inbound'", platform, conv).
@@ -114,7 +111,6 @@ func TestPersistBridgeHistory_NewHistoryMessage_NotSkipped(t *testing.T) {
 		t.Fatalf("PersistBridgeHistory 不应报错：%v", err)
 	}
 
-	// 全新 history 项应正常落库为 inbound（按调用方指定的方向）。
 	var row model.MessageHub
 	if err := db.Where("msg_id=? AND direction='inbound'", newMsgID).First(&row).Error; err != nil {
 		t.Fatalf("全新 history 应落库为 inbound：%v", err)
@@ -165,7 +161,6 @@ func TestPersistBridgeHistory_HistoryEcho_NoNewOutboundAppended(t *testing.T) {
 		t.Fatalf("PersistBridgeHistory 不应报错：%v", err)
 	}
 
-	// 步骤 3：该会话 outbound 仍仅 1 条（命中幂等 → 不触发 AI → 不追加新 outbound）
 	var outboundCount int64
 	db.Model(&model.MessageHub{}).
 		Where("platform=? AND conversation_id=? AND direction='outbound'", platform, conv).

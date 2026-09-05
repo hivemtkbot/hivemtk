@@ -179,4 +179,3 @@ func TestSystemUser_HashPassword(t *testing.T) {
 		t.Errorf("Expected bcrypt hash length >= 59, got %d", len(user.Password))
 	}
 }
-

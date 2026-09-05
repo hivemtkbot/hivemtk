@@ -28,7 +28,6 @@ func NewChannelOverviewService(repo *repository.ChannelOverviewRepository) *Chan
 	return &ChannelOverviewService{repo: repo}
 }
 
-// safeCount 安全计数：查询失败时记录日志并返回 0，避免对前端展示误导
 func (s *ChannelOverviewService) safeCount(label string, query func() (int64, error)) int {
 	if s.repo == nil {
 		return 0
@@ -44,7 +43,7 @@ func (s *ChannelOverviewService) safeCount(label string, query func() (int64, er
 // GetOverview 列出所有 13 渠道的当前状态
 func (s *ChannelOverviewService) GetOverview(ctx context.Context) dto.ChannelOverview {
 	channels := []dto.ChannelStatus{
-		// ===== 官方 API 渠道 =====
+
 		{
 			Channel:          "telegram",
 			ChannelName:      "Telegram Bot",
@@ -120,7 +119,6 @@ func (s *ChannelOverviewService) GetOverview(ctx context.Context) dto.ChannelOve
 			ConfigURLs:       []string{"POST /api/email/accounts", "GET /api/email/accounts"},
 		},
 
-		// ===== Bridge 浏览器扩展渠道 =====
 		{
 			Channel:          "douyin",
 			ChannelName:      "抖音（Bridge）",
@@ -210,7 +208,7 @@ func (s *ChannelOverviewService) bridgeOnlineCount(ctx context.Context, channel 
 //   - customer_channels 按 (one_id, channel) 幂等 upsert
 //   - 同步 best-effort 更新 customers 表对应渠道主字段
 func (s *ChannelOverviewService) BindChannel(ctx context.Context, req *dto.CustomerChannelBinding) (map[string]any, error) {
-	// 通过 customer_id 找到 one_id
+
 	oneID := req.OneID
 	if oneID == "" && req.CustomerID != "" {
 		resolved, err := s.repo.GetCustomerUnifiedID(ctx, req.CustomerID)
@@ -242,9 +240,6 @@ func (s *ChannelOverviewService) BindChannel(ctx context.Context, req *dto.Custo
 		return nil, fmt.Errorf("upsert failed: %w", err)
 	}
 
-	// 同步更新 customers 表的主字段
-	//
-	// 2026-08-17 严肃化：键名是 GORM model 名，值是 DB 实际列名（不一致时需 column tag 区分）
 	updateCustomerField := map[string]string{
 		"telegram":    "telegram_chat_id",
 		"whatsapp":    "whats_app_phone",
@@ -272,7 +267,7 @@ func (s *ChannelOverviewService) BindChannel(ctx context.Context, req *dto.Custo
 
 // ListCustomerChannels 列出客户的所有渠道绑定
 func (s *ChannelOverviewService) ListCustomerChannels(ctx context.Context, customerID string) (map[string]any, error) {
-	// 先 count 行数确认有没有命中，再查详情（诊断日志）
+
 	n, err := s.repo.CountCustomersByID(ctx, customerID)
 	if err != nil {
 		logger.Warnf("[ChannelOverview] count err: %v, customer_id=%s", err, customerID)

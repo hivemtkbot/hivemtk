@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupDoNotContactServiceTestDB 设置全局退订标志位服务测试数据库
 func setupDoNotContactServiceTestDB(t *testing.T) (*gorm.DB, *DoNotContactService) {
 	database := testutil.NewTestDB(t,
 		&model.CustomerDoNotContact{},
@@ -27,12 +26,10 @@ func TestDoNotContact_IsBlocked_ThreeStates(t *testing.T) {
 	db, svc := setupDoNotContactServiceTestDB(t)
 	ctx := context.Background()
 
-	// 1. 未命中
 	if svc.IsBlocked(ctx, "one-a", "sms") {
 		t.Error("Expected IsBlocked=false before any block")
 	}
 
-	// 2. 全局行（channel=""）：任意渠道均拦截
 	if err := svc.Block(ctx, "one-a", "", model.DNCSourceManual); err != nil {
 		t.Fatalf("Block global 失败: %v", err)
 	}
@@ -42,7 +39,6 @@ func TestDoNotContact_IsBlocked_ThreeStates(t *testing.T) {
 		}
 	}
 
-	// 3. 精确渠道行：仅该渠道被拦截
 	if err := svc.Block(ctx, "one-b", "email", model.DNCSourceWebhook); err != nil {
 		t.Fatalf("Block email 失败: %v", err)
 	}
@@ -103,7 +99,6 @@ func TestDoNotContact_BlockFromPhone_FallbackKey(t *testing.T) {
 	db, svc := setupDoNotContactServiceTestDB(t)
 	ctx := context.Background()
 
-	// 注入反查实现：始终无法反查 → 降级归一键
 	svc.SetPhoneResolver(func(ctx context.Context, phone string) string { return "" })
 
 	if err := svc.BlockFromPhone(ctx, "+86 138-0000-1111", model.DNCSourceSMSKeyword); err != nil {
@@ -118,7 +113,6 @@ func TestDoNotContact_BlockFromPhone_FallbackKey(t *testing.T) {
 		t.Errorf("Unexpected row: channel=%q source=%q", rec.Channel, rec.Source)
 	}
 
-	// 归一键行同样能拦截 sms 渠道发送前置检查
 	if !svc.IsBlocked(ctx, PhoneOneIDPrefix+"13800001111", "sms") {
 		t.Error("Expected fallback-key one_id blocked on sms")
 	}
@@ -147,7 +141,6 @@ func TestDoNotContact_BackfillFromSMSUnsubscribe(t *testing.T) {
 	db, svc := setupDoNotContactServiceTestDB(t)
 	ctx := context.Background()
 
-	// 准备存量短信退订数据
 	seeds := []model.SmsUnsubscribe{
 		{Phone: "13800138001", Reason: "r1"},
 		{Phone: "13800138002", Reason: "r2"},
@@ -159,7 +152,6 @@ func TestDoNotContact_BackfillFromSMSUnsubscribe(t *testing.T) {
 		}
 	}
 
-	// 注入反查：13800138001 → unified-x，其余无法反查 → 归一键
 	svc.SetSmsUnsubscribeRepo(repository.NewSmsUnsubscribeRepository(db))
 	svc.SetPhoneResolver(func(ctx context.Context, phone string) string {
 		if phone == "13800138001" {
@@ -182,7 +174,6 @@ func TestDoNotContact_BackfillFromSMSUnsubscribe(t *testing.T) {
 		t.Errorf("Expected 3 dnc rows, got %d", count)
 	}
 
-	// 反查结果验证：一条真实 OneID + 两条归一键
 	var unifiedCount, fallbackCount int64
 	db.Model(&model.CustomerDoNotContact{}).Where("one_id = ?", "unified-x").Count(&unifiedCount)
 	db.Model(&model.CustomerDoNotContact{}).Where("one_id LIKE ?", PhoneOneIDPrefix+"%").Count(&fallbackCount)
@@ -193,7 +184,6 @@ func TestDoNotContact_BackfillFromSMSUnsubscribe(t *testing.T) {
 		t.Errorf("Expected 2 fallback-key rows, got %d", fallbackCount)
 	}
 
-	// 幂等：二次回填不再新增
 	added2, err := svc.BackfillFromSMSUnsubscribe(ctx)
 	if err != nil {
 		t.Fatalf("二次 Backfill 失败: %v", err)
@@ -217,7 +207,7 @@ func TestDoNotContact_SmsUnsubscribe_Integration(t *testing.T) {
 	smsRepo := repository.NewSmsUnsubscribeRepository(database)
 	smsSvc := NewSmsUnsubscribeService(smsRepo)
 	dncSvc := NewDoNotContactService(repository.NewCustomerDoNotContactRepository(database))
-	dncSvc.SetPhoneResolver(func(ctx context.Context, phone string) string { return "" }) // 走归一键
+	dncSvc.SetPhoneResolver(func(ctx context.Context, phone string) string { return "" })
 	smsSvc.SetDoNotContact(dncSvc)
 
 	ctx := context.Background()
@@ -226,7 +216,6 @@ func TestDoNotContact_SmsUnsubscribe_Integration(t *testing.T) {
 		t.Fatalf("UnsubscribePhone 失败: %v", err)
 	}
 
-	// 全局表中应存在归一键行
 	key := PhoneOneIDPrefix + phone
 	if !dncSvc.IsBlocked(ctx, key, "sms") {
 		t.Error("Expected sms channel blocked via global table after UnsubscribePhone")
@@ -239,7 +228,6 @@ func TestDoNotContact_SmsUnsubscribe_Integration(t *testing.T) {
 		t.Errorf("Expected source=sms_keyword, got %s", rec.Source)
 	}
 
-	// 二次退订（幂等路径）不应报错、不产生重复行
 	if err := smsSvc.UnsubscribePhone(ctx, phone, "再次退订", "msg-2", "退订"); err != nil {
 		t.Fatalf("二次 UnsubscribePhone 失败: %v", err)
 	}

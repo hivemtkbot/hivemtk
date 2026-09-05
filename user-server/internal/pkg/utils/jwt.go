@@ -18,12 +18,8 @@ type JWTConfig struct {
 	Issuer       string
 }
 
-// testJWTSecret 仅在 go test 进程下作为最后兜底使用的固定测试密钥。
-// 绝不用于生产：loadJWTSecret 在检测到非测试模式且环境变量未配置时仍会 panic。
-// 长度 ≥ 32 字符以满足默认配置强度。
 const testJWTSecret = "test-jwt-secret-do-not-use-in-prod-32+chars"
 
-// dotenvLoaded 保证 .env 只被解析一次（init 期与 main 期双入口幂等）。
 var dotenvLoaded bool
 
 // LoadDotEnv 极简 .env 加载器（零外部依赖）：KEY=VALUE 逐行解析，
@@ -45,7 +41,7 @@ func LoadDotEnv(path string) {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		// 值内以 " #" 起始视为内联注释
+
 		if i := strings.Index(line, " #"); i > 0 {
 			line = strings.TrimSpace(line[:i])
 		}
@@ -62,23 +58,10 @@ func LoadDotEnv(path string) {
 	}
 }
 
-// isTestProcess 判断当前进程是否由 `go test` 启动。
-// 依据：go test 编译出的二进制文件名后缀为 ".test"（如 pkg.test）。
-// 这是在 init 阶段唯一可靠的判断方法（flag.Lookup 此时还未注册）。
 func isTestProcess() bool {
 	return strings.HasSuffix(os.Args[0], ".test")
 }
 
-// loadJWTSecret 从环境变量加载 JWT 密钥。
-// 规则：
-//  1. 优先使用 USER_JWT_SECRET（生产密钥）
-//  2. 兼容 JWT_SECRET（部分旧中间件使用）
-//  3. 二者皆未配置：若当前是 go test 进程，使用测试 fallback 密钥并打 warning；
-//     否则 panic（生产环境必须显式配置）
-//
-// 本函数在包 init（DefaultJWTConfig）期执行，早于 main()；为支持本地开发
-// 将 .env 中持久化的变量在此先行加载（R48）。生产环境密钥由编排系统注入
-// 真实环境变量，.env 加载不覆盖已存在变量，且文件缺失静默跳过。
 func loadJWTSecret() string {
 	LoadDotEnv(".env")
 	secret := os.Getenv("USER_JWT_SECRET")

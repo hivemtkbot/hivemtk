@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupLiveCodeServiceTestDB 设置活码服务测试数据库
 func setupLiveCodeServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.LiveCode{},
@@ -26,7 +25,6 @@ func setupLiveCodeServiceTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// createTestDomains 创建测试域名
 func createTestDomains(t *testing.T, db *gorm.DB) (shortDomain, entryDomain, landingDomain *model.DomainPool) {
 	shortDomain = &model.DomainPool{
 		Domain: "short.example.com",
@@ -50,7 +48,6 @@ func createTestDomains(t *testing.T, db *gorm.DB) (shortDomain, entryDomain, lan
 	return
 }
 
-// newTestLiveCodeService 创建测试服务
 func newTestLiveCodeService(database *gorm.DB) LiveCodeService {
 	return NewLiveCodeService(database)
 }
@@ -984,7 +981,6 @@ func TestLiveCodeService_UpdateQRCode(t *testing.T) {
 		t.Fatalf("UpdateQRCode failed: %v", err)
 	}
 
-	// 验证更新 - 直接查询数据库
 	var qrCode model.LiveCodeQR
 	database.Where("id = ?", qrResponse.ID).First(&qrCode)
 	if qrCode.Status != 0 {
@@ -1034,7 +1030,6 @@ func TestLiveCodeService_RotateLiveCodes(t *testing.T) {
 		t.Fatalf("RotateLiveCodes failed: %v", err)
 	}
 
-	// 验证生成了二维码
 	var count int64
 	database.Model(&model.LiveCodeQR{}).Where("live_code_id = ?", response.ID).Count(&count)
 	if count < 1 {
@@ -1058,7 +1053,6 @@ func TestLiveCodeService_RotateLiveCodes_DailyLimitReached(t *testing.T) {
 	}
 	response, _ := service.Create(context.Background(), createReq)
 
-	// 手动设置每日点击量为 200（达到限制）
 	var liveCode model.LiveCode
 	database.First(&liveCode, response.ID)
 	liveCode.DailyClicks = 200
@@ -1069,7 +1063,6 @@ func TestLiveCodeService_RotateLiveCodes_DailyLimitReached(t *testing.T) {
 		t.Fatalf("RotateLiveCodes failed: %v", err)
 	}
 
-	// 验证没有生成新的二维码（因为达到每日限制）
 	var count int64
 	database.Model(&model.LiveCodeQR{}).Where("live_code_id = ?", response.ID).Count(&count)
 	_ = count
@@ -1102,14 +1095,12 @@ func TestLiveCodeService_RecordClick(t *testing.T) {
 		t.Fatalf("RecordClick failed: %v", err)
 	}
 
-	// 验证点击统计已创建
 	var statCount int64
 	database.Model(&model.LiveCodeQRStat{}).Where("qr_code_id = ?", qrResponse.ID).Count(&statCount)
 	if statCount < 1 {
 		t.Errorf("Expected at least 1 stat record, got %d", statCount)
 	}
 
-	// 验证逐条点击审计日志已写入（活码维度 + 二维码维度）
 	var liveClickLog int64
 	database.Model(&model.LiveCodeClickLog{}).
 		Where("qr_code_id = ? AND ip_address = ?", qrResponse.ID, "203.0.113.7").Count(&liveClickLog)

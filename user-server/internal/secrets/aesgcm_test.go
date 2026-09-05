@@ -42,7 +42,7 @@ func TestRoundTrip(t *testing.T) {
 }
 
 func TestInitMissing(t *testing.T) {
-	// 单独跑：重置 once。重新设置短 key 验证 fail-fast。
+
 	resetGlobals()
 	os.Setenv(envMasterKey, "short")
 	if err := InitFromEnv(); err == nil {

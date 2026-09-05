@@ -37,8 +37,8 @@ type NoOpRateLimiter struct{}
 type TokenBucketLimiter struct {
 	mu      sync.Mutex
 	buckets map[string]*tokenBucket
-	rate    float64 
-	burst   int     
+	rate    float64
+	burst   int
 }
 
 type tokenBucket struct {
@@ -56,4 +56,3 @@ func NewTokenBucketLimiter(rate float64, burst int) *TokenBucketLimiter {
 		burst:   burst,
 	}
 }
-

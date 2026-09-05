@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-// ============ SSEBus 单元测试 ============
-
 func TestSSEBus_SubscribeAndPublish(t *testing.T) {
 	bus := NewSSEBus()
 	ch, cancel := bus.Subscribe("douyin", "acc-1")
@@ -18,7 +16,7 @@ func TestSSEBus_SubscribeAndPublish(t *testing.T) {
 	event := SSEEvent{
 		ID: "1", Event: "new_outbound",
 		ConversationID: "conv-1",
-		Data: map[string]any{"platform": "douyin", "account_id": "acc-1", "content": "hello"},
+		Data:           map[string]any{"platform": "douyin", "account_id": "acc-1", "content": "hello"},
 	}
 
 	bus.Publish(event)
@@ -44,7 +42,7 @@ func TestSSEBus_ConversationLevelSubscription(t *testing.T) {
 	event := SSEEvent{
 		ID: "2", Event: "new_outbound",
 		ConversationID: "conv-1",
-		Data: map[string]any{"platform": "douyin", "account_id": "acc-1"},
+		Data:           map[string]any{"platform": "douyin", "account_id": "acc-1"},
 	}
 
 	bus.Publish(event)
@@ -88,15 +86,13 @@ func TestSSEBus_MultiSubscriber(t *testing.T) {
 func TestSSEBus_CancelRemovesSubscriber(t *testing.T) {
 	bus := NewSSEBus()
 	ch, cancel := bus.Subscribe("douyin", "acc-1")
-	cancel() // 取消订阅
+	cancel()
 
-	// 发布事件，应该被丢弃（channel 已关闭）
 	bus.Publish(SSEEvent{
 		ID: "4", Event: "new_outbound",
 		Data: map[string]any{"platform": "douyin", "account_id": "acc-1"},
 	})
 
-	// 关闭的 channel 应该立即返回零值
 	select {
 	case _, ok := <-ch:
 		if ok {
@@ -109,12 +105,11 @@ func TestSSEBus_CancelRemovesSubscriber(t *testing.T) {
 
 func TestSSEBus_BufferFull_DropNonBlocking(t *testing.T) {
 	bus := NewSSEBus()
-	bus.buffer = 2 // 小 buffer 便于测试
+	bus.buffer = 2
 
 	ch, cancel := bus.Subscribe("douyin", "acc-1")
 	defer cancel()
 
-	// 填满 buffer
 	for i := 0; i < 2; i++ {
 		bus.Publish(SSEEvent{
 			ID: string(rune('a' + i)), Event: "new_outbound",
@@ -122,7 +117,6 @@ func TestSSEBus_BufferFull_DropNonBlocking(t *testing.T) {
 		})
 	}
 
-	// 第 3 个事件应该被丢弃（不阻塞），因为没人消费
 	dropped := false
 	func() {
 		defer func() {
@@ -137,7 +131,6 @@ func TestSSEBus_BufferFull_DropNonBlocking(t *testing.T) {
 	}()
 	_ = dropped
 
-	// 消费已有事件
 	for i := 0; i < 2; i++ {
 		select {
 		case <-ch:
@@ -151,7 +144,6 @@ func TestSSEBus_ConcurrentPublishAndSubscribe(t *testing.T) {
 	bus := NewSSEBus()
 	var wg sync.WaitGroup
 
-	// 并发订阅
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(idx int) {
@@ -159,9 +151,8 @@ func TestSSEBus_ConcurrentPublishAndSubscribe(t *testing.T) {
 			ch, cancel := bus.Subscribe("douyin", "acc-concurrent")
 			defer cancel()
 
-			// 并发发布
 			bus.Publish(SSEEvent{
-				ID: string(rune('a' + idx)),
+				ID:   string(rune('a' + idx)),
 				Data: map[string]any{"platform": "douyin", "account_id": "acc-concurrent"},
 			})
 
@@ -177,7 +168,7 @@ func TestSSEBus_ConcurrentPublishAndSubscribe(t *testing.T) {
 
 func TestSSEBus_EmptyPublish_NoPanic(t *testing.T) {
 	bus := NewSSEBus()
-	// 空事件发布，不应该 panic
+
 	bus.Publish(SSEEvent{})
 }
 
@@ -188,13 +179,11 @@ func TestSSEBus_DifferentAccountsIsolated(t *testing.T) {
 	defer cancel1()
 	defer cancel2()
 
-	// 发布到 acc-1 的事件
 	bus.Publish(SSEEvent{
-		ID: "targeted",
+		ID:   "targeted",
 		Data: map[string]any{"platform": "douyin", "account_id": "acc-1"},
 	})
 
-	// ch1 应该收到
 	select {
 	case got := <-ch1:
 		if got.ID != "targeted" {
@@ -204,16 +193,12 @@ func TestSSEBus_DifferentAccountsIsolated(t *testing.T) {
 		t.Fatal("ch1: timeout")
 	}
 
-	// ch2 不应该收到（发布目标是 acc-1）
-	// 但 acc-1 和 acc-2 是不同 key，所以不会交叉
 	select {
 	case <-ch2:
 		t.Error("ch2 should NOT receive event for acc-1")
 	case <-time.After(50 * time.Millisecond):
 	}
 }
-
-// ============ MemoryOutboxFetcher 单元测试 ============
 
 func TestMemoryOutboxFetcher_PushAndFetch(t *testing.T) {
 	f := NewMemoryOutboxFetcher()
@@ -245,7 +230,7 @@ func TestMemoryOutboxFetcher_ResumeSinceID(t *testing.T) {
 	f.Push("new_outbound", map[string]any{"id": "3"})
 
 	ctx := context.Background()
-	// 从 ID 2 之后恢复
+
 	events, lastID, err := f.FetchOutboxSince(ctx, "douyin", "acc-1", "2")
 	if err != nil {
 		t.Fatal(err)
@@ -277,7 +262,6 @@ func TestMemoryOutboxFetcher_EmptyFetch(t *testing.T) {
 func TestMemoryOutboxFetcher_BacklogLimit(t *testing.T) {
 	f := NewMemoryOutboxFetcher()
 
-	// 推入超过 backlog 限制的事件
 	for i := 0; i < SSEMaxBacklogEvents+50; i++ {
 		f.Push("new_outbound", map[string]any{"idx": i})
 	}
@@ -288,23 +272,20 @@ func TestMemoryOutboxFetcher_BacklogLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 应该只返回最近 50 条
 	if len(events) != 50 {
 		t.Errorf("expected 50 events (backlog), got %d", len(events))
 	}
 }
 
-// ============ SSEEvent 结构测试 ============
-
 func TestSSEEvent_Fields(t *testing.T) {
 	ev := SSEEvent{
 		ID: "1", Event: "new_outbound",
 		ConversationID: "conv-1",
-		MsgType: "text",
-		ReceiverID: "user-1",
-		Seq: 1,
-		Data: map[string]any{"content": "hello"},
-		Timestamp: time.Now(),
+		MsgType:        "text",
+		ReceiverID:     "user-1",
+		Seq:            1,
+		Data:           map[string]any{"content": "hello"},
+		Timestamp:      time.Now(),
 	}
 
 	if ev.ID != "1" {
@@ -324,27 +305,24 @@ func TestSSEEvent_Fields(t *testing.T) {
 	}
 }
 
-// ============ 竞态条件测试 ============
-
 func TestSSEBus_PublishDuringSubscribe(t *testing.T) {
 	bus := NewSSEBus()
 
 	var wg sync.WaitGroup
 	results := make(chan SSEEvent, 10)
 
-	// 并发：一边发布，一边订阅
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			// 交替订阅和发布
+
 			time.Sleep(time.Duration(idx) * 10 * time.Millisecond)
 
 			if idx%2 == 0 {
 				ch, cancel := bus.Subscribe("douyin", "acc-race")
 				defer cancel()
 				bus.Publish(SSEEvent{
-					ID: "race",
+					ID:   "race",
 					Data: map[string]any{"platform": "douyin", "account_id": "acc-race"},
 				})
 				select {
@@ -354,7 +332,7 @@ func TestSSEBus_PublishDuringSubscribe(t *testing.T) {
 				}
 			} else {
 				bus.Publish(SSEEvent{
-					ID: "race",
+					ID:   "race",
 					Data: map[string]any{"platform": "douyin", "account_id": "acc-race"},
 				})
 			}
@@ -368,11 +346,9 @@ func TestSSEBus_PublishDuringSubscribe(t *testing.T) {
 	for range results {
 		count++
 	}
-	// 至少有订阅者收到了事件
+
 	t.Logf("Received %d events out of possible 3", count)
 }
-
-// ============ SSEHandler 配置测试 ============
 
 func TestSSEHandler_SetHeartbeat(t *testing.T) {
 	h := NewSSEHandler(nil)
@@ -384,7 +360,7 @@ func TestSSEHandler_SetHeartbeat(t *testing.T) {
 
 func TestSSEHandler_SetHeartbeat_Zero(t *testing.T) {
 	h := NewSSEHandler(nil)
-	h.SetHeartbeat(0) // 零值不应改变配置
+	h.SetHeartbeat(0)
 	if h.heartbeatInterval != SSEDefaultHeartbeatInterval {
 		t.Errorf("expected default, got %v", h.heartbeatInterval)
 	}
@@ -429,29 +405,24 @@ func TestSSEHandler_HeartbeatFrameIsComment(t *testing.T) {
 	}
 }
 
-// ============ 可靠性测试 ============
-
 func TestSSEBus_GuaranteedDelivery_WithPollFallback(t *testing.T) {
-	// 模拟：SSEBus 投递失败（channel 满），但 Poll 兜底应该找回
+
 	bus := NewSSEBus()
 	bus.buffer = 1
 
 	ch, cancel := bus.Subscribe("douyin", "acc-reliable")
 	defer cancel()
 
-	// 填满 channel
 	bus.Publish(SSEEvent{
-		ID: "fill",
+		ID:   "fill",
 		Data: map[string]any{"platform": "douyin", "account_id": "acc-reliable"},
 	})
 
-	// 再发一个（会被丢弃，因为 buffer 满）
 	bus.Publish(SSEEvent{
-		ID: "lost",
+		ID:   "lost",
 		Data: map[string]any{"platform": "douyin", "account_id": "acc-reliable"},
 	})
 
-	// 消费第一个
 	select {
 	case got := <-ch:
 		if got.ID != "fill" {
@@ -461,35 +432,28 @@ func TestSSEBus_GuaranteedDelivery_WithPollFallback(t *testing.T) {
 		t.Fatal("timeout")
 	}
 
-	// "lost" 事件应该被丢弃
-	// Poll 兜底会在下一个 poll 周期从 DB 拉取
-	// 这里验证 SSEBus 没有被阻塞
 }
 
 func TestSSEBus_SubscribeAfterPublish_DoesNotReceivePastEvents(t *testing.T) {
 	bus := NewSSEBus()
 
-	// 先发布
 	bus.Publish(SSEEvent{
-		ID: "past",
+		ID:   "past",
 		Data: map[string]any{"platform": "douyin", "account_id": "acc-late"},
 	})
 
-	// 后订阅
 	ch, cancel := bus.Subscribe("douyin", "acc-late")
 	defer cancel()
 
-	// 不应收到过去的事件
 	select {
 	case <-ch:
 		t.Error("late subscriber should NOT receive past events")
 	case <-time.After(50 * time.Millisecond):
-		// 正确
+
 	}
 
-	// 但应该收到新事件
 	bus.Publish(SSEEvent{
-		ID: "future",
+		ID:   "future",
 		Data: map[string]any{"platform": "douyin", "account_id": "acc-late"},
 	})
 
@@ -503,11 +467,9 @@ func TestSSEBus_SubscribeAfterPublish_DoesNotReceivePastEvents(t *testing.T) {
 	}
 }
 
-// ============ 压力测试 ============
-
 func TestSSEBus_EventStorm(t *testing.T) {
 	bus := NewSSEBus()
-	bus.buffer = 500 // 足够大的 buffer 用于压力测试
+	bus.buffer = 500
 
 	ch, cancel := bus.Subscribe("douyin", "acc-storm")
 	defer cancel()
@@ -519,13 +481,12 @@ func TestSSEBus_EventStorm(t *testing.T) {
 		defer wg.Done()
 		for i := 0; i < numEvents; i++ {
 			bus.Publish(SSEEvent{
-				ID: string(rune('a' + (i % 26))),
+				ID:   string(rune('a' + (i % 26))),
 				Data: map[string]any{"platform": "douyin", "account_id": "acc-storm", "idx": i},
 			})
 		}
 	}()
 
-	// 并发消费
 	received := 0
 	timeout := time.After(5 * time.Second)
 	for received < numEvents {
@@ -545,7 +506,6 @@ func TestSSEBus_EventStorm(t *testing.T) {
 func TestSSEBus_MultiAccountIsolation(t *testing.T) {
 	bus := NewSSEBus()
 
-	// 为 5 个不同账号创建订阅
 	type sub struct {
 		ch     chan SSEEvent
 		cancel func()
@@ -557,17 +517,15 @@ func TestSSEBus_MultiAccountIsolation(t *testing.T) {
 		defer cancel()
 	}
 
-	// 向 acc-3 发布
 	bus.Publish(SSEEvent{
-		ID: "target",
+		ID:   "target",
 		Data: map[string]any{"platform": "douyin", "account_id": "acc-3"},
 	})
 
-	// 只有 acc-3 的订阅者应该收到
 	for i, s := range subs {
 		select {
 		case <-s.ch:
-			if i != 2 { // acc-3 is index 2 (0-indexed)
+			if i != 2 {
 				t.Errorf("subscriber %d should NOT receive event for acc-3", i)
 			}
 		case <-time.After(50 * time.Millisecond):
@@ -578,10 +536,6 @@ func TestSSEBus_MultiAccountIsolation(t *testing.T) {
 	}
 }
 
-// ============ 集成测试：验证所有 outbound 路径都触发 SSE ============
-
-// mockSSEPublisher 模拟 service.GlobalSSEPublisher 的行为
-// 将 SSE 事件发布到 SSEBus，模拟真实链路
 func mockSSEPublisher(bus *SSEBus) func(channel, accountID string, hubID uint64, convID, msgType, receiverID, content string, isAIReply bool, createdAt time.Time) {
 	return func(channel, accountID string, hubID uint64, convID, msgType, receiverID, content string, isAIReply bool, createdAt time.Time) {
 		bus.Publish(SSEEvent{
@@ -612,16 +566,14 @@ func TestAllOutboundPathsTriggerSSE(t *testing.T) {
 	publisher := mockSSEPublisher(bus)
 
 	const (
-		channel  = "douyin"
+		channel   = "douyin"
 		accountID = "acc_test"
-		convID   = "conv_test"
+		convID    = "conv_test"
 	)
 
-	// 订阅 SSE 事件
 	ch, cancel := bus.Subscribe(channel, accountID)
 	defer cancel()
 
-	// 测试路径 1: bridge_outbound.go - DeliverBridgeOutbound
 	t.Run("Path1_DeliverBridgeOutbound", func(t *testing.T) {
 		publisher(channel, accountID, 1001, convID, "text", "customer_1", "测试消息1", false, time.Now())
 		select {
@@ -644,7 +596,6 @@ func TestAllOutboundPathsTriggerSSE(t *testing.T) {
 		}
 	})
 
-	// 测试路径 2: inbox_ingress_outbound.go - DeliverOutbound
 	t.Run("Path2_DeliverOutbound", func(t *testing.T) {
 		publisher(channel, accountID, 1002, convID, "text", "customer_2", "测试消息2", false, time.Now())
 		select {
@@ -658,7 +609,6 @@ func TestAllOutboundPathsTriggerSSE(t *testing.T) {
 		}
 	})
 
-	// 测试路径 3: inbox_ingress_persist.go - persistHistoryMessage (outbound)
 	t.Run("Path3_PersistHistoryMessage", func(t *testing.T) {
 		publisher(channel, accountID, 1003, convID, "text", "customer_3", "测试消息3", true, time.Now())
 		select {
@@ -672,7 +622,6 @@ func TestAllOutboundPathsTriggerSSE(t *testing.T) {
 		}
 	})
 
-	// 测试路径 4: webhook_outbound.go - sendOutbound (AI回复)
 	t.Run("Path4_SendOutbound_AIReply", func(t *testing.T) {
 		publisher(channel, accountID, 1004, convID, "text", "customer_4", "AI回复消息", true, time.Now())
 		select {
@@ -695,10 +644,9 @@ func TestSSEEventDeliveryAllPaths(t *testing.T) {
 	bus := NewSSEBus()
 	publisher := mockSSEPublisher(bus)
 
-	// 为多个账号和会话建立订阅
 	type subInfo struct {
-		ch       chan SSEEvent
-		cancel   func()
+		ch        chan SSEEvent
+		cancel    func()
 		accountID string
 	}
 
@@ -714,11 +662,9 @@ func TestSSEEventDeliveryAllPaths(t *testing.T) {
 		}
 	}()
 
-	// 为 acc_B 发送事件
 	targetAccount := "acc_B"
 	publisher("douyin", targetAccount, 2001, "conv_B", "text", "customer", "发给B的消息", false, time.Now())
 
-	// 检查只有 acc_B 收到事件
 	for _, s := range subs {
 		select {
 		case evt := <-s.ch:
@@ -747,11 +693,9 @@ func TestSSEEventDeliveryAllPaths(t *testing.T) {
 func TestSSEBus_ConversationLevelRouting(t *testing.T) {
 	bus := NewSSEBus()
 
-	// 订阅特定会话
 	convCh, convCancel := bus.SubscribeByConversation("conv_target")
 	defer convCancel()
 
-	// 同时订阅账号级
 	acctCh, acctCancel := bus.Subscribe("douyin", "acc_conv")
 	defer acctCancel()
 
@@ -766,7 +710,6 @@ func TestSSEBus_ConversationLevelRouting(t *testing.T) {
 	}
 	bus.Publish(event)
 
-	// 会话级订阅应收到
 	select {
 	case evt := <-convCh:
 		if evt.ConversationID != "conv_target" {
@@ -777,7 +720,6 @@ func TestSSEBus_ConversationLevelRouting(t *testing.T) {
 		t.Error("会话级订阅未收到事件")
 	}
 
-	// 账号级订阅也应收到（广播）
 	select {
 	case evt := <-acctCh:
 		if evt.Data["content"] != "精准投递测试" {

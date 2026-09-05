@@ -114,7 +114,7 @@ func TestEventBus_QueueFull(t *testing.T) {
 		case workerStarted <- struct{}{}:
 		default:
 		}
-		<-blockCh 
+		<-blockCh
 		processed.Add(1)
 		return nil
 	})
@@ -160,14 +160,14 @@ func TestEventBus_StopGraceful(t *testing.T) {
 func TestEventBus_StopIdempotent(t *testing.T) {
 	bus := New(1, 16)
 	bus.Stop()
-	bus.Stop() 
-	bus.Stop() 
+	bus.Stop()
+	bus.Stop()
 }
 
 // TestEventBus_NilSafe nil 安全：nil 总线方法不 panic
 func TestEventBus_NilSafe(t *testing.T) {
 	var nilBus *EventBus
-	nilBus.Publish(Event{Topic: "nil"}) 
+	nilBus.Publish(Event{Topic: "nil"})
 	nilBus.Subscribe("nil", func(evt Event) error { return nil })
 	nilBus.Stop()
 	if nilBus.HasSubscribers("nil") {
@@ -205,7 +205,7 @@ func TestEventBus_AutoTimestamp(t *testing.T) {
 	})
 
 	before := time.Now()
-	bus.Publish(Event{Topic: "topic.ts", Timestamp: time.Time{}}) 
+	bus.Publish(Event{Topic: "topic.ts", Timestamp: time.Time{}})
 	wg.Wait()
 
 	if ts.IsZero() {
@@ -251,7 +251,7 @@ func TestGlobalBus(t *testing.T) {
 		t.Error("expected nil global bus after SetGlobalBus(nil)")
 	}
 
-	Publish("topic.nil", "payload") 
+	Publish("topic.nil", "payload")
 
 	bus := New(1, 16)
 	SetGlobalBus(bus)
@@ -285,7 +285,6 @@ func TestGlobalBus(t *testing.T) {
 	}
 }
 
-
 var ErrTestHandlerFailure = newTestError("handler failure")
 
 type testError string
@@ -294,7 +293,6 @@ func (e testError) Error() string { return string(e) }
 
 func newTestError(s string) error { return testError(s) }
 
-// waitForCondition 等待条件满足或超时
 func waitForCondition(t *testing.T, cond func() bool, timeout time.Duration) {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
@@ -305,4 +303,3 @@ func waitForCondition(t *testing.T, cond func() bool, timeout time.Duration) {
 		time.Sleep(time.Millisecond)
 	}
 }
-

@@ -1,12 +1,5 @@
 package bridge
 
-// B-3 Last-Event-ID 增量同步测试（2026-08-26）
-//
-// 覆盖：
-//  1. outboxDBFetcher 以 message_hub.id 为游标增量回放 missed outbound（id > Last-Event-ID）
-//  2. 无游标 / 非法游标 → sinceID=0，行为与全量认领一致（向后兼容）
-//  3. SSE 端点读取 Last-Event-ID header，断线重连只收到缺失事件
-
 import (
 	"context"
 	"io"
@@ -21,12 +14,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// fakeOutboxQuerier 内存版 OutboxQuerier（不依赖 DB）
 type fakeOutboxQuerier struct {
 	rows []model.MessageHub
-	// 记录最近一次查询的 sinceID，供断言游标透传
+
 	lastSinceID uint64
-	// 首次查询的 sinceID（SSE 端点会持续 poll，lastSinceID 会被推进）
+
 	firstSinceID   uint64
 	firstSinceSeen bool
 }
@@ -107,7 +99,6 @@ func TestOutboxDBFetcher_NoCursorBackwardCompat(t *testing.T) {
 	f.SetQuerier(q)
 	ctx := context.Background()
 
-	// 无游标：sinceID=0，全部返回
 	events, _, err := f.FetchOutboxSince(ctx, "douyin", "acc_b3", "")
 	if err != nil {
 		t.Fatalf("no-cursor fetch: %v", err)
@@ -116,7 +107,6 @@ func TestOutboxDBFetcher_NoCursorBackwardCompat(t *testing.T) {
 		t.Fatalf("无游标应 sinceID=0 全量返回 3 条, got since=%d n=%d", q.lastSinceID, len(events))
 	}
 
-	// 非法游标：按无游标处理（向后兼容），不报错
 	q.lastSinceID = 99
 	events, _, err = f.FetchOutboxSince(ctx, "douyin", "acc_b3", "not-a-number")
 	if err != nil {
@@ -127,7 +117,6 @@ func TestOutboxDBFetcher_NoCursorBackwardCompat(t *testing.T) {
 	}
 }
 
-// startB3SSEServer 启动注入 mock querier 的 SSE 端点（缩短心跳/时长便于测试）
 func startB3SSEServer(q *fakeOutboxQuerier) *httptest.Server {
 	gin.SetMode(gin.TestMode)
 	h := NewBridgeIngestHandler(nil)

@@ -12,7 +12,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil/testmigrate"
 )
 
-// toPgVector 将 []float32 格式化为 pgvector 字面量（如 [0.1,0.2,...]）
 func toPgVector(vec []float32) string {
 	parts := make([]string, len(vec))
 	for i, f := range vec {
@@ -169,7 +168,6 @@ func contains(s, sub string) bool {
 	return false
 }
 
-// cosineSim 计算两个向量的余弦相似度
 func cosineSim(a, b []float32) float64 {
 	if len(a) == 0 || len(a) != len(b) {
 		return 0
@@ -185,4 +183,3 @@ func cosineSim(a, b []float32) float64 {
 	}
 	return dot / (math.Sqrt(na) * math.Sqrt(nb))
 }
-

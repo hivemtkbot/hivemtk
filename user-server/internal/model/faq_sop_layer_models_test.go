@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-
 func TestFAQEntry_TableName(t *testing.T) {
 	entry := &FAQEntry{}
 	if got := entry.TableName(); got != "faq_entries" {
@@ -105,4 +104,3 @@ func TestLayerDecisionLog_BasicFields(t *testing.T) {
 		t.Errorf("WallMs = %d, want 15", log.WallMs)
 	}
 }
-

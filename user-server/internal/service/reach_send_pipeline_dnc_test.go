@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// dncStubChecker DoNotContactChecker 测试桩
 type dncStubChecker struct {
 	blocked map[string]bool
 }

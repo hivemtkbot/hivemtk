@@ -14,9 +14,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// 决策源：docs/architecture/MASTER_COMPETITIVE_DECISIONS.md M18 表 D-4
-// CSV 流式导出：csv.Writer 直写 io.Writer；>30K 行拒绝同步导出（异步任务本期不做）。
-
 func TestExportReportDataCSV_HeaderAndRows(t *testing.T) {
 	data := &model.ReportData{
 		Dimensions: []string{"date", "status"},
@@ -60,7 +57,7 @@ func TestExportReportDataCSV_CellFormattingAndEscaping(t *testing.T) {
 	if len(records) != 4 {
 		t.Fatalf("rows = %d, want 4 (含表头)", len(records))
 	}
-	// RFC4180 转义往返一致：解析回原始值
+
 	if records[1][0] != `含逗号,与引号"文本` || records[1][1] != "3.5" {
 		t.Errorf("row1 = %v", records[1])
 	}
@@ -83,7 +80,6 @@ func TestExportReportDataCSV_OverLimitRejected(t *testing.T) {
 		t.Error("超限拒绝时不得写出任何字节")
 	}
 
-	// 恰好在边界内允许导出
 	buf.Reset()
 	if err := ExportReportDataCSV(&buf, &model.ReportData{Total: CSVExportMaxRows}); err != nil {
 		t.Fatalf("边界内导出失败: %v", err)

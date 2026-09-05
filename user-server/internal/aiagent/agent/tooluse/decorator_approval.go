@@ -15,8 +15,6 @@ type ApprovalChecker interface {
 
 var ErrApprovalDenied = fmt.Errorf("approval denied")
 
-// globalApprovalChecker 全局审批检查器（进程级单例）。
-// nil（未接线）时视为放行，保持与现状完全一致（向后兼容硬性要求）。
 var globalApprovalChecker atomic.Pointer[ApprovalChecker]
 
 // SetGlobalApprovalChecker 设置全局审批检查器；传 nil 恢复默认放行行为。
@@ -37,8 +35,6 @@ func (AllowAllChecker) IsApproved(ctx context.Context, toolName, accountIDorOwne
 
 func NewAllowAllChecker() ApprovalChecker { return AllowAllChecker{} }
 
-// coldOutreachNameSegs 名称段命中即视为冷触达工具。
-// 与 CategoryReach 联合判定（双重门禁），避免误伤非 reach 类工具。
 var coldOutreachNameSegs = map[string]bool{
 	"batch":       true,
 	"schedule":    true,
@@ -49,8 +45,6 @@ var coldOutreachNameSegs = map[string]bool{
 	"telegram_dm": true,
 }
 
-// coldOutreachNameSubstrs 段名包含任一子串即视为冷触达工具（覆盖 batch_send / lead_outreach 等组合命名）。
-// 注意：dm 不放在这里——两字母子串易误伤，dm 靠精确段名匹配。
 var coldOutreachNameSubstrs = []string{"batch_", "schedule_", "outbound_", "lead_", "proactive_", "_outreach"}
 
 // IsColdOutreachTool 判定工具是否需要冷触达审批门（A-1）。
@@ -85,7 +79,6 @@ func IsColdOutreachTool(t Tool) bool {
 	return false
 }
 
-// approvalTool 审批门包装器（不改 Tool 接口，纯组合）。
 type approvalTool struct {
 	inner   Tool
 	checker *ApprovalChecker

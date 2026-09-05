@@ -30,7 +30,6 @@ const (
 	PollingLockHeartbeatInterval = 30 * time.Second
 )
 
-// 全局 worker ID 缓存：每个进程一个稳定标识（hostname:pid）
 var (
 	pollingWorkerID     string
 	pollingWorkerIDOnce sync.Once
@@ -49,10 +48,6 @@ func GetPollingWorkerID() string {
 	return pollingWorkerID
 }
 
-// pollingLockRepo service 层复用的 repository 单例（lazy init）
-//
-// 不在 init() 强构造，避免 DB 未初始化时 service 加载就 panic；
-// 由首次调用时通过 sync.Once 构造，使用全局默认 DB。
 var (
 	pollingLockRepo     *repository.TelegramPollingLockRepository
 	pollingLockRepoOnce = &sync.Once{}

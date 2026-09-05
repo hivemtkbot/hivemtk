@@ -10,12 +10,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// newServiceWithStubs 构造测试用 HumanizeEvalService
-//
-// rng 使用固定种子（seed=1）以保证 decideLLMSample 的采样行为可预测：
-//   - seed=1 时第一个 Float64() ≈ 0.6047 > 0.01 → 1% 监控采样不触发
-//   - seed=1 时第一个 Float64() ≈ 0.6047 > 0.10 → 10% 采样不触发（sampleRate=0.10）
-//   - 若需触发采样，用 sampleRate=1.0
 func newServiceWithStubs(
 	rule, llm HumanizeEvaluator,
 	baselineRepo ChampionBaselineRepository,
@@ -27,7 +21,6 @@ func newServiceWithStubs(
 	return svc
 }
 
-// makeScores 构造 5 维评分
 func makeScores(nat, con, emp, pro, per float64) []dto.HumanizeDimensionScore {
 	return []dto.HumanizeDimensionScore{
 		{Dimension: dto.HumanizeDimNaturalness, Score: nat},
@@ -38,7 +31,6 @@ func makeScores(nat, con, emp, pro, per float64) []dto.HumanizeDimensionScore {
 	}
 }
 
-// makeResult 构造评估结果
 func makeResult(total float64) *dto.HumanizeEvalResult {
 	return &dto.HumanizeEvalResult{
 		Scores:     makeScores(0.85, 0.85, 0.85, 0.85, 0.85),

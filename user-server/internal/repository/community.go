@@ -135,7 +135,7 @@ func (r *communityRepository) GetMembers(ctx context.Context, groupID string, pa
 }
 
 func (r *communityRepository) AddMember(ctx context.Context, member *model.CommunityMember) (*model.CommunityMember, error) {
-	// 检查成员是否已经存在于该群组中
+
 	var existingMember model.CommunityMember
 	result := r.db.WithContext(ctx).Where("group_id = ? AND username = ?", member.GroupID, member.Username).First(&existingMember)
 	if result.Error == nil {
@@ -241,8 +241,6 @@ func (r *communityRepository) GetStatistics(ctx context.Context) (*map[string]an
 		return nil, err
 	}
 
-	// 计算活跃群组数量（过去7天有消息的群组）
-	// 使用 GORM 时间表达式而非 SQL 方言（PostgreSQL 兼容）
 	var activeGroups int64
 	sevenDaysAgo := time.Now().AddDate(0, 0, -7)
 	if err := r.db.WithContext(ctx).Model(&model.CommunityMessage{}).

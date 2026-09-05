@@ -11,9 +11,6 @@ import (
 	"time"
 )
 
-
-
-// makeFailingHandler 构造连续失败的 handler
 func makeFailingHandler(name string, callCount *int32, errMsg string) ToolHandler {
 	return func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		atomic.AddInt32(callCount, 1)
@@ -21,7 +18,6 @@ func makeFailingHandler(name string, callCount *int32, errMsg string) ToolHandle
 	}
 }
 
-// makeSuccessHandler 构造成功的 handler
 func makeSuccessHandler(name string, callCount *int32) ToolHandler {
 	return func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		atomic.AddInt32(callCount, 1)
@@ -29,7 +25,6 @@ func makeSuccessHandler(name string, callCount *int32) ToolHandler {
 	}
 }
 
-// makeCtxWithToolNameAndTrace 构造带工具名 + trace_id 的 ctx
 func makeCtxWithToolNameAndTrace(name, traceID string) context.Context {
 	ctx := context.Background()
 	ctx = WithToolName(ctx, name)
@@ -176,7 +171,6 @@ func TestD9_4_CircuitBreaker_ContextCanceledNotCounted(t *testing.T) {
 	}
 }
 
-
 // TestD10_1_DeadLetterQueue_PushAndGet 验证 Push + Get
 func TestD10_1_DeadLetterQueue_PushAndGet(t *testing.T) {
 	queue := NewDeadLetterQueue(100, time.Hour)
@@ -234,11 +228,11 @@ func TestD10_2_DeadLetterQueue_ListByTool(t *testing.T) {
 
 // TestD10_3_DeadLetterQueue_LRU_Eviction 验证容量上限淘汰
 func TestD10_3_DeadLetterQueue_LRU_Eviction(t *testing.T) {
-	queue := NewDeadLetterQueue(3, time.Hour) 
+	queue := NewDeadLetterQueue(3, time.Hour)
 	queue.Push("tool.1", nil, errors.New("e1"), "", nil, 0)
 	queue.Push("tool.2", nil, errors.New("e2"), "", nil, 0)
 	queue.Push("tool.3", nil, errors.New("e3"), "", nil, 0)
-	queue.Push("tool.4", nil, errors.New("e4"), "", nil, 0) 
+	queue.Push("tool.4", nil, errors.New("e4"), "", nil, 0)
 
 	all := queue.ListAll()
 	if len(all) != 3 {
@@ -381,7 +375,6 @@ func TestD10_9_DeadLetterReplayer(t *testing.T) {
 	}
 }
 
-
 // TestD11_1_ResultCache_SetGet 验证基础 Set/Get
 func TestD11_1_ResultCache_SetGet(t *testing.T) {
 	cache := NewResultCache(100, time.Minute)
@@ -421,7 +414,7 @@ func TestD11_2_ResultCache_TTLExpiry(t *testing.T) {
 
 // TestD11_3_ResultCache_LRU_Eviction 验证 LRU 淘汰
 func TestD11_3_ResultCache_LRU_Eviction(t *testing.T) {
-	cache := NewResultCache(2, time.Minute) 
+	cache := NewResultCache(2, time.Minute)
 
 	cache.Set("t.a", map[string]any{"i": 1}, SuccessResult("t.a", "1"), 0)
 	cache.Set("t.b", map[string]any{"i": 2}, SuccessResult("t.b", "2"), 0)
@@ -519,8 +512,6 @@ func TestD11_7_ResultCache_Invalidate(t *testing.T) {
 	}
 }
 
-
-// mockToolForValidator 用于参数校验测试的 mock tool
 type mockToolForValidator struct {
 	name        string
 	params      ToolParameters
@@ -668,7 +659,6 @@ func TestD12_4_ParamValidator_NilRegistry(t *testing.T) {
 		t.Errorf("nil registry 应放行，实际 %v", err)
 	}
 }
-
 
 // TestD13_1_RetryDecorator_NonRetryableErrorSkips 验证不可重试错误立即返回
 func TestD13_1_RetryDecorator_NonRetryableErrorSkips(t *testing.T) {
@@ -835,7 +825,6 @@ func TestD13_6_isNonRetryableResult_Unit(t *testing.T) {
 	}
 }
 
-
 // TestD14_1_AuditEntryToRecord 验证 AuditEntry → DB 模型转换
 func TestD14_1_AuditEntryToRecord(t *testing.T) {
 	entry := AuditEntry{
@@ -915,7 +904,6 @@ func TestD14_4_DBAuditLogger_CloseFlushes(t *testing.T) {
 	}
 }
 
-// captureLogger 捕获 AuditEntry 用于断言
 type captureLogger struct {
 	entries []AuditEntry
 	mu      sync.Mutex
@@ -942,7 +930,6 @@ func TestD14_6_ToolCallAuditRecord_TableName(t *testing.T) {
 	}
 }
 
-
 // TestD15_1_ToolAlertManager_FailureRate 验证失败率告警
 func TestD15_1_ToolAlertManager_FailureRate(t *testing.T) {
 	manager := NewToolAlertManager()
@@ -957,7 +944,7 @@ func TestD15_1_ToolAlertManager_FailureRate(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		entry := AuditEntry{
 			ToolName: "test.alert_rate",
-			Success:  i >= 6, 
+			Success:  i >= 6,
 			Duration: 100 * time.Millisecond,
 		}
 		manager.OnToolCall(entry)
@@ -992,7 +979,7 @@ func TestD15_2_ToolAlertManager_LatencyAlert(t *testing.T) {
 	manager.OnToolCall(AuditEntry{
 		ToolName: "test.latency",
 		Success:  true,
-		Duration: 6 * time.Second, 
+		Duration: 6 * time.Second,
 	})
 	got.Wait()
 
@@ -1195,4 +1182,3 @@ func TestD15_9_CompositeAuditLogger(t *testing.T) {
 		t.Error("应触发耗时告警")
 	}
 }
-

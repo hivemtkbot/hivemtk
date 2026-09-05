@@ -128,7 +128,6 @@ func main() {
 	}
 }
 
-// handleHealth 健康检查
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -144,7 +143,6 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// handleRoot 根路径返回服务信息
 func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.Error(w, "not found", http.StatusNotFound)
@@ -154,7 +152,6 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "local embedding-server (Go)\nmodel=%s\ndim=%d\nPOST /v1/embeddings\n", s.defaultMod, s.defaultDim)
 }
 
-// handleEmbed POST /v1/embeddings
 func (s *Server) handleEmbed(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error")
@@ -210,14 +207,13 @@ func (s *Server) handleEmbed(w http.ResponseWriter, r *http.Request) {
 		Data:   data,
 		Model:  req.Model,
 		Usage: Usage{
-			PromptTokens: totalChars, 
+			PromptTokens: totalChars,
 			TotalTokens:  totalChars,
 		},
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// readAll 读取 body
 func readAll(r interface {
 	Read([]byte) (int, error)
 }) ([]byte, error) {
@@ -237,14 +233,12 @@ func readAll(r interface {
 	}
 }
 
-// writeJSON 写 JSON 响应
 func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-// writeError 写 OpenAI 风格错误
 func writeError(w http.ResponseWriter, code int, msg, errType string) {
 	var er ErrorResponse
 	er.Error.Message = msg
@@ -253,7 +247,6 @@ func writeError(w http.ResponseWriter, code int, msg, errType string) {
 	writeJSON(w, code, er)
 }
 
-// logMiddleware 简单请求日志
 func logMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -296,4 +289,3 @@ func envStr(key, def string) string {
 	}
 	return def
 }
-

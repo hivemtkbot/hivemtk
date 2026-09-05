@@ -9,8 +9,8 @@ import (
 type GeoJobRun struct {
 	ID         uint       `gorm:"primaryKey" json:"id"`
 	JobName    string     `gorm:"column:job_name;size:64;index" json:"job_name"`
-	Trigger    string     `gorm:"column:trigger;size:16" json:"trigger"`   // cron / manual
-	Status     string     `gorm:"column:status;size:16;index" json:"status"` // running / success / failed
+	Trigger    string     `gorm:"column:trigger;size:16" json:"trigger"`
+	Status     string     `gorm:"column:status;size:16;index" json:"status"`
 	Summary    string     `gorm:"column:summary;type:text" json:"summary"`
 	Error      string     `gorm:"column:error;type:text" json:"error"`
 	StartedAt  time.Time  `gorm:"column:started_at" json:"started_at"`

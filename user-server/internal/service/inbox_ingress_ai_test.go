@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// fakeAITrigger 记录是否被调用，用于验证“新消息触发 AI / 历史消息不触发 AI”语义
 type fakeAITrigger struct {
 	called      int
 	lastChannel string

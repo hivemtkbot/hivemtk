@@ -18,7 +18,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupBackupController 设置备份控制器测试环境
 func setupBackupController(t *testing.T) (*BackupController, *RestoreController, *gin.Engine, *gorm.DB) {
 	database := testutil.NewTestDB(t,
 		&model.Backup{},
@@ -30,7 +29,6 @@ func setupBackupController(t *testing.T) (*BackupController, *RestoreController,
 	router := gin.New()
 	return ctrl, restoreCtrl, router, database
 }
-
 
 // TestBackupController_CreateBackup_Success 测试创建备份成功
 func TestBackupController_CreateBackup_Success(t *testing.T) {
@@ -280,7 +278,6 @@ func TestBackupController_DeleteBackup_Success(t *testing.T) {
 	}
 }
 
-// strconvItoa local helper to avoid extra import (uint id)
 func strconvItoa(v uint) string {
 	return fmt.Sprintf("%d", v)
 }
@@ -329,7 +326,6 @@ func TestBackupController_NewBackupController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
-
 
 // TestRestoreController_RestoreBackup_Success 测试恢复备份成功
 func TestRestoreController_RestoreBackup_Success(t *testing.T) {
@@ -508,4 +504,3 @@ func TestRestoreController_NewRestoreController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
-

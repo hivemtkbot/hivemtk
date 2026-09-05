@@ -22,7 +22,6 @@ func NewRagHealthRepository(db *gorm.DB) RagHealthRepository {
 	return &ragHealthRepo{db: db}
 }
 
-// CountKnowledgeChunks 统计知识库 chunk 总数
 func (r *ragHealthRepo) CountKnowledgeChunks(ctx context.Context) (int64, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).
@@ -33,5 +32,4 @@ func (r *ragHealthRepo) CountKnowledgeChunks(ctx context.Context) (int64, error)
 	return count, nil
 }
 
-// 编译期断言
 var _ RagHealthRepository = (*ragHealthRepo)(nil)

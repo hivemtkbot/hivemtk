@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupRagHealthTestDB 创建健康度测试库
 func setupRagHealthTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	return testutil.NewTestDB(t,

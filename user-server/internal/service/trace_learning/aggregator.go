@@ -77,7 +77,6 @@ func AggregateTrace(ctx context.Context, db *gorm.DB, traceID string) (*Aggregat
 	return agg, nil
 }
 
-// dedupeStrings 去重并保持顺序
 func dedupeStrings(in []string) []string {
 	if len(in) == 0 {
 		return in
@@ -93,7 +92,6 @@ func dedupeStrings(in []string) []string {
 	return out
 }
 
-// extractContent 从 ingest 节点的 input(JSON) 提取 content 字段
 func extractContent(input string) string {
 	if input == "" {
 		return ""

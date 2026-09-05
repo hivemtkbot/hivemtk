@@ -75,11 +75,11 @@ func TestReplyGuard_RedisNilStaysLocal(t *testing.T) {
 // 保证单实例下消息不丢、出站不被阻断（优雅降级核心语义）。
 func TestReplyGuard_RedisUnavailableFallsBackToLocal(t *testing.T) {
 	bad := redis.NewClient(&redis.Options{
-		Addr:        "127.0.0.1:1", 
+		Addr:        "127.0.0.1:1",
 		DialTimeout: 500 * time.Millisecond,
 	})
 	defer bad.Close()
-	SetReplyGuardRedis(bad) 
+	SetReplyGuardRedis(bad)
 	if !ClaimReply("deg-1") {
 		t.Fatal("degraded mode should still claim successfully")
 	}
@@ -92,4 +92,3 @@ func TestReplyGuard_RedisUnavailableFallsBackToLocal(t *testing.T) {
 	}
 	ReleaseReply("deg-1")
 }
-

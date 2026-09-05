@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-// newTestRFMCron 构造可注入 mock 的 cron（微秒级退避，避免测试等待真实 1m/5m/15m）
 func newTestRFMCron(fn func(ctx context.Context) (int, error)) *CustomerRFMCron {
 	c := NewCustomerRFMCron(nil)
 	c.computeFn = fn

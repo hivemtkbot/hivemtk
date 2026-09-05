@@ -1,6 +1,5 @@
 package dto
 
-
 // WorkflowVersionCreateRequest 创建工作流版本请求
 type WorkflowVersionCreateRequest struct {
 	WorkflowID  string         `json:"workflow_id" binding:"required"`

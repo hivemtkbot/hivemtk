@@ -15,7 +15,7 @@ type TestStruct struct {
 	NilPtr  *string         `json:"nil_ptr"`
 	Decimal decimal.Decimal `json:"decimal"`
 	UUID    uuid.UUID       `json:"uuid"`
-	NoTag   string          
+	NoTag   string
 }
 
 // 测试用的结构体 - 用于测试 omitempty 的行为
@@ -132,7 +132,7 @@ func TestStructToMap_IgnoreNil(t *testing.T) {
 func TestStructToMap_OmitEmpty(t *testing.T) {
 	testStruct := TestStructWithOmitEmpty{
 		Name:    "Charlie",
-		Email:   "", 
+		Email:   "",
 		Decimal: decimal.NewFromFloat(80.00),
 		UUID:    uuid.Nil,
 	}
@@ -147,7 +147,7 @@ func TestStructToMap_OmitEmpty(t *testing.T) {
 func TestStructToMap_OmitEmptyWithValue(t *testing.T) {
 	testStruct := TestStructWithOmitEmpty{
 		Name:    "David",
-		Email:   "david@example.com", 
+		Email:   "david@example.com",
 		Decimal: decimal.NewFromFloat(90.00),
 		UUID:    uuid.Nil,
 	}
@@ -277,4 +277,3 @@ func TestStructToMap_PointerToStruct(t *testing.T) {
 		t.Errorf("StructToMap() with pointer = %v, want PointerTest", result["name"])
 	}
 }
-

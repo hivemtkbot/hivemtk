@@ -2,7 +2,6 @@ package tooluse
 
 import "sync"
 
-
 var (
 	autoRegisteredProviders []ToolProvider
 	autoRegisterMu          sync.Mutex
@@ -46,4 +45,3 @@ func ClearAutoRegisteredProviders() {
 	defer autoRegisterMu.Unlock()
 	autoRegisteredProviders = nil
 }
-

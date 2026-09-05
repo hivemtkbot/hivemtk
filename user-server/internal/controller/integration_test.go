@@ -17,7 +17,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupIntegrationTestDB 设置第三方对接测试数据库
 func setupIntegrationTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.IntegrationAccount{},
@@ -30,7 +29,6 @@ func setupIntegrationTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupIntegrationController 设置第三方对接控制器测试环境
 func setupIntegrationController(t *testing.T) (*IntegrationController, *gin.Engine) {
 	setupIntegrationTestDB(t)
 	ctrl := NewIntegrationController()
@@ -43,7 +41,6 @@ func setupIntegrationController(t *testing.T) (*IntegrationController, *gin.Engi
 
 	return ctrl, router
 }
-
 
 // TestIntegrationController_CreateAccount_Success 测试创建对接账号成功
 func TestIntegrationController_CreateAccount_Success(t *testing.T) {
@@ -392,4 +389,3 @@ func TestIntegrationController_NewIntegrationController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
-

@@ -20,7 +20,6 @@ type CustomerTagRepository interface {
 	Delete(ctx context.Context, id string) error
 }
 
-// customerTagRepository implements CustomerTagRepository
 type customerTagRepository struct{}
 
 // NewCustomerTagRepository creates a new CustomerTagRepository instance
@@ -28,12 +27,10 @@ func NewCustomerTagRepository() CustomerTagRepository {
 	return &customerTagRepository{}
 }
 
-// Create creates a new customer tag
 func (r *customerTagRepository) Create(ctx context.Context, tag *model.CustomerTag) error {
 	return _db.GetDB().Create(tag).Error
 }
 
-// GetByID retrieves a tag by ID
 func (r *customerTagRepository) GetByID(ctx context.Context, id string) (*model.CustomerTag, error) {
 	var tag model.CustomerTag
 	if err := _db.GetDB().First(&tag, "id = ?", id).Error; err != nil {
@@ -70,12 +67,10 @@ func (r *customerTagRepository) ListAutoTags(ctx context.Context) ([]*model.Cust
 	return tags, nil
 }
 
-// Delete deletes a tag by ID
 func (r *customerTagRepository) Delete(ctx context.Context, id string) error {
 	return _db.GetDB().Delete(&model.CustomerTag{}, "id = ?", id).Error
 }
 
-// Update updates an existing customer tag (按主键更新已有记录，而非插入新行)
 func (r *customerTagRepository) Update(ctx context.Context, tag *model.CustomerTag) error {
 	return _db.GetDB().Save(tag).Error
 }

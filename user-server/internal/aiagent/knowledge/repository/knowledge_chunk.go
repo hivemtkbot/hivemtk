@@ -213,10 +213,6 @@ func (r *KnowledgeChunkRepository) UpdateEmbeddingsBatch(ctx context.Context, ch
 	})
 }
 
-// vecToPGString 把 []float32 序列化为 pgvector 字面量字符串
-//
-// pgvector 支持的格式: '[1.0,2.0,3.0,...]'
-// 必须用科学计数或保留小数位，否则 PG 会报 dimension mismatch
 func vecToPGString(v []float32) string {
 	if len(v) == 0 {
 		return "[]"
@@ -232,4 +228,3 @@ func vecToPGString(v []float32) string {
 	b = append(b, ']')
 	return string(b)
 }
-

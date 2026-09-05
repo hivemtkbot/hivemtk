@@ -66,13 +66,12 @@ func DefaultManager() *FlagManager {
 		defaultManager.register("layer1", false)
 		defaultManager.register("fallback_chain", false)
 		defaultManager.register("debug_log", false)
-		defaultManager.register(FF_ENABLE_SSE_BRIDGE, true) // 2026-08-18: 默认启用 SSE Bridge
+		defaultManager.register(FF_ENABLE_SSE_BRIDGE, true)
 		defaultManager.startPoller()
 	})
 	return defaultManager
 }
 
-// register 注册一个 Flag
 func (m *FlagManager) register(name string, defaultValue bool) *Flag {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -81,7 +80,7 @@ func (m *FlagManager) register(name string, defaultValue bool) *Flag {
 		f = &Flag{
 			name:         name,
 			defaultValue: defaultValue,
-			cachedValue:  defaultValue, 
+			cachedValue:  defaultValue,
 		}
 		f.lastReload = time.Now()
 		f.cachedValue = f.readEnv()
@@ -90,10 +89,6 @@ func (m *FlagManager) register(name string, defaultValue bool) *Flag {
 	return f
 }
 
-// startPoller 启动后台轮询 goroutine (热加载)
-//
-// 每 PollInterval 重新读取 env 写入所有 flag 的 cachedValue。
-// 调用 StopPoller 停止 (用于单测 / 优雅关闭)。
 func (m *FlagManager) startPoller() {
 	m.pollOnce.Do(func() {
 		m.stopCh = make(chan struct{})
@@ -154,7 +149,6 @@ func (f *Flag) Bool() bool {
 	return f.cachedValue
 }
 
-// readEnv 实际从 env 解析 (内部方法, 调用方负责加锁)
 func (f *Flag) readEnv() bool {
 	envName := "FF_" + strings.ToUpper(f.name)
 	v := os.Getenv(envName)
@@ -174,11 +168,6 @@ func (f *Flag) readEnv() bool {
 	return b
 }
 
-// resolve 兼容旧 API: 立即读 env (主要用于 admin API 等需要实时生效的场景)
-//
-// 与 Bool() 的区别:
-//   - Bool() 返回缓存 (5s 内可能不是最新)
-//   - resolve() 立即读 env (实时, 但每次都触发系统调用)
 func (f *Flag) resolve() bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -237,4 +226,3 @@ func (m *FlagManager) Snapshot() map[string]bool {
 func AllFlagSnapshot() map[string]bool {
 	return DefaultManager().Snapshot()
 }
-

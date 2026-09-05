@@ -18,7 +18,7 @@ import (
 
 // WechatController 微信公众号控制器
 type WechatController struct {
-	svc       *service.WechatService
+	svc        *service.WechatService
 	ingressSvc *service.InboxIngressService
 }
 
@@ -34,21 +34,20 @@ func (c *WechatController) SetIngressSvc(ingress *service.InboxIngressService) {
 
 // RegisterRoutes 注册路由
 func (c *WechatController) RegisterRoutes(auth *gin.RouterGroup) {
-	// 账号管理
+
 	auth.GET("/wechat/accounts", c.ListAccounts)
 	auth.POST("/wechat/accounts", c.CreateAccount)
 	auth.PUT("/wechat/accounts/:id", c.UpdateAccount)
 	auth.DELETE("/wechat/accounts/:id", c.DeleteAccount)
 
-	// 发送客服消息
 	auth.POST("/wechat/send", c.SendMessage)
 }
 
 // RegisterWebhookRoutes 注册 webhook 路由（不需要认证）
 func (c *WechatController) RegisterWebhookRoutes(r *gin.RouterGroup) {
-	// GET: 微信服务器配置验证
+
 	r.GET("/webhook/wechat/:account_id", c.VerifyURL)
-	// POST: 接收消息
+
 	r.POST("/webhook/wechat/:account_id", c.ReceiveMessage)
 }
 
@@ -62,7 +61,6 @@ func (c *WechatController) ListAccounts(ctx *gin.Context) {
 	response.Success(ctx, accounts, "查询成功")
 }
 
-// CreateAccount 创建公众号账号
 type createWechatAccountReq struct {
 	AppID          string `json:"app_id" binding:"required"`
 	AppSecret      string `json:"app_secret" binding:"required"`
@@ -140,7 +138,6 @@ func (c *WechatController) DeleteAccount(ctx *gin.Context) {
 	response.Success(ctx, nil, "删除成功")
 }
 
-// SendMessage 发送客服消息
 type sendWechatMsgReq struct {
 	AccountID uint   `json:"account_id" binding:"required"`
 	OpenID    string `json:"open_id" binding:"required"`
@@ -182,7 +179,6 @@ func (c *WechatController) VerifyURL(ctx *gin.Context) {
 	nonce := ctx.Query("nonce")
 	echostr := ctx.Query("echostr")
 
-	// 获取账号的 Token
 	acc, err := c.svc.GetAccount(ctx.Request.Context(), uint(accountID))
 	if err != nil {
 		ctx.String(http.StatusNotFound, "account not found")
@@ -211,7 +207,6 @@ func (c *WechatController) ReceiveMessage(ctx *gin.Context) {
 		return
 	}
 
-	// 安全校验：验证微信签名（timestamp/nonce/signature）
 	acc, err := c.svc.GetAccount(ctx.Request.Context(), uint(accountID))
 	if err != nil {
 		ctx.String(http.StatusNotFound, "account not found")
@@ -241,27 +236,17 @@ func (c *WechatController) ReceiveMessage(ctx *gin.Context) {
 		return
 	}
 
-	// 保存消息
 	if err := c.svc.SaveIncomingMessage(ctx.Request.Context(), uint(accountID), msg, body); err != nil {
-		// 保存失败不影响回复
+
 	}
 
-	// 回复微信服务器（空回复表示成功，微信不会重试）
 	ctx.String(http.StatusOK, c.svc.BuildEmptyReply())
 
-	// 异步处理消息（通过 InboxIngress 进入智能体流程）
 	go c.handleIncomingMessage(uint(accountID), msg)
 }
 
-// handleIncomingMessage 异步处理收到的微信消息
-//
-// 2026-08-17 严肃化：
-//   - 保留原请求 trace_id（不丢失监控追踪）
-//   - 包装 panic recovery（goroutine 内 panic 不能让进程崩）
-//   - 设置 30s 超时（避免消息卡住）
-//   - ConversationID 使用 channel:accountID:openID 标准格式（与 Bridge 渠道对齐）
 func (c *WechatController) handleIncomingMessage(accountID uint, msg *service.WechatIncomingMessage) {
-	// 保留 trace_id（从 gin context 提取，但 webhook 已无 ctx；用 background 即可）
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -272,7 +257,6 @@ func (c *WechatController) handleIncomingMessage(accountID uint, msg *service.We
 		}
 	}()
 
-	// 构建 MessageEvent 进入 InboxIngress 管道
 	if c.ingressSvc != nil {
 		event := &model.MessageEvent{
 			Channel:        "wechat",

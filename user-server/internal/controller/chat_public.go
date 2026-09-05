@@ -46,8 +46,6 @@ type ChatPublicController struct {
 	channelSvc *service.ChatChannelService
 }
 
-// visitorTokenFromRequest 从请求中提取 visitor_token
-// 优先从 X-Chat-Visitor-Token Header 读取，其次从 token query param / body 读取
 func visitorTokenFromRequest(c *gin.Context) string {
 	if v := strings.TrimSpace(c.GetHeader("X-Chat-Visitor-Token")); v != "" {
 		return v
@@ -58,7 +56,6 @@ func visitorTokenFromRequest(c *gin.Context) string {
 	return ""
 }
 
-// validateVisitorTokenOrAbort 验证 visitor token，失败时中止请求并返回 403
 func validateVisitorTokenOrAbort(c *gin.Context, channelID, visitorID, sessionID string) bool {
 	token := visitorTokenFromRequest(c)
 	if token == "" {
@@ -103,7 +100,6 @@ func (ctrl *ChatPublicController) GetChannelInfoByAppKey(c *gin.Context) {
 	}, "ok")
 }
 
-// resolveChannelID 软解析 channel_id：ctx > body > header > 默认
 func resolveChannelID(c *gin.Context, reqBody *service.VisitorOpenSessionRequest) string {
 	if v, ok := c.Get("chat_channel_id"); ok {
 		if s, ok := v.(string); ok && s != "" {
@@ -160,7 +156,6 @@ func (ctrl *ChatPublicController) GetMessages(c *gin.Context) {
 		return
 	}
 
-	// IDOR 修复：验证 visitor_token
 	if !validateVisitorTokenOrAbort(c, channelID, visitorID, sessionID) {
 		return
 	}
@@ -202,7 +197,6 @@ func (ctrl *ChatPublicController) SendMessage(c *gin.Context) {
 		return
 	}
 
-	// IDOR 修复：验证 visitor_token
 	if !validateVisitorTokenOrAbort(c, channelID, visitorID, sessionID) {
 		return
 	}
@@ -210,22 +204,21 @@ func (ctrl *ChatPublicController) SendMessage(c *gin.Context) {
 	var body struct {
 		Content     string `json:"content" binding:"required"`
 		ContentType string `json:"content_type"`
-		MediaURL  string `json:"media_url"`
-		MediaType string `json:"media_type"`
-		MediaName string `json:"media_name"`
-		MediaSize int64  `json:"media_size"`
+		MediaURL    string `json:"media_url"`
+		MediaType   string `json:"media_type"`
+		MediaName   string `json:"media_name"`
+		MediaSize   int64  `json:"media_size"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		response.Error(c, http.StatusBadRequest, "请求参数错误", err.Error())
 		return
 	}
 
-	// XSS/注入防护：消息内容长度限制 + HTML 特殊字符转义
 	if len([]rune(body.Content)) > 5000 {
 		response.Error(c, http.StatusBadRequest, "消息内容过长，最多 5000 字符")
 		return
 	}
-	// XSS 防护：转义 HTML 特殊字符，防止存储型 XSS
+
 	body.Content = escapeHTML(body.Content)
 
 	req := &service.VisitorSendMessageRequest{
@@ -316,7 +309,6 @@ func (ctrl *ChatPublicController) GetOfflineMessages(c *gin.Context) {
 		return
 	}
 
-	// IDOR 修复：验证 visitor_token
 	if !validateVisitorTokenOrAbort(c, channelID, visitorID, sessionID) {
 		return
 	}
@@ -345,7 +337,6 @@ func (ctrl *ChatPublicController) RequestHumanTransfer(c *gin.Context) {
 		return
 	}
 
-	// IDOR 修复：验证 visitor_token
 	if !validateVisitorTokenOrAbort(c, channelID, visitorID, sessionID) {
 		return
 	}
@@ -355,7 +346,6 @@ func (ctrl *ChatPublicController) RequestHumanTransfer(c *gin.Context) {
 	}
 	_ = c.ShouldBindJSON(&body)
 
-	// XSS 防护：转义 reason 中的 HTML
 	body.Reason = escapeHTML(body.Reason)
 	if len([]rune(body.Reason)) > 500 {
 		body.Reason = body.Reason[:500]
@@ -384,7 +374,6 @@ func (ctrl *ChatPublicController) CloseSession(c *gin.Context) {
 		return
 	}
 
-	// IDOR 修复：验证 visitor_token
 	if !validateVisitorTokenOrAbort(c, channelID, visitorID, sessionID) {
 		return
 	}
@@ -412,7 +401,6 @@ func (ctrl *ChatPublicController) RateSession(c *gin.Context) {
 		return
 	}
 
-	// IDOR 修复：验证 visitor_token
 	if !validateVisitorTokenOrAbort(c, channelID, visitorID, sessionID) {
 		return
 	}
@@ -426,16 +414,15 @@ func (ctrl *ChatPublicController) RateSession(c *gin.Context) {
 		return
 	}
 
-	// XSS 防护：转义评论中的 HTML
 	body.Comment = escapeHTML(body.Comment)
 	if len([]rune(body.Comment)) > 1000 {
 		body.Comment = body.Comment[:1000]
 	}
 
 	if err := ctrl.visitorSvc.RateSession(c.Request.Context(), channelID, visitorID, sessionID, body.Rating, body.Comment); err != nil {
-	response.Error(c, http.StatusBadRequest, safeError(c, err, "评分失败，请稍后重试"))
-	return
-}
+		response.Error(c, http.StatusBadRequest, safeError(c, err, "评分失败，请稍后重试"))
+		return
+	}
 	response.Success(c, nil, "感谢您的评价")
 }
 
@@ -450,7 +437,6 @@ func (ctrl *ChatPublicController) CountAvailableAgents(c *gin.Context) {
 	response.Success(c, gin.H{"available": count}, "ok")
 }
 
-
 // GetUploadToken 生成七牛上传凭证
 // GET /api/chat/public/upload-token?file_type=image&ext=jpg&size=102400
 //
@@ -463,7 +449,7 @@ func (ctrl *ChatPublicController) CountAvailableAgents(c *gin.Context) {
 //
 // 安全：需要有效的 visitor_token + 有效会话
 func (ctrl *ChatPublicController) GetUploadToken(c *gin.Context) {
-	// 安全：要求有效的 session_id + visitor_token，防匿名调用方滥发上传凭证
+
 	sessionID := strings.TrimSpace(c.Query("session_id"))
 	if sessionID == "" {
 		response.Error(c, http.StatusBadRequest, "缺少 session_id 参数")
@@ -476,7 +462,6 @@ func (ctrl *ChatPublicController) GetUploadToken(c *gin.Context) {
 		return
 	}
 
-	// IDOR 修复：验证 visitor_token
 	if !validateVisitorTokenOrAbort(c, channelID, visitorID, sessionID) {
 		return
 	}
@@ -501,7 +486,6 @@ func (ctrl *ChatPublicController) GetUploadToken(c *gin.Context) {
 		return
 	}
 
-	// 1. 限制文件大小（默认 20MB）
 	const maxSize = 20 * 1024 * 1024
 	if size > maxSize {
 		response.Error(c, http.StatusRequestEntityTooLarge, "文件大小超出 20MB 限制")
@@ -568,14 +552,6 @@ func (ctrl *ChatPublicController) GetUploadToken(c *gin.Context) {
 	}, "ok")
 }
 
-// escapeHTML 转义 HTML 特殊字符，防止存储型 XSS
-//
-// 转义规则：
-//   - < → &lt;
-//   - > → &gt;
-//   - & → &amp;
-//   - " → &quot;
-//   - ' → &#39;
 func escapeHTML(s string) string {
 	if s == "" {
 		return s
@@ -590,23 +566,16 @@ func escapeHTML(s string) string {
 	return replacer.Replace(s)
 }
 
-// 内部错误模式匹配：识别可能泄露敏感信息的错误
 var (
-	// 数据库/内部错误关键词
 	internalErrorPatterns = []*regexp.Regexp{
 		regexp.MustCompile(`(?i)sql|database|mysql|postgres|connection|timeout|deadlock`),
 		regexp.MustCompile(`(?i)stack|panic|runtime|goroutine`),
-		regexp.MustCompile(`(?i)/[\w./-]+\.go:\d+`),   // Go 文件路径
+		regexp.MustCompile(`(?i)/[\w./-]+\.go:\d+`),
 		regexp.MustCompile(`(?i)dial|tcp|udp|network`),
 		regexp.MustCompile(`(?i)permission denied|access denied|forbidden`),
 	}
 )
 
-// safeError 处理错误信息安全：过滤可能泄露内部细节的错误
-//
-// 如果错误消息看起来是面向用户的（如"会话不存在"、"参数无效"），
-// 直接返回原始消息；如果包含内部技术细节（SQL、路径、堆栈等），
-// 则记录日志并返回通用消息。
 func safeError(c *gin.Context, err error, defaultMsg string) string {
 	if err == nil {
 		return defaultMsg
@@ -620,4 +589,3 @@ func safeError(c *gin.Context, err error, defaultMsg string) string {
 	}
 	return msg
 }
-

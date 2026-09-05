@@ -8,10 +8,11 @@
 //   - 安全：避免 max(limit) 过大导致全表扫描
 //
 // 用法示例（service 层）：
-//   func ListCustomer(ctx, req CursorReq) (*CursorResp, error) {
-//       items, nextCursor, err := pagination.CursorQuery(ctx, db, ...)
-//       return &CursorResp{Items: items, NextCursor: nextCursor}, nil
-//   }
+//
+//	func ListCustomer(ctx, req CursorReq) (*CursorResp, error) {
+//	    items, nextCursor, err := pagination.CursorQuery(ctx, db, ...)
+//	    return &CursorResp{Items: items, NextCursor: nextCursor}, nil
+//	}
 package pagination
 
 import (
@@ -31,7 +32,8 @@ type Cursor string
 
 // EncodeCursor 将 (timestamp, id) 编码为 base64 游标
 // 格式：<unix_nano>:<id>
-//   例如：1700000000000000000:12345
+//
+//	例如：1700000000000000000:12345
 func EncodeCursor(ts time.Time, id uint64) Cursor {
 	raw := fmt.Sprintf("%d:%d", ts.UnixNano(), id)
 	return Cursor(base64.URLEncoding.EncodeToString([]byte(raw)))
@@ -64,7 +66,6 @@ func DecodeCursor(c Cursor) (time.Time, uint64, bool) {
 	return time.Unix(0, tsNano), id, true
 }
 
-// splitBytes 分割 []byte by sep
 func splitBytes(b []byte, sep byte) [][]byte {
 	var result [][]byte
 	start := 0
@@ -105,60 +106,52 @@ type CursorQueryResult struct {
 // 适用场景：created_at + id 唯一索引的大表
 //
 // 实现：
-//   1. 首次查询：WHERE 过滤 + ORDER BY ts DESC, id DESC + LIMIT N+1
-//   2. 取最后一条的 (ts, id) 作为 nextCursor
-//   3. 后续查询：WHERE (ts, id) < (cursor.ts, cursor.id) + LIMIT N+1
-//   4. 比 N 多取 1 条用于判断 hasMore
+//  1. 首次查询：WHERE 过滤 + ORDER BY ts DESC, id DESC + LIMIT N+1
+//  2. 取最后一条的 (ts, id) 作为 nextCursor
+//  3. 后续查询：WHERE (ts, id) < (cursor.ts, cursor.id) + LIMIT N+1
+//  4. 比 N 多取 1 条用于判断 hasMore
 func CursorQuery(ctx context.Context, db *gorm.DB, opts CursorQueryQuery) (*CursorQueryResult, error) {
 	pageSize := opts.PageSize
 	if pageSize <= 0 || pageSize > CursorPageSize {
 		pageSize = CursorPageSize
 	}
 
-	// 构造基础查询
 	q := db.WithContext(ctx).Table(opts.Table)
 
-	// 过滤
 	for k, v := range opts.Where {
 		q = q.Where(k, v)
 	}
 
-	// 排序
 	orderBy := opts.OrderBy
 	if orderBy == "" {
 		orderBy = "created_at DESC, id DESC"
 	}
 	q = q.Order(orderBy)
 
-	// 游标过滤
 	if opts.Cursor != "" {
 		ts, id, ok := DecodeCursor(opts.Cursor)
 		if !ok {
 			return nil, fmt.Errorf("invalid cursor: %s", opts.Cursor)
 		}
-		// 主键 (ts, id) 严格小于 cursor
-		// 适用 ORDER BY ts DESC, id DESC
+
 		q = q.Where("(created_at, id) < (?, ?)", ts, id)
 	}
 
-	// 多取 1 条用于判断 hasMore
 	if err := q.Limit(pageSize + 1).Find(opts.Dest).Error; err != nil {
 		return nil, err
 	}
 
-	// 判定 hasMore 并计算 nextCursor
-	// 通过 reflect 检查 len(dest slice)
 	count := sliceLen(opts.Dest)
 	hasMore := count > pageSize
 	if hasMore {
-		// 截断到 pageSize
+
 		sliceTruncate(opts.Dest, pageSize)
 		count = pageSize
 	}
 
 	var nextCursor Cursor
 	if hasMore && count > 0 {
-		// 取最后一条
+
 		lastItem := sliceAt(opts.Dest, count-1)
 		nextCursor = extractCursorFromItem(lastItem)
 	}
@@ -172,12 +165,12 @@ func CursorQuery(ctx context.Context, db *gorm.DB, opts CursorQueryQuery) (*Curs
 
 // CursorQueryQuery cursor-based 查询参数（兼容 gorm.DB）
 type CursorQueryQuery struct {
-	Table   string
-	Cursor  Cursor
+	Table    string
+	Cursor   Cursor
 	PageSize int
-	OrderBy string
-	Where   map[string]any
-	Dest    any
+	OrderBy  string
+	Where    map[string]any
+	Dest     any
 }
 
 // IsValidLimit 校验 limit 值（OPT-ARC-11）
@@ -195,5 +188,3 @@ func ClampLimit(limit int) int {
 	}
 	return limit
 }
-
-

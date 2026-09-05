@@ -116,7 +116,7 @@ func (c *AppConfigController) GetAppConfig(ctx *gin.Context) {
 	}
 
 	if licenseStatus != nil {
-		resp.Config.PlatformSync.MerchantKey = "HIDDEN_FOR_SECURITY" 
+		resp.Config.PlatformSync.MerchantKey = "HIDDEN_FOR_SECURITY"
 		resp.Config.PlatformSync.PlatformURL = sysConfig.WebsiteURL
 	}
 
@@ -232,4 +232,3 @@ func (c *AppConfigController) HealthCheck(ctx *gin.Context) {
 
 	response.Success(ctx, healthInfo, "健康检查成功")
 }
-

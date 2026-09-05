@@ -38,28 +38,24 @@ func NewReportService(
 func (s *ReportService) GetReport(ctx context.Context, startDate, endDate string) (*dto.ReportResponse, error) {
 	report := &dto.ReportResponse{}
 
-	// 文章总数
 	_, totalArticles, err := s.articleRepo.GetList("", "", 1, 1)
 	if err != nil {
 		return nil, fmt.Errorf("获取文章总数失败: %w", err)
 	}
 	report.TotalArticles = totalArticles
 
-	// 关键词总数
 	_, totalKeywords, err := s.keywordRepo.GetList("", "", "", "", "", 1, 1)
 	if err != nil {
 		return nil, fmt.Errorf("获取关键词总数失败: %w", err)
 	}
 	report.TotalKeywords = totalKeywords
 
-	// 优化记录总数
 	_, totalOptimizations, err := s.optimizationRepo.GetList("", 1, 1)
 	if err != nil {
 		return nil, fmt.Errorf("获取优化记录总数失败: %w", err)
 	}
 	report.TotalOptimizations = totalOptimizations
 
-	// API 调用成本统计
 	costStats, err := s.apiCallRepo.GetCostStatistics(startDate, endDate)
 	if err != nil {
 		return nil, fmt.Errorf("获取 API 成本统计失败: %w", err)
@@ -76,7 +72,6 @@ func (s *ReportService) GetReport(ctx context.Context, startDate, endDate string
 	report.TotalCostCNY = totalCostCNY
 	report.TotalAPICalls = totalAPICalls
 
-	// 验证结果总数（汇总每个模型的总数）
 	verifyStats, err := s.verifyRepo.GetStatistics()
 	if err == nil {
 		var totalVerifications int64
@@ -172,8 +167,6 @@ func (s *ReportService) GetAPICosts(ctx context.Context) ([]dto.APICostItem, err
 	}
 	return items, nil
 }
-
-// --- map 取值辅助函数（兼容 GORM Scan 返回的多种数值类型） ---
 
 func mapToString(m map[string]any, key string) string {
 	if v, ok := m[key]; ok {

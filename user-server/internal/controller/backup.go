@@ -22,7 +22,6 @@ func NewBackupController() *BackupController {
 	}
 }
 
-// isAdmin 校验当前用户是否为 admin（v3 审计 P2-30 修复）
 func isAdmin(ctx *gin.Context) bool {
 	role, exists := ctx.Get("role")
 	if !exists {
@@ -35,8 +34,6 @@ func isAdmin(ctx *gin.Context) bool {
 	return roleStr == "admin"
 }
 
-// requireAdminAuth 统一守卫：先认证(401)后授权(403)。
-// v3 审计 P2-30 + Round6 测试契约对齐：无 user_id → 401；有身份非 admin → 403。
 func requireAdminAuth(ctx *gin.Context) (uint, bool) {
 	userID, exists := ctx.Get("user_id")
 	if !exists {
@@ -255,7 +252,7 @@ func (c *RestoreController) GetLastRestore(ctx *gin.Context) {
 	record, err := c.restoreService.GetLastRestore(ctx.Request.Context())
 	if err != nil {
 		if utils.IsRecordNotFound(err) {
-			// 降级：暂无恢复记录是正常状态，不是业务错误
+
 			response.Success(ctx, nil, "暂无恢复记录")
 			return
 		}
@@ -265,4 +262,3 @@ func (c *RestoreController) GetLastRestore(ctx *gin.Context) {
 
 	response.Success(ctx, record, "获取成功")
 }
-

@@ -9,8 +9,8 @@ import (
 	"hivemtk-user/internal/aiagent/knowledge/model"
 	ragretrieval "hivemtk-user/internal/aiagent/rag/retrieval"
 	"hivemtk-user/internal/etl"
-	"hivemtk-user/internal/pkg/db"
 	chunkModel "hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/db"
 	"os"
 
 	"gorm.io/gorm"
@@ -84,7 +84,7 @@ func (s *KnowledgeBaseService) DeleteDocument(ctx context.Context, id uint) erro
 		if err := tx.WithContext(ctx).Where("id = ?", id).First(&doc).Error; err != nil {
 			return err
 		}
-		// 级联清理该文档在 knowledge_chunks 的全部分段（无则 0 行受影响）
+
 		if err := tx.WithContext(ctx).Where("document_id = ?", id).
 			Delete(&chunkModel.KnowledgeChunk{}).Error; err != nil {
 			return fmt.Errorf("清理文档分段失败: %w", err)
@@ -100,4 +100,3 @@ func (s *KnowledgeBaseService) DeleteDocument(ctx context.Context, id uint) erro
 	_ = s.indexer.DropIndex(ctx, fmt.Sprintf("kb_%d", doc.ID))
 	return nil
 }
-

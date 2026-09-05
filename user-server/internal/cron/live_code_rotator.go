@@ -35,7 +35,6 @@ func (r *LiveCodeRotator) Start() {
 	}
 }
 
-// rotate 执行轮询逻辑
 func (r *LiveCodeRotator) rotate() {
 	logger.Info("开始执行活码轮询任务...")
 
@@ -47,4 +46,3 @@ func (r *LiveCodeRotator) rotate() {
 
 	logger.Info("活码轮询任务执行完成")
 }
-

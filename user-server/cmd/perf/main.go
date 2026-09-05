@@ -61,8 +61,6 @@ func main() {
 	}
 }
 
-// loginScene 登录接口压测
-// 强约束：账号/密码必须显式传入；未提供时直接 fatal，不静默兜底到 admin123
 func loginScene() perflib.Config {
 	if *perfUsername == "" || *perfPassword == "" {
 		fmt.Fprintln(os.Stderr, "[FATAL] 登录压测场景必须显式传入 -username 与 -password（或 PERF_USERNAME / PERF_PASSWORD 环境变量）")
@@ -82,7 +80,6 @@ func loginScene() perflib.Config {
 	}
 }
 
-// customerListScene 客户列表压测
 func customerListScene() perflib.Config {
 	return perflib.Config{
 		Name:        "customer-list",
@@ -94,7 +91,6 @@ func customerListScene() perflib.Config {
 	}
 }
 
-// messageListScene 消息列表压测
 func messageListScene() perflib.Config {
 	return perflib.Config{
 		Name:        "message-list",
@@ -106,7 +102,6 @@ func messageListScene() perflib.Config {
 	}
 }
 
-// knowledgeQueryScene 知识库查询压测
 func knowledgeQueryScene() perflib.Config {
 	return perflib.Config{
 		Name:        "knowledge-query",
@@ -118,7 +113,6 @@ func knowledgeQueryScene() perflib.Config {
 	}
 }
 
-// cdpEventScene CDP 事件追踪压测
 func cdpEventScene() perflib.Config {
 	return perflib.Config{
 		Name:        "cdp-event",
@@ -134,6 +128,4 @@ func cdpEventScene() perflib.Config {
 	}
 }
 
-// suppress unused import warnings
 var _ = os.Exit
-

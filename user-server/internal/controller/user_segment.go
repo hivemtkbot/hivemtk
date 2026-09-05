@@ -151,7 +151,7 @@ func (c *UserSegmentController) GetRFMList(ctx *gin.Context) {
 
 	segment := ctx.Query("segment")
 	if segment == "" {
-		segment = ctx.Query("layer") // 旧参数兼容
+		segment = ctx.Query("layer")
 	}
 
 	rfms, total, err := c.rfmService.ListBySegment(context.Background(), segment, page, pageSize)
@@ -207,7 +207,7 @@ func (c *UserSegmentController) CalculateRFM(ctx *gin.Context) {
 func (c *UserSegmentController) GetUserRFM(ctx *gin.Context) {
 	customerID := ctx.Query("customer_id")
 	if customerID == "" {
-		customerID = ctx.Query("user_id") // 旧参数兼容
+		customerID = ctx.Query("user_id")
 	}
 	if customerID == "" {
 		response.Error(ctx, http.StatusBadRequest, "缺少 customer_id")

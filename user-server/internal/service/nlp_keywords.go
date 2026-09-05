@@ -26,14 +26,10 @@ var NLPKeywords = struct {
 	},
 }
 
-// negationWindow N-2 否定窗口：命中位置前 6 字符内出现否定词则视为否定语境，不命中。
-// 依据 MASTER_COMPETITIVE_DECISIONS.md M3/N-2："不用转人工"不应误触发转人工。
 const negationWindow = 6
 
-// negationWords 否定词表（N-2）
 var negationWords = []string{"不用", "别", "无需", "不需要", "不想"}
 
-// hasNegationBefore 检查 lower 中 idx（字节偏移）之前的否定窗口（前 6 个 rune）是否含否定词
 func hasNegationBefore(lower string, idx int) bool {
 	if idx <= 0 {
 		return false
@@ -52,9 +48,6 @@ func hasNegationBefore(lower string, idx int) bool {
 	return false
 }
 
-// matchKeywords 关键词匹配 + 否定窗口检查（N-2）：
-// 任一关键词的任一次出现，其前 6 字符不含否定词即视为命中；
-// 所有出现均处于否定语境（如"不用转人工"）则不命中。
 func matchKeywords(content string, kws []string) bool {
 	if content == "" {
 		return false

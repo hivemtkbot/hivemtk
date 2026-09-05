@@ -7,7 +7,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 // ErrAssetBundleNotEnabled 资产包未热启用（sentinel）
 //
 // 工具层（agent_runtime）依赖此 sentinel 区分"未启用"与其他错误，
@@ -22,12 +21,12 @@ var ErrAssetBundleNotFound = errors.New("asset bundle not found")
 // 字段含义参考 service.WeaveInput，但去掉了 Asset *model.AssetBundle 字段
 // （由 service 层根据 AssetID 自行加载，避免 agent_runtime 触发 DB 查询）
 type WeaveRequestPort struct {
-	AssetID      string                     
-	UserQuery    string                     
-	RAGDocs      []RAGDocumentPort          
-	ChatHistory  []model.AssetBundleMessage 
-	MerchantVars map[string]string          
-	Options      WeaveOptionsPort           
+	AssetID      string
+	UserQuery    string
+	RAGDocs      []RAGDocumentPort
+	ChatHistory  []model.AssetBundleMessage
+	MerchantVars map[string]string
+	Options      WeaveOptionsPort
 }
 
 // RAGDocumentPort RAG 检索结果投影
@@ -41,7 +40,7 @@ type RAGDocumentPort struct {
 
 // WeaveOptionsPort 织布策略投影
 type WeaveOptionsPort struct {
-	RAGPosition         string 
+	RAGPosition         string
 	MaxHistoryMessages  int
 	StripFewShotJSON    bool
 	IncludeMerchantVars bool
@@ -91,4 +90,3 @@ type KnowledgeSearchPort interface {
 type LLMChatPort interface {
 	Chat(ctx context.Context, messages []model.AssetBundleMessage, model string, temperature float64) (string, error)
 }
-

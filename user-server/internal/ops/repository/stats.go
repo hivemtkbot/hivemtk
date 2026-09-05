@@ -44,12 +44,10 @@ func NewStatsRepository(db *gorm.DB) StatsRepository {
 	return &statsRepository{db: db}
 }
 
-// CreateAPILog 创建API日志
 func (r *statsRepository) CreateAPILog(ctx context.Context, log *sysmodel.APILog) error {
 	return r.db.WithContext(ctx).Create(log).Error
 }
 
-// GetAPILogs 获取API日志
 func (r *statsRepository) GetAPILogs(ctx context.Context, licenseID string, startTime, endTime time.Time, limit int) ([]*sysmodel.APILog, error) {
 	var logs []*sysmodel.APILog
 	query := r.db.WithContext(ctx).
@@ -64,7 +62,6 @@ func (r *statsRepository) GetAPILogs(ctx context.Context, licenseID string, star
 	return logs, err
 }
 
-// GetAPICallCount 获取API调用次数
 func (r *statsRepository) GetAPICallCount(ctx context.Context, licenseID string, startTime, endTime time.Time) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
@@ -74,7 +71,6 @@ func (r *statsRepository) GetAPICallCount(ctx context.Context, licenseID string,
 	return count, err
 }
 
-// GetAPIErrorCount 获取API错误次数
 func (r *statsRepository) GetAPIErrorCount(ctx context.Context, licenseID string, startTime, endTime time.Time) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
@@ -84,9 +80,6 @@ func (r *statsRepository) GetAPIErrorCount(ctx context.Context, licenseID string
 	return count, err
 }
 
-// GetAverageResponseTime 获取平均响应时间
-// 注：PostgreSQL AVG() 返回 numeric，扫描到 int64 会因精度溢出失败。
-// 使用 float64 中间类型避免 SQLSTATE 22003/类型转换错误。
 func (r *statsRepository) GetAverageResponseTime(ctx context.Context, licenseID string, startTime, endTime time.Time) (int64, error) {
 	var avgTime float64
 	err := r.db.WithContext(ctx).
@@ -97,12 +90,10 @@ func (r *statsRepository) GetAverageResponseTime(ctx context.Context, licenseID 
 	return int64(avgTime), err
 }
 
-// CreateVisitLog 创建访问日志
 func (r *statsRepository) CreateVisitLog(ctx context.Context, log *sysmodel.VisitLog) error {
 	return r.db.WithContext(ctx).Create(log).Error
 }
 
-// GetVisitLogs 获取访问日志
 func (r *statsRepository) GetVisitLogs(ctx context.Context, licenseID string, startTime, endTime time.Time, limit int) ([]*sysmodel.VisitLog, error) {
 	var logs []*sysmodel.VisitLog
 	query := r.db.WithContext(ctx).
@@ -117,7 +108,6 @@ func (r *statsRepository) GetVisitLogs(ctx context.Context, licenseID string, st
 	return logs, err
 }
 
-// GetVisitCount 获取访问次数
 func (r *statsRepository) GetVisitCount(ctx context.Context, licenseID string, startTime, endTime time.Time) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
@@ -127,7 +117,6 @@ func (r *statsRepository) GetVisitCount(ctx context.Context, licenseID string, s
 	return count, err
 }
 
-// GetUniqueVisitors 获取独立访客数
 func (r *statsRepository) GetUniqueVisitors(ctx context.Context, licenseID string, startTime, endTime time.Time) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
@@ -138,7 +127,6 @@ func (r *statsRepository) GetUniqueVisitors(ctx context.Context, licenseID strin
 	return count, err
 }
 
-// GetOrCreateDailyStats 获取或创建每日统计
 func (r *statsRepository) GetOrCreateDailyStats(ctx context.Context, licenseID string, date string) (*sysmodel.DailyStats, error) {
 	var stats sysmodel.DailyStats
 	err := r.db.WithContext(ctx).
@@ -161,12 +149,10 @@ func (r *statsRepository) GetOrCreateDailyStats(ctx context.Context, licenseID s
 	return &stats, err
 }
 
-// UpdateDailyStats 更新每日统计
 func (r *statsRepository) UpdateDailyStats(ctx context.Context, stats *sysmodel.DailyStats) error {
 	return r.db.WithContext(ctx).Save(stats).Error
 }
 
-// GetDailyStats 获取每日统计
 func (r *statsRepository) GetDailyStats(ctx context.Context, licenseID string, startDate, endDate string) ([]*sysmodel.DailyStats, error) {
 	var stats []*sysmodel.DailyStats
 	err := r.db.WithContext(ctx).
@@ -176,7 +162,6 @@ func (r *statsRepository) GetDailyStats(ctx context.Context, licenseID string, s
 	return stats, err
 }
 
-// GetDailyStatsSummary 获取每日统计汇总
 func (r *statsRepository) GetDailyStatsSummary(ctx context.Context, startDate, endDate string) ([]*sysmodel.DailyStats, error) {
 	var stats []*sysmodel.DailyStats
 	err := r.db.WithContext(ctx).
@@ -186,12 +171,10 @@ func (r *statsRepository) GetDailyStatsSummary(ctx context.Context, startDate, e
 	return stats, err
 }
 
-// CreateSystemMetrics 创建系统指标
 func (r *statsRepository) CreateSystemMetrics(ctx context.Context, metrics *sysmodel.SystemMetrics) error {
 	return r.db.WithContext(ctx).Create(metrics).Error
 }
 
-// GetLatestSystemMetrics 获取最新的系统指标
 func (r *statsRepository) GetLatestSystemMetrics(ctx context.Context) (*sysmodel.SystemMetrics, error) {
 	var metrics sysmodel.SystemMetrics
 	err := r.db.WithContext(ctx).
@@ -200,7 +183,6 @@ func (r *statsRepository) GetLatestSystemMetrics(ctx context.Context) (*sysmodel
 	return &metrics, err
 }
 
-// GetSystemMetrics 获取系统指标
 func (r *statsRepository) GetSystemMetrics(ctx context.Context, startTime, endTime time.Time, limit int) ([]*sysmodel.SystemMetrics, error) {
 	var metrics []*sysmodel.SystemMetrics
 	query := r.db.WithContext(ctx).
@@ -215,7 +197,6 @@ func (r *statsRepository) GetSystemMetrics(ctx context.Context, startTime, endTi
 	return metrics, err
 }
 
-// GetStatsSummary 获取统计汇总
 func (r *statsRepository) GetStatsSummary(ctx context.Context, licenseID string, startTime, endTime time.Time) (map[string]any, error) {
 	result := make(map[string]any)
 
@@ -257,4 +238,3 @@ func (r *statsRepository) GetStatsSummary(ctx context.Context, licenseID string,
 
 	return result, nil
 }
-

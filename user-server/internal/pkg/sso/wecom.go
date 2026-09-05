@@ -35,4 +35,3 @@ func (a *WeComAdapter) MapClaims(c *IDTokenClaims) *NormalizedUser {
 	}
 	return nu
 }
-

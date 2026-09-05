@@ -11,7 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
 // CustomerSessionController 客服会话控制器
 type CustomerSessionController struct {
 	sessionService *service.CustomerSessionService
@@ -24,7 +23,6 @@ func NewCustomerSessionController() *CustomerSessionController {
 	}
 }
 
-// getUserIDFromContext 从上下文中提取 user_id (JWT 存储为 uint，但部分路径可能使用 float64)
 func getUserIDFromContext(ctx *gin.Context) uint {
 	if uid, exists := ctx.Get("user_id"); exists {
 		switch v := uid.(type) {
@@ -317,4 +315,3 @@ func (c *CustomerSessionController) CloseSession(ctx *gin.Context) {
 
 	response.Success(ctx, nil, "关闭成功")
 }
-

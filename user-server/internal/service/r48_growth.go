@@ -25,13 +25,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// ==================== T6: Webhook Out 事件订阅 ====================
-
 // WebhookSubscription 出站 Webhook 订阅
 type WebhookSubscription struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	URL       string    `gorm:"type:varchar(500);not null" json:"url"`
-	Events    string    `gorm:"type:varchar(500);not null" json:"events"` // 逗号分隔: message.created,session.created
+	Events    string    `gorm:"type:varchar(500);not null" json:"events"`
 	Secret    string    `gorm:"type:varchar(120);not null" json:"secret"`
 	Enabled   bool      `gorm:"default:true" json:"enabled"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
@@ -46,7 +44,6 @@ const (
 	WebhookEventSessionClosed  = "session.closed"
 )
 
-// webhookOutClient 出站 HTTP 客户端（装配处可注入测试双）
 var webhookOutClient = &http.Client{Timeout: 5 * time.Second}
 
 // PublishWebhookEvent 事件发布（fire-and-forget，失败仅日志，绝不阻塞主链路）
@@ -142,8 +139,6 @@ func (s *WebhookSubService) PublishEvent(ctx context.Context, event string, payl
 	}
 }
 
-// ==================== T7: 联系人自定义属性 ====================
-
 // SetCustomAttributes 更新客户自定义属性（JSONB merge）
 func (s *CustomerServicePlusService) SetCustomAttributes(ctx context.Context, customerID string, attrs map[string]any) (map[string]any, error) {
 	g := s.db
@@ -171,15 +166,13 @@ func (s *CustomerServicePlusService) SetCustomAttributes(ctx context.Context, cu
 	return merged, nil
 }
 
-// ==================== T8: 保存的自定义视图 ====================
-
 // SavedView 保存视图
 type SavedView struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	UserID    uint      `gorm:"index;not null" json:"user_id"`
 	Name      string    `gorm:"type:varchar(100);not null" json:"name"`
 	Route     string    `gorm:"type:varchar(100);not null" json:"route"`
-	Filter    string    `gorm:"type:text" json:"filter"` // 过滤条件 JSON
+	Filter    string    `gorm:"type:text" json:"filter"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 
@@ -226,13 +219,11 @@ func (s *CustomerServicePlusService) DeleteSavedView(ctx context.Context, id, us
 	return nil
 }
 
-// ==================== T9: 定时邮件报表订阅 ====================
-
 // ReportSubscription 报表订阅
 type ReportSubscription struct {
 	ID        uint       `gorm:"primaryKey;autoIncrement" json:"id"`
 	Email     string     `gorm:"type:varchar(200);not null;uniqueIndex" json:"email"`
-	Schedule  string     `gorm:"type:varchar(20);default:'daily'" json:"schedule"` // daily/weekly
+	Schedule  string     `gorm:"type:varchar(20);default:'daily'" json:"schedule"`
 	Enabled   bool       `gorm:"default:true" json:"enabled"`
 	LastSent  *time.Time `json:"last_sent,omitempty"`
 	CreatedAt time.Time  `gorm:"autoCreateTime" json:"created_at"`
@@ -249,7 +240,7 @@ func (s *CustomerServicePlusService) CreateReportSubscription(ctx context.Contex
 		schedule = "daily"
 	}
 	g := s.db
-	// 幂等：同邮箱覆盖
+
 	_ = g.WithContext(ctx).Where("email = ?", email).Delete(&model.ReportSubscription{}).Error
 	sub := &model.ReportSubscription{Email: email, Schedule: schedule, Enabled: true}
 	if err := g.WithContext(ctx).Create(sub).Error; err != nil {
@@ -280,7 +271,7 @@ func (s *CustomerServicePlusService) SendScheduledReports(ctx context.Context) (
 	if len(subs) == 0 {
 		return 0, nil
 	}
-	// 昨日汇总（会话量/消息量/新客户）
+
 	type summaryRow struct {
 		Metric string `gorm:"column:metric"`
 		Value  int64  `gorm:"column:value"`
@@ -301,7 +292,7 @@ func (s *CustomerServicePlusService) SendScheduledReports(ctx context.Context) (
 	for _, r := range rows {
 		csv.WriteString(fmt.Sprintf("%s,%d\n", r.Metric, r.Value))
 	}
-	// 发送（复用 EmailService.Send，取首个 active SMTP）
+
 	emailSvc := NewEmailService(g)
 	sent := 0
 	for _, sub := range subs {
@@ -317,8 +308,6 @@ func (s *CustomerServicePlusService) SendScheduledReports(ctx context.Context) (
 	return sent, nil
 }
 
-// ==================== T10: 会话转录导出 ====================
-
 // SessionTranscript 导出转录（csv=true 时返回 CSV 两列）
 func (s *CustomerServicePlusService) SessionTranscript(ctx context.Context, sessionID string, csv bool) (string, string, error) {
 	type msgRow struct {
@@ -328,7 +317,7 @@ func (s *CustomerServicePlusService) SessionTranscript(ctx context.Context, sess
 		CreatedAt  time.Time `gorm:"column:created_at"`
 	}
 	var msgs []transcriptMsgRow
-	// R51 业务修复: 转录排除内部备注（is_internal 仅坐席可见）
+
 	if err := s.db.WithContext(ctx).
 		Table("session_messages").
 		Select("sender_type, COALESCE(sender_name,'') AS sender_name, content, created_at").
@@ -380,8 +369,6 @@ func whoOf(m transcriptMsgRow) string {
 	return m.SenderType
 }
 
-// ==================== T12: AI 代理绩效报表 ====================
-
 // AIPerformanceResult 自动化率漏斗
 type AIPerformanceResult struct {
 	Window        string           `json:"window"`
@@ -389,7 +376,7 @@ type AIPerformanceResult struct {
 	AIHandled     int64            `json:"ai_handled"`
 	HumanHandled  int64            `json:"human_handled"`
 	ClosedByAI    int64            `json:"closed_by_ai"`
-	AutoRate      float64          `json:"automation_rate"` // AI 处理占比
+	AutoRate      float64          `json:"automation_rate"`
 	LLMCalls      int64            `json:"llm_calls"`
 	LLMCost       float64          `json:"llm_cost"`
 	Breakdown     map[string]int64 `json:"llm_by_scenario,omitempty"`
@@ -407,14 +394,14 @@ func (s *EmailGapService) AIPerformance(ctx context.Context, days int) (*AIPerfo
 		Where("created_at >= ?", since).Count(&res.TotalSessions).Error
 	_ = g.WithContext(ctx).Table("customer_sessions").
 		Where("created_at >= ? AND status = ?", since, "closed").Count(&res.ClosedByAI).Error
-	// AI 处理 = ai_agent_id/agent 归属 AI 的会话（诚实口径: status ai_handling/已关闭未转人工）
+
 	_ = g.WithContext(ctx).Table("customer_sessions").
 		Where("created_at >= ? AND (agent_id IS NULL OR agent_id = '')", since).Count(&res.AIHandled).Error
 	res.HumanHandled = res.TotalSessions - res.AIHandled
 	if res.TotalSessions > 0 {
 		res.AutoRate = float64(res.AIHandled) * 100 / float64(res.TotalSessions)
 	}
-	// LLM 调用与成本
+
 	type lr struct {
 		Scenario string  `gorm:"column:scenario"`
 		Cnt      int64   `gorm:"column:cnt"`

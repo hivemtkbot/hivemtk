@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"testing"
@@ -10,7 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupConfidenceMigrationTestDB 创建迁移测试 DB（空库）
 func setupConfidenceMigrationTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	return testutil.NewTestDB(t)
@@ -162,7 +160,6 @@ func TestConfidenceMigration_DefaultPoliciesFields(t *testing.T) {
 		}
 	}
 
-	// 验证公共字段
 	var cw, tw, aw float64
 	var bhu, bfu, bru float64
 	var slaSec int
@@ -247,7 +244,6 @@ func TestConfidenceMigration_DownPreservesCalibrationsAndPolicies(t *testing.T) 
 		}
 	}
 
-	// threshold_policies 中的 11 条策略应仍存在
 	var count int64
 	_ = db.Raw(`SELECT COUNT(*) FROM threshold_policies`).Scan(&count)
 	if count != 11 {
@@ -384,7 +380,6 @@ func TestConfidenceMigration_IndexesCreated(t *testing.T) {
 	}
 }
 
-// approxEqualFloat float 近似相等（迁移测试用，独立于 service 包）
 func approxEqualFloat(a, b float64) bool {
 	diff := a - b
 	if diff < 0 {
@@ -392,4 +387,3 @@ func approxEqualFloat(a, b float64) bool {
 	}
 	return diff < 1e-6
 }
-

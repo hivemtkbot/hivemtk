@@ -2,8 +2,6 @@ package llm
 
 import "sync"
 
-// 全局单例 Dispatcher，供 LLM 路由管理后台使用。
-// 与各 service 内部自行创建的 Dispatcher 相互独立；管理后台负责维护可配置的路由策略与厂商列表。
 var (
 	globalDispatcher     *Dispatcher
 	globalDispatcherOnce sync.Once

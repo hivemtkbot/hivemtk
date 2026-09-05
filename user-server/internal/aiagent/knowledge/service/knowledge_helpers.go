@@ -6,7 +6,6 @@
 // 本文件仅保留与文件/扩展名相关的服务级工具。
 package service
 
-// getMimeType 根据文件扩展名推断 MIME
 func getMimeType(ext string) string {
 	switch ext {
 	case ".pdf":
@@ -27,4 +26,3 @@ func getMimeType(ext string) string {
 		return "application/octet-stream"
 	}
 }
-

@@ -79,4 +79,3 @@ func TestReadinessCheck_NoDB(t *testing.T) {
 		t.Errorf("expected 503 when no DB, got %d", w.Code)
 	}
 }
-

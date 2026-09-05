@@ -21,7 +21,7 @@ type VariantCounts struct {
 	IsControl       bool    `json:"is_control"`
 	TrafficCount    int     `json:"traffic_count"`
 	ConversionCount int     `json:"conversion_count"`
-	ExpectedShare   float64 `json:"expected_share,omitempty"` // SRM 期望流量占比（0-1，未提供则按等分）
+	ExpectedShare   float64 `json:"expected_share,omitempty"`
 }
 
 // FrequentistVariant 单变体频率派结果
@@ -31,14 +31,14 @@ type FrequentistVariant struct {
 	IsControl       bool    `json:"is_control"`
 	TrafficCount    int     `json:"traffic_count"`
 	ConversionCount int     `json:"conversion_count"`
-	Rate            float64 `json:"rate"`               // 0-1
-	StdErr          float64 `json:"std_err"`            // 比例标准误
-	ZScore          float64 `json:"z_score"`            // vs 对照组（对照为 0）
-	PValue          float64 `json:"p_value"`            // 双侧
-	Confidence      float64 `json:"confidence"`         // 1-p
-	CILow           float64 `json:"ci_low"`             // 95% CI
+	Rate            float64 `json:"rate"`
+	StdErr          float64 `json:"std_err"`
+	ZScore          float64 `json:"z_score"`
+	PValue          float64 `json:"p_value"`
+	Confidence      float64 `json:"confidence"`
+	CILow           float64 `json:"ci_low"`
 	CIHigh          float64 `json:"ci_high"`
-	IsWinner        bool    `json:"is_winner"` // 频率派显著胜出（p<0.05 且优于对照）
+	IsWinner        bool    `json:"is_winner"`
 }
 
 // FrequentistStats z 检验
@@ -96,11 +96,11 @@ type BayesianVariant struct {
 	VariantName  string  `json:"variant_name"`
 	IsControl    bool    `json:"is_control"`
 	Rate         float64 `json:"rate"`
-	PosteriorMix float64 `json:"posterior_mean"` // 后验均值
-	ChanceToWin  float64 `json:"chance_to_win"`  // P(优于对照)
-	ExpectedLoss float64 `json:"expected_loss"`  // 相对对照的期望损失
-	RiskBest     bool    `json:"risk_best"`      // chance>=0.95
-	RiskLose     bool    `json:"risk_lose"`      // chance<=0.05
+	PosteriorMix float64 `json:"posterior_mean"`
+	ChanceToWin  float64 `json:"chance_to_win"`
+	ExpectedLoss float64 `json:"expected_loss"`
+	RiskBest     bool    `json:"risk_best"`
+	RiskLose     bool    `json:"risk_lose"`
 }
 
 // BayesianTest 蒙特卡洛 Beta 后验比较
@@ -109,9 +109,9 @@ func BayesianTest(variants []VariantCounts, samples int, rng *rand.Rand) []Bayes
 		samples = 20000
 	}
 	if rng == nil {
-		rng = rand.New(rand.NewSource(1)) // 确定性
+		rng = rand.New(rand.NewSource(1))
 	}
-	// 控制组 Beta 后验样本
+
 	var controlCounts *VariantCounts
 	for i := range variants {
 		if variants[i].IsControl {
@@ -175,10 +175,9 @@ func betaSamples(v *VariantCounts, n int, rng *rand.Rand) []float64 {
 	return out
 }
 
-// gammaSample Marsaglia-Tsang Gamma 采样（shape>0）
 func gammaSample(rng *rand.Rand, shape float64) float64 {
 	if shape < 1 {
-		// Boosting: G(shape) = G(shape+1) * U^(1/shape)
+
 		u := rng.Float64()
 		if u <= 0 {
 			u = 1e-12
@@ -209,13 +208,13 @@ func gammaSample(rng *rand.Rand, shape float64) float64 {
 
 // SequentialVerdict SPRT 判定
 type SequentialVerdict struct {
-	LLR       float64 `json:"llr"`         // 对数似然比
-	Upper     float64 `json:"upper_bound"` // ln((1-β)/α)
-	Lower     float64 `json:"lower_bound"` // ln(β/(1-α))
-	Verdict   string  `json:"verdict"`     // continue/accept_H1/reject_H1
-	TrafficN  int     `json:"traffic"`
-	Alpha     float64 `json:"alpha"`
-	Beta      float64 `json:"beta"`
+	LLR      float64 `json:"llr"`
+	Upper    float64 `json:"upper_bound"`
+	Lower    float64 `json:"lower_bound"`
+	Verdict  string  `json:"verdict"`
+	TrafficN int     `json:"traffic"`
+	Alpha    float64 `json:"alpha"`
+	Beta     float64 `json:"beta"`
 }
 
 // SequentialTest SPRT：H0 对照=挑战（无差异） vs H1 有真实提升
@@ -247,7 +246,7 @@ func SequentialTest(variants []VariantCounts, alpha float64) SequentialVerdict {
 	if p0 <= 0 || p0 >= 1 || p1 <= 0 || p1 >= 1 {
 		return verdict
 	}
-	// 期望样本比 ≈ 对照:挑战 1:1，各按一半计
+
 	kT := float64(treat.ConversionCount)
 	nT := float64(treat.TrafficCount)
 	kC := float64(control.ConversionCount)
@@ -259,26 +258,26 @@ func SequentialTest(variants []VariantCounts, alpha float64) SequentialVerdict {
 	verdict.Lower = math.Log(beta / (1 - alpha))
 	switch {
 	case llr >= verdict.Upper:
-		verdict.Verdict = "accept_H1" // 有真实差异，可停止
+		verdict.Verdict = "accept_H1"
 	case llr <= verdict.Lower:
-		verdict.Verdict = "reject_H1" // 无差异，可停止
+		verdict.Verdict = "reject_H1"
 	}
 	return verdict
 }
 
 // DiagnosticsResult 数据质量诊断
 type DiagnosticsResult struct {
-	TotalTraffic   int      `json:"total_traffic"`
-	VariantCount   int      `json:"variant_count"`
-	SRMChi2        float64  `json:"srm_chi2"`
-	SRMDf          int      `json:"srm_df"`
-	SRMPValue      float64  `json:"srm_p_value"`
-	SRMPassed      bool     `json:"srm_passed"`    // p>0.001 视为通过
-	MinSampleOK    bool     `json:"min_sample_ok"` // 每变体 >=100
-	MinSampleNeed  int      `json:"min_sample_need"`
-	MultiExpose    int      `json:"multi_expose_users"` // 多变体曝光用户数
-	MultiExposeOK  bool     `json:"multi_expose_ok"`
-	Warnings       []string `json:"warnings,omitempty"`
+	TotalTraffic  int      `json:"total_traffic"`
+	VariantCount  int      `json:"variant_count"`
+	SRMChi2       float64  `json:"srm_chi2"`
+	SRMDf         int      `json:"srm_df"`
+	SRMPValue     float64  `json:"srm_p_value"`
+	SRMPassed     bool     `json:"srm_passed"`
+	MinSampleOK   bool     `json:"min_sample_ok"`
+	MinSampleNeed int      `json:"min_sample_need"`
+	MultiExpose   int      `json:"multi_expose_users"`
+	MultiExposeOK bool     `json:"multi_expose_ok"`
+	Warnings      []string `json:"warnings,omitempty"`
 }
 
 // Diagnostics SRM + 最小样本 + 多曝光
@@ -295,7 +294,7 @@ func Diagnostics(variants []VariantCounts, multiExposedUsers int) DiagnosticsRes
 		d.Warnings = append(d.Warnings, "样本不足，无法执行诊断")
 		return d
 	}
-	// SRM：观察 vs 期望（未提供期望占比按等分）
+
 	chi2 := 0.0
 	for _, v := range variants {
 		share := v.ExpectedShare
@@ -334,14 +333,13 @@ func Diagnostics(variants []VariantCounts, multiExposedUsers int) DiagnosticsRes
 
 // CUPEDResult CUPED 方差缩减结果
 type CUPEDResult struct {
-	Available       bool                `json:"available"`
-	Reason          string              `json:"reason,omitempty"`
-	Theta           float64             `json:"theta"`             // 协变量系数
-	VarianceReduction float64           `json:"variance_reduction"` // 1 - var_adj/var_raw
-	Variants        []FrequentistVariant `json:"variants"`         // 调整后结果
+	Available         bool                 `json:"available"`
+	Reason            string               `json:"reason,omitempty"`
+	Theta             float64              `json:"theta"`
+	VarianceReduction float64              `json:"variance_reduction"`
+	Variants          []FrequentistVariant `json:"variants"`
 }
 
-// cupedUserMetric 用户级 (转化值, 实验前协变量)
 type cupedUserMetric struct{ y, x float64 }
 
 // CUPED 使用实验前事件计数作协变量（GrowthBook 同思路）
@@ -368,14 +366,14 @@ func CUPED(variants []VariantCounts, users []cupedUserMetric) CUPEDResult {
 	}
 	theta := covXY / varX
 	vr := (covXY * covXY) / (varX * varY)
-	// 调整后计数（按变体平移 theta*(x̄-x)）——轻量实现：对整组转化计数做期望修正
+
 	adjusted := make([]VariantCounts, len(variants))
 	copy(adjusted, variants)
 	totalAdjust := 0.0
 	for _, u := range users {
 		totalAdjust += theta * (meanX - u.x)
 	}
-	perVariantAdjust := totalAdjust / n // 人均修正
+	perVariantAdjust := totalAdjust / n
 	for i := range adjusted {
 		adj := adjusted[i].ConversionCount
 		adjF := float64(adj) + perVariantAdjust*float64(adjusted[i].TrafficCount)/math.Max(1, 1)
@@ -392,22 +390,17 @@ func CUPED(variants []VariantCounts, users []cupedUserMetric) CUPEDResult {
 	}
 }
 
-// ---------- 数学工具 ----------
-
-// twoTailP 标准正态双尾 p 值
 func twoTailP(z float64) float64 {
 	return math.Erfc(math.Abs(z) / math.Sqrt2)
 }
 
-// chiSquareSurvival 卡方分布上侧概率（Wilson-Hilferty 近似）
 func chiSquareSurvival(x float64, df int) float64 {
 	if df <= 0 || x < 0 {
 		return 1
 	}
 	d := float64(df)
-	// Wilson–Hilferty: (x/d)^(1/3) 近似正态
+
 	t := math.Pow(x/d, 1.0/3.0) - (1 - 2.0/(9*d))
 	z := t / math.Sqrt(2.0/(9*d))
 	return twoTailP(z)
 }
-

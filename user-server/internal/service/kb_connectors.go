@@ -34,12 +34,10 @@ func NewKBConnectorService() *KBConnectorService {
 	}
 }
 
-// 支持的连接器源
 var kbConnectorSources = map[string]bool{
 	"notion": true, "feishu": true, "dingtalk": true, "crm": true,
 }
 
-// 需要脱敏的配置字段
 var kbConnectorSecretFields = []string{"token", "secret", "app_secret", "api_key", "password"}
 
 func connectorKVKey(source string) string { return fmt.Sprintf("kb_connector.%s", source) }
@@ -56,7 +54,7 @@ type ConnectorStatus struct {
 	Name        string         `json:"name"`
 	Enabled     bool           `json:"enabled"`
 	Configured  bool           `json:"configured"`
-	Config      map[string]any `json:"config"` // 脱敏后
+	Config      map[string]any `json:"config"`
 	LastTestAt  *string        `json:"last_test_at,omitempty"`
 	LastTestOK  *bool          `json:"last_test_ok,omitempty"`
 	LastTestMsg string         `json:"last_test_msg,omitempty"`
@@ -89,7 +87,7 @@ func (s *KBConnectorService) Get(ctx context.Context, source string) ConnectorSt
 	st.Enabled = saved.Enabled
 	st.Configured = len(saved.Config) > 0
 	st.Config = maskConnectorConfig(saved.Config)
-	// 附带测试结果（如有）
+
 	var testRes struct {
 		At  string `json:"at"`
 		OK  bool   `json:"ok"`
@@ -129,9 +127,9 @@ func (s *KBConnectorService) Save(ctx context.Context, source string, req *SaveC
 				}
 				cur, ok := req.Config[k]
 				if !ok {
-					req.Config[k] = v // 缺省 → 保留原值
+					req.Config[k] = v
 				} else if sv, isStr := cur.(string); isStr && strings.TrimSpace(sv) == "" {
-					req.Config[k] = v // 空串 → 保留原值
+					req.Config[k] = v
 				}
 			}
 		}
@@ -165,7 +163,7 @@ func (s *KBConnectorService) Test(ctx context.Context, source string) (*TestResu
 		return nil, fmt.Errorf("凭据损坏，请重新保存")
 	}
 	res := s.probe(ctx, source, saved.Config)
-	// 回写测试结果（凭据原样保留）
+
 	merged, _ := json.Marshal(struct {
 		SaveConnectorRequest
 		TestAt  string `json:"test_at"`
@@ -176,7 +174,6 @@ func (s *KBConnectorService) Test(ctx context.Context, source string) (*TestResu
 	return res, nil
 }
 
-// probe 各源真实连通探测
 func (s *KBConnectorService) probe(ctx context.Context, source string, cfg map[string]any) *TestResult {
 	start := time.Now()
 	res := &TestResult{}
@@ -248,7 +245,6 @@ func (s *KBConnectorService) probe(ctx context.Context, source string, cfg map[s
 	return res
 }
 
-// maskConnectorConfig 脱敏密钥字段（保留尾 4 位）
 func maskConnectorConfig(cfg map[string]any) map[string]any {
 	out := make(map[string]any, len(cfg))
 	for k, v := range cfg {

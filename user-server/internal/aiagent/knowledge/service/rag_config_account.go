@@ -75,7 +75,6 @@ func (s *RagConfigService) ProcessMessage(ctx context.Context, platform, account
 	return "感谢您的消息，我们会尽快回复您！", nil
 }
 
-// processWithRag 使用RAG处理消息
 func (s *RagConfigService) processWithRag(ctx context.Context, productID, message, platform, accountID string) (string, error) {
 	product, err := s.repo.GetRagProductByID(ctx, productID)
 	if err != nil {
@@ -107,7 +106,7 @@ func (s *RagConfigService) processWithRag(ctx context.Context, productID, messag
 		ChunkOverlap:        50,
 		MaxChunksToRetrieve: DefaultTopK(),
 		SimilarityThreshold: DefaultSimilarityThreshold(),
-		VectorDimension: EmbeddingDim(),
+		VectorDimension:     EmbeddingDim(),
 	}
 
 	queryReq := &rag_service.QueryRequest{
@@ -129,7 +128,6 @@ func (s *RagConfigService) processWithRag(ctx context.Context, productID, messag
 	return response.Answer, nil
 }
 
-// generateRuleBasedReply 生成基于规则的回复
 func (s *RagConfigService) generateRuleBasedReply(rules []model.ReplyRule, message string) string {
 	lowerMsg := strings.ToLower(message)
 
@@ -148,7 +146,6 @@ func (s *RagConfigService) generateRuleBasedReply(rules []model.ReplyRule, messa
 	return ""
 }
 
-// llmServiceConfigured 判断 RAG 产品是否配置了可用的 LLM
 func (s *RagConfigService) llmServiceConfigured(product *model.RagProduct) bool {
 	if product == nil {
 		return false
@@ -159,4 +156,3 @@ func (s *RagConfigService) llmServiceConfigured(product *model.RagProduct) bool 
 	}
 	return true
 }
-

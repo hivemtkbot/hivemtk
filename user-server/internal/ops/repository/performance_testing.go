@@ -57,4 +57,3 @@ func (r *PerformanceTestRepository) List(ctx context.Context, page, pageSize int
 		Find(&list).Error
 	return list, total, err
 }
-

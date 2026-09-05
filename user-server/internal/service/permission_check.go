@@ -171,8 +171,6 @@ func (s *PermissionService) CheckPermission(ctx context.Context, roleCode, permi
 	return matchPermission(rolePerms, permission)
 }
 
-// defaultRolePermissions 返回内置角色权限列表
-// 取自原 model.SystemRoles 中 3 个内置角色的 Permissions JSON。
 func defaultRolePermissions(roleCode string) []string {
 	switch roleCode {
 	case SystemUserRoleAdmin:
@@ -190,7 +188,6 @@ func defaultRolePermissions(roleCode string) []string {
 	}
 }
 
-// matchPermission 权限匹配（支持通配符 *.x）
 func matchPermission(allowed []string, target string) bool {
 	for _, p := range allowed {
 		if p == "*" {

@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-
 func TestRecognizeResult_Fields(t *testing.T) {
 	r := RecognizeResult{
 		IntentType:      "price_inquiry",
@@ -128,4 +127,3 @@ func TestExecuteRequest_NoMerchantID(t *testing.T) {
 		t.Errorf("Expected zero-value SOPID, got %d", req.SOPID)
 	}
 }
-

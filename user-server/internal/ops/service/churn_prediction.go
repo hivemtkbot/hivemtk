@@ -91,7 +91,6 @@ func (s *ChurnPredictionService) CalculateChurnPrediction(userID string, userDat
 		orderValueScore*config.OrderValueWeight +
 		engagementScore*config.EngagementWeight
 
-	// 确定风险等级
 	var churnRisk string
 	if churnScore >= config.CriticalRiskScore {
 		churnRisk = "critical"
@@ -126,7 +125,6 @@ func (s *ChurnPredictionService) CalculateChurnPrediction(userID string, userDat
 	return s.predictionRepo.Upsert(prediction)
 }
 
-// calculateInactiveScore 计算未活跃分数（0-100）
 func (s *ChurnPredictionService) calculateInactiveScore(userData map[string]any, threshold int) float64 {
 	days := 0
 	if d, ok := userData["days_since_active"].(int); ok {
@@ -142,7 +140,6 @@ func (s *ChurnPredictionService) calculateInactiveScore(userData map[string]any,
 	return float64(days) * 50 / float64(threshold)
 }
 
-// calculatePurchaseFreqScore 计算购买频率分数
 func (s *ChurnPredictionService) calculatePurchaseFreqScore(userData map[string]any, threshold int) float64 {
 	days := 0
 	if d, ok := userData["days_since_purchase"].(int); ok {
@@ -158,7 +155,6 @@ func (s *ChurnPredictionService) calculatePurchaseFreqScore(userData map[string]
 	return float64(days) * 50 / float64(threshold)
 }
 
-// calculateOrderValueScore 计算订单金额分数（简化版本）
 func (s *ChurnPredictionService) calculateOrderValueScore(userData map[string]any) float64 {
 	aov := 0.0
 	if v, ok := userData["average_order_value"].(float64); ok {
@@ -180,7 +176,6 @@ func (s *ChurnPredictionService) calculateOrderValueScore(userData map[string]an
 	return 10
 }
 
-// calculateEngagementScore 计算互动频率分数
 func (s *ChurnPredictionService) calculateEngagementScore(userData map[string]any) float64 {
 	interactions := 0
 	if i, ok := userData["interactions_30d"].(int); ok {
@@ -199,7 +194,6 @@ func (s *ChurnPredictionService) calculateEngagementScore(userData map[string]an
 	return 20
 }
 
-// identifyRiskFactors 识别风险因素
 func (s *ChurnPredictionService) identifyRiskFactors(inactiveScore, purchaseFreqScore, orderValueScore, engagementScore float64) []string {
 	var factors []string
 
@@ -240,7 +234,7 @@ func (s *ChurnPredictionService) CreateChurnWarning(userID string, prediction *m
 		description = "用户存在一定的流失风险"
 		suggestion = "建议关注用户行为，适时进行用户触达"
 	default:
-		return nil 
+		return nil
 	}
 
 	warning := &model.ChurnWarning{
@@ -252,8 +246,6 @@ func (s *ChurnPredictionService) CreateChurnWarning(userID string, prediction *m
 		IsHandled:    false,
 	}
 
-	// v3 审计 P2-6：同用户同类型已存在未处理预警时跳过，
-	// 根除 RunChurnCalculation 每日 cron 的重复轰炸
 	existing, _, err := s.warningRepo.GetUnhandled(1, 200)
 	if err == nil {
 		for _, w := range existing {
@@ -301,7 +293,6 @@ func (s *ChurnPredictionService) SaveModelConfig(config *model.ChurnModelConfig)
 	return s.configRepo.Upsert(config)
 }
 
-// getDefaultConfig 获取默认配置
 func (s *ChurnPredictionService) getDefaultConfig() *model.ChurnModelConfig {
 	return &model.ChurnModelConfig{
 		InactiveDaysWeight: 0.3,
@@ -315,8 +306,6 @@ func (s *ChurnPredictionService) getDefaultConfig() *model.ChurnModelConfig {
 	}
 }
 
-// isValidChurnConfig 校验流失模型配置是否有效。
-// 权重和必须为正数，且未活跃/未购买阈值必须为正整数，否则计算会失真（全 0 分或全 critical）。
 func isValidChurnConfig(c *model.ChurnModelConfig) bool {
 	if c == nil {
 		return false
@@ -424,16 +413,13 @@ func (s *ChurnPredictionService) GetPredictionByUserID(userID string) (*model.Ch
 	return s.predictionRepo.GetByUserID(userID)
 }
 
-// aggregateCustomerBehavior 从 customer_events 真实聚合所有客户的行为特征。
-// customer_events 是系统唯一的用户行为事实源（含 login/click/page_view/add_to_cart/purchase/signup 等事件）。
-// external_orders.user_id 在生产数据为 NULL，无法关联金额，故 average_order_value 以近 90 天 purchase 事件数作代理信号。
 func (s *ChurnPredictionService) aggregateCustomerBehavior(ctx context.Context) ([]UserBehaviorSnapshot, error) {
 	type row struct {
-		CustomerID         string
-		LastActivityAt     time.Time
-		Interactions30d    int64
-		LastPurchaseAt     *time.Time
-		PurchaseCount90d   int64
+		CustomerID       string
+		LastActivityAt   time.Time
+		Interactions30d  int64
+		LastPurchaseAt   *time.Time
+		PurchaseCount90d int64
 	}
 	const q = `
 		SELECT
@@ -455,10 +441,10 @@ func (s *ChurnPredictionService) aggregateCustomerBehavior(ctx context.Context) 
 	snaps := make([]UserBehaviorSnapshot, 0, len(rows))
 	for _, r := range rows {
 		snap := UserBehaviorSnapshot{
-			CustomerID:      r.CustomerID,
-			LastActivityAt:  r.LastActivityAt,
-			Interactions30d: int(r.Interactions30d),
-			PurchaseFreq:    int(r.PurchaseCount90d),
+			CustomerID:        r.CustomerID,
+			LastActivityAt:    r.LastActivityAt,
+			Interactions30d:   int(r.Interactions30d),
+			PurchaseFreq:      int(r.PurchaseCount90d),
 			AverageOrderValue: float64(r.PurchaseCount90d),
 		}
 		if !r.LastActivityAt.IsZero() {
@@ -468,7 +454,7 @@ func (s *ChurnPredictionService) aggregateCustomerBehavior(ctx context.Context) 
 			snap.LastPurchaseAt = *r.LastPurchaseAt
 			snap.DaysSincePurchase = int(now.Sub(*r.LastPurchaseAt).Hours() / 24)
 		} else {
-			snap.DaysSincePurchase = 9999 
+			snap.DaysSincePurchase = 9999
 		}
 		snaps = append(snaps, snap)
 	}
@@ -590,4 +576,3 @@ func CalculateConfidence(rate float64, sampleSize int) float64 {
 
 	return confidence
 }
-

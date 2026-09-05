@@ -6,7 +6,6 @@ import (
 	"testing"
 )
 
-// approvalMockTool 实现 Tool 接口供测试
 type approvalMockTool struct {
 	name     string
 	category ToolCategory
@@ -26,7 +25,7 @@ func TestIsColdOutreachTool(t *testing.T) {
 		category ToolCategory
 		want     bool
 	}{
-		// 正例：CategoryReach + 冷触达段名
+
 		{"reach.telegram.dm", CategoryReach, true},
 		{"reach.dm.send", CategoryReach, true},
 		{"reach.proactive.email", CategoryReach, true},
@@ -34,18 +33,18 @@ func TestIsColdOutreachTool(t *testing.T) {
 		{"reach.outbound.send", CategoryReach, true},
 		{"reach.schedule.wecom", CategoryReach, true},
 		{"reach.lead.dig", CategoryReach, true},
-		// 反例：CategoryReach 但非冷触达段（热触达）
+
 		{"reach.telegram.send", CategoryReach, false},
 		{"reach.email.send", CategoryReach, false},
 		{"reach.wecom.send", CategoryReach, false},
 		{"reach.recall", CategoryReach, false},
 		{"reach.health", CategoryReach, false},
 		{"reach.account.list", CategoryReach, false},
-		// 反例：非 Reach category（即使 name 含冷触达段也不触发）
+
 		{"proactive.outreach", CategoryCustomer, false},
 		{"batch_send", CategoryKnowledge, false},
 		{"outbound.send", CategoryBusiness, false},
-		// 反例：空
+
 		{"", CategoryReach, false},
 		{"", CategoryCustomer, false},
 	}

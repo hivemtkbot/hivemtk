@@ -1,12 +1,6 @@
 //go:build ignore
 // +build ignore
 
-// 注：本文件为历史遗留测试，TestNewAuthService / TestAuthService_Login_DisabledUser /
-// TestAuthService_RefreshToken 与 auth_test.go 重复声明，且存在 errors 未使用、
-// SystemUser.Model 字段不存在等编译错误，导致 service 包测试无法编译。
-// 这里通过 build tag ignore 在不影响源代码语义的前提下将其从默认 go build / go test
-// 中排除，以便 workflow / sop 等新增测试能在 service 包内运行。需要恢复时去掉此 tag 即可。
-
 package service
 
 import (

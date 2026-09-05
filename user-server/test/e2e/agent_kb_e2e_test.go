@@ -31,7 +31,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupE2EDB 准备端到端测试 DB
 func setupE2EDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := testutil.NewTestDBOrSkip(t,
@@ -46,7 +45,6 @@ func setupE2EDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// newE2ESetup 构造完整的 e2e 业务编排 service
 func newE2ESetup(t *testing.T, db *gorm.DB) (
 	*service.KnowledgeBaseService,
 	*service.AgentKBBindingService,
@@ -63,7 +61,6 @@ func newE2ESetup(t *testing.T, db *gorm.DB) (
 }
 
 func boolPtrE2E(b bool) *bool { return &b }
-
 
 // TestE2E_MultiAgent_KnowledgeIsolation 验证多智能体场景下, 知识库严格隔离
 //
@@ -131,15 +128,14 @@ func TestE2E_MultiAgent_KnowledgeIsolation(t *testing.T) {
 	}
 }
 
-
 // TestE2E_AgentWorkflow_FullLifecycle 验证客服智能体全生命周期
 //
 // 场景: 客服智能体 agent=2001 启用 SOP 工作流:
-//   1. 创建 SOP 知识库
-//   2. 绑定 (启用)
-//   3. 查询命中
-//   4. 解绑 (不删除 KB)
-//   5. 重新绑定另一个 KB
+//  1. 创建 SOP 知识库
+//  2. 绑定 (启用)
+//  3. 查询命中
+//  4. 解绑 (不删除 KB)
+//  5. 重新绑定另一个 KB
 func TestE2E_AgentWorkflow_FullLifecycle(t *testing.T) {
 	db := setupE2EDB(t)
 	ctx := context.Background()
@@ -206,7 +202,6 @@ func TestE2E_AgentWorkflow_FullLifecycle(t *testing.T) {
 	}
 }
 
-
 // TestE2E_KBDelete_CascadeBindingCleanup 验证删除 KB 时级联清理所有 binding
 //
 // 场景: 共享 KB 被 5 个 agent 引用, 删除 KB 后所有 binding 应自动消失
@@ -251,7 +246,6 @@ func TestE2E_KBDelete_CascadeBindingCleanup(t *testing.T) {
 		t.Error("expected KB to be deleted")
 	}
 }
-
 
 // TestE2E_SharedKB_WhitelistDistribution 验证共享 KB 仅对白名单 agent 可见
 //
@@ -302,7 +296,6 @@ func TestE2E_SharedKB_WhitelistDistribution(t *testing.T) {
 	}
 }
 
-
 // TestE2E_AdminBatchConfig 验证管理员批量配置多 agent × 多 KB
 //
 // 场景: 新员工培训场景, 1 个 SOP 库 + 1 个 FAQ 库, 20 个新入职客服一次性绑定
@@ -332,7 +325,6 @@ func TestE2E_AdminBatchConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 2. 构造批量绑定: 20 个 agent × 2 个 KB = 40 条 binding
 	const newHireCount = 20
 	items := make([]service.BatchBindItem, 0, newHireCount*2)
 	for i := uint(3001); i < 3001+newHireCount; i++ {
@@ -352,7 +344,6 @@ func TestE2E_AdminBatchConfig(t *testing.T) {
 	}
 }
 
-
 // TestE2E_BusinessRules_CompositeValidation 验证多层业务规则的复合场景
 //
 // 场景:
@@ -370,7 +361,7 @@ func TestE2E_BusinessRules_CompositeValidation(t *testing.T) {
 		Type:         model.KnowledgeBaseTypeFAQ,
 		Name:         "bad",
 		OwnerType:    model.KnowledgeBaseOwnerShared,
-		OwnerAgentID: &agent, 
+		OwnerAgentID: &agent,
 		Enabled:      boolPtrE2E(true),
 	}
 	if err := kbSvc.CreateKB(ctx, bad1); err == nil {
@@ -382,7 +373,7 @@ func TestE2E_BusinessRules_CompositeValidation(t *testing.T) {
 		Type:      model.KnowledgeBaseTypeFAQ,
 		Name:      "bad",
 		OwnerType: model.KnowledgeBaseOwnerPrivate,
-		Enabled: boolPtrE2E(true),
+		Enabled:   boolPtrE2E(true),
 	}
 	if err := kbSvc.CreateKB(ctx, bad2); err == nil {
 		t.Error("expected error for private KB without owner")
@@ -400,7 +391,6 @@ func TestE2E_BusinessRules_CompositeValidation(t *testing.T) {
 		t.Error("expected error for invalid type")
 	}
 }
-
 
 // TestE2E_OwnerTypeTransition 验证 owner_type 从 private 切到 shared 的过渡
 //
@@ -461,4 +451,3 @@ func TestE2E_OwnerTypeTransition(t *testing.T) {
 		t.Error("agent2 should see KB after binding")
 	}
 }
-

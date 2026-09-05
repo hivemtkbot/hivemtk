@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"time"
@@ -51,5 +50,3 @@ func (a *GoRedisAdapter) Set(ctx context.Context, key, value string, ttl time.Du
 func IsRedisNil(err error) bool {
 	return err == redis.Nil
 }
-
-

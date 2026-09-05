@@ -9,8 +9,8 @@ import (
 
 // TagSource 标签来源常量
 const (
-	TagSourceAuto   TagSource = "auto"   
-	TagSourceManual TagSource = "manual" 
+	TagSourceAuto   TagSource = "auto"
+	TagSourceManual TagSource = "manual"
 )
 
 // TagSource 标签来源
@@ -21,10 +21,10 @@ type TagCategory string
 
 // TagCategory 标签分类常量
 const (
-	TagCategoryDemographic   TagCategory = "demographic"   
-	TagCategoryBehavioral    TagCategory = "behavioral"    
-	TagCategoryTransactional TagCategory = "transactional" 
-	TagCategoryPsychographic TagCategory = "psychographic" 
+	TagCategoryDemographic   TagCategory = "demographic"
+	TagCategoryBehavioral    TagCategory = "behavioral"
+	TagCategoryTransactional TagCategory = "transactional"
+	TagCategoryPsychographic TagCategory = "psychographic"
 )
 
 // CustomerTag 客户标签模型
@@ -33,7 +33,7 @@ type CustomerTag struct {
 	Name      string      `gorm:"type:varchar(50);index;not null" json:"name"`
 	Category  TagCategory `gorm:"type:varchar(32);index" json:"category"`
 	Source    TagSource   `gorm:"type:varchar(20);not null" json:"source"`
-	Rule      string      `gorm:"type:text" json:"rule"` 
+	Rule      string      `gorm:"type:text" json:"rule"`
 	CreatedAt time.Time   `gorm:"autoCreateTime" json:"created_at"`
 }
 
@@ -50,4 +50,3 @@ func (t *CustomerTag) BeforeCreate(tx *gorm.DB) error {
 
 	return nil
 }
-

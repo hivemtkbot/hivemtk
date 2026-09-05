@@ -19,7 +19,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupXianyuCardTestDB 设置闲鱼卡片测试数据库
 func setupXianyuCardTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.XianyuCard{},
@@ -219,7 +218,7 @@ func TestXianyuCardController_Update_IDMismatch(t *testing.T) {
 	router.PUT("/xianyu/cards/:id", ctrl.Update)
 
 	updateReq := dto.XianyuCardUpdateRequest{
-		ID:    999, 
+		ID:    999,
 		Title: "Test",
 	}
 	body, _ := json.Marshal(updateReq)
@@ -696,4 +695,3 @@ func TestXianyuCardController_PostRecordShare_Success(t *testing.T) {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
-

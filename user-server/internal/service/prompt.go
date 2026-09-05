@@ -40,7 +40,7 @@ type PublishRequest struct {
 
 // Publish 发布新版本（从 draft → active，自动把同 sop_node_id 的旧版本降为 retired）
 func (s *PromptService) Publish(ctx context.Context, req PublishRequest) (*model.PromptCandidate, error) {
-	// 把当前 active 的同 node 版本降为 retired
+
 	if req.SOPNodeID != "" {
 		if err := s.repo.RetireActiveBySOPNode(ctx, req.SOPNodeID); err != nil {
 			return nil, err

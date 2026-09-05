@@ -5,8 +5,6 @@ import (
 	"testing"
 )
 
-// --- T-3 status_quo 第五类异议 ---
-
 func TestClassify_StatusQuo(t *testing.T) {
 	s := &ObjectionHandlerService{}
 	ctx := context.Background()
@@ -40,7 +38,6 @@ func TestClassify_StatusQuoNotShadowing(t *testing.T) {
 	s := &ObjectionHandlerService{}
 	ctx := context.Background()
 
-	// 反例：status_quo 不应吞掉其他类别
 	tests := []struct {
 		name         string
 		text         string
@@ -82,24 +79,20 @@ func TestListCategories_IncludesStatusQuo(t *testing.T) {
 	}
 }
 
-// --- T-4 LAER Acknowledge + Explore ---
-
 func TestPickAcknowledge_StableByTemplateID(t *testing.T) {
-	// 同一模板 ID → 同一选择（稳定伪随机）
+
 	a := pickAcknowledge(ObjectionPrice, 42, "太贵了")
 	b := pickAcknowledge(ObjectionPrice, 42, "完全不同的文本")
 	if a != b || a == "" {
 		t.Errorf("same template id should yield stable ack: %q vs %q", a, b)
 	}
 
-	// 无模板 ID 时按文本哈希稳定
 	c1 := pickAcknowledge(ObjectionTrust, 0, "怕是骗子")
 	c2 := pickAcknowledge(ObjectionTrust, 0, "怕是骗子")
 	if c1 != c2 || c1 == "" {
 		t.Errorf("text-seeded ack should be stable: %q vs %q", c1, c2)
 	}
 
-	// 选择必须落在模板集合内，且不同种子应能覆盖多个模板（伪随机分布）
 	valid := map[string]bool{}
 	for _, tpl := range acknowledgeTemplates[ObjectionTiming] {
 		valid[tpl] = true
@@ -126,7 +119,6 @@ func TestPickAcknowledge_OtherCategoryEmpty(t *testing.T) {
 func TestHandle_AcknowledgeAndClarify(t *testing.T) {
 	s := &ObjectionHandlerService{scriptRepo: nil}
 
-	// price：有 Acknowledge + Explore 澄清问题
 	resp, err := s.Handle(context.Background(), HandleRequest{Text: "太贵了，能便宜点吗"})
 	if err != nil {
 		t.Fatalf("handle: %v", err)
@@ -138,7 +130,6 @@ func TestHandle_AcknowledgeAndClarify(t *testing.T) {
 		t.Error("price 高价值异议应有澄清问题（Explore）")
 	}
 
-	// trust：同样双开
 	resp2, err := s.Handle(context.Background(), HandleRequest{Text: "你们不会是骗子吧"})
 	if err != nil {
 		t.Fatalf("handle(trust): %v", err)
@@ -147,7 +138,6 @@ func TestHandle_AcknowledgeAndClarify(t *testing.T) {
 		t.Error("trust 异议应有 Acknowledge 与澄清问题")
 	}
 
-	// timing：有 Acknowledge、无澄清
 	resp3, err := s.Handle(context.Background(), HandleRequest{Text: "我考虑一下"})
 	if err != nil {
 		t.Fatalf("handle(timing): %v", err)

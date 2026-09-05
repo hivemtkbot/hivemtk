@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// testTagSetRule 测试辅助：设置标签规则（替代已迁出的 model.CustomerTag.SetRule）
 func testTagSetRule(t *model.CustomerTag, rule map[string]any) error {
 	jsonData, err := json.Marshal(rule)
 	if err != nil {
@@ -22,7 +21,6 @@ func testTagSetRule(t *model.CustomerTag, rule map[string]any) error {
 	return nil
 }
 
-// testTagGetRule 测试辅助：获取标签规则（替代已迁出的 model.CustomerTag.GetRule）
 func testTagGetRule(t *model.CustomerTag) map[string]any {
 	if t.Rule == "" {
 		return map[string]any{}
@@ -32,7 +30,6 @@ func testTagGetRule(t *model.CustomerTag) map[string]any {
 	return rule
 }
 
-// testTagSetRuleString 测试辅助：设置标签规则字符串（替代已迁出的 model.CustomerTag.SetRuleString）
 func testTagSetRuleString(t *model.CustomerTag, ruleStr string) error {
 	var tmp map[string]any
 	if err := json.Unmarshal([]byte(ruleStr), &tmp); err != nil {
@@ -42,7 +39,6 @@ func testTagSetRuleString(t *model.CustomerTag, ruleStr string) error {
 	return nil
 }
 
-// setupCustomerTagTestDB sets up the test database for customer tag tests
 func setupCustomerTagTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.CustomerTag{},
@@ -51,7 +47,6 @@ func setupCustomerTagTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupCustomerTagRepository creates a test customer tag repository instance
 func setupCustomerTagRepository(t *testing.T) CustomerTagRepository {
 	setupCustomerTagTestDB(t)
 	return NewCustomerTagRepository()

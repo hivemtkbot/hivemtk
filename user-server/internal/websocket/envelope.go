@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-
 // NewEnvelope 构造一个带 seq + ts 的 Envelope
 //
 // seq=0 表示不分配序号（用于 heartbeat 等控制帧）
@@ -38,4 +37,3 @@ func MustEnvelope(seq uint64, messageType string, payload any) *Envelope {
 func (e *Envelope) MarshalBytes() ([]byte, error) {
 	return json.Marshal(e)
 }
-

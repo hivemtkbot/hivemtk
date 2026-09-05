@@ -48,16 +48,13 @@ func NewContributorClient() *ContributorClient {
 	return &ContributorClient{baseURL: apiURL, httpClient: &http.Client{Timeout: 10 * time.Second}}
 }
 
-// contributorIdentity 由商户标识派生稳定的贡献者账号（密码由商户 key + 平台 secret 派生，幂等）
 func contributorIdentity() (username, password, email, displayName string) {
 	mk := GetMerchantKey()
 	if mk == "" {
 		mk = "anonymous"
 	}
 	username = "mtk_" + mk
-	// M13 P2-3 修复：移除 "mtk-default-secret" 弱默认密钥回退。密钥为空时必须 fail-fast
-	// 启动期 panic，提示运维补齐 platform.secret 配置；若在 dev 模式（CONTRIBUTOR_DEV=1），
-	// 允许使用占位密钥以便本地调试（仅单元测试/e2e 流程使用）。
+
 	secret := config.PlatformCfg.Secret
 	if secret == "" {
 		if os.Getenv("CONTRIBUTOR_DEV") == "1" {
@@ -145,7 +142,6 @@ func (cc *ContributorClient) SubmitAudit(assetID int64) error {
 	return cc.doAuth("POST", fmt.Sprintf("/contributor-api/v1/assets/%d/submit", assetID), nil, nil, tok)
 }
 
-// doAuth 带 Bearer token 调用平台 contributor-api；token 为空时（登录/注册）不带鉴权头
 func (cc *ContributorClient) doAuth(method, path string, body []byte, out any, token string) error {
 	url := strings.TrimRight(cc.baseURL, "/") + path
 	req, _ := http.NewRequest(method, url, bytes.NewReader(body))
@@ -167,4 +163,3 @@ func (cc *ContributorClient) doAuth(method, path string, body []byte, out any, t
 	}
 	return nil
 }
-

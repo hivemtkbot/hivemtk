@@ -24,7 +24,6 @@ type XiaohongshuCardService interface {
 	ShareCard(ctx context.Context, id uint, platform string) (*dto.XiaohongshuCardResponse, error)
 }
 
-// xiaohongshuCardService 小红书卡片服务实现
 type xiaohongshuCardService struct {
 	repo              repository.XiaohongshuCardRepository
 	templateService   *template.TemplateService
@@ -42,7 +41,6 @@ func NewXiaohongshuCardService(db *gorm.DB) XiaohongshuCardService {
 	}
 }
 
-// Create 创建小红书卡片
 func (s *xiaohongshuCardService) Create(ctx context.Context, req *dto.XiaohongshuCardCreateRequest) (*dto.XiaohongshuCardResponse, error) {
 	redirectURL := req.RedirectURL
 	if redirectURL == "" {
@@ -86,7 +84,6 @@ func (s *xiaohongshuCardService) Create(ctx context.Context, req *dto.Xiaohongsh
 	return s.toResponseWithShortLink(ctx, card, shortCode), nil
 }
 
-// Update 更新小红书卡片
 func (s *xiaohongshuCardService) Update(ctx context.Context, req *dto.XiaohongshuCardUpdateRequest) (*dto.XiaohongshuCardResponse, error) {
 	card, err := s.repo.GetByID(ctx, req.ID)
 	if err != nil {
@@ -136,7 +133,6 @@ func (s *xiaohongshuCardService) Update(ctx context.Context, req *dto.Xiaohongsh
 	return s.toResponseWithShortLink(ctx, updatedCard, shortCode), nil
 }
 
-// Delete 删除小红书卡片
 func (s *xiaohongshuCardService) Delete(ctx context.Context, id uint) error {
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -150,7 +146,6 @@ func (s *xiaohongshuCardService) Delete(ctx context.Context, id uint) error {
 	return s.repo.Delete(ctx, id)
 }
 
-// GetByID 根据ID获取小红书卡片
 func (s *xiaohongshuCardService) GetByID(ctx context.Context, id uint) (*dto.XiaohongshuCardResponse, error) {
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -160,7 +155,6 @@ func (s *xiaohongshuCardService) GetByID(ctx context.Context, id uint) (*dto.Xia
 	return s.toResponse(ctx, card), nil
 }
 
-// GetCardModelByID 根据ID获取小红书卡片模型
 func (s *xiaohongshuCardService) GetCardModelByID(ctx context.Context, id uint) (*model.XiaohongshuCard, error) {
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -170,7 +164,6 @@ func (s *xiaohongshuCardService) GetCardModelByID(ctx context.Context, id uint) 
 	return card, nil
 }
 
-// GetList 获取小红书卡片列表
 func (s *xiaohongshuCardService) GetList(ctx context.Context, req *dto.XiaohongshuCardListRequest) (*dto.XiaohongshuCardListResponse, error) {
 	filter := repository.CardListFilter{Page: req.Page, PageSize: req.PageSize, Keyword: req.Keyword, IsActive: req.IsActive}
 	cards, total, err := s.repo.GetList(ctx, filter)
@@ -213,7 +206,6 @@ func (s *xiaohongshuCardService) GetList(ctx context.Context, req *dto.Xiaohongs
 	}, nil
 }
 
-// ShareCard 分享小红书卡片
 func (s *xiaohongshuCardService) ShareCard(ctx context.Context, id uint, platform string) (*dto.XiaohongshuCardResponse, error) {
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -230,7 +222,6 @@ func (s *xiaohongshuCardService) ShareCard(ctx context.Context, id uint, platfor
 	return s.toResponse(ctx, card), nil
 }
 
-// GenerateHTMLPage 生成小红书卡片HTML页面
 func (s *xiaohongshuCardService) GenerateHTMLPage(ctx context.Context, id uint) (string, error) {
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -252,7 +243,6 @@ func (s *xiaohongshuCardService) GenerateHTMLPage(ctx context.Context, id uint) 
 	return html, nil
 }
 
-// GenerateCardChatPage 生成小红书卡片聊天页（统一模板，含联系客服按钮）
 func (s *xiaohongshuCardService) GenerateCardChatPage(ctx context.Context, id uint, baseURL string) (string, error) {
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -261,12 +251,10 @@ func (s *xiaohongshuCardService) GenerateCardChatPage(ctx context.Context, id ui
 	return s.templateService.RenderCardChatPage("xiaohongshu", card.ID, card.Title, card.Description, card.ImageURL, card.Tags, baseURL)
 }
 
-// GenerateShortLink 为小红书卡片生成短链
 func (s *xiaohongshuCardService) GenerateShortLink(ctx context.Context, card *model.XiaohongshuCard) error {
 	if card.ShortLinkID != nil {
 	}
 
-	// 获取域名池信息
 	var domainID uint = 0
 	if card.DomainPoolID != nil {
 		domainID = *card.DomainPoolID
@@ -280,9 +268,6 @@ func (s *xiaohongshuCardService) GenerateShortLink(ctx context.Context, card *mo
 		return err
 	}
 
-	// v3 审计修复：短链目标必须是绝对 https 地址（铁律#24），
-	// 相对路径 "/xiaohongshu/card/:id" 在 validateTargetURL 处必然被拒。
-	// 优先使用卡片跳转目标；未配置时跳过短链生成（保持创建主流程可用）。
 	if card.RedirectURL == "" {
 		return nil
 	}
@@ -307,7 +292,6 @@ func (s *xiaohongshuCardService) GenerateShortLink(ctx context.Context, card *mo
 	return nil
 }
 
-// toResponse 将模型转换为响应DTO
 func (s *xiaohongshuCardService) toResponse(ctx context.Context, card *model.XiaohongshuCard) *dto.XiaohongshuCardResponse {
 	shortCode := ""
 	shortLinkURL := ""
@@ -336,7 +320,6 @@ func (s *xiaohongshuCardService) toResponse(ctx context.Context, card *model.Xia
 	}
 }
 
-// toResponseWithShortLink 将模型转换为响应DTO，包含短链信息
 func (s *xiaohongshuCardService) toResponseWithShortLink(ctx context.Context, card *model.XiaohongshuCard, shortCode string) *dto.XiaohongshuCardResponse {
 	shortLinkURL := ""
 	if shortCode != "" {

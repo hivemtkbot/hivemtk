@@ -13,4 +13,3 @@ func TestNewLiveCodeRotator(t *testing.T) {
 		t.Error("Expected nil liveCodeService")
 	}
 }
-

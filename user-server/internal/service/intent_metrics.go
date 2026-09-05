@@ -9,32 +9,9 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// ============================================================================
-// I-5 意图识别弱标签监控（per-intent Precision/Recall/F1）
-//
-// 弱标签口径（RecordPrediction(predicted, gold, confidence)）：
-//  1. predicted 或 gold 为空 → 直接忽略（防御式，打点永不干扰主链路）；
-//  2. confidence >= WeakTruthMinConfidence(0.9) → 入混淆矩阵
-//     matrix[predicted][gold]++，gold != predicted 即混淆对
-//     （FP[predicted] 与 FN[gold] 同时累加）；
-//  3. confidence < 阈值 → 不入矩阵，仅进低置信桶（键格式 "predicted|gold"），
-//     不影响指标分子分母。
-//
-// ⚠️ 确认偏差声明（需人工介入）：
-// 弱真值与预测值同源，规则/模型自身系统性误判时对应类别 P/R 会虚高（自我印证偏差）。
-// 因此：
-//  1. 需人工定期抽检低置信桶与混淆对中的分歧样本（predicted != gold）；
-//  2. 宏平均仅作线上趋势观测，不能替代基于人工标注集的正式评测。
-//
-// 设计约束：
-//   - 纯内存实现，锁粒度为单次 map 自增，调用路径零阻塞、无 IO、不 panic；
-//   - 记账规则仅阈值与空值两个分支，可独立单测。
-// ============================================================================
-
 // WeakTruthMinConfidence 进入混淆矩阵的最低置信度阈值（等于阈值即入，之下进低置信桶）
 const WeakTruthMinConfidence = 0.9
 
-// fallbackClassSet 参与单独统计但不计入宏平均的兜底/超范围类
 var fallbackClassSet = map[string]bool{
 	IntentUnknown:  true,
 	IntentClarify:  true,
@@ -56,9 +33,9 @@ type IntentPR struct {
 type IntentMetricsSnapshot struct {
 	PerClass     map[string]IntentPR
 	MacroF1      float64
-	Total        int64            // 进入混淆矩阵的样本数
-	LowConf      map[string]int64 // 低置信桶，键格式 "predicted|weakTruth"
-	LowConfTotal int64            // 低置信样本总数
+	Total        int64
+	LowConf      map[string]int64
+	LowConfTotal int64
 }
 
 // ConfusionStore 弱标签混淆矩阵：map[predicted]map[weakTruth]int + 低置信桶独立计数
@@ -190,7 +167,6 @@ func sortedKeys(set map[string]bool) []string {
 	return keys
 }
 
-// globalIntentMetrics 进程级唯一弱标签监控实例（Recognize 一行接入的目标）
 var globalIntentMetrics = NewConfusionStore()
 
 // RecordIntentWeakLabel 意图识别汇聚点的零阻塞打点入口：
@@ -202,18 +178,6 @@ func RecordIntentWeakLabel(res *dto.RecognizeResult) {
 	}
 	globalIntentMetrics.RecordPrediction(res.IntentType, res.IntentType, res.Confidence)
 }
-
-// ============================================================================
-// I-5b per-intent 监督口径 P/R（IntentMetricsRegistry）
-//
-// 与上方 ConfusionStore（弱标签自证口径）互补：本注册表面向 gold 显式给定的
-// 评测/回归场景（gold 来自规则命中或人工标注），记账规则：
-//   - gold 为空 → 不记（伪真值缺失）；
-//   - predicted == "fallback" → 仅累计独立 fallback 计数，不进入主类混淆矩阵；
-//   - predicted == gold → TP[gold]++；否则 FP[predicted]++ 且 FN[gold]++；
-//   - predicted 为空视为漏检，仅 FN[gold]++（避免产生空字符串类）。
-// MacroAvg 仅对非兜底类（fallbackClassSet 之外）求均值，兜底类不拉低宏平均。
-// ============================================================================
 
 // IntentClassCounters 单意图混淆计数
 type IntentClassCounters struct {
@@ -233,8 +197,8 @@ type IntentClassScore struct {
 type IntentMetricsRegistrySnapshot struct {
 	PerIntent map[string]IntentClassScore
 	MacroAvg  float64
-	Fallback  int64 // predicted="fallback" 的独立计数（不污染主类）
-	Total     int64 // 进入混淆矩阵的样本数（不含 fallback）
+	Fallback  int64
+	Total     int64
 }
 
 // IntentMetricsRegistry per-intent 混淆矩阵注册表（mutex + map[intent]counters）
@@ -259,7 +223,6 @@ func (r *IntentMetricsRegistry) Reset() {
 	r.total = 0
 }
 
-// fallbackPredictedClass predicted 兜底类字面值：命中即单独计数，不入混淆矩阵
 const fallbackPredictedClass = "fallback"
 
 // RecordPrediction 记一条 (gold, predicted) 样本。confidence 当前口径不参与判定
@@ -280,7 +243,7 @@ func (r *IntentMetricsRegistry) RecordPrediction(gold string, predicted string, 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if p == "" {
-		// 漏检：只记 FN[gold]
+
 		r.fnc(g).FN++
 		r.total++
 		return
@@ -303,7 +266,6 @@ func (r *IntentMetricsRegistry) countersOf(intent string) *IntentClassCounters {
 	return c
 }
 
-// fnc 仅返回（或惰性建立）gold 侧计数器，供 FN 自增
 func (r *IntentMetricsRegistry) fnc(gold string) *IntentClassCounters {
 	return r.countersOf(gold)
 }
@@ -350,12 +312,9 @@ func sortedKeysOf(m map[string]*IntentClassCounters) []string {
 	return keys
 }
 
-// roundTo4 四舍五入保留 4 位小数
 func roundTo4(v float64) float64 {
 	return math.Round(v*1e4) / 1e4
 }
-
-// ===== 全局默认注册表（挂接点：Recognize 聚合处一行接入） =====
 
 var defaultIntentMetricsRegistry = NewIntentMetricsRegistry()
 

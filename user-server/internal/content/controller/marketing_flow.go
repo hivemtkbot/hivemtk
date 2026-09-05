@@ -10,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// extractUserContext 从 gin.Context 提取 userID 和 isAdmin 标志
 func extractFlowUserContext(ctx *gin.Context) (uint, bool) {
 	userID, _ := ctx.Get("user_id")
 	roleVal, _ := ctx.Get("role")
@@ -268,4 +267,3 @@ func (c *MarketingFlowController) Trigger(ctx *gin.Context) {
 
 	response.Success(ctx, execution, "流程已触发")
 }
-

@@ -10,7 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupCustomReportTestDB 设置自定义报表测试数据库
 func setupCustomReportTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.CustomReport{},
@@ -19,7 +18,6 @@ func setupCustomReportTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupCustomReportRepository 创建测试用的自定义报表仓库实例
 func setupCustomReportRepository(t *testing.T) *CustomReportRepository {
 	database := setupCustomReportTestDB(t)
 	return NewCustomReportRepositoryWithDB(database)
@@ -311,4 +309,3 @@ func TestCustomReportRepository_GetAll_EmptyResult(t *testing.T) {
 		t.Errorf("Expected total 0, got %d", total)
 	}
 }
-

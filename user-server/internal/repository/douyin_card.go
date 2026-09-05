@@ -31,7 +31,6 @@ type DouyinCardRepository interface {
 	IncrementShareCount(ctx context.Context, id uint) error
 }
 
-// douyinCardRepository 抖音卡片仓储实现
 type douyinCardRepository struct {
 	db *gorm.DB
 }
@@ -43,7 +42,6 @@ func NewDouyinCardRepository(db *gorm.DB) DouyinCardRepository {
 	}
 }
 
-// Create 创建抖音卡片
 func (r *douyinCardRepository) Create(ctx context.Context, card *model.DouyinCard) (*model.DouyinCard, error) {
 	if err := r.db.Create(card).Error; err != nil {
 		return nil, err
@@ -51,7 +49,6 @@ func (r *douyinCardRepository) Create(ctx context.Context, card *model.DouyinCar
 	return card, nil
 }
 
-// Update 更新抖音卡片
 func (r *douyinCardRepository) Update(ctx context.Context, card *model.DouyinCard) (*model.DouyinCard, error) {
 	logger.Infof("更新抖音卡片，ID: %d, ShortLinkID: %d", card.ID, card.ShortLinkID)
 
@@ -74,7 +71,6 @@ func (r *douyinCardRepository) Update(ctx context.Context, card *model.DouyinCar
 
 	logger.Infof("更新抖音卡片成功")
 
-	// 重新获取更新后的卡片
 	var updatedCard model.DouyinCard
 	if err := r.db.First(&updatedCard, card.ID).Error; err != nil {
 		return nil, err
@@ -83,12 +79,10 @@ func (r *douyinCardRepository) Update(ctx context.Context, card *model.DouyinCar
 	return &updatedCard, nil
 }
 
-// Delete 删除抖音卡片
 func (r *douyinCardRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.Delete(&model.DouyinCard{}, id).Error
 }
 
-// GetByID 根据ID获取抖音卡片
 func (r *douyinCardRepository) GetByID(ctx context.Context, id uint) (*model.DouyinCard, error) {
 	var card model.DouyinCard
 	if err := r.db.First(&card, id).Error; err != nil {
@@ -97,7 +91,6 @@ func (r *douyinCardRepository) GetByID(ctx context.Context, id uint) (*model.Dou
 	return &card, nil
 }
 
-// GetList 获取抖音卡片列表
 func (r *douyinCardRepository) GetList(ctx context.Context, req CardListFilter) ([]model.DouyinCard, int64, error) {
 	var cards []model.DouyinCard
 	var total int64
@@ -129,7 +122,6 @@ func (r *douyinCardRepository) GetList(ctx context.Context, req CardListFilter) 
 	return cards, total, nil
 }
 
-// IncrementViewCount 增加浏览次数
 func (r *douyinCardRepository) IncrementViewCount(ctx context.Context, id uint) (*model.DouyinCard, error) {
 	var card model.DouyinCard
 	if err := r.db.First(&card, id).Error; err != nil {
@@ -144,14 +136,12 @@ func (r *douyinCardRepository) IncrementViewCount(ctx context.Context, id uint) 
 	return &card, nil
 }
 
-// IncrementLikeCount 增加点赞次数
 func (r *douyinCardRepository) IncrementLikeCount(ctx context.Context, id uint) error {
 	return r.db.Model(&model.DouyinCard{}).Where("id = ?", id).Update("like_count", gorm.Expr("like_count + ?", 1)).Error
 }
 
-// IncrementShareCount 增加分享次数
 func (r *douyinCardRepository) IncrementShareCount(ctx context.Context, id uint) error {
-	// 先检查卡片是否存在
+
 	var card model.DouyinCard
 	if err := r.db.First(&card, id).Error; err != nil {
 		return err

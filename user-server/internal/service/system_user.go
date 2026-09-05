@@ -233,9 +233,9 @@ func (s *SystemUserService) DeleteUser(ctx context.Context, id uint) error {
 // ResetPassword 重置密码
 //
 // 修复 A4：补齐被绕过的安全闭环
-//   1. 加入 PasswordPolicy 校验（密码强度 + 历史复用检测）
-//   2. 记录密码历史
-//   3. 发邮件通知用户（若 email 已配置）
+//  1. 加入 PasswordPolicy 校验（密码强度 + 历史复用检测）
+//  2. 记录密码历史
+//  3. 发邮件通知用户（若 email 已配置）
 func (s *SystemUserService) ResetPassword(ctx context.Context, id uint, newPassword string) error {
 	user, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -246,7 +246,6 @@ func (s *SystemUserService) ResetPassword(ctx context.Context, id uint, newPassw
 		return errors.New("重置密码失败")
 	}
 
-	// 1. PasswordPolicy 校验
 	policySvc := NewPasswordPolicyService()
 	if err := policySvc.ValidatePassword(ctx, newPassword, id); err != nil {
 		return err
@@ -264,12 +263,10 @@ func (s *SystemUserService) ResetPassword(ctx context.Context, id uint, newPassw
 		return errors.New("重置密码失败")
 	}
 
-	// 2. 记录密码历史（不阻塞主流程）
 	if err := policySvc.RecordPasswordHistory(ctx, id, newPassword, model.PasswordSourceResetPassword); err != nil {
 		logger.Ctx(ctx).Warn().Err(err).Uint("user_id", id).Msg("记录密码历史失败")
 	}
 
-	// 3. 发邮件通知用户（不阻塞主流程）
 	if user.Email != "" {
 		emailSvc := NewEmailServiceAuto()
 		body := "您的密码已被管理员重置。如果不是您本人操作，请立即联系管理员并再次修改密码。"
@@ -281,7 +278,6 @@ func (s *SystemUserService) ResetPassword(ctx context.Context, id uint, newPassw
 	return nil
 }
 
-// toUserResponse 转换为用户响应
 func (s *SystemUserService) toUserResponse(_ context.Context, user *model.SystemUser) *SystemUserResponse {
 	return &SystemUserResponse{
 		ID:          user.ID,
@@ -358,7 +354,6 @@ func (s *SystemUserService) GetUsersAdmin(ctx context.Context, req *GetUsersRequ
 	return &GetUsersResponse{Total: total, List: filtered}, nil
 }
 
-// sysUserMatchKeyword 大小写不敏感子串匹配（仅本文件使用，避免与 unified_inbox.containsFold 冲突）
 func sysUserMatchKeyword(s, substr string) bool {
 	if substr == "" {
 		return true

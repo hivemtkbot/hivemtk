@@ -6,8 +6,6 @@ import (
 	"testing"
 )
 
-// --- H-5/X-3 广告法极限词过滤 ---
-
 func TestFilterExtremeClaims_Positive(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -40,13 +38,13 @@ func TestFilterExtremeClaims_Positive(t *testing.T) {
 }
 
 func TestFilterExtremeClaims_Negative(t *testing.T) {
-	// 反例：正常词不应被误伤
+
 	tests := []string{
 		"最近天气不错",
 		"您第一次使用可以先看教程",
 		"我们最重视您的反馈，但不敢说最好",
 	}
-	// "最重视"不在词表 → 保留；替换后仍应包含原片段
+
 	if got := filterExtremeClaims(tests[0]); got != tests[0] {
 		t.Errorf("「最近」被误伤: %q", got)
 	}

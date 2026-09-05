@@ -203,7 +203,7 @@ func (c *PlatformAccountController) CheckLoginStatus(ctx *gin.Context) {
 	}
 
 	status, err := c.accountService.CheckLoginStatus(context.Background(), uint(id))
-	if HandleServiceError(ctx, err) { // R47: 能力下线=业务错误(400)而非500
+	if HandleServiceError(ctx, err) {
 		return
 	}
 
@@ -244,4 +244,3 @@ func (c *PlatformAccountController) GetSupportedPlatforms(ctx *gin.Context) {
 
 	response.Success(ctx, result, "获取成功")
 }
-

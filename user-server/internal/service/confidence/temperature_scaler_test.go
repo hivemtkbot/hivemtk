@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// 接近相等（float64 比较）
 func approxEqual(a, b float64) bool {
 	return math.Abs(a-b) < 1e-9
 }

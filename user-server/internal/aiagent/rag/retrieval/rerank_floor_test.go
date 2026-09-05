@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// floorStubDelegate 恒定打分桩：所有文档得指定分（实现 RerankDelegateInterface）
 type floorStubDelegate struct{ score float64 }
 
 func (f *floorStubDelegate) Rerank(ctx context.Context, query string, docs []RerankDoc) ([]RerankResult, error) {
@@ -52,7 +51,7 @@ func TestRerankFloor_TruncatesBelowThreshold(t *testing.T) {
 	if len(got) != 0 && got[0].Score >= rerankScoreFloorDefault {
 		t.Fatalf("低分不应保留")
 	}
-	// 高分文档不受影响
+
 	r2 := newFloorTestReranker(0.9)
 	r2.SetScoreFloor(rerankScoreFloorDefault)
 	got2, _ := r2.Rerank(context.Background(), "q", floorDocs(4), 4)

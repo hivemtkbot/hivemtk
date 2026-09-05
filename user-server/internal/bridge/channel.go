@@ -6,9 +6,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-// B-5 白名单单源化（2026-08-26）：service 包不能 import channelgw（反向依赖），
-// 故由本包在初始化时把 channelgw.Default（权威渠道注册表）注入 service 白名单，
-// 消除 service 侧独立维护的第二份清单。包初始化顺序保证 Default 已完成注册。
 func init() {
 	service.SetBridgeChannels(gw.Default.Names())
 }

@@ -37,7 +37,6 @@ func NewCustomerDoNotContactRepository(db *gorm.DB) CustomerDoNotContactReposito
 	return &customerDoNotContactRepo{db: db}
 }
 
-// Create 写入标志位（ON CONFLICT DO NOTHING 保证幂等）
 func (r *customerDoNotContactRepo) Create(ctx context.Context, record *model.CustomerDoNotContact) (bool, error) {
 	result := r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{DoNothing: true}).
@@ -48,7 +47,6 @@ func (r *customerDoNotContactRepo) Create(ctx context.Context, record *model.Cus
 	return result.RowsAffected > 0, nil
 }
 
-// ExistsByOneIDAndChannels one_id 在给定渠道集合中任一命中即返回 true
 func (r *customerDoNotContactRepo) ExistsByOneIDAndChannels(ctx context.Context, oneID string, channels []string) (bool, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&model.CustomerDoNotContact{}).
@@ -60,7 +58,6 @@ func (r *customerDoNotContactRepo) ExistsByOneIDAndChannels(ctx context.Context,
 	return count > 0, nil
 }
 
-// DeleteByOneIDAndChannel 删除标志位（channel 为空串即删除全渠道行）
 func (r *customerDoNotContactRepo) DeleteByOneIDAndChannel(ctx context.Context, oneID, channel string) error {
 	result := r.db.WithContext(ctx).
 		Where("one_id = ? AND channel = ?", oneID, channel).
@@ -74,7 +71,6 @@ func (r *customerDoNotContactRepo) DeleteByOneIDAndChannel(ctx context.Context, 
 	return nil
 }
 
-// ListByOneID 查询 one_id 的全部标志位行
 func (r *customerDoNotContactRepo) ListByOneID(ctx context.Context, oneID string) ([]*model.CustomerDoNotContact, error) {
 	var records []*model.CustomerDoNotContact
 	if err := r.db.WithContext(ctx).

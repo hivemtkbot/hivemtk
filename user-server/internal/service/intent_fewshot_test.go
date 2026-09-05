@@ -9,8 +9,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// fakeFewShotEmbedder 固定向量假 embedder：登记表命中返回登记向量，
-// 未登记返回 8 维正交单位向量 e_j（j 随调用轮转），保证全部示例非零可检索
 type fakeFewShotEmbedder struct {
 	vecs  map[string][]float32
 	calls int
@@ -57,7 +55,6 @@ type errFakeEmbedder struct{}
 
 func (errFakeEmbedder) Error() string { return "embedder down" }
 
-// resetFewShotShared 重置注入点共享单例，测试间互不串扰
 func resetFewShotShared(t *testing.T) {
 	t.Helper()
 	t.Cleanup(func() {
@@ -95,7 +92,7 @@ func TestTopKByCosine_OrderAndFilter(t *testing.T) {
 		{Text: "A", Vec: []float32{0.99, 0.1, 0}},
 		{Text: "B", Vec: []float32{0.9, 0.1, 0}},
 		{Text: "C", Vec: []float32{0.8, 0.1, 0}},
-		{Text: "D", Vec: []float32{0, 1, 0}}, // cos=0 低于 minCos 应被过滤
+		{Text: "D", Vec: []float32{0, 1, 0}},
 	}
 	picked := topKByCosine(query, cands, 2, 0.7)
 	if len(picked) != 2 {
@@ -155,7 +152,7 @@ func TestFewShotStore_SelectExamples_KNN(t *testing.T) {
 // TestFewShotStore_AllBelowMinCos_ReturnsNil 全部低于 minCos → 返回 nil 触发静态回退
 func TestFewShotStore_AllBelowMinCos_ReturnsNil(t *testing.T) {
 	fake := newFakeFewShotEmbedder()
-	// 登记远向量 e7，与 query [1,1,1,0..] 余弦为 0，全量低于阈值
+
 	fake.vecs["我要买，怎么付款？"] = []float32{0, 0, 0, 0, 0, 0, 0, 1}
 	store := NewFewShotStore(fake)
 	if got := store.SelectExamples([]float32{1, 1, 1, 0, 0, 0, 0, 0}, 3, fewShotMinCos); got != nil {
@@ -198,7 +195,6 @@ func TestFewShotStore_CooldownNoRetryStorm(t *testing.T) {
 	}
 }
 
-// newInjectedRecognizer 构造带假 embedder 的识别器（db=nil 纯内存，不触发持久化）
 func newInjectedRecognizer(fake *fakeFewShotEmbedder) *IntentRecognizer {
 	rec := NewIntentRecognizer(nil, nil, nil)
 	rec.embedSvc = fake
@@ -276,7 +272,7 @@ func TestFewShotInject_FallbackStatic_OnEmbedderError(t *testing.T) {
 func TestFewShotInject_FallbackStatic_AllBelowMinCos(t *testing.T) {
 	resetFewShotShared(t)
 	fake := newFakeFewShotEmbedder()
-	// query 与登记示例均为相互正交方向，全量相似度为 0
+
 	fake.vecs["怎么下单购买"] = []float32{1, 0, 0, 0, 0, 0, 0, 0}
 	fake.vecs["我要买，怎么付款？"] = []float32{0, 1, 0, 0, 0, 0, 0, 0}
 	fake.vecs["怎么下单？"] = []float32{0, 0, 1, 0, 0, 0, 0, 0}

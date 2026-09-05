@@ -9,7 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// makePolicyEngine 构造内存策略引擎（不依赖 DB）
 func makePolicyEngine() *ThresholdPolicyEngine {
 	e := NewThresholdPolicyEngine(nil)
 	e.loadDefaults()

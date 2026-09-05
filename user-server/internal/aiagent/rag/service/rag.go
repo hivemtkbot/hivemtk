@@ -64,7 +64,6 @@ func (r *RAGService) HasThreeTier() bool {
 	return r.threeTier != nil
 }
 
-// retrieve 统一检索入口：有三级则走三级，否则回退到 RAGEngine
 func (r *RAGService) retrieve(ctx context.Context, kbID, query string, topK int) ([]rag_core.Chunk, string, error) {
 	if r.threeTier != nil && kbID != "" {
 		res, err := r.threeTier.Search(ctx, kbID, query, topK)
@@ -84,9 +83,9 @@ type QueryRequest struct {
 	Query     string              `json:"query"`
 	RAGConfig *rag_core.RAGConfig `json:"rag_config,omitempty"`
 	LLMConfig *llm.LLMConfig      `json:"llm_config,omitempty"`
-	Context   map[string]any      `json:"context,omitempty"` 
-	KBID      string              `json:"kb_id,omitempty"`   
-	TopK      int                 `json:"top_k,omitempty"`   
+	Context   map[string]any      `json:"context,omitempty"`
+	KBID      string              `json:"kb_id,omitempty"`
+	TopK      int                 `json:"top_k,omitempty"`
 }
 
 // QueryResponse RAG查询响应
@@ -120,7 +119,7 @@ func (r *RAGService) Query(ctx context.Context, req *QueryRequest) (*QueryRespon
 
 	topK := req.TopK
 	if topK <= 0 {
-		topK = 0 
+		topK = 0
 	}
 	chunks, source, err := r.retrieve(ctx, req.KBID, req.Query, topK)
 	if err != nil {
@@ -156,7 +155,6 @@ func (r *RAGService) Query(ctx context.Context, req *QueryRequest) (*QueryRespon
 	return response, nil
 }
 
-// buildContextString 构建上下文字符串
 func buildContextString(chunks []rag_core.Chunk) string {
 	if len(chunks) == 0 {
 		return "未找到相关文档。"
@@ -172,7 +170,6 @@ func buildContextString(chunks []rag_core.Chunk) string {
 	return contextStr
 }
 
-// buildRAGPrompt 构建RAG提示词
 func buildRAGPrompt(query, contextStr string, contextData map[string]any) string {
 	prompt := fmt.Sprintf(`基于以下参考信息回答问题。如果参考信息不足以回答，请明确说明。
 
@@ -271,7 +268,6 @@ func (r *RAGService) ThreeTierStats() (ThreeTierStats, bool) {
 	return r.threeTier.Stats(), true
 }
 
-// buildStructuredRAGPrompt 构建结构化RAG提示词
 func buildStructuredRAGPrompt(query, contextStr string, contextData map[string]any, schema any) string {
 	schemaJSON, _ := json.Marshal(schema)
 
@@ -294,4 +290,3 @@ func buildStructuredRAGPrompt(query, contextStr string, contextData map[string]a
 
 	return prompt
 }
-

@@ -12,8 +12,8 @@ import (
 type GeoWorkflow struct {
 	ID         string `gorm:"type:varchar(36);primaryKey" json:"id"`
 	Name       string `gorm:"type:varchar(200)" json:"name"`
-	Steps      string `gorm:"type:text" json:"steps"`      // JSON: []map[string]interface{}
-	Conditions string `gorm:"type:text" json:"conditions"` // JSON: map[string]string
+	Steps      string `gorm:"type:text" json:"steps"`
+	Conditions string `gorm:"type:text" json:"conditions"`
 	Schedule   string `gorm:"type:varchar(100)" json:"schedule"`
 	Enabled    bool   `gorm:"default:false" json:"enabled"`
 
@@ -77,8 +77,8 @@ func (m *GeoWorkflow) GetConditions() (map[string]string, error) {
 type GeoWorkflowExecution struct {
 	ID          string     `gorm:"type:varchar(36);primaryKey" json:"id"`
 	WorkflowID  string     `gorm:"type:varchar(36);index" json:"workflow_id"`
-	Status      string     `gorm:"type:varchar(20)" json:"status"` // running, success, failed
-	Result      string     `gorm:"type:text" json:"result"`        // JSON: []StepResult
+	Status      string     `gorm:"type:varchar(20)" json:"status"`
+	Result      string     `gorm:"type:text" json:"result"`
 	Error       string     `gorm:"type:text" json:"error"`
 	StartedAt   time.Time  `json:"started_at"`
 	CompletedAt *time.Time `json:"completed_at"`
@@ -104,7 +104,7 @@ type GeoWorkflowTemplate struct {
 	ID          string `gorm:"type:varchar(36);primaryKey" json:"id"`
 	Name        string `gorm:"type:varchar(200)" json:"name"`
 	Description string `gorm:"type:text" json:"description"`
-	Steps       string `gorm:"type:text" json:"steps"` // JSON: []map[string]interface{}
+	Steps       string `gorm:"type:text" json:"steps"`
 
 	CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime" json:"updated_at"`

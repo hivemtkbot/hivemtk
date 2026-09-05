@@ -60,7 +60,6 @@ func (s *DashboardScreenService) CreateScreen(createdBy uint, req *CreateScreenR
 	return screen, nil
 }
 
-// generateScreenCode 生成大屏访问码
 func generateScreenCode() string {
 	timestamp := time.Now().Format("20060102150405")
 	randomBytes := make([]byte, 4)
@@ -135,7 +134,6 @@ func (s *DashboardScreenService) UpdateScreen(id uint, req *UpdateScreenRequest)
 	return screen, nil
 }
 
-// updateWidgets 更新 widgets
 func (s *DashboardScreenService) updateWidgets(screenID uint, widgets []WidgetConfig) error {
 	s.widgetRepo.DeleteByScreenID(screenID)
 
@@ -205,7 +203,7 @@ type DashboardKpiItem struct {
 	Label string `json:"label"`
 	Value any    `json:"value"`
 	Color string `json:"color"`
-	Trend int    `json:"trend"` 
+	Trend int    `json:"trend"`
 }
 
 // NameValue 名称-数值对（渠道/来源/地区/漏斗）
@@ -229,7 +227,6 @@ type DashboardConversion struct {
 	LastWeek []int64  `json:"lastWeek"`
 }
 
-// pct 百分比（num/den*100），分母为 0 时返回 0
 func pct(num, den int64) int64 {
 	if den <= 0 {
 		return 0
@@ -239,20 +236,17 @@ func pct(num, den int64) int64 {
 
 // RealtimeActivity 实时活动项
 type RealtimeActivity struct {
-	Type      string    `json:"type"`      
-	Title     string    `json:"title"`     
-	UserName  string    `json:"user_name"` 
+	Type      string    `json:"type"`
+	Title     string    `json:"title"`
+	UserName  string    `json:"user_name"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// dataScopeScope 根据角色返回数据范围作用域
-// admin → 全量（无额外条件），普通用户 → data_scope 过滤（私域单租户当前无实际字段，预留接口）
 func dataScopeScope(db *gorm.DB, isAdmin bool) *gorm.DB {
 	if isAdmin {
 		return db
 	}
-	// 私域单租户：无多租户隔离字段，普通用户等价全量访问（单商户场景）
-	// 多租户迁移时在此追加 merchant_id / data_scope 条件
+
 	return db
 }
 
@@ -276,7 +270,6 @@ func (s *DashboardScreenService) AggregateDashboardData(isAdmin bool) (*Dashboar
 
 	agg := &DashboardAggregate{}
 
-	// 基础计数（私域单租户：scope 无实际过滤，admin/非 admin 结果一致；多租户时自动生效）
 	var totalClues, todayClues, yesterdayClues, verifiedClues int64
 	if err := scope(gormDB.Model(&sysmodel.Clue{})).Count(&totalClues).Error; err != nil {
 		return nil, fmt.Errorf("统计总线索失败: %w", err)
@@ -303,7 +296,6 @@ func (s *DashboardScreenService) AggregateDashboardData(isAdmin bool) (*Dashboar
 		}
 	}
 
-	// 近 30 天趋势
 	type dayRow struct {
 		Day string
 		Cnt int64
@@ -339,7 +331,6 @@ func (s *DashboardScreenService) AggregateDashboardData(isAdmin bool) (*Dashboar
 		agg.Trend.Visits[i] = clueMap[key]
 	}
 
-	// 渠道分布
 	type kvRow struct {
 		Name  string
 		Value int64
@@ -358,7 +349,6 @@ func (s *DashboardScreenService) AggregateDashboardData(isAdmin bool) (*Dashboar
 		agg.Sources = append(agg.Sources, r)
 	}
 
-	// 地区分布
 	var regRows []kvRow
 	if err := gormDB.Raw(`SELECT COALESCE(NULLIF(city, ''), '未知') AS name, COUNT(*) AS value FROM clues GROUP BY 1 ORDER BY value DESC`).Scan(&regRows).Error; err != nil {
 		return nil, fmt.Errorf("地区分布查询失败: %w", err)
@@ -373,7 +363,6 @@ func (s *DashboardScreenService) AggregateDashboardData(isAdmin bool) (*Dashboar
 		{Name: "成单", Value: totalOrders},
 	}
 
-	// 转化率对比（本周 vs 上周）
 	var cluesTW, cluesLW, ordersTW, ordersLW int64
 	if err := scope(gormDB.Model(&sysmodel.Clue{})).Where("create_time >= ?", thisWeekStart.Unix()).Count(&cluesTW).Error; err != nil {
 		return nil, fmt.Errorf("本周线索统计失败: %w", err)
@@ -419,7 +408,6 @@ func (s *DashboardScreenService) FetchRealtimeActivities(limit int) ([]RealtimeA
 	gormDB := sysrepo.GetDB()
 	activities := make([]RealtimeActivity, 0)
 
-	// 最新线索
 	var clues []sysmodel.Clue
 	if err := gormDB.Order("create_time DESC").Limit(limit).Find(&clues).Error; err == nil {
 		for _, c := range clues {
@@ -438,4 +426,3 @@ func (s *DashboardScreenService) FetchRealtimeActivities(limit int) ([]RealtimeA
 
 	return activities, nil
 }
-

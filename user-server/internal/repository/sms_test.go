@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupSmsTestDB 设置短信测试数据库
 func setupSmsTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.SmsConfig{},
@@ -28,7 +27,6 @@ func setupSmsTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupSmsRepository 创建测试用的仓库实例
 func setupSmsRepository(t *testing.T) SmsRepository {
 	setupSmsTestDB(t)
 	return NewSmsRepository()

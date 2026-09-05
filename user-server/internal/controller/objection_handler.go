@@ -60,7 +60,7 @@ func (c *ObjectionHandlerController) ListCategories(ctx *gin.Context) {
 // RecordUsage 记录使用（需登录，与同目录其他 controller 鉴权惯例对齐）
 func (c *ObjectionHandlerController) RecordUsage(ctx *gin.Context) {
 	if _, ok := extractActorID(ctx); !ok {
-		return // extractActorID 已写 401 响应
+		return
 	}
 	var req struct {
 		TemplateID uint `json:"template_id"`

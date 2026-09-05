@@ -21,4 +21,3 @@ type RagMessage struct {
 	Content   string    `gorm:"type:text"`
 	Timestamp time.Time `gorm:"index"`
 }
-

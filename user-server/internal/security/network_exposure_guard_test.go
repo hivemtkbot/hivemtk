@@ -60,7 +60,6 @@ func TestNetworkExposureGuard_NotRequired_AlwaysPass(t *testing.T) {
 	}
 }
 
-// netDialerMock 满足 NetworkExposureGuard.dialer 接口，测试中不使用
 type netDialerMock struct{}
 
 func (m *netDialerMock) DialContext(_ context.Context, _, _ string) (net.Conn, error) {

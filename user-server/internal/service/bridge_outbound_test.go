@@ -8,8 +8,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// setupBridgeWhitelistForTest 注入测试白名单（B-5 后白名单由 bridge 包运行时注入，
-// service 包内测试需自行设置；返回恢复函数避免污染其他测试）。
 func setupBridgeWhitelistForTest(t *testing.T, channels ...string) {
 	t.Helper()
 	prev := make(map[string]struct{}, len(bridgeChannels))
@@ -39,7 +37,7 @@ func TestDeliverBridgeOutbound_DirectToOutbox(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.MessageHub{})
 	svc := NewInboxIngressServiceWithDB(db, nil)
 	SetGlobalInboxIngressService(svc)
-	defer SetGlobalInboxIngressService(nil) // 避免污染其他测试
+	defer SetGlobalInboxIngressService(nil)
 
 	const (
 		channel        = "douyin"
@@ -53,7 +51,6 @@ func TestDeliverBridgeOutbound_DirectToOutbox(t *testing.T) {
 		t.Fatalf("DeliverBridgeOutbound 失败: %v", err)
 	}
 
-	// 验证：消息已落 message_hub 并被 ListPendingOutbound 拉取
 	pending, err := svc.ListPendingOutbound(context.Background(), channel, accountID)
 	if err != nil {
 		t.Fatalf("ListPendingOutbound 失败: %v", err)
@@ -81,7 +78,6 @@ func TestDeliverBridgeOutbound_DirectToOutbox(t *testing.T) {
 		t.Error("IsAIReply 应为 false（主动外联非 AI 回复）")
 	}
 
-	// 验证：ack 后退出待下发队列
 	affected, err := svc.AckOutboundDelivered(context.Background(), channel, accountID, []string{got.MsgID})
 	if err != nil {
 		t.Fatalf("AckOutboundDelivered 失败: %v", err)
@@ -106,7 +102,7 @@ func TestDeliverBridgeOutbound_RejectsPlaceholderAccount(t *testing.T) {
 
 	const (
 		channel        = "douyin"
-		accountID      = "douyin-unknown" // 占位账号
+		accountID      = "douyin-unknown"
 		conversationID = "conv_x"
 	)
 	err := DeliverBridgeOutbound(context.Background(),
@@ -115,7 +111,6 @@ func TestDeliverBridgeOutbound_RejectsPlaceholderAccount(t *testing.T) {
 		t.Fatal("占位账号应被拒绝，但 DeliverBridgeOutbound 返回 nil")
 	}
 
-	// 验证：未落库
 	pending, _ := svc.ListPendingOutbound(context.Background(), channel, accountID)
 	if len(pending) != 0 {
 		t.Errorf("占位账号消息不应落库，实际有 %d 条", len(pending))
@@ -166,13 +161,11 @@ func TestSetBridgeChannels_SingleSource(t *testing.T) {
 		t.Error("未注入渠道不应在白名单内")
 	}
 
-	// 空注入忽略：白名单保持不变
 	SetBridgeChannels(nil)
 	if !isBridgeChannel("douyin") {
 		t.Error("空注入应被忽略，白名单不应被清空")
 	}
 
-	// 重建语义：以最近一次有效注入为准
 	SetBridgeChannels([]string{"kuaishou"})
 	if isBridgeChannel("douyin") || !isBridgeChannel("kuaishou") {
 		t.Error("白名单应以最近一次注入为准（运行时单一来源）")

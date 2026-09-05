@@ -88,7 +88,6 @@ func (ctrl *FeishuAccountController) TestSendQuery(c *gin.Context) {
 	response.Success(c, nil, "发送成功")
 }
 
-// feishuAccountVO 列表/详情返回视图（敏感字段掩码）
 type feishuAccountVO struct {
 	ID                uint       `json:"id"`
 	AccountName       string     `json:"account_name"`
@@ -151,13 +150,12 @@ func (ctrl *FeishuAccountController) Get(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
-	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) {
 		return
 	}
 	response.Success(c, toFeishuVO(acc), "查询成功")
 }
 
-// feishuCreateReq 创建请求
 type feishuCreateReq struct {
 	AccountName       string `json:"account_name" binding:"required"`
 	AppID             string `json:"app_id" binding:"required"`
@@ -184,7 +182,7 @@ func (ctrl *FeishuAccountController) Create(c *gin.Context) {
 		WebhookEnabled:    req.WebhookEnabled,
 		AIAgentEnabled:    req.AIAgentEnabled,
 		Status:            1,
-		OwnerUserID:       currentStaffUserID(c), // P1-5：归属当前登录 staff
+		OwnerUserID:       currentStaffUserID(c),
 	}
 	out, err := ctrl.svc.CreateAccount(context.Background(), acc)
 	if err != nil {
@@ -194,7 +192,6 @@ func (ctrl *FeishuAccountController) Create(c *gin.Context) {
 	response.Success(c, toFeishuVO(out), "创建成功")
 }
 
-// feishuUpdateReq 更新请求
 type feishuUpdateReq struct {
 	AccountName       *string `json:"account_name"`
 	AppSecret         *string `json:"app_secret"`
@@ -222,7 +219,7 @@ func (ctrl *FeishuAccountController) Update(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
-	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) {
 		return
 	}
 	if req.AccountName != nil {
@@ -267,7 +264,7 @@ func (ctrl *FeishuAccountController) Delete(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
-	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) {
 		return
 	}
 	if err := ctrl.svc.DeleteAccount(context.Background(), uint(id)); err != nil {
@@ -277,7 +274,6 @@ func (ctrl *FeishuAccountController) Delete(c *gin.Context) {
 	response.Success(c, nil, "删除成功")
 }
 
-// feishuTestSendReq 测试发送请求
 type feishuTestSendReq struct {
 	OpenID  string `json:"open_id" binding:"required"`
 	Content string `json:"content" binding:"required"`
@@ -295,7 +291,7 @@ func (ctrl *FeishuAccountController) TestSend(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
-	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) {
 		return
 	}
 	var req feishuTestSendReq
@@ -325,7 +321,7 @@ func (ctrl *FeishuAccountController) RefreshToken(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
-	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) {
 		return
 	}
 	integration := ctrl.integrationSvc
@@ -338,7 +334,6 @@ func (ctrl *FeishuAccountController) RefreshToken(c *gin.Context) {
 	response.Success(c, toFeishuVO(acc), "刷新成功")
 }
 
-// maskFeishuSecret 敏感信息掩码
 func maskFeishuSecret(s string) string {
 	if s == "" {
 		return ""
@@ -348,4 +343,3 @@ func maskFeishuSecret(s string) string {
 	}
 	return fmt.Sprintf("%s****%s", s[:4], s[len(s)-4:])
 }
-

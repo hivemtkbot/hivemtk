@@ -22,8 +22,8 @@ func NewAlertService(repo repository.GeoAlertRepository) *AlertService {
 
 // AlertQuery 告警列表查询参数
 type AlertQuery struct {
-	Type  string // negative_monitor / sov_drop / entity_anomaly，空=全部
-	Level string // info / warning / critical，空=全部
+	Type  string
+	Level string
 	Page  int
 	Limit int
 }

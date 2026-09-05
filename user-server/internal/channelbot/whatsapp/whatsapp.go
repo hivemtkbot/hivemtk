@@ -128,10 +128,10 @@ func VerifyWebhook(appSecret string, body []byte, signature string) bool {
 // WebhookStatus WhatsApp statuses 回执（T3，ChatbotX 模式移植）。
 // Meta 文档：出站消息状态回执按 wamid 推送，status ∈ sent/delivered/read/failed/deleted。
 type WebhookStatus struct {
-	ID          string `json:"id"`           // wamid
-	Status      string `json:"status"`       // sent/delivered/read/failed/deleted
-	Timestamp   string `json:"timestamp"`    // unix 秒
-	RecipientID string `json:"recipient_id"` // 接收方 wa_id
+	ID          string `json:"id"`
+	Status      string `json:"status"`
+	Timestamp   string `json:"timestamp"`
+	RecipientID string `json:"recipient_id"`
 	Errors      []struct {
 		Code    int    `json:"code"`
 		Title   string `json:"title"`

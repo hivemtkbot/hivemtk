@@ -11,17 +11,10 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// K-5 动态 few-shot（KATE 语义 kNN）：示例不再仅按识别意图静态取前 K 条，
-// 而是以查询向量在全量示例向量缓存中做余弦 top-k 检索；
-// 加载失败/无向量/选中不足时静默回退 fillTopKExamples 静态结果，绝不阻塞识别主路径。
-
-// fewShotLoadCooldown 示例向量缓存全量加载失败后的冷却期（防重试风暴）
 const fewShotLoadCooldown = 10 * time.Minute
 
-// fewShotMinCos 动态 few-shot 采信最低余弦相似度
 const fewShotMinCos = 0.7
 
-// fewShotCandidate 参与语义检索的示例候选
 type fewShotCandidate struct {
 	Intent string
 	Text   string
@@ -35,9 +28,9 @@ type FewShotStore struct {
 
 	mu       sync.Mutex
 	loadOnce sync.Once
-	cache    map[string][]fewShotCandidate // intent -> 示例向量
+	cache    map[string][]fewShotCandidate
 	loaded   bool
-	failAt   time.Time // 上次全量加载失败时间（冷却期内不重试）
+	failAt   time.Time
 }
 
 // NewFewShotStore 构造 few-shot 示例库（懒加载，构造不触发向量化）
@@ -78,8 +71,6 @@ func (f *FewShotStore) SelectExamples(queryEmb []float32, k int, minCos float64)
 	return out
 }
 
-// ensureLoaded 懒加载：sync.Once 保证并发只触发一次；全量失败进入冷却，
-// 冷却到期后的下一次访问按 mutex 保护重试（仍失败则重新计时）。
 func (f *FewShotStore) ensureLoaded(ctx context.Context) {
 	if f == nil || f.embedder == nil {
 		return
@@ -93,7 +84,6 @@ func (f *FewShotStore) ensureLoaded(ctx context.Context) {
 	}
 }
 
-// load 全量向量化 DefaultIntents 示例并写入缓存；部分成功即视为可用，全量失败进入冷却。
 func (f *FewShotStore) load(ctx context.Context) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -133,7 +123,6 @@ func (f *FewShotStore) load(ctx context.Context) {
 	logger.Infof("[Intent][FewShot] 动态 few-shot 就绪: intents=%d examples=%d", len(cache), total)
 }
 
-// topKByCosine 余弦 top-k 纯函数：低于 minCos 的候选被过滤，按相似度降序返回前 k 条
 func topKByCosine(query []float32, cands []fewShotCandidate, k int, minCos float64) []fewShotCandidate {
 	if len(query) == 0 || k <= 0 {
 		return nil
@@ -161,7 +150,6 @@ func topKByCosine(query []float32, cands []fewShotCandidate, k int, minCos float
 	return out
 }
 
-// shouldFallbackStatic fallback 判定纯函数：动态选中数不足 k 即回退静态示例
 func shouldFallbackStatic(picked, k int) bool {
 	return picked < k
 }
@@ -171,7 +159,6 @@ var (
 	fewShotShared *FewShotStore
 )
 
-// recognizerFewShotStore 惰性创建识别器共享的 few-shot 库（embedder 缺席返回 nil，走静态路径）
 func recognizerFewShotStore(embedder llm.EmbeddingServiceInterface) *FewShotStore {
 	if embedder == nil {
 		return nil
@@ -184,7 +171,6 @@ func recognizerFewShotStore(embedder llm.EmbeddingServiceInterface) *FewShotStor
 	return fewShotShared
 }
 
-// fillTopKExamplesDynamic K-5 few-shot 注入点：动态 kNN 优先，异常/无向量静默回退静态 fillTopKExamples
 func (s *IntentRecognizer) fillTopKExamplesDynamic(ctx context.Context, text string, r *dto.RecognizeResult) {
 	if r == nil || r.IntentType == "" || r.IntentType == IntentUnknown || r.IntentType == IntentClarify {
 		return
@@ -195,7 +181,7 @@ func (s *IntentRecognizer) fillTopKExamplesDynamic(ctx context.Context, text str
 		fallback()
 		return
 	}
-	// 故障静默降级：动态层任何 panic 都不阻塞识别主路径
+
 	defer func() {
 		if rec := recover(); rec != nil {
 			logger.Warnf("[Intent][FewShot] 动态选择 panic 已隔离，回退静态示例: %v", rec)

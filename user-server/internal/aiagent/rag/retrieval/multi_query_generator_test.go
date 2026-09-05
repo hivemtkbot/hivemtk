@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"errors"
@@ -166,4 +165,3 @@ func TestExtractJSONArray_UnclosedArray(t *testing.T) {
 		t.Errorf("unclosed array should return empty, got=%q", out)
 	}
 }
-

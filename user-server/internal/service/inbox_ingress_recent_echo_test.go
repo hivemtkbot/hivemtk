@@ -301,7 +301,6 @@ func TestInboxIngress_HandleIngress_SelfEcho_NotQueuedForAI(t *testing.T) {
 		t.Fatalf("回环消息绝对不能 QueuedForAI=true(否则 AI 再次被自己触发), got: %+v", result)
 	}
 
-	// 确认 DB 中没有新增 inbound 行
 	var count int64
 	if err := db.Model(&model.MessageHub{}).
 		Where("account_id = ? AND conversation_id = ? AND direction = 'inbound' AND msg_id = ?",

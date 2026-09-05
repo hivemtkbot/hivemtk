@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -96,6 +95,4 @@ CREATE INDEX IF NOT EXISTS idx_rag_safety_audit_blocked ON rag_safety_audit_logs
 	return nil
 }
 
-// Ensure RagSafetyAuditDropMigration implements Migration interface
 var _ migration.Migration = (*RagSafetyAuditDropMigration)(nil)
-

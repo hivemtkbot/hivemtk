@@ -82,8 +82,6 @@ func RFMConfigFromRule(rule *model.RFMRule) RFMConfig {
 	return cfg
 }
 
-// rfmScoreRecencyCfg R 打分统一入口：Rule 优先，否则退回默认分位 Buckets。
-// Rule 语义与原 rfm_calculator.calcRScore 完全一致（days<=RDays1→5 … >RDays5→1）。
 func rfmScoreRecencyCfg(days int, cfg RFMConfig) int {
 	if rule := cfg.Rule; rule != nil {
 		switch {
@@ -102,8 +100,6 @@ func rfmScoreRecencyCfg(days int, cfg RFMConfig) int {
 	return rfmScoreRecency(days, cfg.RecencyBuckets)
 }
 
-// rfmScoreFrequencyCfg F 打分统一入口：Rule 优先，否则退回默认分位 Buckets。
-// Rule 语义与原 rfm_calculator.calcFScore 完全一致（count>=FCount5→5 … <FCount1→1）。
 func rfmScoreFrequencyCfg(freq int, cfg RFMConfig) int {
 	if rule := cfg.Rule; rule != nil {
 		switch {
@@ -122,8 +118,6 @@ func rfmScoreFrequencyCfg(freq int, cfg RFMConfig) int {
 	return rfmScoreFrequency(freq, cfg.FrequencyBuckets)
 }
 
-// rfmScoreMonetaryCfg M 打分统一入口：Rule 优先，否则退回默认分位 Buckets。
-// Rule 语义与原 rfm_calculator.calcMScore 完全一致（amount>=MAmount5→5 … <MAmount1→1，单位：分）。
 func rfmScoreMonetaryCfg(amount int64, cfg RFMConfig) int {
 	if rule := cfg.Rule; rule != nil {
 		switch {
@@ -253,10 +247,6 @@ func (s *CustomerRFMService) ComputeAll(ctx context.Context, limit int) (int, er
 	return success, nil
 }
 
-// computeForCustomerLoaded 复用已加载的 customer 对象进行 RFM 计算
-//
-// 与 ComputeForCustomer 行为一致，差异在于不再调 customerRepo.GetByID（外层已加载）。
-// 公共 ComputeForCustomer 入口保留以便 controller 单独按 ID 调用。
 func (s *CustomerRFMService) computeForCustomerLoaded(ctx context.Context, cust *model.Customer, cfg RFMConfig) (*model.CustomerRFM, error) {
 	if cust == nil {
 		return nil, errors.New("客户不能为空")
@@ -336,15 +326,6 @@ func (s *CustomerRFMService) Distribution(ctx context.Context) (map[string]int64
 	return s.rfmRepo.CountBySegment(ctx)
 }
 
-// computeRawMetrics 计算 R/F/M + 最后活跃时间
-// 简化版：使用 orderRepo.GetDistinctPaidTgIDs / GetByTgID 走通全流程
-// 注意：本系统 order 表使用 account_id 关联客户（独立部署）
-// computeRawMetricsForCustomer 计算单客户 R/F/M 原始指标。
-// v7 审计修复：
-//  1. 原实现把手机号当 accountID 再 ParseInt 当 TgID 查订单——11 位手机号恒可解析为正整数，
-//     导致按错误 tg_id 查询、查不到即 recency=9999，全量手机客户被误判流失。
-//     现 TG 订单仅在客户真实持有 TelegramChatID 时查询。
-//  2. 订单主关联改走 account_id（客户 ID + 手机号），与 360 视图 assembleOrderInfo 口径一致。
 func (s *CustomerRFMService) computeRawMetricsForCustomer(ctx context.Context, cust *model.Customer) (recencyDays, frequency int, monetary int64, lastActive *time.Time, err error) {
 	if cust == nil || (cust.ID == "" && cust.Phone == "") {
 		recencyDays = 9999
@@ -407,7 +388,6 @@ func (s *CustomerRFMService) computeRawMetricsForCustomer(ctx context.Context, c
 	return
 }
 
-// scoreRecency 评分 R：days 越小分越高
 func rfmScoreRecency(days int, buckets []int) int {
 	if len(buckets) == 0 {
 		return 1
@@ -424,7 +404,6 @@ func rfmScoreRecency(days int, buckets []int) int {
 	return score
 }
 
-// scoreFrequency 评分 F：次数越多分越高
 func rfmScoreFrequency(freq int, buckets []int) int {
 	if len(buckets) == 0 {
 		return 1
@@ -441,7 +420,6 @@ func rfmScoreFrequency(freq int, buckets []int) int {
 	return score
 }
 
-// scoreMonetary 评分 M：金额越多分越高
 func rfmScoreMonetary(m int64, buckets []int64) int {
 	if len(buckets) == 0 {
 		return 1
@@ -458,8 +436,6 @@ func rfmScoreMonetary(m int64, buckets []int64) int {
 	return score
 }
 
-// determineSegment 分层判定
-// 优先级：champion > loyal > at_risk > churn > potential
 func determineSegment(r, f, m, recencyDays, churnThreshold int) string {
 	if recencyDays >= churnThreshold || (r <= 1 && f <= 1) {
 		return model.RFMSegmentChurn
@@ -476,10 +452,6 @@ func determineSegment(r, f, m, recencyDays, churnThreshold int) string {
 	return model.RFMSegmentPotential
 }
 
-// calcChurnRisk 流失风险评估
-//
-//	churn_risk_level: low / medium / high
-//	churn_score: 0-100，越高越可能流失
 func calcChurnRisk(recencyDays, freq int, monetary int64, cfg RFMConfig) (string, int) {
 	score := 0
 	if recencyDays >= cfg.ChurnRecencyThreshold {
@@ -515,7 +487,6 @@ func calcChurnRisk(recencyDays, freq int, monetary int64, cfg RFMConfig) (string
 	}
 }
 
-// enqueueRecovery 流失客户自动入挽回队列
 func (s *CustomerRFMService) enqueueRecovery(ctx context.Context, rfm *model.CustomerRFM) {
 	if s.recoveryRepo == nil || rfm == nil {
 		return
@@ -543,14 +514,11 @@ func (s *CustomerRFMService) enqueueRecovery(ctx context.Context, rfm *model.Cus
 		Stage:      model.RecoveryStageQueued,
 	}
 	if err := s.recoveryRepo.Create(ctx, item); err != nil {
-		// X-1：入队失败不再静默吞没，记录告警便于排查挽回队列缺失
+
 		logger.Warnf("[rfm] enqueueRecovery: create failed (customer=%s): %v", rfm.CustomerID, err)
 	}
 }
 
-// ---------- RFM 规则 CRUD（自原 rfm_calculator.go 迁移，H3 统一口径） ----------
-
-// ruleRepo 惰性获取规则仓库（兼容测试中零值构造的 service）
 func (s *CustomerRFMService) ruleRepo() *repository.RFMRuleRepository {
 	if s.rfmRuleRepo == nil {
 		s.rfmRuleRepo = repository.NewRFMRuleRepository()

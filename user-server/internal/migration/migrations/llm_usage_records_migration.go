@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -61,6 +60,4 @@ func (m *LLMUsageRecordsMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// compile-time 接口断言
 var _ migration.Migration = (*LLMUsageRecordsMigration)(nil)
-

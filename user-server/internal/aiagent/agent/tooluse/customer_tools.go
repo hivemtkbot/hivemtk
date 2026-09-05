@@ -12,19 +12,16 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
-// errInvalidCustomer 客户身份参数缺失错误
 var errInvalidCustomer = errors.New("至少需要提供一种身份标识（phone/email/wechat_open_id/douyin_open_id/xiaohongshu_id）")
-
 
 // CustomerToolDeps 客户工具依赖
 //
 // 仅依赖 portcontract.CustomerPort + CustomerDataStore 端口 + *gorm.DB。
 // 工具层不 import service 包以避免反向依赖；错误码用 portcontract.ErrCustomerNotFound sentinel。
 type CustomerToolDeps struct {
-	Customer portcontract.CustomerPort
+	Customer     portcontract.CustomerPort
 	CustomerRepo CustomerDataStore
-	DB *gorm.DB
+	DB           *gorm.DB
 }
 
 // NewCustomerToolDeps 创建客户工具依赖（无 Port 注入）
@@ -93,7 +90,6 @@ func MustRegisterCustomerTools(registry *ToolRegistry, deps CustomerToolDeps) {
 		panic(err)
 	}
 }
-
 
 // CustomerSearchTool 按身份标识搜索客户
 type CustomerSearchTool struct {
@@ -179,7 +175,6 @@ func (t *CustomerSearchTool) Execute(ctx context.Context, args map[string]any) (
 	}), nil
 }
 
-
 // CustomerGetTool 获取客户详情（含 360 视图）
 type CustomerGetTool struct {
 	BaseTool
@@ -240,15 +235,13 @@ func (t *CustomerGetTool) Execute(ctx context.Context, args map[string]any) (Too
 	return SuccessResult(t.Name(), customer), nil
 }
 
-// fetchCustomerProfile 拉取客户 360 视图（仅走 portcontract.CustomerPort）
 func (t *CustomerGetTool) fetchCustomerProfile(ctx context.Context, customerID string) (*portcontract.CustomerProfileView, error) {
-	_ = ctx 
+	_ = ctx
 	if t.deps.Customer == nil {
 		return nil, errors.New("CustomerPort not injected")
 	}
 	return t.deps.Customer.GetCustomerProfile(customerID)
 }
-
 
 // CustomerCreateTool 创建客户
 type CustomerCreateTool struct {
@@ -300,7 +293,6 @@ func (t *CustomerCreateTool) Execute(ctx context.Context, args map[string]any) (
 	}
 	return SuccessResult(t.Name(), customer), nil
 }
-
 
 // CustomerUpdateTool 更新客户基本信息
 type CustomerUpdateTool struct {
@@ -371,7 +363,6 @@ func (t *CustomerUpdateTool) Execute(ctx context.Context, args map[string]any) (
 	return SuccessResult(t.Name(), customer), nil
 }
 
-
 // CustomerMergeTool 合并两个客户（OneID）
 type CustomerMergeTool struct {
 	BaseTool
@@ -420,7 +411,6 @@ func (t *CustomerMergeTool) Execute(ctx context.Context, args map[string]any) (T
 		"merged":       true,
 	}), nil
 }
-
 
 // CustomerAddTagTool 给客户添加标签
 type CustomerAddTagTool struct {
@@ -487,7 +477,6 @@ func (t *CustomerAddTagTool) Execute(ctx context.Context, args map[string]any) (
 	}), nil
 }
 
-
 // CustomerRemoveTagTool 移除客户标签
 type CustomerRemoveTagTool struct {
 	BaseTool
@@ -552,7 +541,6 @@ func (t *CustomerRemoveTagTool) Execute(ctx context.Context, args map[string]any
 		"current_tags": currentTags,
 	}), nil
 }
-
 
 // CustomerSegmentTool 按条件分群客户
 type CustomerSegmentTool struct {
@@ -675,8 +663,6 @@ func (t *CustomerSegmentTool) Execute(ctx context.Context, args map[string]any) 
 	}), nil
 }
 
-
-// getArgString 安全获取 string 参数（不存在返回空字符串，不报错）
 func getArgString(args map[string]any, key string) string {
 	if v, ok := args[key].(string); ok {
 		return v
@@ -684,8 +670,6 @@ func getArgString(args map[string]any, key string) string {
 	return ""
 }
 
-// getArgStringSlice 安全获取 []string 参数
-// 支持 []interface{}、[]string 两种 JSON 反序列化结果
 func getArgStringSlice(args map[string]any, key string) []string {
 	v, ok := args[key]
 	if !ok || v == nil {
@@ -729,5 +713,3 @@ func GetIntArgSafe(args map[string]any, key string) (int, bool) {
 	}
 	return 0, false
 }
-
-

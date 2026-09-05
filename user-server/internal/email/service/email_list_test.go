@@ -15,7 +15,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupEmailListServiceTestDB 设置邮件列表服务测试数据库
 func setupEmailListServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.EmailList{},
@@ -43,7 +42,7 @@ func TestEmailListService_CreateEmailList(t *testing.T) {
 	service := NewEmailListService()
 
 	clue := model.Clue{
-		Account: "test123@example.com", // v3 正则校验需合法邮箱
+		Account: "test123@example.com",
 		Type:    1,
 		Name:    "测试用户",
 		City:    "北京",
@@ -70,14 +69,12 @@ func TestEmailListService_CreateEmailList(t *testing.T) {
 		t.Errorf("Expected total 1, got %d", total)
 	}
 
-	// 验证邮件列表已创建
 	var count int64
 	database.Model(&model.EmailList{}).Count(&count)
 	if count != 1 {
 		t.Errorf("Expected 1 email list record, got %d", count)
 	}
 
-	// 验证任务已创建
 	var jobCount int64
 	database.Model(&model.EmailJobs{}).Count(&jobCount)
 	if jobCount != 1 {
@@ -288,7 +285,6 @@ func TestEmailListService_UpdateEmailList(t *testing.T) {
 		t.Fatalf("UpdateEmailList failed: %v", err)
 	}
 
-	// 验证更新
 	var updated model.EmailList
 	database.First(&updated, emailList.ID)
 	if updated.Subject != "新主题" {
@@ -324,7 +320,6 @@ func TestEmailListService_DeleteEmailList(t *testing.T) {
 		t.Fatalf("DeleteEmailList failed: %v", err)
 	}
 
-	// 验证已删除（软删除）
 	var count int64
 	database.Model(&model.EmailList{}).Where("id = ?", testID).Count(&count)
 	if count != 0 {
@@ -519,7 +514,6 @@ func TestEmailListService_UpdateEmailListReadInfo(t *testing.T) {
 		t.Fatalf("UpdateEmailListReadInfo failed: %v", err)
 	}
 
-	// 验证邮件已标记为已读
 	var updated model.EmailList
 	database.First(&updated, emailList.ID)
 	if updated.IsRead != 1 {
@@ -529,7 +523,6 @@ func TestEmailListService_UpdateEmailListReadInfo(t *testing.T) {
 		t.Error("Expected ReadTime to be set")
 	}
 
-	// 验证任务阅读总数已增加
 	var updatedJobs model.EmailJobs
 	database.First(&updatedJobs, jobs.ID)
 	if updatedJobs.ReadTotal != 1 {
@@ -573,7 +566,6 @@ func TestEmailListService_UpdateEmailListReadInfo_AlreadyRead(t *testing.T) {
 		t.Fatalf("UpdateEmailListReadInfo failed: %v", err)
 	}
 
-	// 验证阅读总数未增加
 	var updatedJobs model.EmailJobs
 	database.First(&updatedJobs, jobs.ID)
 	if updatedJobs.ReadTotal != 0 {
@@ -622,7 +614,6 @@ func TestEmailListService_CreateEmailList_WithQqEmail(t *testing.T) {
 		t.Fatalf("CreateEmailList failed: %v", err)
 	}
 
-	// v3 审计 P2 后：@qq.com 兜底拼接已移除，合法邮箱按原样入库
 	var emailList model.EmailList
 	database.First(&emailList)
 	if emailList.To != "user123@example.com" {
@@ -659,7 +650,6 @@ func TestEmailListService_CreateEmailList_WithFullEmail(t *testing.T) {
 		t.Fatalf("CreateEmailList failed: %v", err)
 	}
 
-	// 验证收件人邮箱没有重复拼接
 	var emailList model.EmailList
 	database.First(&emailList)
 	if emailList.To != "test@qq.com" {
@@ -696,7 +686,6 @@ func TestEmailListService_CreateEmailList_TemplateParse(t *testing.T) {
 		t.Fatalf("CreateEmailList failed: %v", err)
 	}
 
-	// 验证模板变量已替换
 	var emailList model.EmailList
 	database.First(&emailList)
 	if !strings.Contains(emailList.Subject, "模板用户") {
@@ -742,7 +731,6 @@ func TestEmailListService_CreateEmailList_TraceID(t *testing.T) {
 		t.Fatalf("CreateEmailList failed: %v", err)
 	}
 
-	// 验证追踪 ID 已生成
 	var emailList model.EmailList
 	database.First(&emailList)
 	if emailList.TraceID == uuid.Nil {
@@ -787,4 +775,3 @@ func TestEmailListService_GetUnsentEmailList_Empty(t *testing.T) {
 		t.Errorf("Expected 0 unsent emails, got %d", len(list))
 	}
 }
-

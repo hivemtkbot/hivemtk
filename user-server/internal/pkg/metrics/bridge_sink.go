@@ -66,7 +66,6 @@ func (s *BridgeMetricsSink) Flush() error {
 	return s.db.Create(&rows).Error
 }
 
-// labelsToJSON 把 label 键值对序列化成 JSON 字符串（直方图额外附加 agg 维度）。
 func labelsToJSON(keys, values []string, agg string) string {
 	m := make(map[string]string, len(keys)+1)
 	for i, k := range keys {
@@ -114,4 +113,3 @@ func StartBridgeMetricsSink(db *gorm.DB, interval time.Duration) (stop func()) {
 
 	return func() { once.Do(func() { close(done) }) }
 }
-

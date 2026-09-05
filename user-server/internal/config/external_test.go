@@ -77,11 +77,9 @@ func TestGetPublicBaseURL_EnvOverridesConfig(t *testing.T) {
 	})
 }
 
-// setAppConfigForTest 替换 AppConfig（测试结束自动还原）
 func setAppConfigForTest(t *testing.T, cfg *AppConfig) {
 	t.Helper()
 	old := GetAppConfig()
 	SetAppConfig(cfg)
 	t.Cleanup(func() { SetAppConfig(&old) })
 }
-

@@ -12,9 +12,9 @@ import (
 // 渠道白名单单源化：历史上 IsBridgeChannel（bridge 包）与 model 渠道常量各自维护，
 // 现统一收敛到本注册表；新增渠道仅需 Register 一处，HTTP/WS 传输的校验自动生效。
 type ChannelSpec struct {
-	Name       string      
-	Transports []Transport 
-	Label      string      
+	Name       string
+	Transports []Transport
+	Label      string
 }
 
 // Registry 渠道注册表（并发安全，支持运行时追加注册）。
@@ -100,4 +100,3 @@ func init() {
 		Default.Register(spec)
 	}
 }
-

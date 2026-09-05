@@ -121,7 +121,6 @@ func NewLLMRoutingService(d *llm.Dispatcher) *LLMRoutingService {
 	}
 }
 
-// isLocalURL 判断 LLM endpoint 是否为本地推理
 func isLocalURL(url string) bool {
 	lower := strings.ToLower(url)
 	return strings.Contains(lower, "127.0.0.1") || strings.Contains(lower, "localhost") ||
@@ -517,7 +516,6 @@ func nonZeroInt(v, def int) int {
 	return v
 }
 
-// vendorOf 返回 provider 厂商名：优先落库值，否则从 base_url 推断
 func vendorOf(p llm.ProviderConfig) string {
 	if p.Vendor != "" {
 		return p.Vendor

@@ -88,7 +88,6 @@ func (r *MigrationRegistry) Validate() error {
 	return nil
 }
 
-// compareVersions 比较两个语义化版本号 (v1.2.3 < v1.2.4)
 func compareVersions(a, b string) int {
 	aParts := parseVersion(a)
 	bParts := parseVersion(b)
@@ -109,7 +108,6 @@ func compareVersions(a, b string) int {
 	return 0
 }
 
-// parseVersion 解析版本号字符串 "v1.2.3" -> [1, 2, 3]
 func parseVersion(v string) []int {
 	v = strings.TrimPrefix(v, "v")
 	parts := strings.Split(v, ".")
@@ -124,4 +122,3 @@ func parseVersion(v string) []int {
 	}
 	return result
 }
-

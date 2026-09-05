@@ -64,7 +64,6 @@ var ErrInsufficientSamples = errors.New("humanize: insufficient samples")
 // ErrAggregatorNotInitialized 聚合器未初始化
 var ErrAggregatorNotInitialized = errors.New("humanize: aggregator not initialized")
 
-// clampScore 将分数 clip 到 [0, 1]
 func clampScore(s float64) float64 {
 	if s < 0 {
 		return 0
@@ -75,9 +74,6 @@ func clampScore(s float64) float64 {
 	return s
 }
 
-// computeHumanizeWeightedScore 计算加权综合分
-//
-// total = Σ w_i * s_i，权重来自 dto.HumanizeDimensionWeight
 func computeHumanizeWeightedScore(scores []dto.HumanizeDimensionScore) float64 {
 	if len(scores) == 0 {
 		return 0

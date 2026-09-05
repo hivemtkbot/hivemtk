@@ -22,8 +22,6 @@ func NewHandoffChainController() *HandoffChainController {
 	}
 }
 
-// ---------- Session Chain / SLA Config ----------
-
 // GetAutoResolveConfig GET /api/manage/session-chain/sla-config
 func (c *HandoffChainController) GetAutoResolveConfig(ctx *gin.Context) {
 	cfg := c.chainSvc.GetAutoResolveConfig(ctx.Request.Context())
@@ -59,8 +57,6 @@ func (c *HandoffChainController) ReopenOnInboundMessage(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"session_id": req.SessionID, "reopened": reopened}, "ok")
 }
-
-// ---------- Rule Engine ----------
 
 // CreateRule POST /api/manage/rules
 // body: {"event": "...", "conditions": "{\"field\":\"...\"}", "actions": "[...]", "name": "...", "enabled": true, "priority": 0, "delay_minutes": 0}

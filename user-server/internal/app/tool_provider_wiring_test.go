@@ -1,7 +1,5 @@
 package app
 
-// TL-3 单测：agent_settings.disabled_tools 装配处过滤
-
 import (
 	"testing"
 
@@ -25,7 +23,6 @@ func TestApplyDisabledTools(t *testing.T) {
 		t.Error("other tools must remain")
 	}
 
-	// 幂等：重复剔除不报错、不再计数
 	if again := applyDisabledTools(reg, []string{"reach.sms.send"}); again != 0 {
 		t.Errorf("re-disable should be a no-op, got %d", again)
 	}

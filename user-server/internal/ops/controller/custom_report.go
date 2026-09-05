@@ -26,7 +26,6 @@ func NewCustomReportController() *CustomReportController {
 	}
 }
 
-// extractUserContext 从 gin.Context 提取 userID 和 isAdmin 标志
 func extractUserContext(ctx *gin.Context) (uint, bool) {
 	userID, _ := ctx.Get("user_id")
 	roleVal, _ := ctx.Get("role")
@@ -269,7 +268,7 @@ func (c *CustomReportController) ExportCSV(ginCtx *gin.Context) {
 	ginCtx.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="report_%d.csv"`, id))
 	if err := c.reportService.ExportReportCSV(ginCtx.Request.Context(), ginCtx.Writer, report, params); err != nil {
 		if errors.Is(err, service.ErrReportTooManyRows) {
-			// 头部已写但尚未 Flush/写体，直接以 JSON 错误响应覆盖语义
+
 			response.Error(ginCtx, http.StatusBadRequest, err.Error())
 			return
 		}

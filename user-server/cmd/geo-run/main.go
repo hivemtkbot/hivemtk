@@ -6,12 +6,13 @@
 //	export USER_JWT_SECRET="本地32字节以上测试密钥" && go run ./cmd/geo-run
 //
 // 流程：
-//  A. 四厂商写入 llm_providers（铁律#20：DB 为真相；管理端可后续改配/轮换）
-//  B. Dispatcher 构造 → LoadProvidersFromDB 覆盖内存路由 → 场景路由指向 DB 主选
-//  C. 自动创建并运行 GEO 工作流：
-//     content_generate(含意图矩阵注入) → content_score → eeat_enhance
-//     → fact_density_enhance → verify
-//  D. 输出数据看板：关键词/文章/验证/工作流执行 统计与样本
+//
+//	A. 四厂商写入 llm_providers（铁律#20：DB 为真相；管理端可后续改配/轮换）
+//	B. Dispatcher 构造 → LoadProvidersFromDB 覆盖内存路由 → 场景路由指向 DB 主选
+//	C. 自动创建并运行 GEO 工作流：
+//	   content_generate(含意图矩阵注入) → content_score → eeat_enhance
+//	   → fact_density_enhance → verify
+//	D. 输出数据看板：关键词/文章/验证/工作流执行 统计与样本
 package main
 
 import (
@@ -23,13 +24,13 @@ import (
 	"time"
 
 	"hivemtk-user/internal/aiagent/llm"
-	geodto "hivemtk-user/internal/geo/dto"
-	georepo "hivemtk-user/internal/geo/repository"
-	geoservice "hivemtk-user/internal/geo/service"
 	"hivemtk-user/internal/app"
 	"hivemtk-user/internal/config"
-	"hivemtk-user/internal/model"
+	geodto "hivemtk-user/internal/geo/dto"
 	geomodel "hivemtk-user/internal/geo/model"
+	georepo "hivemtk-user/internal/geo/repository"
+	geoservice "hivemtk-user/internal/geo/service"
+	"hivemtk-user/internal/model"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -66,7 +67,6 @@ func main() {
 		"开源 AGPL-3.0，支持私有化交付",
 	}
 
-	// ---------- A. 连接 PG 并落库四厂商（DB 为真相） ----------
 	db, err := gorm.Open(postgres.Open(envOr("GEO_DB_DSN", "")), &gorm.Config{
 		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
 	})
@@ -95,7 +95,7 @@ func main() {
 			Enabled: true, QualityScore: sd.quality, CostPer1k: sd.cost,
 			MaxRPM: 60, AvgLatencyMs: 2000,
 		}
-		// 幂等 upsert：按 name 唯一键覆盖（保留管理端改配能力）
+
 		var existing model.LLMProvider
 		if err := db.Where("name = ?", sd.name).First(&existing).Error; err == nil {
 			row.ID = existing.ID
@@ -112,13 +112,12 @@ func main() {
 	}
 	fmt.Printf("== [A] llm_providers 已就绪（DB 为真相，%d 个厂商种子） ==\n", len(seeds))
 
-	// ---------- B. Dispatcher：加载 DB 提供商 → 场景路由 ----------
 	cfg := config.AppConfig{}
 	cfg.Inference.LLM.Mode = config.InferenceModeRemote
 	cfg.Inference.LLM.BaseURL = "https://api.deepseek.com"
 	cfg.Inference.LLM.Model = "deepseek-chat"
 	dispatcher := llm.NewDispatcherFromConfig(cfg)
-	llm.InitGlobalDispatcherWithDB(dispatcher, db) // 注入 DB：LoadProvidersFromDB 生效的前提
+	llm.InitGlobalDispatcherWithDB(dispatcher, db)
 	app.SetGlobalDispatcher(dispatcher)
 	must(dispatcher.LoadProvidersFromDB(), "LoadProvidersFromDB")
 	fallbacks := []string{"qwen", "doubao", "ernie"}
@@ -137,7 +136,6 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
-	// ---------- 服务集 ----------
 	kwSvc := geoservice.NewKeywordService(
 		georepo.NewGeoKeywordGroupRepositoryWithDB(db),
 		georepo.NewGeoKeywordRepositoryWithDB(db),
@@ -145,8 +143,6 @@ func main() {
 		geoservice.NewLLMAdapter(),
 	)
 
-	// ========== 模拟真实运营者使用平台 ==========
-	// 1) 品牌配置（UI: /geo-tools/config —— 本项目真实功能作为内容素材）
 	configSvc := geoservice.NewConfigService(
 		georepo.NewGeoConfigRepositoryWithDB(db), geoservice.NewLLMAdapter())
 	_ = configSvc.UpdateConfig(ctx,
@@ -159,7 +155,6 @@ func main() {
 	cfgRow, _ := configSvc.GetConfig(ctx)
 	fmt.Printf("== [U1] 品牌配置已保存 == 品牌=%s 竞品=%s\n", cfgRow.BrandName, cfgRow.Competitors)
 
-	// 2) 关键词挖掘（基于真实功能域的种子词）
 	keywords, err := kwSvc.MineKeywords(ctx,
 		[]string{"企业微信 SCRM", "私域营销 AI", "营销自动化系统", "开源 SCRM"},
 		"longtail", brand, advantages)
@@ -170,7 +165,6 @@ func main() {
 		topKeyword = keywords[0].Keyword
 	}
 
-	// 3) 三类决策意图各生成一篇（疑问/对比/推荐——思维链布控）
 	intentQueries := []struct{ intent, query, kw string }{
 		{"疑问", "HiveMtk 是什么？支持哪些渠道？", "HiveMtk 功能介绍"},
 		{"对比", "HiveMtk 和微伴助手、探马SCRM 对比哪个好？", "HiveMtk 与微伴助手对比"},
@@ -222,8 +216,6 @@ func main() {
 			iq.intent, nonEmpty(art.Title, "(无题)"), len([]rune(art.Content)), total, iq.query, vline)
 	}
 
-
-	// ---------- C2. 创建并运行 GEO 工作流（意图矩阵已内置于 content_generate） ----------
 	wfSvc := geoservice.NewWorkflowService(
 		georepo.NewGeoWorkflowRepositoryWithDB(db),
 		georepo.NewGeoWorkflowExecutionRepositoryWithDB(db),
@@ -267,7 +259,6 @@ func main() {
 		}
 	}
 
-	// 显式走 VerificationService：写入 geo_verify_results 并追加思维链行
 	var latestArt geomodel.GeoArticle
 	if err := db.Order("created_at DESC").First(&latestArt).Error; err == nil {
 		verifySvc := geoservice.NewVerificationService(
@@ -285,15 +276,14 @@ func main() {
 		}
 	}
 
-	// ---------- D. 数据看板 ----------
 	fmt.Println("\n== [D] GEO 数据看板 ==")
 	dumpCounts(db)
 	dumpLatestArticleAndVerify(db, brand)
 
-
-	// ---------- D2. 批量意图生成 ----------
 	batchN := 9
-	if v := os.Getenv("GEO_BATCH"); v != "" { fmt.Sscanf(v, "%d", &batchN) }
+	if v := os.Getenv("GEO_BATCH"); v != "" {
+		fmt.Sscanf(v, "%d", &batchN)
+	}
 	intents := []struct{ label, query, kw string }{
 		{"疑问", "HiveMtk 是什么？支持哪些渠道和功能？", "HiveMtk 功能介绍"},
 		{"疑问", "HiveMtk 怎么部署？数据真的不出域吗？", "HiveMtk 部署指南"},
@@ -308,15 +298,22 @@ func main() {
 	auditSvc := geoservice.NewTechConfigService()
 	mentioned, auditTotal := 0, 0
 	for i, iq := range intents {
-		if i >= batchN { break }
+		if i >= batchN {
+			break
+		}
 		art, gerr := contentSvc.GenerateContent(ctx, "", iq.kw, brand, advantages, 800, "professional")
-		if gerr != nil { continue }
+		if gerr != nil {
+			continue
+		}
 		vr, verr := verifySvc.VerifyArticle(ctx, geodto.VerifyRequest{ArticleID: art.ID, Query: iq.query, BrandName: brand})
 		audit := auditSvc.RunGEOAudit(iq.kw, art.Title, art.Content, "", "")
 		auditTotal += audit.Score
 		st := "✗"
-		if verr == nil && vr != nil && vr.BrandMentioned { st = "✓"; mentioned++ }
-		fmt.Printf("  [%s] %q -> 提及=%s 审计=%d分 len=%d\n", iq.label, truncate(iq.query,40), st, audit.Score, len([]rune(art.Content)))
+		if verr == nil && vr != nil && vr.BrandMentioned {
+			st = "✓"
+			mentioned++
+		}
+		fmt.Printf("  [%s] %q -> 提及=%s 审计=%d分 len=%d\n", iq.label, truncate(iq.query, 40), st, audit.Score, len([]rune(art.Content)))
 	}
 	if batchN > 0 && batchN <= len(intents) {
 		fmt.Printf("== [D2] 批量生成：%d/%d 提及 | 平均审计分 %.0f ==\n", mentioned, batchN, float64(auditTotal)/float64(batchN))

@@ -32,7 +32,7 @@ func NewKeywordEnhanceService(kr repository.GeoKeywordRepository, vr repository.
 
 // AnalyzeHistoricalPerformance 分析历史验证数据中的关键词表现
 func (s *KeywordEnhanceService) AnalyzeHistoricalPerformance(ctx context.Context, brandName string) (*dto.KeywordEnhanceResponse, error) {
-	// 获取该品牌所有验证结果
+
 	results, err := s.verifyRepo.GetByBrandName(brandName)
 	if err != nil || len(results) == 0 {
 		return &dto.KeywordEnhanceResponse{
@@ -41,7 +41,6 @@ func (s *KeywordEnhanceService) AnalyzeHistoricalPerformance(ctx context.Context
 		}, nil
 	}
 
-	// 按关键词聚合表现数据
 	perfMap := map[string]*dto.KeywordPerformance{}
 	for _, r := range results {
 		query := r.Query
@@ -58,23 +57,20 @@ func (s *KeywordEnhanceService) AnalyzeHistoricalPerformance(ctx context.Context
 		}
 	}
 
-	// 计算提及率和价值分
 	perfs := make([]*dto.KeywordPerformance, 0, len(perfMap))
 	for _, p := range perfMap {
 		if p.QueryCount > 0 {
 			p.MentionRate = float64(p.MentionCount) / float64(p.QueryCount)
 		}
-		// 价值分 = 提及率 * log(查询次数+1) * 10
+
 		p.HighValueScore = p.MentionRate * float64(p.QueryCount) * 10
 		perfs = append(perfs, p)
 	}
 
-	// 按价值分排序
 	sort.Slice(perfs, func(i, j int) bool {
 		return perfs[i].HighValueScore > perfs[j].HighValueScore
 	})
 
-	// 提取高价值关键词（Top 20）
 	highValue := make([]*dto.KeywordPerformance, 0, 20)
 	for i, p := range perfs {
 		if i >= 20 {
@@ -85,7 +81,6 @@ func (s *KeywordEnhanceService) AnalyzeHistoricalPerformance(ctx context.Context
 		}
 	}
 
-	// 生成增强建议
 	suggestions, err := s.generateEnhancementSuggestions(ctx, brandName, highValue)
 	if err != nil {
 		return nil, fmt.Errorf("生成增强建议失败: %w", err)
@@ -100,13 +95,11 @@ func (s *KeywordEnhanceService) AnalyzeHistoricalPerformance(ctx context.Context
 	}, nil
 }
 
-// generateEnhancementSuggestions 基于高价值关键词生成增强建议
 func (s *KeywordEnhanceService) generateEnhancementSuggestions(ctx context.Context, brandName string, highValue []*dto.KeywordPerformance) ([]string, error) {
 	if len(highValue) == 0 || s.llm == nil {
 		return []string{"暂无足够数据生成建议"}, nil
 	}
 
-	// 构建高价值关键词摘要
 	kwSummary := make([]string, 0, len(highValue))
 	for _, p := range highValue {
 		kwSummary = append(kwSummary, fmt.Sprintf("%s (提及率:%.0f%%)", p.Keyword, p.MentionRate*100))
@@ -138,7 +131,6 @@ func (s *KeywordEnhanceService) generateEnhancementSuggestions(ctx context.Conte
 	return suggestions, nil
 }
 
-// calculateIntentDistribution 计算意图分布（简化版）
 func (s *KeywordEnhanceService) calculateIntentDistribution(perfs []*dto.KeywordPerformance) map[string]int {
 	distribution := map[string]int{}
 	for _, p := range perfs {
@@ -176,7 +168,6 @@ func (s *KeywordEnhanceService) EnhanceKeywordWithData(ctx context.Context, keyw
 		return nil, nil
 	}
 
-	// 构建查询->提及率映射
 	mentionMap := map[string]float64{}
 	queryCount := map[string]int{}
 	for _, r := range results {
@@ -192,7 +183,6 @@ func (s *KeywordEnhanceService) EnhanceKeywordWithData(ctx context.Context, keyw
 		mentionMap[q] = mentionMap[q] / float64(queryCount[q])
 	}
 
-	// 为现有关键词添加数据增强标记
 	enhanced := make([]*model.GeoKeyword, 0, len(keywords))
 	failed := 0
 	for _, kw := range keywords {

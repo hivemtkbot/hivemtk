@@ -105,13 +105,6 @@ func (s *ABTestService) Analyze(ctx context.Context, testID, metricName string) 
 // ErrInsufficientSamples 样本不足
 var ErrInsufficientSamples = errors.New("insufficient samples for analysis (need >=10 per group)")
 
-// mannWhitneyU Mann-Whitney U 检验
-//
-// H0: 两个样本来自相同分布
-// U = Σ_{i∈A,j∈B} [x_i < y_j] + 0.5*[x_i == y_j]
-// p 值通过正态近似计算（n > 20 时）
-//
-// 返回 (U 统计量, p 值)
 func mannWhitneyU(a, b []float64) (u, p float64) {
 	n1 := len(a)
 	n2 := len(b)
@@ -119,7 +112,6 @@ func mannWhitneyU(a, b []float64) (u, p float64) {
 		return 0, 1.0
 	}
 
-	// 合并排序
 	type pair struct {
 		val   float64
 		group int
@@ -172,17 +164,10 @@ func mannWhitneyU(a, b []float64) (u, p float64) {
 	return u, p
 }
 
-// normalCDF 标准正态分布 CDF
-//
-// 使用误差函数 erf 实现
 func normalCDF(x float64) float64 {
 	return 0.5 * (1 + math.Erf(x/math.Sqrt(2)))
 }
 
-// bootstrapDifferenceCI Bootstrap 重采样估计均值差的 95% CI
-//
-// 重采样 n 次，每次从 a 和 b 中有放回采样，计算均值差
-// 返回 (lower, upper) 95% 置信区间
 func bootstrapDifferenceCI(a, b []float64, n int, rng *rand.Rand) (float64, float64) {
 	if len(a) == 0 || len(b) == 0 || n <= 0 {
 		return 0, 0
@@ -205,7 +190,6 @@ func bootstrapDifferenceCI(a, b []float64, n int, rng *rand.Rand) (float64, floa
 	return diffs[loIdx], diffs[hiIdx]
 }
 
-// resample 有放回重采样
 func resample(src []float64, rng *rand.Rand) []float64 {
 	dst := make([]float64, len(src))
 	for i := range dst {
@@ -214,7 +198,6 @@ func resample(src []float64, rng *rand.Rand) []float64 {
 	return dst
 }
 
-// mean 均值
 func mean(a []float64) float64 {
 	if len(a) == 0 {
 		return 0
@@ -226,9 +209,6 @@ func mean(a []float64) float64 {
 	return sum / float64(len(a))
 }
 
-// stableHash 稳定哈希 [0, 1)
-//
-// 使用 FNV-1a 哈希，对同一字符串始终返回同一值
 func stableHash(s string) float64 {
 	h := uint64(14695981039346656037)
 	for i := 0; i < len(s); i++ {
@@ -238,9 +218,6 @@ func stableHash(s string) float64 {
 	return float64(h%10000) / 10000.0
 }
 
-// getFloat 从 JSONMap 中读取 float64
-//
-// 默认返回 0.5
 func getFloat(m map[string]any, key string) float64 {
 	if m == nil {
 		return 0.5

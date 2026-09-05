@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -60,7 +59,6 @@ func (m *HumanizeEvaluatorMigration) Up(ctx context.Context) error {
 	return nil
 }
 
-// createHumanizeScores 创建 humanize_scores 表
 func (m *HumanizeEvaluatorMigration) createHumanizeScores(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS humanize_scores (
@@ -100,7 +98,6 @@ func (m *HumanizeEvaluatorMigration) createHumanizeScores(ctx context.Context) e
 	return execAllHumanize(ctx, m.db, stmts)
 }
 
-// createHumanizeDimensions 创建 humanize_dimensions 表
 func (m *HumanizeEvaluatorMigration) createHumanizeDimensions(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS humanize_dimensions (
@@ -117,7 +114,6 @@ func (m *HumanizeEvaluatorMigration) createHumanizeDimensions(ctx context.Contex
 	return execAllHumanize(ctx, m.db, stmts)
 }
 
-// createChampionBaselines 创建 champion_baselines 表
 func (m *HumanizeEvaluatorMigration) createChampionBaselines(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS champion_baselines (
@@ -143,7 +139,6 @@ func (m *HumanizeEvaluatorMigration) createChampionBaselines(ctx context.Context
 	return execAllHumanize(ctx, m.db, stmts)
 }
 
-// createChampionPhrases 创建 champion_phrases 表
 func (m *HumanizeEvaluatorMigration) createChampionPhrases(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS champion_phrases (
@@ -162,7 +157,6 @@ func (m *HumanizeEvaluatorMigration) createChampionPhrases(ctx context.Context) 
 	return execAllHumanize(ctx, m.db, stmts)
 }
 
-// createABTestStats 创建 ab_test_stats 表
 func (m *HumanizeEvaluatorMigration) createABTestStats(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS ab_test_stats (
@@ -204,9 +198,6 @@ func (m *HumanizeEvaluatorMigration) Down(ctx context.Context) error {
 	return execAllHumanize(ctx, m.db, stmts)
 }
 
-// execAllHumanize 批量执行 SQL（出错即返回）
-//
-// 与 confidence_migration.go 的 execAll 同名会冲突，故命名 execAllHumanize
 func execAllHumanize(ctx context.Context, db *gorm.DB, stmts []string) error {
 	if db == nil {
 		return fmt.Errorf("db is nil")
@@ -219,6 +210,4 @@ func execAllHumanize(ctx context.Context, db *gorm.DB, stmts []string) error {
 	return nil
 }
 
-// compile-time 接口断言
 var _ migration.Migration = (*HumanizeEvaluatorMigration)(nil)
-

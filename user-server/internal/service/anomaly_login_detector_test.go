@@ -12,10 +12,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// ensure gorm is referenced to avoid unused import in this file
 var _ gorm.DB
 
-// setupAnomalyLoginTestDB 准备异常登录测试库
 func setupAnomalyLoginTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	database := testutil.NewTestDB(t,
@@ -306,7 +304,6 @@ func TestDetectAndAlert_EmailChannel(t *testing.T) {
 		t.Error("邮件应被派发")
 	}
 
-	// 验证 email_sends 表有记录
 	var emails []model.EmailSend
 	if err := database.Find(&emails).Error; err != nil {
 		t.Fatalf("查询邮件失败: %v", err)
@@ -474,7 +471,6 @@ func TestResolveAlert(t *testing.T) {
 		t.Fatalf("ResolveAlert 失败: %v", err)
 	}
 
-	// 重新查询
 	var resolved model.SecurityAlert
 	database.First(&resolved, alert.ID)
 	if resolved.Status != model.SecurityAlertStatusResolved {

@@ -282,4 +282,3 @@ func TestLiveCodeController_RedirectLiveCode_NotFound(t *testing.T) {
 		t.Errorf("Expected 404, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
-

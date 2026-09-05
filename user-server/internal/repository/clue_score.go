@@ -132,13 +132,6 @@ func (r *clueEngagementRepo) CountByClueID(ctx context.Context, clueID string, s
 	return count, err
 }
 
-// CountByClueIDsBatch 批量按 clue_id 统计 since 之后的互动事件数（CC- N+1 优化）
-//
-// 单次 SQL：SELECT clue_id, COUNT(*) FROM clue_engagement_events
-// WHERE clue_id IN (...) AND created_at >= ? GROUP BY clue_id
-//
-// 返回 map[clueID]count，未出现在 GROUP BY 结果中的 clueID 默认 0。
-// 入参 clueIDs 去重 + 跳过空串。
 func (r *clueEngagementRepo) CountByClueIDsBatch(ctx context.Context, clueIDs []string, since time.Time) (map[string]int64, error) {
 	result := make(map[string]int64, len(clueIDs))
 	if len(clueIDs) == 0 {

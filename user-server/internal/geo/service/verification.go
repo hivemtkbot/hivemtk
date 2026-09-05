@@ -18,7 +18,7 @@ type VerificationService struct {
 	chainRepo   repository.GeoQueryChainRepository
 	taskRepo    repository.GeoContentTaskRepository
 	llm         *LLMAdapter
-	probe       SearchProbe // 真实搜索探针引擎（local-llm / qwen / deepseek 等）
+	probe       SearchProbe
 }
 
 // NewVerificationService 创建 AI 搜索验证服务
@@ -31,7 +31,7 @@ func NewVerificationService(
 	probe SearchProbe,
 ) *VerificationService {
 	if probe == nil {
-		probe = NewDefaultSearchProbe() // 内部自动装配 local-llm 兜底
+		probe = NewDefaultSearchProbe()
 	}
 	return &VerificationService{
 		verifyRepo:  vr,
@@ -43,7 +43,6 @@ func NewVerificationService(
 	}
 }
 
-// verifyLLMResponse LLM 验证响应结构
 type verifyLLMResponse struct {
 	Response             string   `json:"response"`
 	BrandMentioned       bool     `json:"brand_mentioned"`
@@ -58,19 +57,18 @@ type verifyLLMResponse struct {
 // 流程：真实探针引擎返回搜索结果 → LLM 基于真实结果做品牌提及/情感分析 → 落库
 // 不再让 LLM "模拟搜索引擎回答"
 func (s *VerificationService) VerifyArticle(ctx context.Context, req dto.VerifyRequest) (*model.GeoVerifyResult, error) {
-	// 1. 先走真实搜索探针
+
 	probeResult, probeErr := s.probe.Probe(ctx, req.Query)
 	probeResponse := ""
 	probeEngine := ""
 	if probeErr != nil {
-		// 探针失败：不中断，但记录错误，LLM 退化为基于自身知识分析（比"模拟"好——诚实降级）
+
 		probeResponse = fmt.Sprintf("[探针错误：%v]", probeErr)
 	} else {
 		probeResponse = probeResult.Response
 		probeEngine = probeResult.Engine
 	}
 
-	// 2. 探针真实结果 + 品牌名 → LLM 做品牌提及分析
 	prompt := VerifySearchPrompt(req.BrandName, req.Query, probeResponse)
 
 	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 2000)
@@ -81,13 +79,11 @@ func (s *VerificationService) VerifyArticle(ctx context.Context, req dto.VerifyR
 
 	parsed := parseVerifyResponse(resp.Content)
 
-	// 记录真实引擎来源（探针引擎 + 分析模型）
 	engineTag := probeEngine
 	if engineTag == "" {
 		engineTag = "probe-failed"
 	}
 
-	// v3 竞品对齐 A5：多模型交叉验证——req.Models 非空时逐模型追加验证行
 	for _, extraModel := range req.Models {
 		if strings.TrimSpace(extraModel) == "" || extraModel == resp.Model {
 			continue
@@ -132,7 +128,6 @@ func (s *VerificationService) VerifyArticle(ctx context.Context, req dto.VerifyR
 		return nil, fmt.Errorf("保存验证结果失败: %w", err)
 	}
 
-	// v3 GEO 决策链化：验证查询写入思维链（Verify 侧入口，source=probe）
 	if s.chainRepo != nil {
 		position := "absent"
 		if parsed.BrandMentioned {
@@ -169,7 +164,6 @@ func parseVerifyResponse(content string) *verifyLLMResponse {
 	return result
 }
 
-// negativeMonitorResult 负面监控结果
 type negativeMonitorResult struct {
 	Queries []struct {
 		Query            string   `json:"query"`
@@ -196,10 +190,10 @@ type negativeMonitorResult struct {
 // MonitorNegative 负面提及监控（R49 真实探针架构）
 // 流程：生成负面查询 → 真实探针引擎逐个搜索 → 拼接结果 → LLM 分析汇总 → 落库
 func (s *VerificationService) MonitorNegative(ctx context.Context, brandName string) (map[string]any, error) {
-	// 1. 先由 LLM 生成负面查询列表（这是内容生成，不是 mock——它生成的是"应该查什么"，而非伪造答案）
+
 	negativeQueries, err := s.generateNegativeQueries(ctx, brandName)
 	if err != nil || len(negativeQueries) == 0 {
-		// fallback：硬编码 5 条标准负面查询，避免无查询
+
 		negativeQueries = []string{
 			brandName + " 缺点",
 			brandName + " 问题",
@@ -209,7 +203,6 @@ func (s *VerificationService) MonitorNegative(ctx context.Context, brandName str
 		}
 	}
 
-	// 2. 用真实探针引擎逐个搜索，拼接所有结果
 	var probeResults strings.Builder
 	engineTag := ""
 	for i, q := range negativeQueries {
@@ -227,7 +220,6 @@ func (s *VerificationService) MonitorNegative(ctx context.Context, brandName str
 		engineTag = "probe-failed"
 	}
 
-	// 3. 真实探针结果 + 品牌名 → LLM 汇总分析
 	prompt := NegativeMonitorPrompt(brandName, probeResults.String())
 
 	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 3000)
@@ -251,7 +243,6 @@ func (s *VerificationService) MonitorNegative(ctx context.Context, brandName str
 		}
 		_ = s.verifyRepo.Create(result)
 
-		// v3 决策链化·负反馈环：负面命中自动生成对冲内容任务
 		if s.taskRepo != nil && result.Sentiment == "negative" {
 			_ = s.taskRepo.Create(ctx, &model.GeoContentTask{
 				Keyword: q.Query,
@@ -266,7 +257,6 @@ func (s *VerificationService) MonitorNegative(ctx context.Context, brandName str
 	return negativeResultToMap(parsed, resp.Model), nil
 }
 
-// generateNegativeQueries 轻量调用 LLM 生成 5 条负面查询（纯内容生成，不伪造搜索结果）
 func (s *VerificationService) generateNegativeQueries(ctx context.Context, brandName string) ([]string, error) {
 	prompt := fmt.Sprintf(`请为品牌 "%s" 生成 5 个用于负面监控的搜索查询。
 要求：中文，每条查询格式为"品牌名 + 负面关键词/问题"，覆盖不同类型的负面风险。
@@ -279,7 +269,7 @@ func (s *VerificationService) generateNegativeQueries(ctx context.Context, brand
 	var queries []string
 	jsonStr := extractJSONObject(resp.Content)
 	if jsonStr == "" {
-		// 尝试从 Content 中找数组
+
 		if idx := strings.Index(resp.Content, "["); idx >= 0 {
 			if end := strings.LastIndex(resp.Content, "]"); end > idx {
 				jsonStr = resp.Content[idx : end+1]
@@ -289,7 +279,7 @@ func (s *VerificationService) generateNegativeQueries(ctx context.Context, brand
 	if jsonStr != "" {
 		_ = json.Unmarshal([]byte(jsonStr), &queries)
 	}
-	// 去空去重
+
 	seen := make(map[string]bool)
 	var clean []string
 	for _, q := range queries {
@@ -354,7 +344,6 @@ func (s *VerificationService) GetVerifyResults(ctx context.Context, articleID st
 	return s.verifyRepo.GetByArticleID(articleID)
 }
 
-// recordAPICall 记录 API 调用
 func (s *VerificationService) recordAPICall(ctx context.Context, resp *LLMResult, purpose string) {
 	if s.apiCallRepo == nil || resp == nil {
 		return

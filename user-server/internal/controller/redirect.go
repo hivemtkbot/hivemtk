@@ -23,16 +23,16 @@ import (
 //
 // 五层架构修复：所有 service 由 router 注入，controller 不再直接访问数据库
 type RedirectController struct {
-	shortLinkService          service.ShortLinkService
-	douyinCardService         service.DouyinCardService
-	kuaishouCardService       service.KuaishouCardService
-	xiaohongshuCardService    service.XiaohongshuCardService
-	xianyuCardService         service.XianyuCardService
-	douyinCardStatsService    service.DouyinCardStatsService
-	kuaishouCardStatsService  *service.KuaishouCardStatsService
+	shortLinkService            service.ShortLinkService
+	douyinCardService           service.DouyinCardService
+	kuaishouCardService         service.KuaishouCardService
+	xiaohongshuCardService      service.XiaohongshuCardService
+	xianyuCardService           service.XianyuCardService
+	douyinCardStatsService      service.DouyinCardStatsService
+	kuaishouCardStatsService    *service.KuaishouCardStatsService
 	xiaohongshuCardStatsService service.XiaohongshuCardStatsService
-	xianyuCardStatsService    service.XianyuCardStatsService
-	tiktokCardService service.TikTokCardService
+	xianyuCardStatsService      service.XianyuCardStatsService
+	tiktokCardService           service.TikTokCardService
 }
 
 // NewRedirectController 创建短链重定向控制器（service 由 router 注入）
@@ -49,16 +49,16 @@ func NewRedirectController(
 	tiktokCardService service.TikTokCardService,
 ) *RedirectController {
 	return &RedirectController{
-		shortLinkService:          shortLinkService,
-		douyinCardService:         douyinCardService,
-		kuaishouCardService:       kuaishouCardService,
-		xiaohongshuCardService:    xiaohongshuCardService,
-		xianyuCardService:         xianyuCardService,
-		douyinCardStatsService:    douyinCardStatsService,
-		kuaishouCardStatsService:  kuaishouCardStatsService,
+		shortLinkService:            shortLinkService,
+		douyinCardService:           douyinCardService,
+		kuaishouCardService:         kuaishouCardService,
+		xiaohongshuCardService:      xiaohongshuCardService,
+		xianyuCardService:           xianyuCardService,
+		douyinCardStatsService:      douyinCardStatsService,
+		kuaishouCardStatsService:    kuaishouCardStatsService,
 		xiaohongshuCardStatsService: xiaohongshuCardStatsService,
-		xianyuCardStatsService:    xianyuCardStatsService,
-		tiktokCardService:         tiktokCardService,
+		xianyuCardStatsService:      xianyuCardStatsService,
+		tiktokCardService:           tiktokCardService,
 	}
 }
 
@@ -135,7 +135,6 @@ func (ctrl *RedirectController) RedirectShortLink(ctx *gin.Context) {
 	ctx.Redirect(http.StatusFound, target)
 }
 
-// recordCardView 打开卡片时记录一次浏览（上报）。best-effort：失败仅记日志，不影响卡片展示。
 func (ctrl *RedirectController) recordCardView(platform string, id uint, ctx *gin.Context) {
 	bg := context.Background()
 	ip := ctx.ClientIP()
@@ -161,7 +160,6 @@ func (ctrl *RedirectController) recordCardView(platform string, id uint, ctx *gi
 	}
 }
 
-// renderTiktokCard TikTok 卡片为外链型：记录浏览后 302 跳转至外部 RedirectURL
 func (ctrl *RedirectController) renderTiktokCard(ctx *gin.Context, id uint) {
 	card, err := ctrl.tiktokCardService.GetCardModelByID(ctx.Request.Context(), id)
 	if err != nil || card == nil {
@@ -185,11 +183,8 @@ func (ctrl *RedirectController) renderTiktokCard(ctx *gin.Context, id uint) {
 	ctx.Redirect(http.StatusFound, target)
 }
 
-// cardChatPageGenerator 卡片聊天页生成函数签名（四平台统一）
 type cardChatPageGenerator func(ctx context.Context, id uint, baseURL string) (string, error)
 
-// renderCardChatPage 调用平台 service 生成卡片聊天页并写入响应
-// onSuccess 在页面成功渲染后调用（用于记录浏览上报），不传则跳过。
 func renderCardChatPage(ctx *gin.Context, gen cardChatPageGenerator, id uint, baseURL string, onSuccess ...func()) {
 	html, err := gen(ctx.Request.Context(), id, baseURL)
 	if err != nil {
@@ -204,8 +199,6 @@ func renderCardChatPage(ctx *gin.Context, gen cardChatPageGenerator, id uint, ba
 	ctx.String(http.StatusOK, html)
 }
 
-// extractCardID 从 originalURL 中提取卡片 ID
-// pathPrefix 例如 "/douyin/card/"
 func extractCardID(originalURL, pathPrefix string) (uint, bool) {
 	if !strings.Contains(originalURL, pathPrefix) {
 		return 0, false
@@ -221,8 +214,6 @@ func extractCardID(originalURL, pathPrefix string) (uint, bool) {
 	return id, true
 }
 
-// buildBaseURL 从请求上下文构造站点根地址
-// 优先使用 X-Forwarded-Proto，其次使用 r.URL.Scheme，最后默认 https
 func buildBaseURL(ctx *gin.Context) string {
 	scheme := ctx.GetHeader("X-Forwarded-Proto")
 	if scheme == "" {
@@ -237,12 +228,11 @@ func buildBaseURL(ctx *gin.Context) string {
 		host = ctx.Request.Host
 	}
 	if host == "" {
-		return "" 
+		return ""
 	}
 	return scheme + "://" + host
 }
 
-// fallbackCardHTML 卡片不存在时的兜底页面
 func fallbackCardHTML() string {
 	return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -251,4 +241,3 @@ func fallbackCardHTML() string {
 h1{font-size:18px;margin-bottom:8px;color:#1d1d1f;}p{font-size:14px;}</style></head>
 <body><h1>卡片不存在或已下线</h1><p>请联系客服获取最新链接</p></body></html>`
 }
-

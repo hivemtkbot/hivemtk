@@ -9,7 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// escapeLike 转义 LIKE 通配符（PG 默认转义符为反斜杠），防止用户输入 %/_ 触发全表匹配
 func escapeLike(s string) string {
 	s = strings.ReplaceAll(s, `\`, `\\`)
 	s = strings.ReplaceAll(s, `%`, `\%`)

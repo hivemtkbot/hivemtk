@@ -48,7 +48,6 @@ func (m *EmailSmtpPasswordEncryptMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 
-	// 密钥可用性预检（fail-closed：无密钥时迁移失败并提示，绝不留半加密状态）
 	if err := crypto.Init(); err != nil {
 		return fmt.Errorf("FIELD_ENCRYPTION_KEY 不可用, 拒绝执行明文密码加密迁移: %w", err)
 	}
@@ -67,8 +66,7 @@ func (m *EmailSmtpPasswordEncryptMigration) Up(ctx context.Context) error {
 	}
 
 	for _, r := range rows {
-		// 已是密文（Decrypt 成功且解出非空原文）→ 跳过，保证幂等；
-		// 明文行 base64 解码几乎必然失败或解不出合法 nonce 结构 → 走加密分支
+
 		if plain, derr := crypto.Decrypt(r.Password); derr == nil && plain != "" {
 			continue
 		}
@@ -90,6 +88,6 @@ func (m *EmailSmtpPasswordEncryptMigration) Up(ctx context.Context) error {
 }
 
 func (m *EmailSmtpPasswordEncryptMigration) Down(ctx context.Context) error {
-	// 单向迁移：密码解密回明文属于安全倒退，不支持 Down
+
 	return fmt.Errorf("不支持回滚: 密码解密回明文是安全倒退")
 }

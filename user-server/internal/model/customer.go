@@ -9,24 +9,21 @@ import (
 	"hivemtk-user/internal/identity"
 )
 
-// UnifiedID Prefix constants
-//
-// 2026-08-16 严肃化：13 渠道全覆盖。每加新渠道必须同步加 prefix + 字段。
 const (
 	unifiedIDPrefixPhone        = "phone:"
 	unifiedIDPrefixEmail        = "email:"
 	unifiedIDPrefixTelegram     = "telegram:"
 	unifiedIDPrefixWhatsApp     = "whatsapp:"
-	unifiedIDPrefixWechat       = "wechat:" // 微信公众号
+	unifiedIDPrefixWechat       = "wechat:"
 	unifiedIDPrefixFeishu       = "feishu:"
-	unifiedIDPrefixWeCom        = "wecom:" // 企业微信 external_userid
+	unifiedIDPrefixWeCom        = "wecom:"
 	unifiedIDPrefixDouyin       = "douyin:"
 	unifiedIDPrefixTikTok       = "tiktok:"
 	unifiedIDPrefixKuaishou     = "kuaishou:"
 	unifiedIDPrefixXiaohongshu  = "xiaohongshu:"
 	unifiedIDPrefixXianyu       = "xianyu:"
-	unifiedIDPrefixSMS          = "sms:"     // 短信即手机号
-	unifiedIDPrefixEmailContact = "email_c:" // email 也作为联系方式
+	unifiedIDPrefixSMS          = "sms:"
+	unifiedIDPrefixEmailContact = "email_c:"
 )
 
 // Customer 客户模型 - CDP 统一客户数据
@@ -102,9 +99,6 @@ func (c *Customer) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// hashPhone 对手机号做哈希（P0-05 隐私合规）
-// v7 审计修复：统一委托 identity.PhoneHash（盐化），与 service 层派生/查询算法一致。
-// 原无盐 sha256 与 identity.PhoneHash(盐化) 不一致，导致 phone_hash 写读两套哈希值、查询必失效。
 func hashPhone(phone string) string {
 	return identity.PhoneHash(phone)
 }
@@ -116,7 +110,7 @@ func hashPhone(phone string) string {
 // 同一客户多渠道身份会共享一个 OneID；多账号绑定通过 CustomerChannels 副表。
 func GenerateCustomerUnifiedID(c *Customer) string {
 	if c.Phone != "" {
-		// v3 审计 P0-2：改用盐化哈希派生，unified_id 不再携带明文手机号
+
 		return identity.UnifiedIDFromPhone(c.Phone)
 	}
 	if c.Email != "" {

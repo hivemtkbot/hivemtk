@@ -45,7 +45,7 @@ func TestBayesianTest_Deterministic(t *testing.T) {
 	if res[2].ChanceToWin > 0.05 || !res[2].RiskLose {
 		t.Fatalf("半率变体胜率应<=0.05, got %f", res[2].ChanceToWin)
 	}
-	// 相同输入相同输出
+
 	res2 := BayesianTest(variants, 5000, rand.New(rand.NewSource(42)))
 	if res[1].ChanceToWin != res2[1].ChanceToWin {
 		t.Fatal("同 seed 蒙特卡洛应确定")

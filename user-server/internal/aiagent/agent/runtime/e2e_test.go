@@ -12,8 +12,6 @@ import (
 	"hivemtk-user/internal/event"
 )
 
-
-// mockSalesBridge 模拟销售引擎桥接器
 type mockSalesBridge struct {
 	mu         sync.Mutex
 	calls      []*mockSalesCall
@@ -136,10 +134,6 @@ func TestE2E_KnowledgeIndexFlow(t *testing.T) {
 		t.Error("expected chunks after create event")
 	}
 
-	// 索引器 loadDocumentContent 从 FilePath 读文件而非 payload.Content，需重写
-	// 临时文件让 update 产生可观测的内容变化；且 2-worker 总线对同文档事件无
-	// 顺序保证，必须等 update 真正处理完（块内容含更新标记）再发布 delete，
-	// 否则 delete（纯内存清除 µs 级）会与 update（重索引 ms 级）竞态致 chunk 复活
 	updateContent := "E2E_ROUND2V_UPDATE_MARKER 第二轮验证更新内容。" + e2eDocContent
 	if err := os.WriteFile(filePath, []byte(updateContent), 0644); err != nil {
 		t.Fatalf("rewrite temp file: %v", err)
@@ -162,7 +156,6 @@ func TestE2E_KnowledgeIndexFlow(t *testing.T) {
 	}
 }
 
-// waitUntil 每隔 20ms 轮询 cond 直到为真或超时（异步事件消费的确定性等待，替代固定 sleep）
 func waitUntil(cond func() bool, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	for !cond() {
@@ -196,7 +189,6 @@ func TestE2E_CustomerAndKnowledgeInParallel(t *testing.T) {
 		PublishKnowledgeDocumentCreate("1", uint(docID), "content", uint(i+1))
 	}
 
-	// 异步消费耗时不确定（索引构建约 400ms/条），固定 sleep 有竞态，改轮询等待
 	deadline := time.Now().Add(5 * time.Second)
 	for salesBridge.callCount() != 10 && time.Now().Before(deadline) {
 		time.Sleep(20 * time.Millisecond)
@@ -244,7 +236,6 @@ func TestE2E_NilBridgeFallback(t *testing.T) {
 
 }
 
-// uintToStr uint → string(辅助)
 func uintToStr(v uint) string {
 	if v == 0 {
 		return "0"
@@ -256,4 +247,3 @@ func uintToStr(v uint) string {
 	}
 	return string(digits)
 }
-

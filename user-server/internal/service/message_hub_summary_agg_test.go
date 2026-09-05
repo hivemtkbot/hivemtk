@@ -12,9 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// 决策源：docs/architecture/MASTER_COMPETITIVE_DECISIONS.md M18 表 D-3 / X-8
-// 验证点：增量正确性 / 幂等 / 迟到事件修正 / 双读切换（summary 陈旧 >10min 回源 raw）
-
 func setupSummaryTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.MessageHub{},
@@ -53,8 +50,8 @@ func TestHubSummaryAgg_IncrementalCorrectness(t *testing.T) {
 
 	rows := []*model.MessageHub{
 		hubRow("whatsapp", "conv-1", false, "inbound", h0.Add(5*time.Minute)),
-		hubRow("whatsapp", "conv-1", true, "outbound", h0.Add(6*time.Minute)),  // AI 回复
-		hubRow("whatsapp", "conv-2", false, "outbound", h0.Add(7*time.Minute)), // 人工回复
+		hubRow("whatsapp", "conv-1", true, "outbound", h0.Add(6*time.Minute)),
+		hubRow("whatsapp", "conv-2", false, "outbound", h0.Add(7*time.Minute)),
 		hubRow("telegram", "conv-3", false, "inbound", h0.Add(65*time.Minute)),
 	}
 	if err := database.Create(&rows).Error; err != nil {
@@ -90,8 +87,7 @@ func TestHubSummaryAgg_IncrementalCorrectness(t *testing.T) {
 		t.Errorf("telegram bucket wrong: %+v", tg)
 	}
 
-	// 水位线推进到最大 id
-	wm, err := newAggSvc(database, 0).RunOnce(ctx) // 空跑不报错
+	wm, err := newAggSvc(database, 0).RunOnce(ctx)
 	if err != nil || wm != 0 {
 		var record model.AggregationWatermark
 		if err := database.Where("source = ?", model.SummarySourceMessageHub).First(&record).Error; err != nil {
@@ -120,7 +116,7 @@ func TestHubSummaryAgg_IdempotentRerun(t *testing.T) {
 	if _, err := svc.RunOnce(ctx); err != nil {
 		t.Fatal(err)
 	}
-	// 重跑多次：水位线已推进，无新行 → 计数不得翻倍
+
 	for i := 0; i < 3; i++ {
 		if _, err := svc.RunOnce(ctx); err != nil {
 			t.Fatal(err)
@@ -152,11 +148,10 @@ func TestHubSummaryAgg_LateArrivalCorrected(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 迟到事件：写入更早的 hour bucket（id 更大，下轮被增量累加进旧 bucket）
 	late := []*model.MessageHub{
 		hubRow("whatsapp", "c9", false, "inbound", h0.Add(1*time.Minute)),
 	}
-	time.Sleep(10 * time.Millisecond) // 保证 CreatedAt 单调可区分
+	time.Sleep(10 * time.Millisecond)
 	if err := database.Create(&late).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +181,6 @@ func TestHubSummaryAgg_BatchLimitRespected(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// batch=10 强制多批消费，全部行必须被处理且计数正确
 	svc := newAggSvc(database, 10)
 	n, err := svc.RunOnce(ctx)
 	if err != nil {
@@ -210,14 +204,13 @@ func TestDashboardDoubleRead_FreshSummaryWins(t *testing.T) {
 	now := time.Now()
 	freshBucket := now.Truncate(time.Hour)
 
-	// summary 表新鲜数据（与 raw 表故意不一致，用于证明读的是 summary）
 	if err := database.Create(&model.MsgHourlySummary{
 		HourBucket: freshBucket, Platform: "whatsapp",
 		SessionCount: 100, AICount: 60, HumanCount: 40, MessageCount: 500,
 	}).Error; err != nil {
 		t.Fatal(err)
 	}
-	// 原始表少量数据（若误读 raw 会得到不同值）
+
 	rawRows := []*model.MessageHub{hubRow("whatsapp", "cx", false, "inbound", now.Add(-time.Minute))}
 	if err := database.Create(rawRows).Error; err != nil {
 		t.Fatal(err)
@@ -241,7 +234,7 @@ func TestDashboardDoubleRead_StaleSummaryFallsBackToRaw(t *testing.T) {
 	database := setupSummaryTestDB(t)
 	ctx := context.Background()
 
-	staleTime := time.Now().Add(-30 * time.Minute) // 陈旧 > 10min
+	staleTime := time.Now().Add(-30 * time.Minute)
 	summaryRow := &model.MsgHourlySummary{
 		HourBucket: staleTime.Truncate(time.Hour), Platform: "whatsapp",
 		SessionCount: 1, AICount: 0, HumanCount: 0, MessageCount: 1,
@@ -249,13 +242,13 @@ func TestDashboardDoubleRead_StaleSummaryFallsBackToRaw(t *testing.T) {
 	if err := database.Create(summaryRow).Error; err != nil {
 		t.Fatal(err)
 	}
-	// gorm 会自动填充 updated_at=now，这里强制回写为陈旧时间
+
 	if err := database.Model(&model.MsgHourlySummary{}).
 		Where("platform = ?", "whatsapp").
 		UpdateColumn("updated_at", staleTime).Error; err != nil {
 		t.Fatal(err)
 	}
-	// 原生表有 summary 未覆盖的新数据
+
 	now := time.Now()
 	rawRows := []*model.MessageHub{
 		hubRow("telegram", "ct", true, "outbound", now.Add(-2*time.Minute)),

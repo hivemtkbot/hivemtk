@@ -1,10 +1,10 @@
 package service
 
 import (
-	"os"
-	"net/url"
-	"net"
 	"context"
+	"net"
+	"net/url"
+	"os"
 
 	"encoding/json"
 
@@ -104,7 +104,6 @@ func (s *MarketingFlowService) sendActionAddTag(ctx context.Context, config map[
 		return nil, errors.New("没有有效的标签")
 	}
 
-	// 将 map 转换为 slice
 	var tagNames []string
 	for tagName := range tagSet {
 		tagNames = append(tagNames, tagName)
@@ -129,7 +128,6 @@ func (s *MarketingFlowService) sendActionRemoveTag(ctx context.Context, config m
 		return nil, errors.New("user_id 未指定")
 	}
 
-	// 从配置中提取标签列表（兼容 []interface{} 与 []string 两种形式）
 	var tagNames []string
 	switch tagsRaw := config["tags"].(type) {
 	case []any:
@@ -175,7 +173,6 @@ func (s *MarketingFlowService) sendActionAssignAgent(ctx context.Context, config
 		return nil, errors.New("客服状态仓库未初始化")
 	}
 
-	// 1. 解析目标会话
 	var sessionID uint
 	var sessionUserID string
 
@@ -211,7 +208,6 @@ func (s *MarketingFlowService) sendActionAssignAgent(ctx context.Context, config
 		}
 	}
 
-	// 2. 解析目标客服
 	var agentID uint
 	var agentName string
 
@@ -290,7 +286,6 @@ func (s *MarketingFlowService) sendActionCreateTask(ctx context.Context, config 
 	}
 	resourceID, _ := config["resource_id"].(string)
 
-	// 解析责任人 ID（兼容 float64 / string / int）
 	var assigneeID uint
 	if assigneeRaw, ok := config["assignee_id"]; ok {
 		switch v := assigneeRaw.(type) {
@@ -389,12 +384,6 @@ func (s *MarketingFlowService) sendActionSendSms(ctx context.Context, config map
 	}, nil
 }
 
-// sendActionUpdateLead 更新线索动作
-// 配置参数：
-//   - clue_id: string 线索 ID（必填，若为空则尝试从 data 中取 clue_id）
-//   - fields: map[string]interface{} 需要更新的字段及其值
-//
-// 支持更新的字段：name / city / address / desc / is_verify / type / source_id / account
 func (s *MarketingFlowService) sendActionUpdateLead(ctx context.Context, config map[string]any, userID string, data map[string]any) (map[string]any, error) {
 	if s.clueRepo == nil {
 		return nil, errors.New("线索仓库未初始化")
@@ -469,12 +458,6 @@ func (s *MarketingFlowService) sendActionUpdateLead(ctx context.Context, config 
 	}, nil
 }
 
-// sendActionCreateOrder 创建订单动作
-// 配置参数：
-//   - price: string 订单金额（必填）
-//   - tg_id: float64 Telegram 用户 ID（必填，作为业务侧用户标识）
-//   - account_id: string 账号 ID（必填）
-//   - status: float64/string 初始订单状态（可选，默认 0=待支付）
 func (s *MarketingFlowService) sendActionCreateOrder(ctx context.Context, config map[string]any, userID string, data map[string]any) (map[string]any, error) {
 	if s.orderRepo == nil {
 		return nil, errors.New("订单仓库未初始化")
@@ -491,7 +474,6 @@ func (s *MarketingFlowService) sendActionCreateOrder(ctx context.Context, config
 		return nil, errors.New("price 未指定")
 	}
 
-	// 提取 Telegram 用户 ID
 	var tgID int64
 	switch v := config["tg_id"].(type) {
 	case float64:
@@ -529,7 +511,6 @@ func (s *MarketingFlowService) sendActionCreateOrder(ctx context.Context, config
 		return nil, errors.New("account_id 未指定")
 	}
 
-	// 解析订单状态（默认 0=待支付）
 	var statusInt int
 	switch v := config["status"].(type) {
 	case float64:
@@ -564,7 +545,6 @@ func (s *MarketingFlowService) sendActionCreateOrder(ctx context.Context, config
 	}, nil
 }
 
-// sendActionWebhook Webhook 动作
 func (s *MarketingFlowService) sendActionWebhook(ctx context.Context, config map[string]any, userID string, data map[string]any) (map[string]any, error) {
 	url, ok := config["url"].(string)
 	if !ok || url == "" {
@@ -579,7 +559,6 @@ func (s *MarketingFlowService) sendActionWebhook(ctx context.Context, config map
 		method = "POST"
 	}
 
-	// 构建请求体
 	var bodyReader io.Reader
 	if data != nil && len(data) > 0 {
 		body, err := json.Marshal(data)
@@ -625,7 +604,6 @@ func (s *MarketingFlowService) sendActionWebhook(ctx context.Context, config map
 		return nil, fmt.Errorf("Webhook 返回错误状态码：%d, 响应：%s", resp.StatusCode, string(respBody))
 	}
 
-	// 尝试解析 JSON 响应
 	var result map[string]any
 	if len(respBody) > 0 {
 		if err := json.Unmarshal(respBody, &result); err != nil {
@@ -644,7 +622,6 @@ func (s *MarketingFlowService) sendActionWebhook(ctx context.Context, config map
 	}, nil
 }
 
-// sendActionSendEmail 发送邮件动作
 func (s *MarketingFlowService) sendActionSendEmail(ctx context.Context, config map[string]any, userID string, data map[string]any) (map[string]any, error) {
 
 	smtpHost, _ := config["smtp_host"].(string)
@@ -658,7 +635,6 @@ func (s *MarketingFlowService) sendActionSendEmail(ctx context.Context, config m
 		return nil, errors.New("SMTP 用户名或密码未配置")
 	}
 
-	// 解析 SMTP 端口（支持 int 和 float64 类型）
 	var smtpPort int
 	switch v := config["smtp_port"].(type) {
 	case int:
@@ -716,12 +692,8 @@ func (s *MarketingFlowService) sendActionSendEmail(ctx context.Context, config m
 	}, nil
 }
 
-
-
-// validateWebhookURL SSRF 防护（v3 审计 P1）：仅允许 https，
-// 且解析出的所有 IP 均不得落在私网/回环/链路本地段（防打内网与云元数据）。
 func validateWebhookURL(raw string) error {
-	// 测试逃生开关：httptest 回环服务场景（生产严禁设置）
+
 	if os.Getenv("MARKETING_WEBHOOK_ALLOW_INSECURE") == "true" {
 		return nil
 	}

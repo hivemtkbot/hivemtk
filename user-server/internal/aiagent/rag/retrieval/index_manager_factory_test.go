@@ -41,4 +41,3 @@ func TestNewIndexManagerWithDB_PGVector(t *testing.T) {
 	assert.True(t, ok, "expected *InMemoryIndexManager after PGVector dead-code removal")
 	assert.Equal(t, 512, im.dimension)
 }
-

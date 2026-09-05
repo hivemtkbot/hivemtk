@@ -52,7 +52,6 @@ type XianyuCardStatsRepository interface {
 	RecordActivity(ctx context.Context, cardID uint, activityType, ip, userAgent, referer string) error
 }
 
-// xianyuCardStatsRepository 闲鱼卡片统计仓库实现
 type xianyuCardStatsRepository struct {
 	db *gorm.DB
 }
@@ -62,11 +61,9 @@ func NewXianyuCardStatsRepository(db *gorm.DB) XianyuCardStatsRepository {
 	return &xianyuCardStatsRepository{db: db}
 }
 
-// GetCardStats 获取卡片统计数据
 func (r *xianyuCardStatsRepository) GetCardStats(ctx context.Context, cardID uint, startDate, endDate time.Time) (*CardStatsResult, error) {
 	var stats CardStatsResult
 
-	// 基础统计数据
 	type basicStats struct {
 		ViewCount  int64
 		ClickCount int64
@@ -98,7 +95,6 @@ func (r *xianyuCardStatsRepository) GetCardStats(ctx context.Context, cardID uin
 		return nil, fmt.Errorf("获取分享数失败: %w", err)
 	}
 
-	// 获取按日期统计的数据
 	type dateStats struct {
 		Date       string
 		ViewCount  int64
@@ -144,11 +140,9 @@ func (r *xianyuCardStatsRepository) GetCardStats(ctx context.Context, cardID uin
 	return &stats, nil
 }
 
-// GetOverallStats 获取整体统计数据
 func (r *xianyuCardStatsRepository) GetOverallStats(ctx context.Context, startDate, endDate time.Time) (*CardOverallStatsResult, error) {
 	var stats CardOverallStatsResult
 
-	// 获取总统计数据
 	type totalStats struct {
 		TotalViewCount  int64
 		TotalClickCount int64
@@ -200,7 +194,6 @@ func (r *xianyuCardStatsRepository) GetOverallStats(ctx context.Context, startDa
 		return nil, fmt.Errorf("获取活跃卡片数失败: %w", err)
 	}
 
-	// 获取按日期统计的数据
 	type dateStats struct {
 		Date       string
 		ViewCount  int64
@@ -226,7 +219,6 @@ func (r *xianyuCardStatsRepository) GetOverallStats(ctx context.Context, startDa
 		return nil, fmt.Errorf("获取按日期统计数据失败: %w", err)
 	}
 
-	// 获取热门卡片
 	type topCard struct {
 		CardID     uint   `json:"card_id"`
 		CardTitle  string `json:"card_title"`
@@ -288,7 +280,6 @@ func (r *xianyuCardStatsRepository) GetOverallStats(ctx context.Context, startDa
 	return &stats, nil
 }
 
-// RecordActivity 记录活动
 func (r *xianyuCardStatsRepository) RecordActivity(ctx context.Context, cardID uint, activityType, ip, userAgent, referer string) error {
 	activity := &model.XianyuCardActivity{
 		CardID:       cardID,

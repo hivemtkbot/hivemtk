@@ -10,7 +10,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// newRecoveryFixture 构造带测试库的扫描器；无 PG 时跳过。
 func newRecoveryFixture(t *testing.T) (*webhookRecoveryScanner, *repository.WebhookEventRepository) {
 	t.Helper()
 	db := testutil.NewTestDB(t, &model.WebhookEvent{})
@@ -27,7 +26,6 @@ func newRecoveryFixture(t *testing.T) (*webhookRecoveryScanner, *repository.Webh
 	return sc, repo
 }
 
-// backdateEvent 把事件的 created_at 回拨到冷却期之外。
 func backdateEvent(t *testing.T, repo *repository.WebhookEventRepository, evt *model.WebhookEvent, d time.Duration) {
 	t.Helper()
 	if err := repo.GetDB().Model(&model.WebhookEvent{}).Where("id = ?", evt.ID).
@@ -138,7 +136,7 @@ func TestRecoveryScannerDisabled(t *testing.T) {
 	}
 	t.Setenv("WEBHOOK_RECOVERY_ENABLED", "false")
 	svc := &WebhookService{db: db}
-	svc.startRecoveryScanner() // disabled 分支应无副作用
+	svc.startRecoveryScanner()
 }
 
 // T1 验收⑥：重放成功路径 —— handleFn 执行后事件被 markProcessed；
@@ -149,7 +147,7 @@ func TestReplayMarksProcessedOnUnknownPlatform(t *testing.T) {
 	called := 0
 	sc.handleFn = func(ctx context.Context, job *webhookJob) {
 		called++
-		job.event.Processed = true // 模拟 handleJob 正常走完并标记
+		job.event.Processed = true
 		_ = repo.Update(ctx, job.event)
 	}
 	raw := `{"event_id":"evt_replay_ok","event_type":"message","content":"hi","from":"u1"}`
@@ -183,7 +181,7 @@ func TestScanOnceReplaysStaleBatch(t *testing.T) {
 			t.Fatalf("create: %v", err)
 		}
 		backdateEvent(t, repo, evt, sc.cooldown+time.Minute)
-		time.Sleep(2 * time.Millisecond) // 保证 EventID 时间戳唯一
+		time.Sleep(2 * time.Millisecond)
 	}
 	n := sc.scanOnce(ctx)
 	if n != 3 {

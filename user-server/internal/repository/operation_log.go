@@ -99,7 +99,6 @@ func (r *operationLogRepo) DeleteOldLogs(ctx context.Context, beforeDate time.Ti
 	return r.db.WithContext(ctx).Where("created_at < ?", beforeDate).Delete(&model.OperationLog{}).Error
 }
 
-// DeleteByIDs 批量删除指定 ID 的操作日志，返回删除条数
 func (r *operationLogRepo) DeleteByIDs(ctx context.Context, ids []uint) (int64, error) {
 	if len(ids) == 0 {
 		return 0, nil

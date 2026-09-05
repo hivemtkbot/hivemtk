@@ -50,7 +50,7 @@ func (s *CustomerQueueService) GetQueue(ctx context.Context) (*QueueSnapshot, er
 	estimated := int64(0)
 	longestWait := int64(0)
 	if availableAgents > 0 {
-		estimated = waitingCount / availableAgents * 60 // 假设每会话平均 60 秒
+		estimated = waitingCount / availableAgents * 60
 	}
 
 	return &QueueSnapshot{

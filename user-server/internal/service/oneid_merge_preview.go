@@ -17,17 +17,17 @@ import (
 // 后端仅消费与合并判定相关的字段（fields/op/threshold/enabled）。
 type MergePreviewRule struct {
 	Name      string   `json:"name"`
-	Field     string   `json:"field"`  // 兼容单字段写法
-	Fields    []string `json:"fields"` // 前端 checkbox 多选字段
-	Op        string   `json:"op"`     // eq / prefix / like；空视为 eq
+	Field     string   `json:"field"`
+	Fields    []string `json:"fields"`
+	Op        string   `json:"op"`
 	Threshold int      `json:"threshold"`
 	Enabled   bool     `json:"enabled"`
 }
 
 // MergePreviewSample 一条候选合并对样例
 type MergePreviewSample struct {
-	From  string `json:"from"` // 客户 A 的 OneID（customer id）
-	To    string `json:"to"`   // 客户 B 的 OneID
+	From  string `json:"from"`
+	To    string `json:"to"`
 	Score int    `json:"score"`
 }
 
@@ -37,11 +37,8 @@ type MergePreview struct {
 	Samples        []MergePreviewSample `json:"samples"`
 }
 
-// previewSampleLimit 样例条数上限（前端表格 max-height 240，20 条足够）
 const previewSampleLimit = 20
 
-// identityFieldValue 取客户在指定身份字段上的值。
-// 返回空串表示该客户不持有此身份（跳过）。
 func identityFieldValue(c *model.Customer, field string) string {
 	switch field {
 	case "phone":
@@ -55,7 +52,7 @@ func identityFieldValue(c *model.Customer, field string) string {
 	case "xiaohongshu_id":
 		return c.XiaohongshuID
 	default:
-		// external_id / unionid / nickname 等暂无对应列，预览阶段跳过
+
 		return ""
 	}
 }

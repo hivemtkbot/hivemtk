@@ -42,13 +42,6 @@ func ParamValidatorDecorator(registry *ToolRegistry) ToolDecorator {
 	}
 }
 
-// validateParams 顶层参数校验：必填字段 + 逐字段类型/约束校验
-//
-// 增强（v3 审计 P3-2）：递归支持嵌套 object/array，并发现在原版未实现的 4 类校验：
-//   - 嵌套对象的 required / properties（之前完全未递归）
-//   - 数组元素的 items schema 校验
-//   - 字符串 minLength / maxLength
-//   - 数值 minimum / maximum
 func validateParams(toolName string, params ToolParameters, args map[string]any) error {
 	if len(args) == 0 && len(params.Required) == 0 {
 		return nil
@@ -72,7 +65,6 @@ func validateParams(toolName string, params ToolParameters, args map[string]any)
 	return nil
 }
 
-// validateParamValue 校验单个参数值（递归支持嵌套 object / array）
 func validateParamValue(toolName, path string, schema ToolParam, value any) error {
 	if schema.Type != "" {
 		if err := validateType(schema.Type, value); err != nil {
@@ -86,7 +78,6 @@ func validateParamValue(toolName, path string, schema ToolParam, value any) erro
 		}
 	}
 
-	// 字符串长度约束
 	if schema.Type == "string" {
 		if s, ok := value.(string); ok {
 			if schema.MinLength > 0 && len(s) < schema.MinLength {
@@ -100,7 +91,6 @@ func validateParamValue(toolName, path string, schema ToolParam, value any) erro
 		}
 	}
 
-	// 数值范围约束
 	if schema.Type == "number" || schema.Type == "integer" {
 		if f, ok := toFloat(value); ok {
 			if schema.Minimum != nil && f < *schema.Minimum {
@@ -114,11 +104,10 @@ func validateParamValue(toolName, path string, schema ToolParam, value any) erro
 		}
 	}
 
-	// 数组元素校验
 	if schema.Type == "array" && schema.Items != nil {
 		arr, ok := value.([]any)
 		if !ok {
-			return nil // 类型不匹配已在 validateType 报错
+			return nil
 		}
 		for i, item := range arr {
 			itemPath := fmt.Sprintf("%s[%d]", path, i)
@@ -128,20 +117,19 @@ func validateParamValue(toolName, path string, schema ToolParam, value any) erro
 		}
 	}
 
-	// 嵌套对象校验（递归到 properties）
 	if schema.Type == "object" && len(schema.Properties) > 0 {
 		obj, ok := value.(map[string]any)
 		if !ok {
 			return nil
 		}
-		// 嵌套对象的 required
+
 		for _, rName := range schema.Required {
 			if _, exists := obj[rName]; !exists {
 				return fmt.Errorf("tool=%s param=%s missing required sub-param: %s",
 					toolName, path, rName)
 			}
 		}
-		// 嵌套对象的 properties
+
 		for k, v := range obj {
 			subPath := path + "." + k
 			if subDef, ok := schema.Properties[k]; ok {

@@ -63,4 +63,3 @@ func (c *TraceLearningController) KnowledgeWeights(ctx *gin.Context) {
 	}
 	response.Success(ctx, rows, "ok")
 }
-

@@ -10,8 +10,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-
-// e2eDocContent E2E 测试用的文档内容,长度足以触发切块（默认 chunkSize 约 500 字符）
 const e2eDocContent = "营销自动化系统支持多渠道统一管理。" +
 	"系统通过统一的接入网关,将微信公众号、企业微信、小程序、APP、网页等渠道汇总," +
 	"并使用统一的用户身份识别机制。\n\n" +
@@ -23,7 +21,6 @@ const e2eDocContent = "营销自动化系统支持多渠道统一管理。" +
 	"索引为可语义检索的知识片段。AI 智能体回答问题时,先从 RAG 知识库中检索相关内容," +
 	"再结合大语言模型生成回答,确保回答的准确性和时效性。\n"
 
-// setupE2EKnowledgeTestEnv 创建单文档 E2E 测试环境，返回 (索引器, 文档ID, 文档文件路径)
 func setupE2EKnowledgeTestEnv(t *testing.T, content string) (*rag.IncrementalIndexer, uint64, string) {
 	t.Helper()
 	database := testutil.NewTestDB(t, &model.KnowledgeDocument{}, &model.KnowledgeChunk{})
@@ -48,7 +45,6 @@ func setupE2EKnowledgeTestEnv(t *testing.T, content string) (*rag.IncrementalInd
 	return rag.NewIncrementalIndexer(nil, nil, database), doc.ID, filePath
 }
 
-// setupE2EKnowledgeTestEnvMulti 创建多文档 E2E 测试环境
 func setupE2EKnowledgeTestEnvMulti(t *testing.T, n int) (*rag.IncrementalIndexer, []uint64) {
 	t.Helper()
 	database := testutil.NewTestDB(t, &model.KnowledgeDocument{}, &model.KnowledgeChunk{})
@@ -76,4 +72,3 @@ func setupE2EKnowledgeTestEnvMulti(t *testing.T, n int) (*rag.IncrementalIndexer
 	}
 	return rag.NewIncrementalIndexer(nil, nil, database), docIDs
 }
-

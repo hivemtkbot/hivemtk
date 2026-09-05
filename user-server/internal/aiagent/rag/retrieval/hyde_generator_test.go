@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"errors"
@@ -74,7 +73,7 @@ func TestHyDEGenerator_LLMError(t *testing.T) {
 }
 
 func TestHyDEGenerator_DocTooShort(t *testing.T) {
-	m := &mockLLMChatClient{resp: "短文档"} 
+	m := &mockLLMChatClient{resp: "短文档"}
 	g := NewHyDEGenerator(m, nil)
 	_, err := g.Generate(context.Background(), "如何退货")
 	if err == nil {
@@ -105,4 +104,3 @@ func TestHyDEGenerator_MaxTokensFromConfig(t *testing.T) {
 		t.Errorf("MaxTokens=%d want=600", m.lastOpts.MaxTokens)
 	}
 }
-

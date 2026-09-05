@@ -9,18 +9,18 @@ import (
 
 // GeoArticle GEO 生成文章模型
 type GeoArticle struct {
-	ID        string  `gorm:"type:varchar(36);primaryKey" json:"id"`
-	Title     string  `gorm:"type:varchar(500)" json:"title"`
-	Content   string  `gorm:"type:text" json:"content"`
-	Keyword   string  `gorm:"type:varchar(500)" json:"keyword"`
-	Model     string  `gorm:"type:varchar(100)" json:"model"`
-	Prompt    string  `gorm:"type:text" json:"prompt"`
-	WordCount int     `gorm:"default:0" json:"word_count"`
-	Status    string  `gorm:"type:varchar(20);default:'draft'" json:"status"`
-	Score      float64 `gorm:"default:0" json:"score"`
-	ScoreDetail string `gorm:"type:text" json:"score_detail"`
-	JSONLD     string  `gorm:"column:json_ld;type:text" json:"json_ld"`
-	BrandName  string  `gorm:"type:varchar(200)" json:"brand_name"`
+	ID          string  `gorm:"type:varchar(36);primaryKey" json:"id"`
+	Title       string  `gorm:"type:varchar(500)" json:"title"`
+	Content     string  `gorm:"type:text" json:"content"`
+	Keyword     string  `gorm:"type:varchar(500)" json:"keyword"`
+	Model       string  `gorm:"type:varchar(100)" json:"model"`
+	Prompt      string  `gorm:"type:text" json:"prompt"`
+	WordCount   int     `gorm:"default:0" json:"word_count"`
+	Status      string  `gorm:"type:varchar(20);default:'draft'" json:"status"`
+	Score       float64 `gorm:"default:0" json:"score"`
+	ScoreDetail string  `gorm:"type:text" json:"score_detail"`
+	JSONLD      string  `gorm:"column:json_ld;type:text" json:"json_ld"`
+	BrandName   string  `gorm:"type:varchar(200)" json:"brand_name"`
 
 	CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime" json:"updated_at"`

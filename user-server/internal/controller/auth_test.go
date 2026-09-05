@@ -15,7 +15,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// setupGinEngine 设置 Gin 引擎
 func setupGinEngine() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	return gin.New()
@@ -473,9 +472,6 @@ func TestSystemUserController_DeleteUser_Success(t *testing.T) {
 	}
 	db.GetDB().Create(&user)
 
-	// Round32 安全加固后 DeleteUser 需 extractActorID（gin context "user_id"，
-	// 含自删/末位超管双重防护）；测试需模拟已登录 actor，且 actor ≠ 目标 ID，
-	// actor 无需存在于 DB（DeleteByAdmin 仅比较 ID 不加载 actor 记录）
 	router.Use(func(c *gin.Context) {
 		c.Set("user_id", uint(999))
 		c.Next()
@@ -543,4 +539,3 @@ func TestSystemUserController_CreateDefaultAdmin(t *testing.T) {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
-

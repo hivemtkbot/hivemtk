@@ -10,7 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupXiaohongshuCardTestDB 设置小红书卡片测试数据库
 func setupXiaohongshuCardTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.XiaohongshuCard{},
@@ -18,7 +17,6 @@ func setupXiaohongshuCardTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// setupXiaohongshuCardRepository 创建测试用的小红书卡片仓库实例
 func setupXiaohongshuCardRepository(t *testing.T) XiaohongshuCardRepository {
 	database := setupXiaohongshuCardTestDB(t)
 	return NewXiaohongshuCardRepository(database)

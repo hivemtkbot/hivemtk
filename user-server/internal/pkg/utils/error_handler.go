@@ -125,4 +125,3 @@ func HandleAuthError(ctx *gin.Context, message string) {
 	err := NewAppError(ErrorTypeAuth, message, 401, "")
 	HandleError(ctx, err)
 }
-

@@ -92,8 +92,6 @@ func defaultSOPs() map[string]*IndustrySOP {
 	}
 }
 
-// mapActionToSOPNodeType 将行业 SOP 步骤的 action 映射为 SOP 图节点类型。
-// 未识别的 action 统一降级为 message 节点，保证转换后图始终可校验通过。
 func mapActionToSOPNodeType(action string) string {
 	switch action {
 	case "tag_source":

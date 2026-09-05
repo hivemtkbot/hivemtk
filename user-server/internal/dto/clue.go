@@ -51,4 +51,3 @@ type ImportClueRequest struct {
 	IntentScore    int64  `json:"intent_score"`
 	IsOpportunity  int64  `json:"is_opportunity"`
 }
-

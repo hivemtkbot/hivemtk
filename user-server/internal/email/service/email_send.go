@@ -1,11 +1,11 @@
 package email
 
 import (
-	"errors"
-	"path/filepath"
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -21,25 +21,24 @@ import (
 
 // 邮件状态常量
 const (
-	EmailStatusPending = 0 
-	EmailStatusSent    = 1 
-	EmailStatusFailed  = 2 
+	EmailStatusPending = 0
+	EmailStatusSent    = 1
+	EmailStatusFailed  = 2
 )
 
 type EmailSendService struct {
-	repo     repository.EmailSendRepository
-	smtpRepo repository.EmailSmtpRepository
+	repo      repository.EmailSendRepository
+	smtpRepo  repository.EmailSmtpRepository
 	unsubRepo repository.EmailUnsubscribeRepository
 }
 
-// isUnsubscribed 退订名单强制过滤（v3 审计 P0：发送前必须调用）
 func (s *EmailSendService) isUnsubscribed(ctx context.Context, email string) bool {
 	if s.unsubRepo == nil {
 		s.unsubRepo = repository.NewEmailUnsubscribeRepository(nil)
 	}
 	exists, err := s.unsubRepo.ExistsByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
 	if err != nil {
-		return false // 查询故障不阻塞发送，与既有 best-effort 语义一致
+		return false
 	}
 	return exists
 }
@@ -51,7 +50,6 @@ func NewEmailSendService() *EmailSendService {
 	}
 }
 
-// sanitizeEmailHeader 拒绝 CRLF（v3 审计 P1：Header Injection）
 func sanitizeEmailHeader(v string) (string, error) {
 	if strings.ContainsAny(v, "\r\n") {
 		return "", errors.New("邮件头部字段不允许包含换行符")
@@ -59,7 +57,6 @@ func sanitizeEmailHeader(v string) (string, error) {
 	return strings.TrimSpace(v), nil
 }
 
-// emailSendSem 全局发送并发闸（v3 审计 P1：ImmediateSend 裸 goroutine 无上限）
 var emailSendSem = make(chan struct{}, 10)
 
 // 发送邮件
@@ -97,7 +94,7 @@ func (s *EmailSendService) SendEmail(ctx context.Context, req dto.SendEmailReque
 	}
 
 	if req.ImmediateSend {
-		// v3 审计 P0：退订名单强制过滤
+
 		if s.isUnsubscribed(ctx, req.To) {
 			if u, perr := uuid.Parse(emailSend.ID); perr == nil {
 				_ = s.repo.UpdateStatus(ctx, u, EmailStatusFailed)
@@ -105,7 +102,7 @@ func (s *EmailSendService) SendEmail(ctx context.Context, req dto.SendEmailReque
 			return emailSend, nil
 		}
 		go func() {
-			// 并发闸：最多 10 封同时在途，防重试风暴
+
 			emailSendSem <- struct{}{}
 			defer func() { <-emailSendSem }()
 			defer func() {
@@ -157,9 +154,8 @@ func (s *EmailSendService) ProcessPendingEmails(ctx context.Context) error {
 	return nil
 }
 
-// sendActualEmail 实际发送邮件
 func (s *EmailSendService) sendActualEmail(ctx context.Context, email *model.EmailSend) error {
-	// 1) 优先使用 DB 中的 SMTP 配置（按 SmtpID）
+
 	var smtpConfig *model.EmailSmtp
 	if email.SmtpID != "" {
 		cfg, err := s.smtpRepo.GetByID(ctx, email.SmtpID)
@@ -193,15 +189,14 @@ func (s *EmailSendService) sendActualEmail(ctx context.Context, email *model.Ema
 			if attachment == "" {
 				continue
 			}
-			// v3 审计 P0：附件路径用户可控，剥离任何路径分隔符防止
-			// "/etc/passwd" / "../../key" 任意文件读取外发；仅允许上传目录内的裸文件名
+
 			attachment = filepath.Base(strings.ReplaceAll(strings.ReplaceAll(attachment, "\\", "/"), "/", ""))
 			if attachment == "" || attachment == "." || attachment == ".." {
 				continue
 			}
 			safePath := filepath.Join("uploads", "attachments", attachment)
 			if _, err := os.Stat(safePath); err != nil {
-				continue // 文件不存在则跳过，不中断整封邮件
+				continue
 			}
 			m.Attach(safePath)
 		}
@@ -212,13 +207,6 @@ func (s *EmailSendService) sendActualEmail(ctx context.Context, email *model.Ema
 	return d.DialAndSend(m)
 }
 
-// resolveSmtpFromEnv 从环境变量构造 SMTP 发信配置（按优先级）：
-//   - EMAIL_163_USER / EMAIL_163_PASSWORD / EMAIL_163_SMTP_HOST（默认 smtp.163.com，端口 465）
-//   - QQ_EMAIL / QQ_EMAIL_PASSWORD / QQ_NUMBER（QQ 邮箱，smtp.qq.com，端口 465）
-//   - SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASSWORD（通用兜底）
-//
-// 任一来源字段完整即返回配置；都不完整返回 nil（由调用方显式报错）。
-// 此为基于 SmtpID 的 DB 路径的兼容兜底，不取代原有路径。
 func resolveSmtpFromEnv() *model.EmailSmtp {
 	if user := os.Getenv("EMAIL_163_USER"); user != "" {
 		if pwd := os.Getenv("EMAIL_163_PASSWORD"); pwd != "" {
@@ -267,4 +255,3 @@ func resolveSmtpFromEnv() *model.EmailSmtp {
 	}
 	return nil
 }
-

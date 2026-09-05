@@ -61,7 +61,6 @@ func TestHandleIngress_CanonicalContentHash_AlreadyExists_Skipped(t *testing.T) 
 		t.Fatalf("钩子2.5 命中：QueuedForAI 必须 false（不触发 AI）")
 	}
 
-	// 关键回归：原 outbound 不变；同 content 的第二条消息不能入库
 	var sameContentCount int64
 	db.Model(&model.MessageHub{}).
 		Where("platform=? AND md5(content)=md5(?)", platform, content).
@@ -120,7 +119,6 @@ func TestHandleIngress_CrossConv_SameInboundContent_NotSkipped(t *testing.T) {
 		t.Fatalf("跨会话客户消息应触发 AI, QueuedForAI=%v", res.QueuedForAI)
 	}
 
-	// 验证 B 会话消息已入库
 	var row model.MessageHub
 	if err := db.Where("msg_id=?", "mh:crossconv0001").First(&row).Error; err != nil {
 		t.Fatalf("B 会话消息应入库: %v", err)
@@ -182,7 +180,6 @@ func TestHandleIngress_CrossConv_SameAlgo2MsgID_NotSkipped(t *testing.T) {
 		t.Fatalf("跨会话同 algo2 msg_id 必须被接受（不应被钩子2 误跳过）, Reason=%s", res.Reason)
 	}
 
-	// 验证 B 会话消息已入库（不被钩子2 跨会话命中跳过）
 	var row model.MessageHub
 	if err := db.Where("msg_id = ? AND conversation_id = ?", algo2EventID, convB).First(&row).Error; err != nil {
 		t.Fatalf("B 会话消息应入库（钩子2 限本会话后不应跳过）: %v", err)
@@ -191,7 +188,6 @@ func TestHandleIngress_CrossConv_SameAlgo2MsgID_NotSkipped(t *testing.T) {
 		t.Fatalf("入库会话 ID 错误: got=%s want=%s", row.ConversationID, convB)
 	}
 
-	// 验证 A 会话消息仍在（未被覆盖）
 	var rowA model.MessageHub
 	if err := db.Where("msg_id = ? AND conversation_id = ?", algo2EventID, convA).First(&rowA).Error; err != nil {
 		t.Fatalf("A 会话消息应仍在 DB: %v", err)
@@ -283,7 +279,6 @@ func TestPersistBridgeHistory_NormalizedDedup_DOMWhitespaceVariance_Skipped(t *t
 		t.Fatalf("PersistBridgeHistory 不应报错: %v", err)
 	}
 
-	// 关键回归：DB 中同 content（去空白后）应仅 1 条（原 outbound），不得新增 inbound
 	var count int64
 	db.Model(&model.MessageHub{}).
 		Where("platform=? AND direction='inbound'", platform).
@@ -292,7 +287,6 @@ func TestPersistBridgeHistory_NormalizedDedup_DOMWhitespaceVariance_Skipped(t *t
 		t.Fatalf("PersistBridgeHistory 归一化去重应跳过，不得新增 inbound，实际 inbound=%d", count)
 	}
 
-	// 同时验证 outbound 仍只有 1 条（未被污染）
 	var outCount int64
 	db.Model(&model.MessageHub{}).
 		Where("platform=? AND direction='outbound'", platform).

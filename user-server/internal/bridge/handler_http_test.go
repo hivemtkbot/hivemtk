@@ -93,7 +93,7 @@ func TestCollectHTTPRequestInfo(t *testing.T) {
 	})
 
 	t.Run("body 截断到 4KB 预览", func(t *testing.T) {
-		// 构造一个超过 4KB 的 body
+
 		var sb bytes.Buffer
 		sb.WriteString(`{"channel":"x","account_id":"y","messages":[`)
 		for i := 0; i < 5000; i++ {
@@ -132,7 +132,6 @@ func TestCollectHTTPRequestInfo(t *testing.T) {
 
 		_ = collectHTTPRequestInfo(c)
 
-		// 下游可重新读取
 		var got HTTPIngestRequest
 		if err := c.ShouldBindJSON(&got); err != nil {
 			t.Fatalf("下游 BindJSON 失败: %v", err)
@@ -326,4 +325,3 @@ func min(a, b int) int {
 	}
 	return b
 }
-

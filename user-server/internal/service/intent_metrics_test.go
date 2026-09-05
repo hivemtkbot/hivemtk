@@ -133,11 +133,11 @@ func TestIntentWeakLabelZeroDenominator(t *testing.T) {
 func TestRecordIntentWeakLabelGuard(t *testing.T) {
 	before := globalIntentMetrics.Snapshot().Total
 
-	RecordIntentWeakLabel(nil)                                                                                      // nil 安全
-	RecordIntentWeakLabel(&dto.RecognizeResult{Method: "embedding", IntentType: "price_inquiry", Confidence: 0.95}) // 非规则跳过
-	RecordIntentWeakLabel(&dto.RecognizeResult{Method: "llm", IntentType: "price_inquiry", Confidence: 0.95})       // 非 rule 跳过
-	RecordIntentWeakLabel(&dto.RecognizeResult{Method: "rule", IntentType: IntentUnknown, Confidence: 0.3})         // 兜底伪 rule 跳过
-	RecordIntentWeakLabel(&dto.RecognizeResult{Method: "rule", IntentType: "", Confidence: 0.95})                   // 空意图跳过
+	RecordIntentWeakLabel(nil)
+	RecordIntentWeakLabel(&dto.RecognizeResult{Method: "embedding", IntentType: "price_inquiry", Confidence: 0.95})
+	RecordIntentWeakLabel(&dto.RecognizeResult{Method: "llm", IntentType: "price_inquiry", Confidence: 0.95})
+	RecordIntentWeakLabel(&dto.RecognizeResult{Method: "rule", IntentType: IntentUnknown, Confidence: 0.3})
+	RecordIntentWeakLabel(&dto.RecognizeResult{Method: "rule", IntentType: "", Confidence: 0.95})
 
 	if got := globalIntentMetrics.Snapshot().Total; got != before {
 		t.Fatalf("以上情形均不应入账, Total %d -> %d", before, got)

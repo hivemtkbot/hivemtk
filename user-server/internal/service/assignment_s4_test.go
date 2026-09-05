@@ -7,10 +7,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// S-4 专属坐席定向路由单测（2026-08-26）
-// 通过 AssignWithOwner 注入 owner，无需 DB；owner 解析（resolveOwnerAgentID）为
-// DB 查询薄封装，回退语义由 ownerID<=0 分支覆盖。
-
 func s4Agents() []AgentInfo {
 	return []AgentInfo{
 		{AgentID: 1, AgentName: "老销售", Online: true, ActiveSess: 4, Capacity: 5},
@@ -18,7 +14,6 @@ func s4Agents() []AgentInfo {
 	}
 }
 
-// Platform 取无技能映射的渠道，避免触发既有 skill_match 标签干扰断言
 func s4Session() *model.CustomerSession {
 	return &model.CustomerSession{Platform: "email", OneID: "one_1"}
 }
@@ -42,7 +37,6 @@ func TestAssignWithOwner_OwnerOnlineRouted(t *testing.T) {
 func TestAssignWithOwner_OfflineOwnerFallsBack(t *testing.T) {
 	svc := NewAssignmentService(nil)
 
-	// owner 离线
 	candidates := []AgentInfo{
 		{AgentID: 1, AgentName: "离线老销售", Online: false, ActiveSess: 0, Capacity: 5},
 		{AgentID: 2, AgentName: "在线坐席", Online: true, ActiveSess: 0, Capacity: 5},
@@ -55,7 +49,6 @@ func TestAssignWithOwner_OfflineOwnerFallsBack(t *testing.T) {
 		t.Errorf("应回退 least_busy 选 agent 2, got agent=%d strategy=%s", d.AgentID, d.Strategy)
 	}
 
-	// owner 满载
 	full := []AgentInfo{
 		{AgentID: 1, AgentName: "满载老销售", Online: true, ActiveSess: 5, Capacity: 5},
 		{AgentID: 2, AgentName: "空闲坐席", Online: true, ActiveSess: 0, Capacity: 5},
@@ -79,7 +72,7 @@ func TestAssignWithOwner_NoOwnerUnchanged(t *testing.T) {
 	if d.Strategy != string(StrategyLeastBusy) {
 		t.Errorf("无 owner 应回退 least_busy, got %q", d.Strategy)
 	}
-	if d.AgentID != 2 { // ActiveSess 少者优先
+	if d.AgentID != 2 {
 		t.Errorf("least_busy 应选 agent 2, got %d", d.AgentID)
 	}
 }

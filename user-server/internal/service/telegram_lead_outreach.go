@@ -53,8 +53,6 @@ func (s *TelegramDMOutreachService) TriggerDMOutreach(ctx context.Context, accou
 		return
 	}
 
-	// 第二层冷却：DM 触达专用 key（账号:用户:群），与上层线索挖掘冷却相互独立。
-	// 对齐 tgLeadOutreachAllowed 既有模式：SetNX + TTL，首次设置放行，冷却窗口内拦截。
 	if !s.dmOutreachCooldownAllowed(ctx, accountID, userID, groupID) {
 		return
 	}
@@ -80,8 +78,6 @@ func (s *TelegramDMOutreachService) TriggerDMOutreach(ctx context.Context, accou
 	s.recordDMOutreachEvent(ctx, accountID, userID, groupID, intentScore)
 }
 
-// dmOutreachCooldownAllowed DM 触达专用冷却检查（SetNX + TTL）。
-// 首次调用设置 key 并返回 true（放行），冷却窗口内返回 false（拦截）。
 func (s *TelegramDMOutreachService) dmOutreachCooldownAllowed(ctx context.Context, accountID string, userID int64, groupID string) bool {
 	key := "mtk:tg:dm_outreach:" + accountID + ":" + strconv.FormatInt(userID, 10) + ":" + groupID
 	set, err := cache.GetGlobalCache().SetNX(ctx, key, "1", tgDMOutreachCooldown)

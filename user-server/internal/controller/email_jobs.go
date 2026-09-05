@@ -155,4 +155,3 @@ func (c *EmailJobsController) DeleteEmailJobs(ctx *gin.Context) {
 	}
 	response.Success(ctx, nil, "删除成功")
 }
-

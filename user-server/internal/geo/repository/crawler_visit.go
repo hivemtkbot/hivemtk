@@ -47,7 +47,6 @@ type KeywordStatRow struct {
 	VisitCount int64  `json:"visit_count"`
 }
 
-// domainSourceLevel 域名→信源等级映射
 var domainSourceLevel = map[string]string{
 	"hive.xapptool.cn":  "A",
 	"weibanzhushou.com": "B",

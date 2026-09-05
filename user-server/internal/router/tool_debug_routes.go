@@ -15,17 +15,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
-// setupToolDebugRoutes 注册工具链调试与可观测 API 路由
-//
-// 调用方：router.Setup() 的 auth 路由组
-//
-// 安全（2026-08-26 审计 P0-2）：
-//   - /agent/tools/execute 允许调用任意已注册工具（含 reach.*.send 短信/邮件/
-//     企微等真实外发与 LLM 成本消耗），原挂载在普通 JWT 组，任意低权限登录用户
-//     均可触发，构成权限提升 + 资金/成本风险 → 收敛为 admin only。
-//   - /agent/tools/circuit/reset 影响全局熔断器状态，同样收敛为 admin only。
-//   - 只读端点（list/get/stats/audit/cost/providers）保留任意登录用户可访问。
 func setupToolDebugRoutes(auth *gin.RouterGroup) {
 	auth.GET("/agent/tools/list", handleToolList)
 	auth.GET("/agent/tools/get", handleToolGet)
@@ -41,18 +30,6 @@ func setupToolDebugRoutes(auth *gin.RouterGroup) {
 	}
 }
 
-
-// handleToolList 列出所有已注册工具
-//
-// 响应：
-//
-//	{
-//	  "success": true,
-//	  "total": 41,
-//	  "tools": [
-//	    {"name":"customer.search","category":"customer","description":"...","parameters":{...}}
-//	  ]
-//	}
 func handleToolList(c *gin.Context) {
 	registry := tooluse.GetGlobalRegistry()
 	if registry == nil {
@@ -81,10 +58,6 @@ func handleToolList(c *gin.Context) {
 	}, "ok")
 }
 
-
-// handleToolGet 按 name 查询单个工具详情
-//
-// 查询参数：?name=customer.search
 func handleToolGet(c *gin.Context) {
 	registry := tooluse.GetGlobalRegistry()
 	if registry == nil {
@@ -112,27 +85,15 @@ func handleToolGet(c *gin.Context) {
 	})
 }
 
-
-// toolExecuteRequest 执行工具请求体
 type toolExecuteRequest struct {
-	ToolName string         `json:"tool_name" binding:"required"`
-	Args     map[string]any `json:"args"`
-	AgentID    string `json:"agent_id"`
-	SessionID  string `json:"session_id"`
-	CustomerID string `json:"customer_id"`
-	Source     string `json:"source"` 
+	ToolName   string         `json:"tool_name" binding:"required"`
+	Args       map[string]any `json:"args"`
+	AgentID    string         `json:"agent_id"`
+	SessionID  string         `json:"session_id"`
+	CustomerID string         `json:"customer_id"`
+	Source     string         `json:"source"`
 }
 
-// handleToolExecute 执行单个工具
-//
-// 复用全局 ToolExecutor，走完整 8 层装饰器链
-// （权限 → 限流 → 熔断 → 参数校验 → 重试 → 超时 → 审计 → 计费）
-//
-// 安全控制：
-//   - 必须走 auth 路由组（已含 JWT 鉴权）
-//   - 单次单工具调用，不暴露批量
-//   - 全局 TokenBucket 限流（20 QPS / 突发 50）兜底
-//   - 30s 超时兜底
 func handleToolExecute(c *gin.Context) {
 	exec := tooluse.GetGlobalExecutor()
 	if exec == nil {
@@ -190,13 +151,6 @@ func handleToolExecute(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-
-// handleToolStats 获取 ToolRouter 全局统计
-//
-// 响应包含：
-//   - router_stats: ToolRouter 统计（TotalCalls/SuccessCalls/FailedCalls/RateLimitedCalls/CircuitOpenCalls/TotalCost）
-//   - registry_total: 注册中心工具总数
-//   - executor_available: 当前可用工具数（排除 disabled）
 func handleToolStats(c *gin.Context) {
 	registry := tooluse.GetGlobalRegistry()
 	exec := tooluse.GetGlobalExecutor()
@@ -221,13 +175,6 @@ func handleToolStats(c *gin.Context) {
 	response.Success(c, data, "ok")
 }
 
-
-// handleToolAudit 获取最近 N 条审计日志
-//
-// 查询参数：
-//
-//	?limit=100  返回条数（默认 100，最大 1000）
-//	?tool=xxx   按工具名过滤
 func handleToolAudit(c *gin.Context) {
 	limit := 100
 	if l := c.Query("limit"); l != "" {
@@ -270,8 +217,6 @@ func handleToolAudit(c *gin.Context) {
 	}, "ok")
 }
 
-
-// handleToolCost 获取计费统计
 func handleToolCost(c *gin.Context) {
 	memTracker := app.GetGlobalMemoryCostTracker()
 	if memTracker == nil {
@@ -289,15 +234,10 @@ func handleToolCost(c *gin.Context) {
 	}, "ok")
 }
 
-
-// toolCircuitResetRequest 重置熔断请求体
 type toolCircuitResetRequest struct {
 	ToolName string `json:"tool_name" binding:"required"`
 }
 
-// handleToolCircuitReset 重置指定工具的熔断状态
-//
-// 当某工具因连续失败被熔断后，运维可手动调用此端点立即解除熔断
 func handleToolCircuitReset(c *gin.Context) {
 	router := app.GetGlobalToolRouter()
 	if router == nil {
@@ -322,8 +262,6 @@ func handleToolCircuitReset(c *gin.Context) {
 	})
 }
 
-
-// atoiSafe 安全字符串转 int
 func atoiSafe(s string) (int, error) {
 	if s == "" {
 		return 0, errInvalidInteger
@@ -338,33 +276,12 @@ func atoiSafe(s string) (int, error) {
 	return n, nil
 }
 
-// errInvalidInteger 非法整数错误（避免引入 strconv 包开销）
 var errInvalidInteger = &simpleError{"invalid integer"}
 
 type simpleError struct{ msg string }
 
 func (e *simpleError) Error() string { return e.msg }
 
-
-// handleToolProviders 列出所有 ToolProvider 及其装配状态
-//
-// 响应：
-//
-//	{
-//	  "success": true,
-//	  "total_providers": 5,
-//	  "results": [
-//	    {
-//	      "provider_name": "reach",
-//	      "category": "reach",
-//	      "description": "多渠道触达工具（...）",
-//	      "registered_tools": ["reach.sms.send", ...],
-//	      "tool_count": 20,
-//	      "skipped": false,
-//	      "duration_ms": 12000000
-//	    }
-//	  ]
-//	}
 func handleToolProviders(c *gin.Context) {
 	if app.GetGlobalProviderRegistry() == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
@@ -411,4 +328,3 @@ func handleToolProviders(c *gin.Context) {
 		"results":          providerInfo,
 	}, "ok")
 }
-

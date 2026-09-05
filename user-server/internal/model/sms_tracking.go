@@ -13,7 +13,7 @@ const (
 	SmsStatusSent      = "sent"
 	SmsStatusDelivered = "delivered"
 	SmsStatusFailed    = "failed"
-	SmsStatusRetryable = "retryable" 
+	SmsStatusRetryable = "retryable"
 )
 
 // 短信错误码前缀
@@ -23,13 +23,13 @@ const (
 //   - ERR_4xxx：不可重试错误（号码无效、黑名单、内容违规等永久性故障）
 //   - ERR_5xxx：可重试但需延时（运营商限流）
 const (
-	SmsErrorCodeGatewayTimeout   = "ERR_6001" 
-	SmsErrorCodeProviderInternal = "ERR_5001" 
-	SmsErrorCodeRateLimited      = "ERR_5002" 
-	SmsErrorCodeInvalidPhone     = "ERR_4001" 
-	SmsErrorCodeBlacklisted      = "ERR_4002" 
-	SmsErrorCodeContentViolation = "ERR_4003" 
-	SmsErrorCodeSubscriberFreq   = "ERR_4004" 
+	SmsErrorCodeGatewayTimeout   = "ERR_6001"
+	SmsErrorCodeProviderInternal = "ERR_5001"
+	SmsErrorCodeRateLimited      = "ERR_5002"
+	SmsErrorCodeInvalidPhone     = "ERR_4001"
+	SmsErrorCodeBlacklisted      = "ERR_4002"
+	SmsErrorCodeContentViolation = "ERR_4003"
+	SmsErrorCodeSubscriberFreq   = "ERR_4004"
 )
 
 // SmsDeliveryStatus 短信送达状态记录
@@ -50,7 +50,7 @@ type SmsDeliveryStatus struct {
 	MaxRetry    int            `gorm:"default:3" json:"maxRetry"`
 	SentAt      *time.Time     `json:"sentAt"`
 	DeliveredAt *time.Time     `json:"deliveredAt"`
-	ReceivedAt  time.Time      `gorm:"not null" json:"receivedAt"` 
+	ReceivedAt  time.Time      `gorm:"not null" json:"receivedAt"`
 	CreatedAt   time.Time      `json:"createdAt"`
 	UpdatedAt   time.Time      `json:"updatedAt"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
@@ -94,4 +94,3 @@ type SmsJobMetric struct {
 func (*SmsJobMetric) TableName() string {
 	return "sms_job_metrics"
 }
-

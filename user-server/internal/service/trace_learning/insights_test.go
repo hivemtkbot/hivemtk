@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// —— L-2 经验沉淀测试 ——
-
 type fakeInsightLLM struct {
 	content string
 	err     error
@@ -32,12 +30,12 @@ func (f *fakeInsightLLM) Dispatch(ctx context.Context, req llm.DispatchRequest) 
 
 // TestShouldDistillInsight_ThresholdBoundary Bad(<60) 边界
 func TestShouldDistillInsight_ThresholdBoundary(t *testing.T) {
-	cfg := DefaultConfig() // BadThreshold=60
+	cfg := DefaultConfig()
 	assert.False(t, shouldDistillInsight(cfg, &EvalResult{Score: 60}), "score==60 不算 Bad")
 	assert.True(t, shouldDistillInsight(cfg, &EvalResult{Score: 59}), "score<60 应沉淀")
 	assert.True(t, shouldDistillInsight(cfg, &EvalResult{Score: 0, Bad: true}))
 	assert.False(t, shouldDistillInsight(cfg, nil))
-	// 阈值未配置时回退默认 60
+
 	cfgZero := Config{}
 	assert.False(t, shouldDistillInsight(cfgZero, &EvalResult{Score: 60}))
 }
@@ -48,7 +46,7 @@ func TestNormalizeInsight(t *testing.T) {
 	long := strings.Repeat("长", 300)
 	got := normalizeInsight(long)
 	require.Len(t, []rune(got), insightMaxLen)
-	// 换行折叠为空格
+
 	assert.Equal(t, "a b", normalizeInsight("a\nb"))
 }
 
@@ -60,12 +58,10 @@ func TestExtractErrorPattern(t *testing.T) {
 	assert.Equal(t, "未确认预算即报价导致流失", got)
 	assert.Equal(t, 1, fake.calls)
 
-	// 空 query/reply → ErrNoEvaluableContent，不调 LLM
 	_, err = ExtractErrorPattern(context.Background(), fake, llm.ScenarioHighQuality, &AggregatedTrace{})
 	assert.True(t, errors.Is(err, ErrNoEvaluableContent))
 	assert.Equal(t, 1, fake.calls)
 
-	// LLM 出错透传
 	fakeErr := &fakeInsightLLM{err: errors.New("timeout")}
 	_, err = ExtractErrorPattern(context.Background(), fakeErr, llm.ScenarioHighQuality, agg)
 	assert.Error(t, err)
@@ -101,12 +97,10 @@ func TestTopInsights_OrderAndDedup(t *testing.T) {
 	require.Len(t, got, 2, "应只含本行业且去重后 2 条")
 	assert.Equal(t, "新经验A", got[0], "最新优先")
 
-	// 无数据行业 → 空不报错
 	empty, err := TopInsights(ctx, db, "finance", 3)
 	require.NoError(t, err)
 	assert.Empty(t, empty)
 
-	// 行业为空 → 直接返回空（读侧契约：无行业不注入）
 	nilIndustry, err := TopInsights(ctx, db, "", 3)
 	require.NoError(t, err)
 	assert.Empty(t, nilIndustry)
@@ -115,7 +109,7 @@ func TestTopInsights_OrderAndDedup(t *testing.T) {
 // TestDistillInsightForTrace_SkipWithoutIndustry 未配置 Industry 时跳过沉淀（不写库）
 func TestDistillInsightForTrace_SkipWithoutIndustry(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.LearningInsight{})
-	svc := &Service{db: db, cfg: DefaultConfig()} // Industry 为空
+	svc := &Service{db: db, cfg: DefaultConfig()}
 
 	svc.distillInsightForTrace(context.Background(),
 		&AggregatedTrace{TraceID: "t-x", Query: "q", Reply: "r"},

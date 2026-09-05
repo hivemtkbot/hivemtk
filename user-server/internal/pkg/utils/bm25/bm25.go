@@ -44,4 +44,3 @@ func ScoreText(text string, terms []string) float64 {
 	}
 	return float64(hits) / float64(len(terms))
 }
-

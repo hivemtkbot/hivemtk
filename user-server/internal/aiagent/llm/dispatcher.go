@@ -135,7 +135,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 		if c, hit := d.getCache(ctx, req.CacheKey); hit {
 
 			if !d.testMode.Load() {
-				// R58: cache hit 也要 Carrier 优先取，避免 cache 命中时 trace_id 裸 logger
+
 				ctid := ""
 				if c := tracing.CarrierFromContext(ctx); c != nil {
 					ctid = c.TraceID
@@ -168,13 +168,10 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 	candidates := []string{activeRoute.Provider}
 	candidates = append(candidates, activeRoute.Fallbacks...)
 
-	// P1-8: Fan-out 并发模式（默认关闭，配置开启）
 	if req.FanOut != nil && req.FanOut.Enable && len(candidates) >= 2 {
 		return d.dispatchFanOut(ctx, req, activeRoute, candidates)
 	}
 
-	// 优先从 tracing.Carrier 获取稳定 tr-xxx（入口注入），
-	// fallback 到 logger context key（兼容旧路径）。
 	traceID := ""
 	if c := tracing.CarrierFromContext(ctx); c != nil {
 		traceID = c.TraceID
@@ -209,7 +206,6 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 			continue
 		}
 
-		// NEW-R1: context_window 自动降级
 		if provider.ContextWindow > 0 {
 			estimatedTokens := estimateRequestTokens(req)
 			if estimatedTokens > provider.ContextWindow {
@@ -316,9 +312,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 	}
 
 	if lastErr == nil {
-		// v3 审计 P1-38 修复：无兜底 provider 时也必须告警
-		// 原：直接 return degradedReply(req), nil → 业务以为成功，告警永远不触发
-		// 新：显式告警 "no providers available" + 返回降级回复
+
 		logger.Warnf("[LLM] scenario=%s 无可用 provider（全部被熔断/限流跳过），返回降级回复 trace_id=%s", req.Scenario, traceID)
 		AlertAllProvidersFailed(string(req.Scenario), fmt.Errorf("no available provider"), traceID)
 		return degradedReply(req), nil
@@ -392,7 +386,6 @@ func (h LoggingAlertHook) OnAllProvidersFailed(scenario string, err error, trace
 	}
 }
 
-// record 写一条
 func (s *InMemoryAlertSink) record(ev AlertEvent) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

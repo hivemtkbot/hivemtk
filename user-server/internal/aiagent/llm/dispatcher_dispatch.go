@@ -104,7 +104,7 @@ func (d *Dispatcher) pickEnabledFallback(route *ScenarioRoute) string {
 }
 
 func degradedReply(req DispatchRequest) *DispatchResult {
-	// M11：按场景差异化模板 + 轮换；显式定制的 TemplateReply 仍优先
+
 	tmpl := ""
 	if fo := GetGlobalFailover(); fo != nil {
 		tmpl = ResolveDegradedTemplate(req.Scenario, fo.Config().TemplateReply)
@@ -126,7 +126,6 @@ func degradedReply(req DispatchRequest) *DispatchResult {
 	}
 }
 
-// callProvider 调用 provider
 func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig, req DispatchRequest, route *ScenarioRoute) (*DispatchResult, error) {
 
 	if provider.APIKey == "" {
@@ -190,11 +189,6 @@ func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig,
 
 	}
 
-	// === Trace 注入（2026-09-03 R56 追踪链补全）：callProvider 是所有 LLM 调用的唯一入口，
-	// 此处注入 PublishLLMCall 把 LLM 调用 span 写入 trace_events 表，打通
-	// InMemoryTraceBus → DBTraceSink → trace_events 的完整链路。 ===
-	// traceID 优先从 tracing.Carrier 获取（业务入口注入的稳定 tr-xxx），
-	// fallback 到 logger context key（兼容旧路径/测试场景）。
 	traceID := ""
 	if c := tracing.CarrierFromContext(ctx); c != nil {
 		traceID = c.TraceID
@@ -210,7 +204,6 @@ func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig,
 	result, err := d.llmService.GenerateWithTools(ctx, config, req.Prompt)
 	latency := int(time.Since(start).Milliseconds())
 
-	// 无论成功失败都发布 LLM span
 	llmStatus := "ok"
 	llmErrMsg := ""
 	if err != nil {
@@ -251,7 +244,6 @@ func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig,
 	estimator := ClassifyEstimator(tokenSource)
 	promptCost, completionCost := splitCost(cost, promptTokens, completionTokens, totalTokens)
 
-	// 填充 Usage（来自 LLM 真实响应；零值时省略）
 	var usage TokenUsage
 	if result.Usage.TotalTokens > 0 {
 		usage = TokenUsage{
@@ -302,15 +294,6 @@ func (d *Dispatcher) DispatchStructured(ctx context.Context, req DispatchRequest
 	return result, nil
 }
 
-// estimateTokens 估算 token 数（仅作为 LLM 未返回 usage 时的兜底，标记 token_source=estimated）
-//
-// 估算公式：
-//   - 中文字符（U+4E00~U+9FFF）：每字符计 1 token
-//   - 其他字符（ASCII/标点/空白）：每 4 字节计 1 token（UTF-8 编码下英文为 1 字节/字符）
-//
-// 注意：本函数仅为兜底，优先使用 LLM 真实 Usage（token_source=actual）。
-// 本地 llama-server / vLLM / Ollama 等主流推理栈均默认返回 usage 字段，
-// 实际生产中 estimated 路径极少触发，missing 路径触发即告警。
 func estimateTokens(text string) int {
 	if text == "" {
 		return 0
@@ -414,10 +397,8 @@ func (d *Dispatcher) DispatchMultiModel(ctx context.Context, req DispatchRequest
 	return results, nil
 }
 
-// voteAgreementThreshold 投票判定阈值：两答案归一化后 bigram-Jaccard 相似度 ≥ 此值视为"一致"
 const voteAgreementThreshold = 0.80
 
-// normalizeVoteText 投票文本归一化：小写+折叠全部空白+NFC 近似（去零宽字符）
 func normalizeVoteText(s string) string {
 	var b strings.Builder
 	b.Grow(len(s))
@@ -425,7 +406,7 @@ func normalizeVoteText(s string) string {
 		switch {
 		case unicode.IsSpace(r):
 			b.WriteByte(' ')
-		case unicode.Is(unicode.Cf, r): // 零宽字符等格式字符
+		case unicode.Is(unicode.Cf, r):
 		default:
 			b.WriteRune(unicode.ToLower(r))
 		}
@@ -433,7 +414,6 @@ func normalizeVoteText(s string) string {
 	return strings.Join(strings.Fields(b.String()), " ")
 }
 
-// bigramJaccard 字符 bigram Jaccard 相似度（无外部依赖，中文友好）
 func bigramJaccard(a, b string) float64 {
 	if a == b {
 		return 1
@@ -494,7 +474,6 @@ func (d *Dispatcher) MultiModelVote(results []*DispatchResult) string {
 		}
 	}
 
-	// 每个候选的"支持数"：与自身一致的答案数量
 	support := make([]int, len(results))
 	for i := range norms {
 		for j := range norms {
@@ -504,7 +483,6 @@ func (d *Dispatcher) MultiModelVote(results []*DispatchResult) string {
 		}
 	}
 
-	// 多数派判定：support+自身 > 半数
 	majoritySize := len(results)/2 + 1
 	bestIdx, bestQuality := -1, -1.0
 	hasMajority := false
@@ -523,7 +501,7 @@ func (d *Dispatcher) MultiModelVote(results []*DispatchResult) string {
 		}
 		logger.Debugf("[LLM] MultiModelVote 多数派命中: %d/%d", support[bestIdx]+1, len(results))
 	} else {
-		// 回退：质量分最高（原行为保底），并记录分歧率供观测
+
 		for i := range results {
 			if quality[i] > bestQuality {
 				bestQuality = quality[i]

@@ -285,4 +285,3 @@ func (c *MaterialController) GetMaterialSelector(ctx *gin.Context) {
 	}
 	response.Success(ctx, resp, "success")
 }
-

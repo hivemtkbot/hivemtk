@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-
 // FollowUpScheduleOptions 跟进任务选项投影。
 //
 // 与 service.ScheduleOptions 字段对齐（Title/Description/Priority 三个核心字段）。
@@ -30,4 +29,3 @@ type FollowUpPort interface {
 	Cancel(reminderID string) error
 	ResultInfo(result string) (stage string, ok bool)
 }
-

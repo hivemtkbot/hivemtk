@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupXianyuCardServiceTestDB 设置闲鱼卡片服务测试数据库
 func setupXianyuCardServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.XianyuCard{},

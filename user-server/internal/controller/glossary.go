@@ -12,7 +12,6 @@ import (
 	"hivemtk-user/internal/service/translation"
 )
 
-
 // GlossaryController 术语表管理控制器
 type GlossaryController struct {
 	svc       *translation.GlossaryService
@@ -126,7 +125,7 @@ func (ctrl *GlossaryController) Update(c *gin.Context) {
 		response.ErrorFromDB(c, err, "查询失败", err.Error())
 		return
 	}
-	// 以路径 term_id 为准（忽略 body 中的 term_id，避免误改唯一键）
+
 	var req dto.GlossaryUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "请求参数错误", err.Error())
@@ -190,4 +189,3 @@ func (ctrl *GlossaryController) Validate(c *gin.Context) {
 	}
 	response.Success(c, resp, "校验完成")
 }
-

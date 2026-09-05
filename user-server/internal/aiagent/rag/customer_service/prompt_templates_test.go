@@ -1,6 +1,5 @@
 package ragcustomerservice
 
-
 import (
 	"strings"
 	"testing"
@@ -81,4 +80,3 @@ func TestMultilingualSystemPromptTemplate_StringConstant(t *testing.T) {
 	assert.Contains(t, MultilingualSystemPromptTemplate, "{{.GlossaryBlock}}")
 	assert.Contains(t, MultilingualSystemPromptTemplate, "{{.FewShotBlock}}")
 }
-

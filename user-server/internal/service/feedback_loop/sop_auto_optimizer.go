@@ -20,7 +20,7 @@ type SOPAutoOptimizer struct {
 	db      *gorm.DB
 	repo    *repository.FeedbackLoopRepository
 	bandit  BanditAllocatorInterface
-	gateLLM gateLLM // L-1 验证门：nil 时黄金回归门 fail-closed（不自动应用）
+	gateLLM gateLLM
 	config  SOPAutoOptimizerConfig
 }
 
@@ -46,10 +46,6 @@ func NewSOPAutoOptimizer(db *gorm.DB, bandit BanditAllocatorInterface, cfg SOPAu
 	}
 }
 
-// getRepo 获取 repository
-//
-// 兼容测试中直接构造 &SOPAutoOptimizer{db: db} 的场景：此时 repo 为 nil，
-// 通过 db 懒加载 repository。生产路径在构造函数中已设置 repo。
 func (o *SOPAutoOptimizer) getRepo() *repository.FeedbackLoopRepository {
 	if o.repo == nil && o.db != nil {
 		o.repo = repository.NewFeedbackLoopRepositoryWithDB(o.db)
@@ -81,8 +77,7 @@ func (o *SOPAutoOptimizer) ProcessPendingSuggestions(ctx context.Context) (*dto.
 	report.PendingCount = len(autoApply)
 
 	for i := range autoApply {
-		// L-1 验证门：候选须过结构/合规/黄金回归门后才允许自动应用（dry_run→gate→apply）。
-		// 近期已检查且未过的建议跳过，防止 cron 每轮重复烧 LLM。
+
 		if o.recentlyGateChecked(&autoApply[i]) {
 			continue
 		}
@@ -110,9 +105,6 @@ func (o *SOPAutoOptimizer) ProcessPendingSuggestions(ctx context.Context) (*dto.
 	return report, nil
 }
 
-// autoApply 自动应用建议
-//
-// 根据 SuggestionType 分发到对应处理函数
 func (o *SOPAutoOptimizer) autoApply(ctx context.Context, sug *model.OptimizationSuggestion) error {
 	switch sug.SuggestionType {
 	case model.SuggestionTypePromptRewrite:
@@ -131,35 +123,26 @@ func (o *SOPAutoOptimizer) autoApply(ctx context.Context, sug *model.Optimizatio
 	return fmt.Errorf("unknown suggestion type: %s", sug.SuggestionType)
 }
 
-// applyBranchPrune 自动剪枝：克隆 SOP 为 variant B（真实删节点）+ 创建 A/B 测试
 func (o *SOPAutoOptimizer) applyBranchPrune(ctx context.Context, sug *model.OptimizationSuggestion) error {
 	return o.getRepo().CloneSOPAndCreateABTestMutated(ctx, sug.SOPID, " [优化-剪枝]", "branch_prune", SOPGraphMutatorForExperiment("branch_prune"))
 }
 
-// applyNodeMerge 合并相邻 message 节点（创建 SOP 变体 + AB 测试，真实落地）
 func (o *SOPAutoOptimizer) applyNodeMerge(ctx context.Context, sug *model.OptimizationSuggestion) error {
 	return o.getRepo().CloneSOPAndCreateABTestMutated(ctx, sug.SOPID, " [优化-节点合并]", "node_merge", SOPGraphMutatorForExperiment("node_merge"))
 }
 
-// applyAddObjection 注入异议处理子分支（创建 SOP 变体 + AB 测试，真实落地）
 func (o *SOPAutoOptimizer) applyAddObjection(ctx context.Context, sug *model.OptimizationSuggestion) error {
 	return o.getRepo().CloneSOPAndCreateABTestMutated(ctx, sug.SOPID, " [优化-异议处理]", "add_objection", SOPGraphMutatorForExperiment("add_objection"))
 }
 
-// applyAddEmpathy 修改 LLM/message 节点 prompt 补充共情（创建 SOP 变体 + AB 测试，真实落地）
 func (o *SOPAutoOptimizer) applyAddEmpathy(ctx context.Context, sug *model.OptimizationSuggestion) error {
 	return o.getRepo().CloneSOPAndCreateABTestMutated(ctx, sug.SOPID, " [优化-共情补充]", "add_empathy", SOPGraphMutatorForExperiment("add_empathy"))
 }
 
-// applyTimingAdjust 调整 wait 节点 duration（创建 SOP 变体 + AB 测试，真实落地）
 func (o *SOPAutoOptimizer) applyTimingAdjust(ctx context.Context, sug *model.OptimizationSuggestion) error {
 	return o.getRepo().CloneSOPAndCreateABTestMutated(ctx, sug.SOPID, " [优化-时机调整]", "timing_adjust", SOPGraphMutatorForExperiment("timing_adjust"))
 }
 
-// applyPromptRewrite R55 T1：LLM 节点转化率低 → 用 LLM 重写该节点 prompt，克隆为 variant B
-//
-// 此前该类型建议直接 return nil（静默吞掉），建议应用数虚低且闭环缺失。
-// 重写失败（LLM 不可用/节点不存在）返回错误，由上层转人工审核，不静默。
 func (o *SOPAutoOptimizer) applyPromptRewrite(ctx context.Context, sug *model.OptimizationSuggestion) error {
 	if o.gateLLM == nil {
 		return fmt.Errorf("prompt_rewrite 需要 LLM 能力，当前未注入 dispatcher")
@@ -172,7 +155,6 @@ func (o *SOPAutoOptimizer) applyPromptRewrite(ctx context.Context, sug *model.Op
 	return o.getRepo().CloneSOPAndCreateABTestMutated(ctx, sug.SOPID, " [优化-Prompt重写]", "prompt_rewrite", mutator)
 }
 
-// rewriteNodePrompt 用 LLM 依据建议文本重写节点 prompt
 func (o *SOPAutoOptimizer) rewriteNodePrompt(ctx context.Context, sug *model.OptimizationSuggestion) (string, error) {
 	systemPrompt := `你是销售 SOP 优化专家。给定一个 LLM 节点的当前 prompt 和优化建议，输出改进后的完整 prompt。
 要求：保留原有业务意图与合规边界；按建议落实改进；输出仅含新 prompt 正文，不要解释。`
@@ -198,11 +180,6 @@ func (o *SOPAutoOptimizer) rewriteNodePrompt(ctx context.Context, sug *model.Opt
 	return out, nil
 }
 
-// checkAndRollback 检查 A/B 测试是否需要回滚
-//
-// 回滚条件：
-//  1. 实验组 vs 对照组转化率下降 > RollbackDropThreshold（20%）
-//  2. 实验组 vs 对照组投诉率上升 > RollbackComplaintRatio（50%）
 func (o *SOPAutoOptimizer) checkAndRollback(ctx context.Context, report *dto.OptimizationReport) {
 	tests, err := o.getRepo().ListRunningABTestsByType(ctx, model.BanditExperimentTypeSOPVariant)
 	if err != nil {
@@ -230,7 +207,6 @@ func (o *SOPAutoOptimizer) checkAndRollback(ctx context.Context, report *dto.Opt
 	}
 }
 
-// checkAndPromote 检查 A/B 测试是否可以收敛选优
 func (o *SOPAutoOptimizer) checkAndPromote(ctx context.Context, report *dto.OptimizationReport) {
 	if o.bandit == nil {
 		return
@@ -261,11 +237,6 @@ func (o *SOPAutoOptimizer) checkAndPromote(ctx context.Context, report *dto.Opti
 	}
 }
 
-// fetchConversionRates 拉取对照组/实验组的转化率
-//
-// 基于 feedback_signals 表：
-//   - 对照组：variant=A, outcome=success 的占比
-//   - 实验组：variant=B, outcome=success 的占比
 func (o *SOPAutoOptimizer) fetchConversionRates(ctx context.Context, testID uint) (controlRate, experimentRate float64) {
 	repo := o.getRepo()
 	test, err := repo.GetPromptABTest(ctx, testID)
@@ -285,10 +256,6 @@ func (o *SOPAutoOptimizer) fetchConversionRates(ctx context.Context, testID uint
 	return controlRate, experimentRate
 }
 
-// fetchComplaintRates 拉取对照组/实验组的投诉率
-//
-// 基于 feedback_events 表：
-//   - 投诉率 = signal_key='complaint' 事件数 / 总事件数
 func (o *SOPAutoOptimizer) fetchComplaintRates(ctx context.Context, testID uint) (controlRate, experimentRate float64) {
 	repo := o.getRepo()
 	test, err := repo.GetPromptABTest(ctx, testID)
@@ -308,11 +275,6 @@ func (o *SOPAutoOptimizer) fetchComplaintRates(ctx context.Context, testID uint)
 	return controlRate, experimentRate
 }
 
-// rollbackTest 回滚 A/B 测试
-//
-// 1. test.status = rolled_back
-// 2. 所有 bandit_arms status = retired, retired_at = NOW()
-// 3. 记录 retired_reason（reason 参数保留用于日志/未来扩展，当前未持久化）
 func (o *SOPAutoOptimizer) rollbackTest(ctx context.Context, testID uint, reason string) error {
 	return o.getRepo().RollbackABTest(ctx, testID)
 }

@@ -12,7 +12,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 // GetDocumentChunks 列出文档分段（支持分页）。
 //
 // token 可选：携带外部系统 API Token 时校验文档归属是否与授权产品一致
@@ -45,7 +44,7 @@ func (s *KnowledgeMerchantService) GetDocumentChunks(ctx context.Context, docume
 type UpdateChunkRequest struct {
 	ChunkID uint64 `json:"chunk_id"`
 	Content string `json:"content"`
-	Token   string `json:"-"` 
+	Token   string `json:"-"`
 }
 
 // UpdateChunk 更新分段
@@ -74,7 +73,7 @@ func (s *KnowledgeMerchantService) UpdateChunk(ctx context.Context, req *UpdateC
 	chunk.TokenCount = len(strings.Fields(req.Content))
 	h := sha256.Sum256([]byte(req.Content))
 	chunk.ContentHash = hex.EncodeToString(h[:])
-	chunk.EmbeddingID = "" 
+	chunk.EmbeddingID = ""
 	if err := s.chunkRepo.Update(ctx, chunk); err != nil {
 		return err
 	}
@@ -155,4 +154,3 @@ func (s *KnowledgeMerchantService) SplitChunk(ctx context.Context, req *SplitChu
 	}
 	return nil
 }
-

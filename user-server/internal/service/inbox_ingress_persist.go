@@ -10,8 +10,8 @@ import (
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
-	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/pkg/tracing"
+	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/websocket"
 )
@@ -94,9 +94,6 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 		hub.Extra["history"] = event.History
 	}
 
-	// 非侵入钩子：消息成功落库后，异步投递线索发掘（不阻塞/不入侵核心业务）。
-	// 用 persisted 标记仅在落库成功时触发一次；defer + recover 保证任何异常都不影响主链路。
-	// R55 T6: 同钩子追加坐席 WS 实时广播——消息中心/聚合收件箱无需手动刷新即见新消息。
 	var persisted bool
 	defer func() {
 		if !persisted || hub == nil {
@@ -120,9 +117,7 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 				"content":         hub.Content,
 				"sent_at":         hub.SentAt,
 			})
-			// R58 Bug#3 修复：客户 inbound 消息落库成功后，标记最近一条 feedback_record 的 customer_accept=true
-			// 设计：AI 生成回复时 CustomerAccept 默认 false（未知客户是否接受），
-			// 客户下一条消息 = 接受了 AI 回复。此钩子让自学习闭环拿到有效信号。
+
 			if hub.Direction == "inbound" && event.SessionID != "" {
 				if gdb := db.GetDB(); gdb != nil {
 					recRepo := repository.NewFeedbackRecordRepository(gdb)
@@ -332,7 +327,6 @@ func (s *InboxIngressService) PersistBridgeHistory(ctx context.Context, event *m
 	return s.persistHistoryMessage(ctx, event, direction)
 }
 
-// persistHistoryMessage 持久化消息，Direction 由调用方显式传入（区别于 persistMessage 硬编码 inbound）。
 func (s *InboxIngressService) persistHistoryMessage(ctx context.Context, event *model.MessageEvent, direction string) error {
 	if s.hubRepo == nil {
 		return nil
@@ -384,7 +378,6 @@ func (s *InboxIngressService) persistHistoryMessage(ctx context.Context, event *
 		return err
 	}
 
-	// Phase 1: SSE 事件驱动通知（仅 outbound，异步不阻塞）
 	if direction == "outbound" && GlobalSSEPublisher != nil && hub.ID != 0 {
 		logger.Ctx(ctx).Debug().
 			Int("hub_id", int(hub.ID)).

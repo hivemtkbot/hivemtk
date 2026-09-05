@@ -7,7 +7,7 @@ type KuaishouCardStatsRequest struct {
 	CardID    uint      `form:"cardId" json:"cardId" binding:"required"`
 	StartDate time.Time `form:"startDate" json:"startDate"`
 	EndDate   time.Time `form:"endDate" json:"endDate"`
-	GroupBy   string    `form:"groupBy" json:"groupBy"` 
+	GroupBy   string    `form:"groupBy" json:"groupBy"`
 }
 
 // KuaishouCardStatsResponse 快手卡片统计数据响应
@@ -22,7 +22,7 @@ type KuaishouCardStatsResponse struct {
 type KuaishouCardOverallStatsRequest struct {
 	StartDate time.Time `form:"startDate" json:"startDate"`
 	EndDate   time.Time `form:"endDate" json:"endDate"`
-	GroupBy   string    `form:"groupBy" json:"groupBy"` 
+	GroupBy   string    `form:"groupBy" json:"groupBy"`
 	Limit     int       `form:"limit" json:"limit"`
 }
 
@@ -49,10 +49,9 @@ type KuaishouActivity struct {
 	ID        uint      `json:"id"`
 	CardID    uint      `json:"cardId"`
 	CardTitle string    `json:"cardTitle"`
-	Action    string    `json:"action"` 
+	Action    string    `json:"action"`
 	UserIP    string    `json:"userIp"`
 	UserAgent string    `json:"userAgent"`
 	ExtraData string    `json:"extraData"`
 	CreatedAt time.Time `json:"createdAt"`
 }
-

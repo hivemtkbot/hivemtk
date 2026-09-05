@@ -46,8 +46,6 @@ func HandleServiceError(ctx *gin.Context, err error) bool {
 	return true
 }
 
-// isNotFoundError 判断错误是否表示记录不存在
-// 使用字符串匹配而非 gorm.ErrRecordNotFound，避免 controller 层依赖 gorm
 func isNotFoundError(err error) bool {
 	msg := err.Error()
 	return strings.Contains(msg, "不存在") || strings.Contains(msg, "not found")
@@ -57,4 +55,3 @@ func isNotFoundError(err error) bool {
 func IsNotFoundError(err error) bool {
 	return isNotFoundError(err)
 }
-

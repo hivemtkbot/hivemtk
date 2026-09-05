@@ -48,4 +48,3 @@ func TestCalculateRelevance_ShortKeywordsSkipped(t *testing.T) {
 		t.Errorf("expected <= 0.3 for short keywords, got %v", score)
 	}
 }
-

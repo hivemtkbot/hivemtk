@@ -17,7 +17,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupCustomReportTestDB 设置测试数据库
 func setupCustomReportTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.CustomReport{},
@@ -27,7 +26,6 @@ func setupCustomReportTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// setupCustomReportRouter 设置测试路由
 func setupCustomReportRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 
@@ -568,4 +566,3 @@ func TestCustomReportController_QueryReportData(t *testing.T) {
 		})
 	}
 }
-

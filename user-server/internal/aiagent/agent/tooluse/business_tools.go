@@ -13,14 +13,12 @@ import (
 	"hivemtk-user/internal/aiagent/agent/portcontract"
 )
 
-
-
 // BusinessToolDeps 业务工具依赖
 //
 // 方法统一走 portcontract 各 Port；未注入的 Port 对应工具返回 "port not injected"。
 type BusinessToolDeps struct {
-	FollowUp portcontract.FollowUpPort
-	Order portcontract.OrderPort
+	FollowUp  portcontract.FollowUpPort
+	Order     portcontract.OrderPort
 	AfterSale portcontract.AfterSalePort
 	Logistics portcontract.LogisticsPort
 }
@@ -58,22 +56,18 @@ func NewBusinessToolDepsWithLogistics(followUp portcontract.FollowUpPort, order 
 	return d
 }
 
-// followUpPort 返回 FollowUp Port（未注入返回 nil，工具以 "port not injected" 应答）
 func (d BusinessToolDeps) followUpPort() portcontract.FollowUpPort {
 	return d.FollowUp
 }
 
-// orderPort 返回 Order Port（未注入返回 nil）
 func (d BusinessToolDeps) orderPort() portcontract.OrderPort {
 	return d.Order
 }
 
-// afterSalePort 返回 AfterSale Port（未注入返回 nil）
 func (d BusinessToolDeps) afterSalePort() portcontract.AfterSalePort {
 	return d.AfterSale
 }
 
-// logisticsOrFallback 返回 Logistics Port 或回退到 NoopLogisticsPort（保证工具可用）
 func (d BusinessToolDeps) logisticsOrFallback() portcontract.LogisticsPort {
 	if d.Logistics != nil {
 		return d.Logistics
@@ -81,13 +75,6 @@ func (d BusinessToolDeps) logisticsOrFallback() portcontract.LogisticsPort {
 	return portcontract.NewNoopLogisticsPort()
 }
 
-// reminderAnyToMap 通过反射把 any（*model.Reminder）转回 map，避免工具层对
-// service.Reminder 类型强依赖。portcontract.FollowUpPort.Schedule 故意返回 any，
-// 原因：工具层不应 import service.Reminder；具体类型在 service 侧，由反射统一抽取。
-//
-// 对 `ID` 字段额外提供
-// `reminder_id` 别名（snake_case 转换后是 `id`），保证 `follow_task.create` 工具输出
-// 与既有调用方期望一致；type 字段名不变（snake_case 后仍是 `type`）。
 func reminderAnyToMap(v any) map[string]any {
 	out := map[string]any{
 		"message": "跟进任务已创建",
@@ -153,7 +140,6 @@ func reminderAnyToMap(v any) map[string]any {
 	return out
 }
 
-// snakeCaseFieldName 把 CamelCase 字段名转为 snake_case（ID → id，CustomerID → customer_id）
 func snakeCaseFieldName(name string) string {
 	var b strings.Builder
 	for i, r := range name {
@@ -206,7 +192,6 @@ func MustRegisterBusinessTools(registry *ToolRegistry, deps BusinessToolDeps) {
 		panic(err)
 	}
 }
-
 
 // FollowTaskCreateTool 创建跟进任务工具
 type FollowTaskCreateTool struct {
@@ -313,7 +298,6 @@ func (t *FollowTaskCreateTool) Execute(ctx context.Context, args map[string]any)
 	return SuccessResult(t.Name(), reminderMap), nil
 }
 
-
 // FollowTaskUpdateTool 更新跟进任务工具
 type FollowTaskUpdateTool struct {
 	BaseTool
@@ -403,7 +387,6 @@ func (t *FollowTaskUpdateTool) Execute(ctx context.Context, args map[string]any)
 	}
 }
 
-
 // OrderLookupTool 订单查询工具
 type OrderLookupTool struct {
 	BaseTool
@@ -476,7 +459,6 @@ func (t *OrderLookupTool) Execute(ctx context.Context, args map[string]any) (Too
 	}), nil
 }
 
-
 // AfterSaleCreateTool 创建售后工具
 type AfterSaleCreateTool struct {
 	BaseTool
@@ -546,7 +528,6 @@ func (t *AfterSaleCreateTool) Execute(ctx context.Context, args map[string]any) 
 	}), nil
 }
 
-
 // AfterSaleQueryTool 查询售后工具
 type AfterSaleQueryTool struct {
 	BaseTool
@@ -595,7 +576,6 @@ func (t *AfterSaleQueryTool) Execute(ctx context.Context, args map[string]any) (
 		"after_sales": views,
 	}), nil
 }
-
 
 // LogisticsTrackTool 物流轨迹查询工具
 type LogisticsTrackTool struct {
@@ -649,4 +629,3 @@ func (t *LogisticsTrackTool) Execute(ctx context.Context, args map[string]any) (
 	}
 	return SuccessResult(t.Name(), res), nil
 }
-

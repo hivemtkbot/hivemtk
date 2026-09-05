@@ -103,4 +103,3 @@ func (c *QuickReplyController) GetReplyCategories(ctx *gin.Context) {
 
 	response.Success(ctx, categories, "获取成功")
 }
-

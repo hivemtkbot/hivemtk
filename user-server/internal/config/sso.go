@@ -18,7 +18,7 @@ package config
 //	      default_role: "user"
 //	      scopes: ["openid", "profile", "email"]
 type SSOConfig struct {
-	Enabled   bool                        `yaml:"enabled" json:"enabled"`
+	Enabled   bool                         `yaml:"enabled" json:"enabled"`
 	Providers map[string]SSOProviderConfig `yaml:"providers" json:"providers"`
 }
 

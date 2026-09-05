@@ -42,7 +42,6 @@ func anomaliesHandler(c *gin.Context) {
 	response.Success(c, a, "success")
 }
 
-// nodeHealthHandler 按渠道 × 节点聚合：响应时间(avg/p95) + 异常率（多渠道特性）。
 func nodeHealthHandler(c *gin.Context) {
 	nh, err := NodeHealthByChannel(c.Request.Context())
 	if err != nil {
@@ -52,7 +51,6 @@ func nodeHealthHandler(c *gin.Context) {
 	response.Success(c, gin.H{"nodes": nh, "window": nodeHealthWindow.String()}, "success")
 }
 
-// latencyHandler 按渠道端到端时延（上报接入 → 送达确认）。
 func latencyHandler(c *gin.Context) {
 	l, err := LifecycleLatencyByChannel(c.Request.Context())
 	if err != nil {
@@ -62,8 +60,6 @@ func latencyHandler(c *gin.Context) {
 	response.Success(c, l, "success")
 }
 
-// lifecycleHandler 还原某会话/某轮的业务链路节点（入参/出参/响应时间/预期/异常 + 节点间时延）。
-// 查询参数：conversation_id（会话级）或 trace_id（轮次级），可选 limit。
 func lifecycleHandler(c *gin.Context) {
 	conv := c.Query("conversation_id")
 	tid := c.Query("trace_id")
@@ -100,8 +96,6 @@ func tracesHandler(c *gin.Context) {
 	response.Success(c, ts, "success")
 }
 
-// traceTreeHandler 取任意一条消息 / 单轮对话的完整链路明细（生命周期节点 + agent 多轮 + 多工具）。
-// 查询参数：trace_id（轮次级）> msg_id（反查）> conversation_id（最近一轮）。
 func traceTreeHandler(c *gin.Context) {
 	tid := c.Query("trace_id")
 	conv := c.Query("conversation_id")
@@ -113,4 +107,3 @@ func traceTreeHandler(c *gin.Context) {
 	}
 	response.Success(c, tree, "success")
 }
-

@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"errors"
@@ -11,12 +10,10 @@ import (
 	"time"
 )
 
-
-// mockRerankerInstance 可控的 RerankerInterface 实现
 type mockRerankerInstance struct {
 	mu           sync.Mutex
 	callCount    int32
-	scores       map[string]float64 
+	scores       map[string]float64
 	err          error
 	latency      time.Duration
 	recordInputs bool
@@ -52,7 +49,7 @@ func (m *mockRerankerInstance) Rerank(ctx context.Context, query string, docs []
 	for _, d := range docs {
 		s, ok := m.scores[d.ID]
 		if !ok {
-			s = 0.5 
+			s = 0.5
 		}
 		out = append(out, RerankResult{ID: d.ID, Score: s})
 	}
@@ -65,7 +62,6 @@ func (m *mockRerankerInstance) setErr(err error) {
 	m.err = err
 	m.mu.Unlock()
 }
-
 
 // 1) TestCrossEncoderRerank_Basic 基本重排
 func TestCrossEncoderRerank_Basic(t *testing.T) {
@@ -163,7 +159,6 @@ func TestCrossEncoderRerank_CacheHit(t *testing.T) {
 	}
 }
 
-
 // 5) TestRRFReranker_BasicMultiSource 多路 RRF 融合
 func TestRRFReranker_BasicMultiSource(t *testing.T) {
 	r := NewRRFReranker(60, nil)
@@ -223,7 +218,6 @@ func TestRRFReranker_CustomK(t *testing.T) {
 	}
 }
 
-
 // 9) TestHybridRerank_WithCrossEncoder 混合策略（含 Cross-Encoder）
 func TestHybridRerank_WithCrossEncoder(t *testing.T) {
 	mock := newMockReranker(map[string]float64{
@@ -260,7 +254,7 @@ func TestHybridRerank_NoDelegate(t *testing.T) {
 	docs := []RetrievedDoc{
 		{ID: "d1", Score: 0.9, Source: "vector"},
 		{ID: "d2", Score: 0.7, Source: "bm25"},
-		{ID: "d1", Score: 5.0, Source: "bm25"}, 
+		{ID: "d1", Score: 5.0, Source: "bm25"},
 	}
 	ranked, err := reranker.Rerank(context.Background(), "q", docs, 5)
 	if err != nil {
@@ -311,7 +305,6 @@ func TestHybridRerank_TopKRespected(t *testing.T) {
 		t.Errorf("topK=5 should return 5, got %d", len(ranked))
 	}
 }
-
 
 // 13) TestClampTopK topK 限制（≤20，≤0 用默认）
 func TestClampTopK(t *testing.T) {
@@ -372,7 +365,7 @@ func TestCache_Eviction(t *testing.T) {
 	c.Set("k1", 1.0)
 	c.Set("k2", 2.0)
 	c.Set("k3", 3.0)
-	c.Set("k4", 4.0) 
+	c.Set("k4", 4.0)
 	if c.Len() != 3 {
 		t.Errorf("Len=%d want=3 (cap)", c.Len())
 	}
@@ -390,7 +383,6 @@ func TestCacheKey(t *testing.T) {
 		t.Errorf("same query+doc should produce same key")
 	}
 }
-
 
 // 19) TestAdapter_Basic 适配器把 Reranker 转 RerankerInterface
 func TestAdapter_Basic(t *testing.T) {
@@ -553,7 +545,7 @@ func TestTrimStrategyName(t *testing.T) {
 	}
 	long := "this_is_a_very_long_strategy_name_that_exceeds_32_chars"
 	got := TrimStrategyName(long)
-	if len(got) > 35 { 
+	if len(got) > 35 {
 		t.Errorf("should be truncated, got len=%d", len(got))
 	}
 }
@@ -569,7 +561,7 @@ func TestRankedDoc_String(t *testing.T) {
 
 // 29) TestScorer_NilContext 未初始化 scorer 报错
 func TestScorer_NilContext(t *testing.T) {
-	scorer := &CrossEncoderScorer{} 
+	scorer := &CrossEncoderScorer{}
 	_, err := scorer.Score(context.Background(), "q", []RetrievedDoc{{ID: "d1"}})
 	if err == nil {
 		t.Errorf("should error on nil delegate")
@@ -617,11 +609,9 @@ func TestCache_ConcurrentSafe(t *testing.T) {
 	wg.Wait()
 }
 
-// absFloat 浮点绝对值（避免与 rrf_fusion_test.go 的 abs 冲突）
 func absFloat(x float64) float64 {
 	if x < 0 {
 		return -x
 	}
 	return x
 }
-

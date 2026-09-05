@@ -95,4 +95,3 @@ func TestLiveCodeListResponse_Fields(t *testing.T) {
 		t.Errorf("Expected empty List, got %d items", len(resp.List))
 	}
 }
-

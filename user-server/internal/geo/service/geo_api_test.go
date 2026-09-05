@@ -41,7 +41,7 @@ func geoAPITestDB(t *testing.T) *gorm.DB {
 func setupGeoRouter(t *testing.T) *gin.Engine {
 	db := geoAPITestDB(t)
 	gin.SetMode(gin.TestMode)
-	// 启用中间件测试模式：AdminAuthMiddleware 放行 PUT /geo/config 等管理员路由
+
 	middleware.IsTestMode = true
 	t.Cleanup(func() { middleware.IsTestMode = false })
 	r := gin.New()
@@ -51,9 +51,6 @@ func setupGeoRouter(t *testing.T) *gin.Engine {
 	return r
 }
 
-// llmProbe 探测真实 LLM 后端可用性（进程级仅探测一次）。
-// 不可达时跳过依赖 LLM 的集成测试——与 testutil.NewTestDB 对 PG 的优雅降级策略一致，
-// 保证 go test 在无 LLM 配置的环境下不会大面积失败。
 var (
 	llmProbeOnce sync.Once
 	llmAvailable bool
@@ -62,7 +59,7 @@ var (
 func requireLLM(t *testing.T) {
 	t.Helper()
 	llmProbeOnce.Do(func() {
-		// 看门狗硬限 10s：防止底层 HTTP 栈不响应 ctx 取消（如代理半挂）导致探针悬挂
+
 		done := make(chan bool, 1)
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
@@ -103,8 +100,6 @@ func assertStatus(t *testing.T, w *httptest.ResponseRecorder, expected int) {
 	}
 }
 
-// assertSuccess 断言响应体 code 为平台统一成功码 0 (number)
-// （与 response.Success / utils.ErrorCodeSuccess 契约一致）
 func assertSuccess(t *testing.T, w *httptest.ResponseRecorder) {
 	t.Helper()
 	var resp map[string]any
@@ -116,8 +111,6 @@ func assertSuccess(t *testing.T, w *httptest.ResponseRecorder) {
 		t.Fatalf("expected code=0, got %v (body: %s)", resp["code"], w.Body.String())
 	}
 }
-
-// === 配置测试 ===
 
 func TestGeoAPI_GetConfig(t *testing.T) {
 	r := setupGeoRouter(t)
@@ -133,8 +126,6 @@ func TestGeoAPI_UpdateConfig(t *testing.T) {
 	assertStatus(t, w, http.StatusOK)
 	assertSuccess(t, w)
 }
-
-// === 关键词测试 ===
 
 func TestGeoAPI_MineKeywords(t *testing.T) {
 	r := setupGeoRouter(t)
@@ -179,8 +170,6 @@ func TestGeoAPI_GetKeywordList(t *testing.T) {
 	assertStatus(t, w, http.StatusOK)
 	assertSuccess(t, w)
 }
-
-// === 内容测试 ===
 
 func TestGeoAPI_GenerateContent(t *testing.T) {
 	r := setupGeoRouter(t)
@@ -227,8 +216,6 @@ func TestGeoAPI_GetArticleList(t *testing.T) {
 	assertSuccess(t, w)
 }
 
-// === 验证测试 ===
-
 func TestGeoAPI_VerifyArticle(t *testing.T) {
 	r := setupGeoRouter(t)
 	requireLLM(t)
@@ -251,12 +238,9 @@ func TestGeoAPI_MonitorNegative(t *testing.T) {
 	assertSuccess(t, w)
 }
 
-// === 知识库测试 ===
-
 func TestGeoAPI_KBSaveAndGet(t *testing.T) {
 	r := setupGeoRouter(t)
 
-	// Save
 	saveBody := map[string]any{
 		"title":    "GEO优化指南",
 		"content":  "GEO（生成式引擎优化）是一种针对AI搜索引擎的优化策略...",
@@ -274,17 +258,14 @@ func TestGeoAPI_KBSaveAndGet(t *testing.T) {
 		t.Fatal("expected document ID")
 	}
 
-	// Get
 	w = doRequest(t, r, "GET", fmt.Sprintf("/geo/kb/documents/%s", id), nil)
 	assertStatus(t, w, http.StatusOK)
 	assertSuccess(t, w)
 
-	// Search
 	w = doRequest(t, r, "GET", "/geo/kb/search?q=GEO&limit=5", nil)
 	assertStatus(t, w, http.StatusOK)
 	assertSuccess(t, w)
 
-	// Delete
 	w = doRequest(t, r, "DELETE", fmt.Sprintf("/geo/kb/documents/%s", id), nil)
 	assertStatus(t, w, http.StatusOK)
 	assertSuccess(t, w)
@@ -296,8 +277,6 @@ func TestGeoAPI_KBList(t *testing.T) {
 	assertStatus(t, w, http.StatusOK)
 	assertSuccess(t, w)
 }
-
-// === 平台同步测试 ===
 
 func TestGeoAPI_ListPlatforms(t *testing.T) {
 	r := setupGeoRouter(t)
@@ -316,7 +295,6 @@ func TestGeoAPI_ListPlatforms(t *testing.T) {
 func TestGeoAPI_SaveAndListAccounts(t *testing.T) {
 	r := setupGeoRouter(t)
 
-	// Save
 	body := map[string]any{
 		"platform":     "github_readme",
 		"account_name": "test-user",
@@ -326,18 +304,14 @@ func TestGeoAPI_SaveAndListAccounts(t *testing.T) {
 	assertStatus(t, w, http.StatusOK)
 	assertSuccess(t, w)
 
-	// List
 	w = doRequest(t, r, "GET", "/geo/platform/accounts", nil)
 	assertStatus(t, w, http.StatusOK)
 	assertSuccess(t, w)
 }
 
-// === 工作流测试 ===
-
 func TestGeoAPI_WorkflowCRUD(t *testing.T) {
 	r := setupGeoRouter(t)
 
-	// Create
 	body := map[string]any{
 		"name": "测试工作流",
 		"steps": []map[string]any{
@@ -354,21 +328,17 @@ func TestGeoAPI_WorkflowCRUD(t *testing.T) {
 	data, _ := resp["data"].(map[string]any)
 	id, _ := data["id"].(string)
 
-	// Get
 	w = doRequest(t, r, "GET", fmt.Sprintf("/geo/workflow/workflows/%s", id), nil)
 	assertStatus(t, w, http.StatusOK)
 	assertSuccess(t, w)
 
-	// List
 	w = doRequest(t, r, "GET", "/geo/workflow/workflows", nil)
 	assertStatus(t, w, http.StatusOK)
 	assertSuccess(t, w)
 
-	// Run
 	w = doRequest(t, r, "POST", fmt.Sprintf("/geo/workflow/workflows/%s/run", id), nil)
 	assertStatus(t, w, http.StatusOK)
 
-	// Delete
 	w = doRequest(t, r, "DELETE", fmt.Sprintf("/geo/workflow/workflows/%s", id), nil)
 	assertStatus(t, w, http.StatusOK)
 	assertSuccess(t, w)
@@ -377,7 +347,6 @@ func TestGeoAPI_WorkflowCRUD(t *testing.T) {
 func TestGeoAPI_WorkflowTemplates(t *testing.T) {
 	r := setupGeoRouter(t)
 
-	// Create template
 	body := map[string]any{
 		"name":        "内容生产模板",
 		"description": "自动生成内容的标准工作流",
@@ -389,19 +358,14 @@ func TestGeoAPI_WorkflowTemplates(t *testing.T) {
 	assertStatus(t, w, http.StatusOK)
 	assertSuccess(t, w)
 
-	// List templates
 	w = doRequest(t, r, "GET", "/geo/workflow/templates", nil)
 	assertStatus(t, w, http.StatusOK)
 	assertSuccess(t, w)
 }
 
-// === 资源推荐测试 ===
-
-
 func TestGeoAPI_TechConfig(t *testing.T) {
 	r := setupGeoRouter(t)
 
-	// Robots
 	w := doRequest(t, r, "POST", "/geo/techconfig/robots", map[string]any{
 		"site_url": "https://example.com",
 		"disallow": []string{"/admin", "/api"},
@@ -409,7 +373,6 @@ func TestGeoAPI_TechConfig(t *testing.T) {
 	assertStatus(t, w, http.StatusOK)
 	assertSuccess(t, w)
 
-	// Sitemap
 	w = doRequest(t, r, "POST", "/geo/techconfig/sitemap", map[string]any{
 		"site_url": "https://example.com",
 		"urls":     []string{"/", "/about", "/blog"},
@@ -417,8 +380,6 @@ func TestGeoAPI_TechConfig(t *testing.T) {
 	assertStatus(t, w, http.StatusOK)
 	assertSuccess(t, w)
 }
-
-// === 质量指标测试 ===
 
 func TestGeoAPI_MetricsAnalyze(t *testing.T) {
 	r := setupGeoRouter(t)
@@ -431,8 +392,6 @@ func TestGeoAPI_MetricsAnalyze(t *testing.T) {
 	assertStatus(t, w, http.StatusOK)
 	assertSuccess(t, w)
 }
-
-// === 报表测试 ===
 
 func TestGeoAPI_Reports(t *testing.T) {
 	r := setupGeoRouter(t)
@@ -449,17 +408,13 @@ func TestGeoAPI_Reports(t *testing.T) {
 	}
 }
 
-// === 关键词增强测试 ===
-
 func TestGeoAPI_KeywordEnhance(t *testing.T) {
 	r := setupGeoRouter(t)
 
-	// Analyze
 	w := doRequest(t, r, "GET", "/geo/keyword-enhance/analyze?brand_name=测试品牌", nil)
 	assertStatus(t, w, http.StatusOK)
 	assertSuccess(t, w)
 
-	// Enhance
 	body := map[string]any{
 		"keywords":   []string{"GEO优化", "AI搜索"},
 		"brand_name": "测试品牌",

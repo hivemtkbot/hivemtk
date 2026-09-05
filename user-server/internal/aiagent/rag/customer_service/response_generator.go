@@ -74,11 +74,11 @@ type ResponseGeneratorImpl struct {
 	llmService     LLMServiceInterface
 	config         *ResponseGenerationConfig
 	transCache     *ragretrieval.TranslationCache
-	fewShot        FewShotRenderer  
-	fallbackBridge FallbackBridge   
-	evalHook       EvalHook         
-	glossary       GlossaryRenderer 
-	calibrator     OutputCalibrator 
+	fewShot        FewShotRenderer
+	fallbackBridge FallbackBridge
+	evalHook       EvalHook
+	glossary       GlossaryRenderer
+	calibrator     OutputCalibrator
 }
 
 // WithTranslationCache 注入翻译缓存（可选）
@@ -144,13 +144,13 @@ type LLMServiceInterface interface {
 
 // ResponseGenerationConfig 回复生成配置
 type ResponseGenerationConfig struct {
-	LLMModel           string  `json:"llm_model"`           
-	DefaultTemperature float64 `json:"default_temperature"` 
-	DefaultMaxTokens   int     `json:"default_max_tokens"`  
-	TopP               float64 `json:"top_p"`               
-	FrequencyPenalty   float64 `json:"frequency_penalty"`   
-	PresencePenalty    float64 `json:"presence_penalty"`    
-	SystemPrompt       string  `json:"system_prompt"`       
+	LLMModel           string  `json:"llm_model"`
+	DefaultTemperature float64 `json:"default_temperature"`
+	DefaultMaxTokens   int     `json:"default_max_tokens"`
+	TopP               float64 `json:"top_p"`
+	FrequencyPenalty   float64 `json:"frequency_penalty"`
+	PresencePenalty    float64 `json:"presence_penalty"`
+	SystemPrompt       string  `json:"system_prompt"`
 }
 
 // NewResponseGeneratorImpl 创建新的回复生成器
@@ -233,11 +233,6 @@ func (g *ResponseGeneratorImpl) GenerateResponse(ctx context.Context, request Re
 	return reply, nil
 }
 
-// resolveTargetLang 计算最终输出语种。
-//
-// 显式配置了与内部语种不同的 target_language 时严格遵循配置（不自动检测）；
-// 否则依据客户消息自动检测语种，命中可识别语种且与内部语种不同时按客户语种回复。
-// 无法识别时回退到内部语种，保证向后兼容。
 func (g *ResponseGeneratorImpl) resolveTargetLang(ctx context.Context, internalLang, configuredTarget, query string) string {
 	if configuredTarget != "" && configuredTarget != internalLang {
 		return configuredTarget
@@ -248,9 +243,6 @@ func (g *ResponseGeneratorImpl) resolveTargetLang(ctx context.Context, internalL
 	return internalLang
 }
 
-// generateSameLangResponse 同语种生成（原逻辑，保留中文 prompt）
-//
-// 向后兼容：CrossLingual=false 时走本路径，行为与原 GenerateResponse 完全一致。
 func (g *ResponseGeneratorImpl) generateSameLangResponse(ctx context.Context, request ResponseGenerationRequest, lang string) (string, error) {
 	contextStr := g.buildContextString(request.SearchResults, request.Context)
 
@@ -271,20 +263,6 @@ func (g *ResponseGeneratorImpl) generateSameLangResponse(ctx context.Context, re
 	return response, nil
 }
 
-// generateCrossLingualResponse 跨语言生成（新逻辑，使用多语言模板）
-//
-// 知识库语种为 internalLang，对外输出语种为 targetLang。
-// 通过 renderMultilingualSystemPrompt 渲染跨语言 system prompt，强制 LLM
-// 仅以 targetLang 输出，并将知识库上下文自然翻译为目标语言。
-// glossaryBlock / fewShotBlock 暂留空，后续由 service/translation 层接入。
-//
-// TranslationCache 集成
-//  1. 查缓存：命中直接返回（避免 LLM 调用，跨语言路径延迟从秒级降到毫秒级）
-//  2. 未命中：走 LLM 生成
-//  3. 写缓存：生成成功后异步写入（best-effort，失败不影响主流程）
-//  4. 缓存 key 包含 kbVersion（=Session.KBID），知识库更新后旧缓存自然失效
-//
-// 缓存可选：g.transCache 为 nil 时跳过缓存逻辑，主流程不受影响。
 func (g *ResponseGeneratorImpl) generateCrossLingualResponse(ctx context.Context, request ResponseGenerationRequest, internalLang, targetLang string) (string, error) {
 	kbVersion := request.Session.KBID
 	if g.transCache != nil {
@@ -307,15 +285,6 @@ func (g *ResponseGeneratorImpl) generateCrossLingualResponse(ctx context.Context
 	return reply, nil
 }
 
-// doCrossLingualLLM 跨语言 LLM 生成（无缓存层）
-//
-// 抽取为独立方法便于：
-//   - generateCrossLingualResponse 专注于缓存编排
-//   - 后续单测可独立验证 LLM 调用逻辑
-//
-// few-shot 注入
-//   - g.fewShot 非 nil 时调用 Render 填充 FewShotBlock
-//   - Render 失败或返回空串时不阻断主流程（glossaryBlock / fewShotBlock 留空）
 func (g *ResponseGeneratorImpl) doCrossLingualLLM(ctx context.Context, request ResponseGenerationRequest, internalLang, targetLang string) (string, error) {
 	contextStr := g.buildContextString(request.SearchResults, request.Context)
 
@@ -387,7 +356,6 @@ func (g *ResponseGeneratorImpl) BuildResponsePrompt(query, contextStr string, se
 	return g.buildResponsePrompt(query, contextStr, session, context)
 }
 
-// buildContextString 构建上下文字符串
 func (g *ResponseGeneratorImpl) buildContextString(results []any, context Context) string {
 	var contextStr string
 
@@ -430,7 +398,6 @@ func (g *ResponseGeneratorImpl) buildContextString(results []any, context Contex
 	return contextStr
 }
 
-// buildResponsePrompt 构建回复提示词
 func (g *ResponseGeneratorImpl) buildResponsePrompt(query, contextStr string, session Session, context Context) string {
 	systemPrompt := g.config.SystemPrompt
 	if session.Config.SystemPrompt != "" {
@@ -457,7 +424,6 @@ func (g *ResponseGeneratorImpl) buildResponsePrompt(query, contextStr string, se
 	return prompt
 }
 
-// buildStructuredResponsePrompt 构建结构化回复提示词
 func (g *ResponseGeneratorImpl) buildStructuredResponsePrompt(query, contextStr string, session Session, context Context, schema any) string {
 	schemaJSON, _ := json.Marshal(schema)
 
@@ -488,7 +454,6 @@ func (g *ResponseGeneratorImpl) buildStructuredResponsePrompt(query, contextStr 
 	return prompt
 }
 
-// prepareLLMConfig 准备LLM配置
 func prepareLLMConfig(config *ResponseGenerationConfig, sessionConfig SessionConfig) any {
 	llmConfig := make(map[string]any)
 
@@ -512,7 +477,6 @@ func prepareLLMConfig(config *ResponseGenerationConfig, sessionConfig SessionCon
 	return llmConfig
 }
 
-// defaultSystemPrompt 默认系统提示词
 const defaultSystemPrompt = `你是专业的电商客服助手，正在为客户提供咨询服务。请基于提供的信息回答用户问题，遵循以下原则：
 1. 专业礼貌：使用专业、友好的语气
 2. 准确性：基于提供的信息进行回复
@@ -564,7 +528,6 @@ func (r *RemoteLLMService) GetDefaultConfig() any {
 	return r.svc.GetDefaultConfig()
 }
 
-// toLLMConfig 把任意 map / 结构体 / *llm.LLMConfig 归一为 *llm.LLMConfig
 func toLLMConfig(svc *llm.LLMService, raw any) (*llm.LLMConfig, error) {
 	if raw == nil {
 		return svc.GetDefaultConfig(), nil
@@ -615,4 +578,3 @@ func toLLMConfig(svc *llm.LLMService, raw any) (*llm.LLMConfig, error) {
 		return svc.GetDefaultConfig(), nil
 	}
 }
-

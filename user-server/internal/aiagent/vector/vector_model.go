@@ -31,7 +31,7 @@ type SearchResult struct {
 	ID       string         `json:"id"`
 	Score    float64        `json:"score"`
 	Metadata map[string]any `json:"metadata"`
-	Vector   []float32      `json:"-"` 
+	Vector   []float32      `json:"-"`
 }
 
 // InMemoryVectorStore 内存向量存储实现
@@ -174,7 +174,6 @@ func (v *InMemoryVectorStore) GetDimension() int {
 	return v.dimension
 }
 
-// cosineSimilarity 计算余弦相似度
 func cosineSimilarity(a, b []float32) float64 {
 	if len(a) != len(b) {
 		return 0
@@ -250,10 +249,9 @@ func NewHashVectorizer(dimension int) *HashVectorizer {
 	return &HashVectorizer{dimension: dimension}
 }
 
-// hashToVector 把字符串映射成指定维度的伪向量（FNV-1a + 正弦扰动）。
 func hashToVector(text string, dim int) []float32 {
 	vec := make([]float32, dim)
-	// FNV-1a 64-bit
+
 	const (
 		offset uint64 = 14695981039346656037
 		prime  uint64 = 1099511628211
@@ -373,4 +371,3 @@ func (vp *VectorProcessor) GetStats() map[string]any {
 
 	return stats
 }
-

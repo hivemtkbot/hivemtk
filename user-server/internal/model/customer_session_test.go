@@ -266,4 +266,3 @@ func TestSessionTag_BasicFields(t *testing.T) {
 		t.Errorf("Expected Color '#FF5722', got %s", tag.Color)
 	}
 }
-

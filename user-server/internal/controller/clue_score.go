@@ -134,4 +134,3 @@ func (c *ClueScoreController) RecordEngagement(ctx *gin.Context) {
 	}
 	response.Success(ctx, nil, "ok")
 }
-

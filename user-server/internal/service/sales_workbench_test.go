@@ -12,7 +12,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// setupWorkbenchEnv 完整工作台环境
 func setupWorkbenchEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService, *AITagger, *SalesEventStatsService, *OrderDraftService, *SalesWorkbenchService) {
 	memDB := testutil.NewTestDBOrSkip(t,
 		&model.Order{},

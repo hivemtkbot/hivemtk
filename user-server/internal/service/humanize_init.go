@@ -17,18 +17,15 @@ import (
 	humanizesvc "hivemtk-user/internal/service/humanize"
 )
 
-// 全局单例
 var (
 	humanizeEvalServiceOnce sync.Once
 	humanizeEvalService     *humanizesvc.HumanizeEvalService
 )
 
-// humanizeLLMAdapter 把 llm.Dispatcher 适配为 humanize.LLMDispatcher 接口
 type humanizeLLMAdapter struct {
 	dispatcher *llm.Dispatcher
 }
 
-// ChatSend 适配 humanize.LLMDispatcher
 func (a *humanizeLLMAdapter) ChatSend(ctx context.Context, prompt string) (string, string, error) {
 	if a.dispatcher == nil {
 		return "", "", nil
@@ -117,9 +114,6 @@ func GetHumanizeEvalService() *humanizesvc.HumanizeEvalService {
 	return humanizeEvalService
 }
 
-// humanizeEffectiveThreshold 返回当前生效的拟人度达标阈值（无服务时用默认）
-//
-// 用于重生成 prompt 中向 LLM 传递真实的达标阈值，避免硬编码 0.85 与实际阈值脱节。
 func humanizeEffectiveThreshold() float64 {
 	if svc := GetHumanizeEvalService(); svc != nil {
 		return svc.Threshold()
@@ -127,12 +121,10 @@ func humanizeEffectiveThreshold() float64 {
 	return humanizesvc.DefaultThreshold
 }
 
-// humanizeRegenerateAdapter 把 SalesEngine.dispatcher 包装为 humanize 重生成回调
 type humanizeRegenerateAdapter struct {
 	dispatcher *llm.Dispatcher
 }
 
-// Regenerate 调用 LLM 重新生成回复
 func (a *humanizeRegenerateAdapter) Regenerate(ctx context.Context, input *dto.HumanizeEvalInput, last *dto.HumanizeEvalResult) (string, error) {
 	if a.dispatcher == nil {
 		return "", nil
@@ -149,12 +141,6 @@ func (a *humanizeRegenerateAdapter) Regenerate(ctx context.Context, input *dto.H
 	return result.Content, nil
 }
 
-// buildHumanizeRegeneratePrompt 构造重生成 prompt
-//
-// 把上次评估反馈告诉 LLM，让其针对性改进：
-//   - 总分 / 通过阈值
-//   - 各维度得分
-//   - 自然度/共情/专业度等具体扣分维度
 func buildHumanizeRegeneratePrompt(input *dto.HumanizeEvalInput, last *dto.HumanizeEvalResult) string {
 	var sb strings.Builder
 	sb.WriteString("请基于以下反馈重新生成回复，让它更像真人说话、更自然。\n\n")
@@ -205,14 +191,6 @@ func SetHumanizeRegenerateDispatcher(dispatcher *llm.Dispatcher) {
 	})
 }
 
-// isLocalLLMBaseURL 判断 LLM base_url 是否指向本地推理服务
-//
-// 本地推理服务的特征地址：
-//   - 127.0.0.1 / localhost（宿主机直连 llama.cpp）
-//   - mtk-llm（Docker 容器名）
-//
-// 当 base_url 指向这些地址时，说明使用的是本地小模型（1.5B/3B q4），
-// 其在 CPU 上的拟人度普遍 < 0.85，应自动禁用拟人度评估避免无效重生成。
 func isLocalLLMBaseURL(baseURL string) bool {
 	if baseURL == "" {
 		return true

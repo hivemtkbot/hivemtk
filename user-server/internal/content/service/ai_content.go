@@ -103,7 +103,6 @@ func (s *AIContentService) GenerateContent(ctx context.Context, userID uint, req
 	}, nil
 }
 
-// buildPrompt 构建提示词
 func (s *AIContentService) buildPrompt(req *GenerateContentRequest) (string, error) {
 	if req.TemplateID > 0 {
 		template, err := s.templateRepo.GetByID(req.TemplateID)
@@ -116,7 +115,6 @@ func (s *AIContentService) buildPrompt(req *GenerateContentRequest) (string, err
 	return s.buildDefaultPrompt(req.Type, req.Input, req.Variables)
 }
 
-// fillTemplate 填充模板变量
 func (s *AIContentService) fillTemplate(template string, variables map[string]any) (string, error) {
 	result := template
 	for key, value := range variables {
@@ -126,7 +124,6 @@ func (s *AIContentService) fillTemplate(template string, variables map[string]an
 	return result, nil
 }
 
-// buildDefaultPrompt 构建默认提示词
 func (s *AIContentService) buildDefaultPrompt(typ model.AIGenerationType, input string, variables map[string]any) (string, error) {
 	switch typ {
 	case model.AIGenerationTypeCopywriting:
@@ -350,7 +347,7 @@ func (s *PromptTemplateService) InitSystemTemplates() error {
 		existing, _ := s.templateRepo.GetByTypeAndName(template.Type, template.Name)
 		if existing == nil {
 			templateCopy := template
-			templateCopy.Status = 1 
+			templateCopy.Status = 1
 			s.templateRepo.Create(&templateCopy)
 		}
 	}
@@ -375,8 +372,6 @@ func (s *PromptTemplateService) GetTemplateTypes() []map[string]string {
 	}
 }
 
-// resolveAPIKey 解析 LLM API Key
-// 优先从环境变量 LLM_API_KEY 读取，其次 OPENAI_API_KEY，最后回退到系统配置表
 func (s *AIContentService) resolveAPIKey(ctx context.Context) string {
 	if v := os.Getenv("LLM_API_KEY"); v != "" {
 		return v
@@ -391,7 +386,6 @@ func (s *AIContentService) resolveAPIKey(ctx context.Context) string {
 	return cfg.APIKey
 }
 
-// resolveBaseURL 解析 LLM BaseURL
 func (s *AIContentService) resolveBaseURL() string {
 	if v := os.Getenv("LLM_BASE_URL"); v != "" {
 		return v
@@ -402,15 +396,12 @@ func (s *AIContentService) resolveBaseURL() string {
 	return "https://api.openai.com"
 }
 
-// llmSystemConfig 系统 LLM 配置
 type llmSystemConfig struct {
 	APIKey  string
 	BaseURL string
 	Model   string
 }
 
-// loadSystemLLMConfig 加载系统 LLM 配置
-// 优先级:系统 SystemConfig.Config > LLM_API_KEY 环境变量
 func (s *AIContentService) loadSystemLLMConfig(ctx context.Context) (*llmSystemConfig, error) {
 	sysCfgRepo := sysrepo.NewSystemConfigRepository()
 	if sysCfg, err := sysCfgRepo.GetConfig(ctx); err == nil && sysCfg != nil {
@@ -436,4 +427,3 @@ func (s *AIContentService) loadSystemLLMConfig(ctx context.Context) (*llmSystemC
 		Model:   model,
 	}, nil
 }
-

@@ -47,10 +47,8 @@ func NewSmsTrackingRepository(db *gorm.DB) SmsTrackingRepository {
 	return &smsTrackingRepo{db: db}
 }
 
-// errNilDB db 未注入时返回的 sentinel error
 var errNilDB = fmt.Errorf("sms tracking repo: db is nil")
 
-// CreateStatus 创建送达状态记录
 func (r *smsTrackingRepo) CreateStatus(ctx context.Context, status *model.SmsDeliveryStatus) error {
 	if r == nil || r.db == nil {
 		return errNilDB
@@ -58,7 +56,6 @@ func (r *smsTrackingRepo) CreateStatus(ctx context.Context, status *model.SmsDel
 	return r.db.WithContext(ctx).Create(status).Error
 }
 
-// UpdateStatus 更新送达状态记录
 func (r *smsTrackingRepo) UpdateStatus(ctx context.Context, status *model.SmsDeliveryStatus) error {
 	if r == nil || r.db == nil {
 		return errNilDB
@@ -66,9 +63,6 @@ func (r *smsTrackingRepo) UpdateStatus(ctx context.Context, status *model.SmsDel
 	return r.db.WithContext(ctx).Save(status).Error
 }
 
-// GetByMessageID 根据消息 ID 查询状态
-//
-// nil 兜底：db 未注入时返回 (nil, nil)（与 record not found 行为一致），避免 panic。
 func (r *smsTrackingRepo) GetByMessageID(ctx context.Context, messageID string) (*model.SmsDeliveryStatus, error) {
 	if r == nil || r.db == nil {
 		return nil, nil
@@ -84,7 +78,6 @@ func (r *smsTrackingRepo) GetByMessageID(ctx context.Context, messageID string) 
 	return &status, nil
 }
 
-// MessageIDExists 判断 message_id 是否已存在（webhook 重放幂等）
 func (r *smsTrackingRepo) MessageIDExists(ctx context.Context, messageID string) (bool, error) {
 	if r == nil || r.db == nil {
 		return false, errNilDB
@@ -97,7 +90,6 @@ func (r *smsTrackingRepo) MessageIDExists(ctx context.Context, messageID string)
 	return count > 0, nil
 }
 
-// ListStatusesByJob 分页查询任务的送达状态
 func (r *smsTrackingRepo) ListStatusesByJob(ctx context.Context, jobID string, page, limit int) ([]*model.SmsDeliveryStatus, int64, error) {
 	if r == nil || r.db == nil {
 		return nil, 0, nil
@@ -117,7 +109,6 @@ func (r *smsTrackingRepo) ListStatusesByJob(ctx context.Context, jobID string, p
 	return statuses, total, nil
 }
 
-// ListStatusesByPhone 分页查询手机号的送达状态
 func (r *smsTrackingRepo) ListStatusesByPhone(ctx context.Context, phone string, page, limit int) ([]*model.SmsDeliveryStatus, int64, error) {
 	if r == nil || r.db == nil {
 		return nil, 0, nil
@@ -137,9 +128,6 @@ func (r *smsTrackingRepo) ListStatusesByPhone(ctx context.Context, phone string,
 	return statuses, total, nil
 }
 
-// ListRetryableStatuses 查询可重试的失败状态（用于定时重试任务）
-// 同时返回已达最大重试次数但状态仍为 retryable 的记录，
-// 由 service 层判断是否需要将其标记为 failed 并停止重试
 func (r *smsTrackingRepo) ListRetryableStatuses(ctx context.Context, limit int) ([]*model.SmsDeliveryStatus, error) {
 	if r == nil || r.db == nil {
 		return nil, nil
@@ -153,7 +141,6 @@ func (r *smsTrackingRepo) ListRetryableStatuses(ctx context.Context, limit int) 
 	return statuses, err
 }
 
-// ListStatusesByRange 查询时间区间内的状态记录
 func (r *smsTrackingRepo) ListStatusesByRange(ctx context.Context, start, end time.Time) ([]*model.SmsDeliveryStatus, error) {
 	if r == nil || r.db == nil {
 		return nil, nil
@@ -163,7 +150,6 @@ func (r *smsTrackingRepo) ListStatusesByRange(ctx context.Context, start, end ti
 	return statuses, err
 }
 
-// CountByJob 统计任务某状态的总数
 func (r *smsTrackingRepo) CountByJob(ctx context.Context, jobID, status string) (int64, error) {
 	if r == nil || r.db == nil {
 		return 0, nil
@@ -177,7 +163,6 @@ func (r *smsTrackingRepo) CountByJob(ctx context.Context, jobID, status string) 
 	return count, err
 }
 
-// CountByRange 统计时间区间内某状态的总数
 func (r *smsTrackingRepo) CountByRange(ctx context.Context, start, end time.Time, status string) (int64, error) {
 	if r == nil || r.db == nil {
 		return 0, nil
@@ -191,7 +176,6 @@ func (r *smsTrackingRepo) CountByRange(ctx context.Context, start, end time.Time
 	return count, err
 }
 
-// GetJobMetric 获取任务指标
 func (r *smsTrackingRepo) GetJobMetric(ctx context.Context, jobID string) (*model.SmsJobMetric, error) {
 	if r == nil || r.db == nil {
 		return nil, nil
@@ -207,7 +191,6 @@ func (r *smsTrackingRepo) GetJobMetric(ctx context.Context, jobID string) (*mode
 	return &metric, nil
 }
 
-// UpsertJobMetric 创建或更新任务指标
 func (r *smsTrackingRepo) UpsertJobMetric(ctx context.Context, metric *model.SmsJobMetric) error {
 	if r == nil || r.db == nil {
 		return errNilDB
@@ -223,7 +206,6 @@ func (r *smsTrackingRepo) UpsertJobMetric(ctx context.Context, metric *model.Sms
 	return r.db.WithContext(ctx).Create(metric).Error
 }
 
-// ListJobMetricsByRange 查询时间区间内的任务指标
 func (r *smsTrackingRepo) ListJobMetricsByRange(ctx context.Context, start, end time.Time) ([]*model.SmsJobMetric, error) {
 	if r == nil || r.db == nil {
 		return nil, nil

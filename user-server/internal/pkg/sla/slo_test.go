@@ -72,7 +72,7 @@ func TestSLOTracker_BudgetExhausted(t *testing.T) {
 		tr.Record("test_exhausted", true)
 	}
 	for i := 0; i < 20; i++ {
-		tr.Record("test_exhausted", false) 
+		tr.Record("test_exhausted", false)
 	}
 	state := tr.State("test_exhausted")
 	if state.BudgetUsed != 1.0 {
@@ -128,5 +128,3 @@ func TestSLOTracker_UnknownSLO(t *testing.T) {
 	}
 	tr.Record("nonexistent", true)
 }
-
-

@@ -22,4 +22,3 @@ type SSOIdentity struct {
 func (SSOIdentity) TableName() string {
 	return "sso_identities"
 }
-

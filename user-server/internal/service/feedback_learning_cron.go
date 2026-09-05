@@ -56,7 +56,6 @@ func (c *FeedbackLearningCron) Stop(ctx context.Context) {
 	}
 }
 
-// runDaily 每日触发一次（首次启动后立即执行一次）
 func (c *FeedbackLearningCron) runDaily(ctx context.Context) {
 	defer c.wg.Done()
 	ticker := time.NewTicker(24 * time.Hour)
@@ -72,7 +71,6 @@ func (c *FeedbackLearningCron) runDaily(ctx context.Context) {
 	}
 }
 
-// trigger 执行一次闭环：提取画像 + 遍历 SOP 生成优化建议
 func (c *FeedbackLearningCron) trigger(ctx context.Context) {
 	defer func() {
 		if r := recover(); r != nil {

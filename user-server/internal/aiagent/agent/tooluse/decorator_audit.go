@@ -30,7 +30,7 @@ type AuditLogger interface {
 }
 
 type AuditEntry struct {
-	TraceID       string        `json:"trace_id,omitempty"` 
+	TraceID       string        `json:"trace_id,omitempty"`
 	ToolName      string        `json:"tool_name"`
 	CallerID      string        `json:"caller_id"`
 	AgentID       string        `json:"agent_id,omitempty"`
@@ -41,8 +41,8 @@ type AuditEntry struct {
 	Duration      time.Duration `json:"duration_ms"`
 	RetryCount    int           `json:"retry_count"`
 	AuditTrace    string        `json:"audit_trace,omitempty"`
-	ArgsSummary   string        `json:"args_summary,omitempty"`   
-	ResultSummary string        `json:"result_summary,omitempty"` 
+	ArgsSummary   string        `json:"args_summary,omitempty"`
+	ResultSummary string        `json:"result_summary,omitempty"`
 	ExecutedAt    time.Time     `json:"executed_at"`
 }
 
@@ -103,11 +103,6 @@ func AuditDecorator(logger AuditLogger, costTracker CostTracker) ToolDecorator {
 	}
 }
 
-// recordToolCallMetrics 记录工具调用度量
-// v3 审计 P0-16 修复：原实现是空函数，所有 4 个参数被 `_ =` 丢弃
-// 风险：工具调用的 Prometheus metric（成功率/P99/错误分类）实际从未上报
-// 新实现：通过结构化日志埋点，SRE 侧可对接 Loki/Elastic 统计
-// 后续如需对接 Prometheus metrics，只需替换 logger.Infof 为 metrics.Counter
 func recordToolCallMetrics(toolName string, err error, result ToolResult, duration time.Duration) {
 	success := err == nil
 	toolCallTotal.WithLabel(toolName, strconv.FormatBool(success)).Inc()
@@ -205,4 +200,3 @@ type CostStats struct {
 	SuccessRate     float64 `json:"success_rate"`
 	AvgDurationMs   float64 `json:"avg_duration_ms"`
 }
-

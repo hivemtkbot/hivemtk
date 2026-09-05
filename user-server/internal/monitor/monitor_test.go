@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// envOr 读环境变量，缺省时用 fallback。
 func envOr(k, fallback string) string {
 	if v := os.Getenv(k); v != "" {
 		return v
@@ -203,4 +202,3 @@ func TestGenerateTraceID(t *testing.T) {
 		t.Fatalf("GenerateTraceID 异常: %q / %q", a, b)
 	}
 }
-

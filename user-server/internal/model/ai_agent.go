@@ -6,14 +6,13 @@ import (
 	"github.com/lib/pq"
 )
 
-
 // AgentType 智能体类型（仅作为智能体内部子类型，平台层统一称「智能体」）
 type AgentType string
 
 const (
-	AgentTypeSales           AgentType = "sales"            
-	AgentTypeCustomerService AgentType = "customer_service" 
-	AgentTypeHybrid          AgentType = "hybrid"           
+	AgentTypeSales           AgentType = "sales"
+	AgentTypeCustomerService AgentType = "customer_service"
+	AgentTypeHybrid          AgentType = "hybrid"
 )
 
 // AgentMode 智能体工作模式（平台层两大运行范式）
@@ -21,7 +20,7 @@ type AgentMode string
 
 const (
 	AgentModePassive AgentMode = "passive"
-	AgentModeActive AgentMode = "active"
+	AgentModeActive  AgentMode = "active"
 )
 
 // AIAgent AI 智能体主表
@@ -35,7 +34,7 @@ type AIAgent struct {
 	Description string `gorm:"type:text" json:"description"`
 	Avatar      string `gorm:"type:varchar(500)" json:"avatar"`
 	AgentType   string `gorm:"type:varchar(32);not null;default:'sales';index" json:"agent_type"`
-	AgentMode   string `gorm:"type:varchar(32);not null;default:'passive';index" json:"agent_mode"` 
+	AgentMode   string `gorm:"type:varchar(32);not null;default:'passive';index" json:"agent_mode"`
 
 	Persona      string `gorm:"type:text;not null" json:"persona"`
 	SystemPrompt string `gorm:"type:text" json:"system_prompt"`
@@ -76,9 +75,9 @@ type AIAgent struct {
 	RAGTopK              int  `gorm:"default:3" json:"rag_top_k"`
 
 	ConfidenceThreshold float64 `gorm:"default:0.7" json:"confidence_threshold"`
-	MaxAIConsecutive    int     `gorm:"default:0" json:"max_ai_consecutive"` 
+	MaxAIConsecutive    int     `gorm:"default:0" json:"max_ai_consecutive"`
 
-	Status  int `gorm:"default:1;index" json:"status"` 
+	Status  int `gorm:"default:1;index" json:"status"`
 	Version int `gorm:"default:1" json:"version"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
@@ -104,8 +103,8 @@ const (
 	ChannelTypeKuaishou    ChannelType = "kuaishou"
 	ChannelTypeXianyu      ChannelType = "xianyu"
 	ChannelTypeTikTok      ChannelType = "tiktok"
-	ChannelTypeWeb ChannelType = "web"
-	ChannelTypeWebEmbed ChannelType = "web_embed"
+	ChannelTypeWeb         ChannelType = "web"
+	ChannelTypeWebEmbed    ChannelType = "web_embed"
 )
 
 // ChannelAgentBinding 渠道账号 ↔ 智能体绑定
@@ -158,4 +157,3 @@ type CustomerServiceAgent struct {
 func (CustomerServiceAgent) TableName() string {
 	return "customer_service_agents"
 }
-

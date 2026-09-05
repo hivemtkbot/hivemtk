@@ -44,7 +44,7 @@ func (m *CustomerOwnerAgentMigration) Up(ctx context.Context) error {
 		return nil
 	}
 	if m.db.Migrator().HasColumn("customers", "owner_agent_id") {
-		return nil // 幂等
+		return nil
 	}
 	stmts := []string{
 		`ALTER TABLE customers ADD COLUMN IF NOT EXISTS owner_agent_id BIGINT`,

@@ -10,13 +10,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// dncTestEnv 全局退订标志位测试环境
 type dncTestEnv struct {
 	DB      *gorm.DB
 	DNCRepo *customerDoNotContactRepo
 }
 
-// setupDoNotContactTestDB 设置全局退订标志位测试数据库
 func setupDoNotContactTestDB(t *testing.T) *dncTestEnv {
 	database := testutil.NewTestDB(t,
 		&model.CustomerDoNotContact{},
@@ -59,7 +57,6 @@ func TestDoNotContact_ExistsByOneIDAndChannels(t *testing.T) {
 	env := setupDoNotContactTestDB(t)
 	ctx := context.Background()
 
-	// 未命中
 	exists, err := env.DNCRepo.ExistsByOneIDAndChannels(ctx, "one-2", []string{"sms", ""})
 	if err != nil {
 		t.Fatalf("ExistsByOneIDAndChannels 失败: %v", err)
@@ -68,7 +65,6 @@ func TestDoNotContact_ExistsByOneIDAndChannels(t *testing.T) {
 		t.Error("Expected not blocked before any block")
 	}
 
-	// 全局行(channel="")命中
 	if _, err := env.DNCRepo.Create(ctx, &model.CustomerDoNotContact{OneID: "one-2", Channel: "", Source: model.DNCSourceImport}); err != nil {
 		t.Fatalf("Create 全局行失败: %v", err)
 	}
@@ -77,7 +73,6 @@ func TestDoNotContact_ExistsByOneIDAndChannels(t *testing.T) {
 		t.Error("Expected blocked via global row (channel='')")
 	}
 
-	// 精确渠道行命中
 	if _, err := env.DNCRepo.Create(ctx, &model.CustomerDoNotContact{OneID: "one-3", Channel: "email", Source: model.DNCSourceWebhook}); err != nil {
 		t.Fatalf("Create 渠道行失败: %v", err)
 	}
@@ -110,7 +105,6 @@ func TestDoNotContact_Delete_List(t *testing.T) {
 		t.Fatalf("Expected 2 rows, got %d", len(rows))
 	}
 
-	// 删除精确渠道行
 	if err := env.DNCRepo.DeleteByOneIDAndChannel(ctx, "one-4", "sms"); err != nil {
 		t.Fatalf("DeleteByOneIDAndChannel 失败: %v", err)
 	}
@@ -119,7 +113,6 @@ func TestDoNotContact_Delete_List(t *testing.T) {
 		t.Errorf("Expected only global row left, got %+v", rows)
 	}
 
-	// 删除不存在的行幂等
 	if err := env.DNCRepo.DeleteByOneIDAndChannel(ctx, "one-4", "sms"); err != nil {
 		t.Errorf("删除不存在的行应幂等返回 nil, got %v", err)
 	}

@@ -141,5 +141,4 @@ func (b *MessageReorderBuffer) Stats() (activeSessions, totalBuffered int) {
 	return
 }
 
-// globalReorderBuffer 全局 WhatsApp 消息重排序缓冲
 var globalReorderBuffer = NewMessageReorderBuffer(3*time.Second, 50)

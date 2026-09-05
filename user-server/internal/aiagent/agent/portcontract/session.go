@@ -6,7 +6,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 // CreateSessionInput 开启会话请求投影。
 //
 // 与 service.CreateSessionRequest 字段对齐，工具层无需 import service 包。
@@ -40,4 +39,3 @@ type SessionPort interface {
 	GetMessages(sessionID string, page, pageSize int) ([]*model.SessionMessage, int64, error)
 	SendMessage(ctx context.Context, in *SendMessageInput) (*model.SessionMessage, error)
 }
-

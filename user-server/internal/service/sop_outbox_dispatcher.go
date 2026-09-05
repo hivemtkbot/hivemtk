@@ -43,13 +43,11 @@ type SOPOutboxDispatcher struct {
 	running        bool
 }
 
-// sop_timers 状态机取值（S1-2/S1-5 扩展 skipped / dead_letter）
 const (
 	sopTimerStatusPending    = "pending"
 	sopTimerStatusSkipped    = "skipped"
 	sopTimerStatusDeadLetter = "dead_letter"
 
-	// S1-5：最大认领次数，达到即转死信（对齐 MASTER_COMPETITIVE_DECISIONS.md S1-5）
 	sopTimerMaxClaims = 5
 )
 
@@ -103,7 +101,6 @@ func (o *SOPOutboxDispatcher) Stop(ctx context.Context) {
 	logger.GetLogger().Info().Msg("[SOPOutboxDispatcher] stopped")
 }
 
-// loop 主循环
 func (o *SOPOutboxDispatcher) loop(ctx context.Context) {
 	defer o.wg.Done()
 	ticker := time.NewTicker(o.tickInterval)
@@ -121,10 +118,6 @@ func (o *SOPOutboxDispatcher) loop(ctx context.Context) {
 	}
 }
 
-// processDueTimers 扫描到期 timer 并派发任务
-//
-// 幂等性保障：通过 WHERE status='pending' 原子更新为 'fired'，
-// 多实例并发时只有第一个实例能成功更新，其他实例 RowsAffected=0 直接跳过。
 func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 	if o.timerRepo == nil || o.execDispatcher == nil {
 		return
@@ -140,7 +133,6 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 		return
 	}
 
-	// S1-2/S1-5 兜底扫描不依赖到期结果，先执行
 	o.sweepPendingTimers(ctx, now)
 
 	if len(timers) == 0 {
@@ -154,7 +146,7 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 			logger.Ctx(ctx).Error().Err(err).
 				Uint("timer_id", t.ID).
 				Msg("[outbox] mark timer fired failed")
-			// S1-5：认领失败累计 claim_count，≥5 转死信
+
 			o.bumpTimerClaimOrDeadLetter(ctx, &t, now)
 			continue
 		}
@@ -187,18 +179,11 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 	}
 }
 
-// sweepPendingTimers 扫描 pending timers，处理两类兜底（M4 列下沉版）：
-//  1. S1-5：claim_count ≥ sopTimerMaxClaims → 转 dead_letter + 告警日志
-//  2. S1-2：max_wait_at 已过期 → 转 skipped + 事件记录 + SkipWait 任务（视为满足立即跳过）
-//
-// M4：扫描条件改为实体列 SQL 查询（配合部分索引 idx_sop_timers_pending_*），
-// 旧数据无列值时回退 payload JSONB 字段判断。
 func (o *SOPOutboxDispatcher) sweepPendingTimers(ctx context.Context, now time.Time) {
 	if o.timerRepo == nil {
 		return
 	}
 
-	// S1-5：死信迁移——claim_count 列 ≥ 阈值（旧数据回退 payload 数字字段）
 	deadCandidates, err := o.timerRepo.FindClaimExhaustedPendingTimers(ctx, sopTimerMaxClaims, o.batchSize)
 	if err != nil {
 		logger.Ctx(ctx).Error().Err(err).Msg("[outbox] sweep claim-exhausted timers failed")
@@ -223,7 +208,6 @@ func (o *SOPOutboxDispatcher) sweepPendingTimers(ctx context.Context, now time.T
 			Msg("[outbox][ALERT] timer moved to dead_letter: claim_count exhausted")
 	}
 
-	// S1-2：max_wait 兜底跳过——max_wait_at 列已过期（旧数据回退 payload RFC3339 字段）
 	overdue, err := o.timerRepo.FindMaxWaitOverduePendingTimers(ctx, now, o.batchSize)
 	if err != nil {
 		logger.Ctx(ctx).Error().Err(err).Msg("[outbox] sweep max-wait-overdue timers failed")
@@ -263,8 +247,6 @@ func (o *SOPOutboxDispatcher) sweepPendingTimers(ctx context.Context, now time.T
 	}
 }
 
-// bumpTimerClaimOrDeadLetter S1-5：认领失败时累计 claim_count（M4 列下沉：实体列+payload 双写），
-// 达到阈值直接转 dead_letter 并告警。
 func (o *SOPOutboxDispatcher) bumpTimerClaimOrDeadLetter(ctx context.Context, t *model.SOPTimer, now time.Time) {
 	if o.timerRepo == nil || t == nil {
 		return
@@ -307,7 +289,6 @@ func (o *SOPOutboxDispatcher) bumpTimerClaimOrDeadLetter(ctx context.Context, t 
 	}
 }
 
-// writeTimerSkippedEvent S1-2：超 max_wait 跳过的事件记录（sop_exec_events）
 func (o *SOPOutboxDispatcher) writeTimerSkippedEvent(ctx context.Context, t *model.SOPTimer, now time.Time) {
 	if o.eventRepo == nil || o.timerRepo == nil {
 		return
@@ -336,7 +317,6 @@ func (o *SOPOutboxDispatcher) writeTimerSkippedEvent(ctx context.Context, t *mod
 	}
 }
 
-// timerClaimCount 读取 claim_count（M4：优先实体列，回退 payload 兼容旧数据）
 func timerClaimCount(t *model.SOPTimer) int {
 	if t != nil && t.ClaimCount > 0 {
 		return t.ClaimCount
@@ -354,7 +334,6 @@ func timerClaimCount(t *model.SOPTimer) int {
 	}
 }
 
-// timerMaxWaitAt 读取 max_wait_at（M4：优先实体列，回退 payload 兼容旧数据）
 func timerMaxWaitAt(t *model.SOPTimer) time.Time {
 	if t == nil {
 		return time.Time{}
@@ -365,7 +344,6 @@ func timerMaxWaitAt(t *model.SOPTimer) time.Time {
 	return parseSOPTimePayload(t.Payload, "max_wait_at")
 }
 
-// parseSOPTimePayload 从 payload 解析 RFC3339 时间字段
 func parseSOPTimePayload(payload model.JSONMap, key string) time.Time {
 	s, _ := payload[key].(string)
 	if s == "" {
@@ -404,7 +382,6 @@ type SOPStuckDetector struct {
 	runMu          sync.Mutex
 	running        bool
 
-	// 去重：最近恢复过的 execution -> 恢复时间
 	recentlyRecovered map[uint]time.Time
 	recoveredMu       sync.RWMutex
 	recoveredCooldown time.Duration
@@ -470,7 +447,6 @@ func (d *SOPStuckDetector) Stop(ctx context.Context) {
 	logger.GetLogger().Info().Msg("[SOPStuckDetector] stopped")
 }
 
-// loop 主循环
 func (d *SOPStuckDetector) loop(ctx context.Context) {
 	defer d.wg.Done()
 	ticker := time.NewTicker(d.tickInterval)
@@ -487,7 +463,6 @@ func (d *SOPStuckDetector) loop(ctx context.Context) {
 	}
 }
 
-// cleanupRecovered 清理 recentlyRecovered 中超过 recoveredCooldown 的过期记录
 func (d *SOPStuckDetector) cleanupRecovered() {
 	d.recoveredMu.Lock()
 	defer d.recoveredMu.Unlock()
@@ -499,16 +474,6 @@ func (d *SOPStuckDetector) cleanupRecovered() {
 	}
 }
 
-// scanStuckExecutions 扫描卡死执行
-//
-// 扫描条件：
-//  1. status='running'
-//  2. (last_event_at IS NULL OR last_event_at < now()-maxIdleTime)
-//     即最近 maxIdleTime 时间内无节点事件
-//  3. NOT EXISTS (SELECT 1 FROM sop_timers WHERE execution_id=sop_executions.id AND status='pending')
-//     即无 pending timer（wait 节点不算卡死）
-//
-// 恢复策略：重新派发当前节点任务（attempt=0）
 func (d *SOPStuckDetector) scanStuckExecutions(ctx context.Context) {
 	if d.execRepo == nil {
 		return
@@ -533,8 +498,7 @@ func (d *SOPStuckDetector) scanStuckExecutions(ctx context.Context) {
 
 	recoveredCount := 0
 	for _, exec := range execs {
-		// BUG-6 修复：用 tryRecover 模式（持写锁一次性完成"检查+标记"）消除 TOCTOU race
-		// 原：读锁→检查→释放→写锁，多个 tick 可能同时进入恢复分支
+
 		d.recoveredMu.Lock()
 		recoveredAt, found := d.recentlyRecovered[exec.ID]
 		if found && time.Since(recoveredAt) < d.recoveredCooldown {
@@ -545,7 +509,7 @@ func (d *SOPStuckDetector) scanStuckExecutions(ctx context.Context) {
 				Msg("[stuck] skip recently recovered execution")
 			continue
 		}
-		// 立刻写入"已恢复"标记（即使后面的检查失败，下一轮也跳过）
+
 		d.recentlyRecovered[exec.ID] = time.Now()
 		d.recoveredMu.Unlock()
 

@@ -1,6 +1,5 @@
 package controller
 
-
 import (
 	"errors"
 	"net/http"
@@ -123,9 +122,6 @@ func (ctrl *PermissionController) ListAuditLogs(c *gin.Context) {
 	response.SuccessWithPage(c, resp.List, int64(p), int64(s), resp.Total)
 }
 
-// writePermissionServiceError 授权管理 service 错误响应：
-//   - service.ErrInvalidInput → 400
-//   - 其它（系统级 / DB）→ 500
 func writePermissionServiceError(c *gin.Context, err error) {
 	if err == nil {
 		return
@@ -136,4 +132,3 @@ func writePermissionServiceError(c *gin.Context, err error) {
 	}
 	response.ErrorFromDB(c, err, err.Error())
 }
-

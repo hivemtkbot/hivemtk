@@ -109,7 +109,7 @@ func MannWhitneyUTest(groupA, groupB []float64) (uStat, pValue float64) {
 	if nA < 5 || nB < 5 {
 		return 0, 1.0
 	}
-	// 1. 合并排序
+
 	type pair struct {
 		value float64
 		group int
@@ -137,7 +137,7 @@ func MannWhitneyUTest(groupA, groupB []float64) (uStat, pValue float64) {
 		}
 		i = j + 1
 	}
-	// 3. 计算秩和
+
 	var rankA, rankB float64
 	for k, p := range combined {
 		if p.group == 0 {
@@ -178,7 +178,6 @@ func MannWhitneyUTest(groupA, groupB []float64) (uStat, pValue float64) {
 	return uStat, pValue
 }
 
-// normalCDF 标准正态分布累积分布函数（用 erf 近似）
 func normalCDF(x float64) float64 {
 	return 0.5 * (1 + math.Erf(x/math.Sqrt2))
 }
@@ -322,7 +321,6 @@ func InterpretCohensD(d float64) string {
 	}
 }
 
-// meanValue 均值
 func meanValue(data []float64) float64 {
 	if len(data) == 0 {
 		return 0
@@ -334,7 +332,6 @@ func meanValue(data []float64) float64 {
 	return sum / float64(len(data))
 }
 
-// varianceValue 样本方差（无偏估计）
 func varianceValue(data []float64, m float64) float64 {
 	n := len(data)
 	if n < 2 {
@@ -348,7 +345,6 @@ func varianceValue(data []float64, m float64) float64 {
 	return sum / float64(n-1)
 }
 
-// round4 保留 4 位小数
 func round4(v float64) float64 {
 	return math.Round(v*10000) / 10000
 }

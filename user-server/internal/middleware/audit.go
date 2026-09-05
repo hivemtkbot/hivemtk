@@ -17,11 +17,11 @@ import (
 
 // AuditManager 审计管理器（封装全局状态）
 type AuditManager struct {
-	droppedCount  atomic.Int64
-	logChan       chan *AuditEntry
-	initOnce      sync.Once
-	ctx           context.Context
-	cancel        context.CancelFunc
+	droppedCount atomic.Int64
+	logChan      chan *AuditEntry
+	initOnce     sync.Once
+	ctx          context.Context
+	cancel       context.CancelFunc
 }
 
 // DefaultAuditManager 默认审计管理器
@@ -53,7 +53,6 @@ func (m *AuditManager) GetDroppedCount() int64 {
 	return m.droppedCount.Load()
 }
 
-// processAuditLogs 批量处理审计日志
 func (m *AuditManager) processAuditLogs() {
 	const batchSize = 50
 	const flushInterval = 5 * time.Second
@@ -87,7 +86,6 @@ func (m *AuditManager) processAuditLogs() {
 	}
 }
 
-// saveAuditBatch 批量保存审计日志（带重试机制，落库走注入的 AuditSink）
 func (m *AuditManager) saveAuditBatch(logs []*AuditEntry) {
 	if len(logs) == 0 {
 		return
@@ -127,14 +125,13 @@ func (m *AuditManager) saveAuditBatch(logs []*AuditEntry) {
 	}
 }
 
-// saveAuditLog 保存审计日志（发送到异步通道）
 func (m *AuditManager) saveAuditLog(entry *AuditEntry) {
 	m.Init()
 	select {
 	case m.logChan <- entry:
-		// 入队成功
+
 	default:
-		// channel 满时同步落库而非丢弃
+
 		m.droppedCount.Add(1)
 		if sink := getAuditSink(); sink != nil {
 			if err := sink.Save(context.Background(), entry); err != nil {
@@ -186,7 +183,6 @@ func AuditMiddleware() gin.HandlerFunc {
 
 		startTime := time.Now()
 
-		// 读取请求体（用于记录详情）
 		var requestBody []byte
 		if c.Request.Body != nil {
 			requestBody, _ = io.ReadAll(c.Request.Body)
@@ -213,7 +209,6 @@ func AuditMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// 解析请求体
 		var sanitizedRequest any
 		if len(requestBody) > 0 {
 			var reqMap map[string]any
@@ -260,7 +255,6 @@ func AuditMiddleware() gin.HandlerFunc {
 	}
 }
 
-// auditResponseWriter 审计响应写入器
 type auditResponseWriter struct {
 	gin.ResponseWriter
 	body *bytes.Buffer
@@ -276,7 +270,6 @@ func (w *auditResponseWriter) WriteString(s string) (int, error) {
 	return w.ResponseWriter.WriteString(s)
 }
 
-// sanitizeMap 清理敏感字段
 func sanitizeMap(m map[string]any) map[string]any {
 	result := make(map[string]any)
 	for k, v := range m {
@@ -294,7 +287,6 @@ func sanitizeMap(m map[string]any) map[string]any {
 	return result
 }
 
-// isSensitiveField 检查是否为敏感字段
 func isSensitiveField(field string) bool {
 	for _, sensitiveField := range DefaultAuditConfig.SensitiveFields {
 		if field == sensitiveField {
@@ -304,7 +296,6 @@ func isSensitiveField(field string) bool {
 	return false
 }
 
-// getActionFromMethod 从HTTP方法获取操作类型
 func getActionFromMethod(method string) string {
 	switch method {
 	case "POST":
@@ -318,9 +309,6 @@ func getActionFromMethod(method string) string {
 	}
 }
 
-// getModuleFromPath 从路径获取模块名
-// getModuleFromPath 审计模块解析：/api/{domain}/{resource} → resource。
-// 契约（audit_test）：路径需含资源段(≥4)，否则返回 "unknown"。
 func getModuleFromPath(path string) string {
 	parts := strings.Split(path, "/")
 	if len(parts) >= 4 && parts[3] != "" {
@@ -329,8 +317,6 @@ func getModuleFromPath(path string) string {
 	return "unknown"
 }
 
-// getResourceFromPath 从路径获取资源类型：/api/{domain}/{resource} → resource。
-// 契约（audit_test）：/api/users/123 → "123"；/api/users → "unknown"。
 func getResourceFromPath(path string) string {
 	parts := strings.Split(path, "/")
 	if len(parts) >= 4 && parts[3] != "" {
@@ -338,10 +324,6 @@ func getResourceFromPath(path string) string {
 	}
 	return "unknown"
 }
-
-// getResourceIDFromPath 从路径获取资源ID：资源段之后的数字段。
-// 契约（audit_test）：/api/users/1/123 → "123"；/api/users/123 → ""（该段是资源非ID）。
-
 
 func getResourceIDFromPath(path string) string {
 	parts := strings.Split(path, "/")
@@ -366,7 +348,7 @@ func convertToUint(v any) uint {
 	case float64:
 		return uint(val)
 	case string:
-		// 宽松解析：从字符串中提取连续数字（如 "abc123" → 123），无数字回退 ParseUint
+
 		if result, err := strconv.ParseUint(val, 10, 64); err == nil {
 			return uint(result)
 		}

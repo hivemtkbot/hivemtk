@@ -16,8 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// —— L-1 SOP 优化验证门测试 ——
-
 type fakeGateLLM struct {
 	content string
 	err     error
@@ -37,7 +35,6 @@ type gateFixture struct {
 	o  *SOPAutoOptimizer
 }
 
-// setupGateTestDB 建验证门所需全部表
 func setupGateTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	return testutil.NewTestDB(t,
@@ -50,7 +47,6 @@ func setupGateTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// seedGoldenCases 写入 n 条高分 golden 案例（trace_eval_log + message_trace 聚合素材）
 func seedGoldenCases(t *testing.T, db *gorm.DB, n int) {
 	t.Helper()
 	for i := 0; i < n; i++ {
@@ -100,7 +96,7 @@ func gateVerdict(pass bool, reason string) string {
 // TestGate_InsufficientGolden_FailClosed golden 不足 → fail-closed 不自动应用，保持 pending 可人工审
 func TestGate_InsufficientGolden_FailClosed(t *testing.T) {
 	db := setupGateTestDB(t)
-	seedGoldenCases(t, db, minGoldenCases-1) // 少于阈值
+	seedGoldenCases(t, db, minGoldenCases-1)
 
 	fake := &fakeGateLLM{content: gateVerdict(true, "ok")}
 	o := NewSOPAutoOptimizer(db, nil, DefaultSOPAutoOptimizerConfig())
@@ -115,7 +111,6 @@ func TestGate_InsufficientGolden_FailClosed(t *testing.T) {
 	assert.Equal(t, model.SuggestionStatusPending, reloaded.Status, "未过门不应应用")
 	assert.False(t, reloaded.EvidenceData["gate"] == nil, "门结果应写入审计字段")
 
-	// LLM 不应被调用（结构/回归前置门已拦截）
 	assert.Zero(t, fake.calls)
 }
 
@@ -174,7 +169,6 @@ func TestGate_RecheckSkip(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, fake.calls)
 
-	// 第二轮：pending 未变，但近期已检查 → 不再调用 LLM
 	_, err = o.ProcessPendingSuggestions(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, 1, fake.calls, "24h 内不应重复评审")

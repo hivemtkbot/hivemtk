@@ -11,8 +11,6 @@ import (
 	"time"
 )
 
-
-
 func makeHandler(name string, callCount *int32, succeed bool, errMsg string) ToolHandler {
 	return func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		atomic.AddInt32(callCount, 1)
@@ -42,28 +40,23 @@ func makeSlowHandler(name string, callCount *int32, duration time.Duration) Tool
 	}
 }
 
-// makeCtxWithToolName 构造带工具名的 ctx
 func makeCtxWithToolName(name string) context.Context {
 	ctx := context.Background()
 	return WithToolName(ctx, name)
 }
 
-
-// allowAllChecker 始终放行
 type allowAllChecker struct{}
 
 func (allowAllChecker) Check(ctx context.Context, toolName string, tc *ToolContext) error {
 	return nil
 }
 
-// denyAllChecker 始终拒绝
 type denyAllChecker struct{}
 
 func (denyAllChecker) Check(ctx context.Context, toolName string, tc *ToolContext) error {
 	return errors.New("access denied for " + toolName)
 }
 
-// permissionListChecker 按工具名白名单放行
 type permissionListChecker struct {
 	allowed map[string]bool
 }
@@ -143,7 +136,6 @@ func TestPermissionDecorator_Whitelist(t *testing.T) {
 	}
 }
 
-
 func TestRateLimitDecorator_Allow(t *testing.T) {
 	var calls int32
 	h := makeHandler("test.tool", &calls, true, "")
@@ -169,7 +161,6 @@ func TestRateLimitDecorator_NilLimiter(t *testing.T) {
 	}
 }
 
-// denyAllLimiter 始终拒绝
 type denyAllLimiter struct{}
 
 func (denyAllLimiter) Acquire(ctx context.Context, key string) error {
@@ -191,7 +182,7 @@ func TestRateLimitDecorator_Deny(t *testing.T) {
 }
 
 func TestTokenBucketLimiter_BasicAllow(t *testing.T) {
-	limiter := NewTokenBucketLimiter(100, 5) 
+	limiter := NewTokenBucketLimiter(100, 5)
 	ctx := context.Background()
 	for i := 0; i < 5; i++ {
 		if err := limiter.Acquire(ctx, "key1"); err != nil {
@@ -201,7 +192,7 @@ func TestTokenBucketLimiter_BasicAllow(t *testing.T) {
 }
 
 func TestTokenBucketLimiter_DenyWhenExhausted(t *testing.T) {
-	limiter := NewTokenBucketLimiter(0.01, 2) 
+	limiter := NewTokenBucketLimiter(0.01, 2)
 	ctx := context.Background()
 	_ = limiter.Acquire(ctx, "key1")
 	_ = limiter.Acquire(ctx, "key1")
@@ -212,9 +203,9 @@ func TestTokenBucketLimiter_DenyWhenExhausted(t *testing.T) {
 }
 
 func TestTokenBucketLimiter_Refill(t *testing.T) {
-	limiter := NewTokenBucketLimiter(1000, 1) 
+	limiter := NewTokenBucketLimiter(1000, 1)
 	ctx := context.Background()
-	_ = limiter.Acquire(ctx, "key1") 
+	_ = limiter.Acquire(ctx, "key1")
 	time.Sleep(20 * time.Millisecond)
 	if err := limiter.Acquire(ctx, "key1"); err != nil {
 		t.Fatalf("等待后应放行，实际错误：%v", err)
@@ -256,8 +247,6 @@ func TestRateLimitDecorator_KeyIncludesCallerID(t *testing.T) {
 	}
 }
 
-
-// countFailThenSucceedN 前 N-1 次失败，第 N 次成功
 func countFailThenSucceedN(name string, counter *int32, failUntil int32) ToolHandler {
 	return func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		cur := atomic.AddInt32(counter, 1)
@@ -268,7 +257,6 @@ func countFailThenSucceedN(name string, counter *int32, failUntil int32) ToolHan
 	}
 }
 
-// zeroBackoffPolicy 立即重试（用于测试）
 type zeroBackoffPolicy struct {
 	maxAttempts int
 }
@@ -303,7 +291,7 @@ func TestRetryDecorator_FirstSuccess(t *testing.T) {
 
 func TestRetryDecorator_SuccessAfterRetries(t *testing.T) {
 	var calls int32
-	h := countFailThenSucceedN("test.tool", &calls, 3) 
+	h := countFailThenSucceedN("test.tool", &calls, 3)
 	dec := RetryDecorator(&zeroBackoffPolicy{maxAttempts: 5})(h)
 	ctx := makeCtxWithToolName("test.tool")
 	r, err := dec(ctx, nil)
@@ -371,7 +359,7 @@ func TestRetryDecorator_ContextCancel(t *testing.T) {
 	h := makeHandler("test.tool", &calls, false, "fail")
 	dec := RetryDecorator(&zeroBackoffPolicy{maxAttempts: 100})(h)
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() 
+	cancel()
 	ctx = WithToolName(ctx, "test.tool")
 	_, err := dec(ctx, nil)
 	if err == nil {
@@ -432,7 +420,6 @@ func TestExponentialBackoffPolicy_OutOfRange(t *testing.T) {
 	}
 }
 
-
 func TestTimeoutDecorator_Normal(t *testing.T) {
 	var calls int32
 	h := makeHandler("test.tool", &calls, true, "")
@@ -461,7 +448,7 @@ func TestTimeoutDecorator_TimedOut(t *testing.T) {
 func TestTimeoutDecorator_ZeroDuration(t *testing.T) {
 	var calls int32
 	h := makeHandler("test.tool", &calls, true, "")
-	dec := TimeoutDecorator(0)(h) 
+	dec := TimeoutDecorator(0)(h)
 	ctx := makeCtxWithToolName("test.tool")
 	_, err := dec(ctx, nil)
 	if err != nil {
@@ -479,7 +466,6 @@ func TestTimeoutDecorator_PanicInGoroutine(t *testing.T) {
 		t.Fatalf("期望 ErrToolPanic，实际 %v", err)
 	}
 }
-
 
 func TestAuditDecorator_SuccessLogged(t *testing.T) {
 	logger := NewMemoryAuditLogger(100)
@@ -614,9 +600,8 @@ func TestAuditDecorator_TruncatesLongArgs(t *testing.T) {
 	}
 }
 
-
 func TestChainDecorators_Order(t *testing.T) {
-	// 用一个共享 slice 记录调用顺序
+
 	var order []string
 	var mu sync.Mutex
 	addLog := func(s string) {
@@ -681,17 +666,16 @@ func TestChainDecorators_SkipNilDecorators(t *testing.T) {
 	}
 }
 
-
 func TestBuildDefaultChain_PermissionDenyStopsChain(t *testing.T) {
 	var calls int32
 	h := makeHandler("test.tool", &calls, true, "")
 	chain := BuildDefaultChain(h,
-		denyAllChecker{},                   
-		NoOpRateLimiter{},                  
-		&zeroBackoffPolicy{maxAttempts: 3}, 
-		1*time.Second,                      
-		NewMemoryAuditLogger(100),          
-		NewMemoryCostTracker(),             
+		denyAllChecker{},
+		NoOpRateLimiter{},
+		&zeroBackoffPolicy{maxAttempts: 3},
+		1*time.Second,
+		NewMemoryAuditLogger(100),
+		NewMemoryCostTracker(),
 	)
 	ctx := makeCtxWithToolName("test.tool")
 	_, err := chain(ctx, nil)
@@ -707,9 +691,9 @@ func TestBuildDefaultChain_RateLimitedStopsChain(t *testing.T) {
 	var calls int32
 	h := makeHandler("test.tool", &calls, true, "")
 	chain := BuildDefaultChain(h,
-		allowAllChecker{},                  
-		denyAllLimiter{},                   
-		&zeroBackoffPolicy{maxAttempts: 3}, 
+		allowAllChecker{},
+		denyAllLimiter{},
+		&zeroBackoffPolicy{maxAttempts: 3},
 		1*time.Second,
 		NewMemoryAuditLogger(100),
 		NewMemoryCostTracker(),
@@ -730,7 +714,7 @@ func TestBuildDefaultChain_RetryOnFailure(t *testing.T) {
 	chain := BuildDefaultChain(h,
 		allowAllChecker{},
 		NoOpRateLimiter{},
-		&zeroBackoffPolicy{maxAttempts: 5}, 
+		&zeroBackoffPolicy{maxAttempts: 5},
 		1*time.Second,
 		NewMemoryAuditLogger(100),
 		NewMemoryCostTracker(),
@@ -756,7 +740,7 @@ func TestBuildDefaultChain_FullSuccess(t *testing.T) {
 	chain := BuildDefaultChain(h,
 		allowAllChecker{},
 		NoOpRateLimiter{},
-		&zeroBackoffPolicy{maxAttempts: 1}, 
+		&zeroBackoffPolicy{maxAttempts: 1},
 		1*time.Second,
 		logger,
 		tracker,
@@ -791,7 +775,6 @@ func TestBuildDefaultChain_FullSuccess(t *testing.T) {
 	}
 }
 
-
 func TestToolContext_PassThroughChain(t *testing.T) {
 	logger := NewMemoryAuditLogger(100)
 	var capturedCtx *ToolContext
@@ -803,7 +786,7 @@ func TestToolContext_PassThroughChain(t *testing.T) {
 	chain := BuildDefaultChain(h,
 		allowAllChecker{},
 		NoOpRateLimiter{},
-		nil, 
+		nil,
 		1*time.Second,
 		logger,
 		nil,
@@ -837,7 +820,6 @@ func TestGetToolContext_NilWhenNotSet(t *testing.T) {
 		t.Fatalf("未注入时应返回 nil")
 	}
 }
-
 
 func TestMemoryAuditLogger_RollOver(t *testing.T) {
 	logger := NewMemoryAuditLogger(3)
@@ -887,7 +869,7 @@ func TestMemoryCostTracker_StatsComputation(t *testing.T) {
 	if len(stats) != 2 {
 		t.Fatalf("期望 2 个工具统计，实际 %d", len(stats))
 	}
-	// 找到 tool.a 的统计
+
 	var aStats *CostStats
 	for i := range stats {
 		if stats[i].ToolName == "tool.a" {
@@ -918,7 +900,6 @@ func TestMemoryCostTracker_StatsComputation(t *testing.T) {
 		t.Fatalf("AvgDurationMs 期望 ~116.67，实际 %f", aStats.AvgDurationMs)
 	}
 }
-
 
 func TestSummarizeArgs_Empty(t *testing.T) {
 	if summarizeArgs(nil) != "" {
@@ -961,7 +942,6 @@ func TestSummarizeArgs_LongValueTruncated(t *testing.T) {
 	}
 }
 
-
 func TestNoOpImplementations(t *testing.T) {
 	ctx := context.Background()
 	tc := &ToolContext{CallerID: "x"}
@@ -972,9 +952,8 @@ func TestNoOpImplementations(t *testing.T) {
 	if err := (NoOpRateLimiter{}).Acquire(ctx, "any.key"); err != nil {
 		t.Fatalf("NoOpRateLimiter 应返回 nil")
 	}
-	(NoOpAuditLogger{}).Log(ctx, AuditEntry{}) 
+	(NoOpAuditLogger{}).Log(ctx, AuditEntry{})
 	if err := (NoOpCostTracker{}).Record(ctx, "any.tool", true, 1*time.Second); err != nil {
 		t.Fatalf("NoOpCostTracker 应返回 nil")
 	}
 }
-

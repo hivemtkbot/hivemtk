@@ -45,17 +45,13 @@ type GlossaryView struct {
 	Patterns []string          `json:"patterns"`
 }
 
-// glossaryTranslation 术语翻译条目（与 model.Glossary.Translations 中
-// 每个 JSON 元素的结构对齐）。
 type glossaryTranslation struct {
 	Lang string `json:"lang"`
 	Text string `json:"text"`
 }
 
-// glossaryCacheTTL 缓存默认 TTL（1 小时）。
 const glossaryCacheTTL = time.Hour
 
-// glossaryCacheKeyPrefix 缓存 key 前缀。
 const glossaryCacheKeyPrefix = "glossary:lang:"
 
 // GlossaryService 术语表服务。
@@ -259,13 +255,6 @@ func (s *GlossaryService) ListByCategory(ctx context.Context, category string) (
 	return list, nil
 }
 
-// loadFromCache 从缓存读取视图；未命中或反序列化失败时返回 (nil, false)。
-//
-// 兼容两种后端：
-//   - RedisCache.GetJSON：未命中返回 redis.Nil 错误
-//   - MemoryCache.GetJSON：未命中返回 nil（无错误），但反序列化后 view.Lang 为空
-//
-// 因此通过「err != nil || view.Lang == ""」双重判定。
 func (s *GlossaryService) loadFromCache(ctx context.Context, lang string) (*GlossaryView, bool) {
 	key := glossaryCacheKeyPrefix + lang
 	var view GlossaryView
@@ -279,7 +268,6 @@ func (s *GlossaryService) loadFromCache(ctx context.Context, lang string) (*Glos
 	return &view, true
 }
 
-// saveToCache 写缓存（best-effort，失败仅日志）。
 func (s *GlossaryService) saveToCache(ctx context.Context, view *GlossaryView) {
 	if view == nil {
 		return
@@ -290,13 +278,6 @@ func (s *GlossaryService) saveToCache(ctx context.Context, view *GlossaryView) {
 	}
 }
 
-// buildView 从术语列表构建指定语言的视图。
-//
-// 规则：
-//   - Preserve=true：仅追加 Pattern 到保护模式（不参与 Mappings）
-//   - Preserve=false：解析 Translations（{lang:text}），找出目标语言文本；
-//     其余语言的文本作为"错误形式"映射到目标文本（供 PostValidator 校准）
-//   - Pattern 非空：始终追加到 Patterns（无论 Preserve）
 func (s *GlossaryService) buildView(lang string, list []*model.Glossary) *GlossaryView {
 	view := &GlossaryView{
 		Lang:     lang,
@@ -343,10 +324,6 @@ func (s *GlossaryService) buildView(lang string, list []*model.Glossary) *Glossa
 	return view
 }
 
-// parseTranslations 解析 model.Glossary.Translations（model.JSONMap）。
-//
-// 存储格式：`{"en":"Apple","zh":"苹果"}` —— map[lang]text。
-// 非字符串的值（如嵌套对象）跳过；空 text 跳过。
 func parseTranslations(raw model.JSONMap) []glossaryTranslation {
 	if len(raw) == 0 {
 		return nil
@@ -365,7 +342,6 @@ func parseTranslations(raw model.JSONMap) []glossaryTranslation {
 	return out
 }
 
-// toString 把 any 安全转为 string（数字/布尔也兼容）。
 func toString(val any) string {
 	if val == nil {
 		return ""
@@ -380,7 +356,6 @@ func toString(val any) string {
 	}
 }
 
-// pickTextByLang 从翻译列表中挑选指定语言的文本（无命中返回空串）。
 func pickTextByLang(translations []glossaryTranslation, lang string) string {
 	for _, t := range translations {
 		if t.Lang == lang {

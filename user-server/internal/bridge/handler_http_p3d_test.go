@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/testutil"
 	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/service"
-	"hivemtk-user/internal/pkg/testutil"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,10 +19,10 @@ import (
 // TestAckBridgeOutbox_DetailedItems_P3D 验证 P3-D：ack 响应包含 per-msg-id 详细状态。
 //
 // 场景：
-//   1) seed 3 条 pending：msg_a, msg_b, msg_c
-//   2) 先把 msg_b 单独 ack 一次 → msg_b 翻转为 delivered
-//   3) 再批量 ack [msg_a, msg_b, msg_c, msg_d（不存在）]
-//   4) 响应：acked=2（a+c）, duplicate=1（b）, not_found=1（d）
+//  1. seed 3 条 pending：msg_a, msg_b, msg_c
+//  2. 先把 msg_b 单独 ack 一次 → msg_b 翻转为 delivered
+//  3. 再批量 ack [msg_a, msg_b, msg_c, msg_d（不存在）]
+//  4. 响应：acked=2（a+c）, duplicate=1（b）, not_found=1（d）
 func TestAckBridgeOutbox_DetailedItems_P3D(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t, &model.MessageHub{})
@@ -77,10 +77,10 @@ func TestAckBridgeOutbox_DetailedItems_P3D(t *testing.T) {
 	respStr := rr.Body.String()
 	expects := []string{
 		`"status":"ok"`,
-		`"affected_count":2`,     
-		`"acked_items_count":2`,  
-		`"duplicate_count":1`,    
-		`"not_found_count":1`,    
+		`"affected_count":2`,
+		`"acked_items_count":2`,
+		`"duplicate_count":1`,
+		`"not_found_count":1`,
 	}
 	for _, e := range expects {
 		if !strings.Contains(respStr, e) {
@@ -250,7 +250,7 @@ func TestAckOutboundDeliveredDetailed_ConcurrentDoubleAck_P4(t *testing.T) {
 	if err := db.Create(hub).Error; err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	// 10 个 goroutine 并发 ack 同一 msg_id
+
 	const N = 10
 	results := make([]*service.AckOutboundResult, N)
 	errs := make([]error, N)
@@ -346,8 +346,7 @@ func TestGetByMsgIDsInScope_OnlyOutbound_P4(t *testing.T) {
 	for _, c := range []struct {
 		direction, msg, conv string
 	}{
-		// 唯一约束 uni_message_hub_platform_msg_conv 不含 direction，
-		// 同 msg_id 的 inbound/outbound 须用不同 conversation_id 才能共存。
+
 		{"inbound", "mh:shared", "c_in"},
 		{"outbound", "mh:shared", "c"},
 	} {
@@ -379,4 +378,3 @@ func TestGetByMsgIDsInScope_OnlyOutbound_P4(t *testing.T) {
 		t.Errorf("期望仅返回 1 条 outbound，实际 %d 条（rows=%+v）", outboundCount, rows)
 	}
 }
-

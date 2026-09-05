@@ -152,10 +152,10 @@ func TestWorkflowOrchestratorController_GetVersion(t *testing.T) {
 
 	version := &model.WorkflowVersion{
 		WorkflowID: "wf-get-test",
-		Version:     1,
-		Name:        "Get Test",
-		Definition:  model.JSONMap{"nodes": []any{}},
-		Status:      "draft",
+		Version:    1,
+		Name:       "Get Test",
+		Definition: model.JSONMap{"nodes": []any{}},
+		Status:     "draft",
 	}
 	if err := database.Create(version).Error; err != nil {
 		t.Fatalf("创建测试数据失败: %v", err)
@@ -219,10 +219,10 @@ func TestWorkflowOrchestratorController_ListVersions(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		database.Create(&model.WorkflowVersion{
 			WorkflowID: "wf-list-test",
-			Version:     i,
-			Name:        fmt.Sprintf("Version %d", i),
-			Definition:  model.JSONMap{"nodes": []any{}},
-			Status:      "draft",
+			Version:    i,
+			Name:       fmt.Sprintf("Version %d", i),
+			Definition: model.JSONMap{"nodes": []any{}},
+			Status:     "draft",
 		})
 	}
 
@@ -251,8 +251,7 @@ func TestWorkflowOrchestratorController_ListVersions(t *testing.T) {
 }
 
 func TestWorkflowOrchestratorController_ListVersions_MissingWorkflowID(t *testing.T) {
-	// v3 双模式设计: 未传 workflow_id 时按 status+page 走分页列表(List.vue),
-	// 返回 200 而非 400（见 controller.ListVersions 注释）
+
 	db := setupWorkflowTestDB(t)
 	ctrl := setupWorkflowOrchestratorController(db)
 	router := gin.New()
@@ -276,10 +275,10 @@ func TestWorkflowOrchestratorController_UpdateVersion(t *testing.T) {
 
 	version := &model.WorkflowVersion{
 		WorkflowID: "wf-update-test",
-		Version:     1,
-		Name:        "Original Name",
-		Definition:  model.JSONMap{"nodes": []any{}},
-		Status:      "draft",
+		Version:    1,
+		Name:       "Original Name",
+		Definition: model.JSONMap{"nodes": []any{}},
+		Status:     "draft",
 	}
 	database.Create(version)
 
@@ -319,10 +318,10 @@ func TestWorkflowOrchestratorController_PublishVersion(t *testing.T) {
 
 	version := &model.WorkflowVersion{
 		WorkflowID: "wf-publish-test",
-		Version:     1,
-		Name:        "Publish Test",
-		Definition:  model.JSONMap{"nodes": []any{}},
-		Status:      "draft",
+		Version:    1,
+		Name:       "Publish Test",
+		Definition: model.JSONMap{"nodes": []any{}},
+		Status:     "draft",
 	}
 	database.Create(version)
 
@@ -353,10 +352,10 @@ func TestWorkflowOrchestratorController_ArchiveVersion(t *testing.T) {
 
 	version := &model.WorkflowVersion{
 		WorkflowID: "wf-archive-test",
-		Version:     1,
-		Name:        "Archive Test",
-		Definition:  model.JSONMap{"nodes": []any{}},
-		Status:      "published",
+		Version:    1,
+		Name:       "Archive Test",
+		Definition: model.JSONMap{"nodes": []any{}},
+		Status:     "published",
 	}
 	database.Create(version)
 
@@ -387,10 +386,10 @@ func TestWorkflowOrchestratorController_DeleteVersion(t *testing.T) {
 
 	version := &model.WorkflowVersion{
 		WorkflowID: "wf-delete-test",
-		Version:     1,
-		Name:        "Delete Test",
-		Definition:  model.JSONMap{"nodes": []any{}},
-		Status:      "draft",
+		Version:    1,
+		Name:       "Delete Test",
+		Definition: model.JSONMap{"nodes": []any{}},
+		Status:     "draft",
 	}
 	database.Create(version)
 
@@ -421,10 +420,10 @@ func TestWorkflowOrchestratorController_Execute(t *testing.T) {
 
 	database.Create(&model.WorkflowVersion{
 		WorkflowID: "wf-exec-test",
-		Version:     1,
-		Name:        "Exec Test",
-		Definition:  model.JSONMap{"nodes": []any{}},
-		Status:      "published",
+		Version:    1,
+		Name:       "Exec Test",
+		Definition: model.JSONMap{"nodes": []any{}},
+		Status:     "published",
 	})
 
 	router := setupWorkflowGinEngine()
@@ -492,9 +491,9 @@ func TestWorkflowOrchestratorController_GetExecution(t *testing.T) {
 
 	exec := &model.WorkflowExecution{
 		WorkflowID: "wf-exec-get",
-		Version:     1,
-		Status:      "running",
-		Context:     model.JSONMap{"step": 1},
+		Version:    1,
+		Status:     "running",
+		Context:    model.JSONMap{"step": 1},
 	}
 	database.Create(exec)
 
@@ -520,8 +519,8 @@ func TestWorkflowOrchestratorController_ListExecutions(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		database.Create(&model.WorkflowExecution{
 			WorkflowID: "wf-exec-list",
-			Version:     1,
-			Status:      "running",
+			Version:    1,
+			Status:     "running",
 		})
 	}
 
@@ -546,8 +545,8 @@ func TestWorkflowOrchestratorController_GetNodeExecutions(t *testing.T) {
 
 	exec := &model.WorkflowExecution{
 		WorkflowID: "wf-node-exec",
-		Version:     1,
-		Status:      "running",
+		Version:    1,
+		Status:     "running",
 	}
 	database.Create(exec)
 
@@ -567,7 +566,7 @@ func TestWorkflowOrchestratorController_GetNodeExecutions(t *testing.T) {
 	})
 
 	router := setupWorkflowGinEngine()
-	router.GET("/workflows/executions/:id/nodes", ctrl.GetNodeExecutions) // 与生产路由参数名一致(:id)
+	router.GET("/workflows/executions/:id/nodes", ctrl.GetNodeExecutions)
 
 	httpReq, _ := http.NewRequest("GET", fmt.Sprintf("/workflows/executions/%d/nodes", exec.ID), nil)
 	w := httptest.NewRecorder()
@@ -599,8 +598,8 @@ func TestWorkflowOrchestratorController_StopExecution(t *testing.T) {
 
 	exec := &model.WorkflowExecution{
 		WorkflowID: "wf-stop-test",
-		Version:     1,
-		Status:      "running",
+		Version:    1,
+		Status:     "running",
 	}
 	database.Create(exec)
 
@@ -631,8 +630,8 @@ func TestWorkflowOrchestratorController_StopExecution_NotRunning(t *testing.T) {
 
 	exec := &model.WorkflowExecution{
 		WorkflowID: "wf-stop-completed",
-		Version:     1,
-		Status:      "completed",
+		Version:    1,
+		Status:     "completed",
 	}
 	database.Create(exec)
 
@@ -643,9 +642,6 @@ func TestWorkflowOrchestratorController_StopExecution_NotRunning(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, httpReq)
 
-	// Round32 复测修复后非 running 状态属业务状态冲突（幂等重复停止等），
-	// 按错误码规范返回 409 Conflict，而非 500 INTERNAL_ERROR（见
-	// workflow_orchestrator.go StopExecution 内注释）
 	if w.Code != http.StatusConflict {
 		t.Errorf("期望状态码 409，得到 %d", w.Code)
 	}
@@ -668,7 +664,7 @@ func TestWorkflowOrchestratorController_CRUD_FullFlow(t *testing.T) {
 	router.DELETE("/workflows/versions/:id", ctrl.DeleteVersion)
 
 	createReq := dto.WorkflowVersionCreateRequest{
-		WorkflowID: "wf-e2e-test",
+		WorkflowID:  "wf-e2e-test",
 		Name:        "E2E Test Workflow",
 		Description: "Full flow test",
 		Definition: map[string]any{
@@ -760,7 +756,7 @@ func TestWorkflowOrchestratorController_ExecuteFlow(t *testing.T) {
 
 	createReq := dto.WorkflowVersionCreateRequest{
 		WorkflowID: "wf-exec-flow",
-		Name:        "Exec Flow Test",
+		Name:       "Exec Flow Test",
 		Definition: map[string]any{
 			"nodes": []any{
 				map[string]any{"id": "n1", "type": "trigger", "name": "Webhook"},

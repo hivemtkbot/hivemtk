@@ -35,7 +35,7 @@ func (m *WorkflowVisualOrchestratorMigration) Description() string {
 
 // Up 执行升级
 func (m *WorkflowVisualOrchestratorMigration) Up(ctx context.Context) error {
-	// workflow_versions 表：工作流版本管理
+
 	m.db.Exec(`
 		CREATE TABLE IF NOT EXISTS workflow_versions (
 			id BIGSERIAL PRIMARY KEY,
@@ -53,14 +53,12 @@ func (m *WorkflowVisualOrchestratorMigration) Up(ctx context.Context) error {
 		)
 	`)
 
-	// 兜底补列：早期版本 v1.8.0 的 CREATE 遗漏 updated_at，对存量库 ALTER 修复。
 	m.db.Exec("ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now()")
 	m.db.Exec("ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now()")
 
 	m.db.Exec("CREATE INDEX IF NOT EXISTS idx_workflow_versions_wf_id ON workflow_versions(workflow_id)")
 	m.db.Exec("CREATE INDEX IF NOT EXISTS idx_workflow_versions_status ON workflow_versions(status)")
 
-	// workflow_executions 表：工作流执行实例
 	m.db.Exec(`
 		CREATE TABLE IF NOT EXISTS workflow_executions (
 			id BIGSERIAL PRIMARY KEY,
@@ -78,7 +76,6 @@ func (m *WorkflowVisualOrchestratorMigration) Up(ctx context.Context) error {
 		)
 	`)
 
-	// 兜底补列：早期版本 v1.8.0 的 CREATE 遗漏 created_at / updated_at
 	m.db.Exec("ALTER TABLE workflow_executions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now()")
 	m.db.Exec("ALTER TABLE workflow_executions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now()")
 
@@ -86,7 +83,6 @@ func (m *WorkflowVisualOrchestratorMigration) Up(ctx context.Context) error {
 	m.db.Exec("CREATE INDEX IF NOT EXISTS idx_workflow_executions_status ON workflow_executions(status)")
 	m.db.Exec("CREATE INDEX IF NOT EXISTS idx_workflow_executions_started ON workflow_executions(started_at DESC)")
 
-	// workflow_node_executions 表：节点执行明细（用于实时高亮与耗时分析）
 	m.db.Exec(`
 		CREATE TABLE IF NOT EXISTS workflow_node_executions (
 			id BIGSERIAL PRIMARY KEY,
@@ -105,7 +101,6 @@ func (m *WorkflowVisualOrchestratorMigration) Up(ctx context.Context) error {
 		)
 	`)
 
-	// 兜底补列：node_executions 的 created_at 在旧版 CREATE 中缺失
 	m.db.Exec("ALTER TABLE workflow_node_executions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now()")
 
 	m.db.Exec("CREATE INDEX IF NOT EXISTS idx_wf_node_exec_exec_id ON workflow_node_executions(execution_id)")

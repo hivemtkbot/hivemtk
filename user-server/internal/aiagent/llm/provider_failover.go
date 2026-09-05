@@ -137,9 +137,7 @@ func (h *HTTPHealthChecker) Ping(ctx context.Context, provider *ProviderConfig, 
 		return latency, fmt.Errorf("health check %s: %w", url, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	// v3 审计 P2-7 修复：4xx 也应视为健康检查失败
-	// 原：只把 5xx 当失败 → 401/403/404 永远 success → 永远不熔断
-	// 新：>= 400 全部视为失败
+
 	if resp.StatusCode >= 400 {
 		return latency, fmt.Errorf("health check %s returned status %d", url, resp.StatusCode)
 	}
@@ -253,7 +251,6 @@ func (f *ProviderFailover) Stop() {
 	}
 }
 
-// healthCheckLoop 周期性执行健康检查
 func (f *ProviderFailover) healthCheckLoop(ctx context.Context) {
 	policy := f.LoadPolicy(ctx)
 	f.ApplyPolicy(policy)
@@ -281,7 +278,6 @@ func (f *ProviderFailover) ApplyPolicy(policy FailoverPolicy) {
 	f.ApplyConfig(policy.Config)
 }
 
-// interval 返回当前配置对应的检查间隔
 func (f *ProviderFailover) interval() time.Duration {
 	cfg := f.Config()
 	sec := cfg.HealthCheckInterval
@@ -291,7 +287,6 @@ func (f *ProviderFailover) interval() time.Duration {
 	return time.Duration(sec) * time.Second
 }
 
-// checkAll 检查所有 provider
 func (f *ProviderFailover) checkAll(ctx context.Context) {
 	if f.dispatcher == nil {
 		return
@@ -307,7 +302,6 @@ func (f *ProviderFailover) checkAll(ctx context.Context) {
 	}
 }
 
-// checkOne 检查单个 provider
 func (f *ProviderFailover) checkOne(ctx context.Context, provider *ProviderConfig, cfg FailoverConfig) {
 	checkCtx, cancel := context.WithTimeout(ctx, DefaultHealthCheckTimeout)
 	defer cancel()
@@ -497,7 +491,6 @@ func (f *ProviderFailover) DispatchWithFailover(ctx context.Context, req Dispatc
 	return f.degradedResponse(req, cfg, lastErr), nil
 }
 
-// buildCandidates 构建候选 provider 列表（按策略排序，去重，包含本地兜底）
 func (f *ProviderFailover) buildCandidates(scenario DispatchScenario, policy FailoverPolicy) []string {
 	seen := make(map[string]bool)
 	out := make([]string, 0, 8)
@@ -527,8 +520,6 @@ func (f *ProviderFailover) buildCandidates(scenario DispatchScenario, policy Fai
 	return out
 }
 
-// callSingleProvider 通过 Dispatcher.callProvider 调用单个 provider
-// 通过临时构造 ScenarioRoute 复用现有调度逻辑
 func (f *ProviderFailover) callSingleProvider(ctx context.Context, provider *ProviderConfig, req DispatchRequest, cfg FailoverConfig) (*DispatchResult, error) {
 	route := &ScenarioRoute{
 		Scenario:   req.Scenario,
@@ -539,9 +530,8 @@ func (f *ProviderFailover) callSingleProvider(ctx context.Context, provider *Pro
 	return f.dispatcher.callProvider(ctx, provider, req, route)
 }
 
-// degradedResponse 构造降级响应（模板回复 + 标记降级）
 func (f *ProviderFailover) degradedResponse(req DispatchRequest, cfg FailoverConfig, cause error) *DispatchResult {
-	// M11：显式定制的 TemplateReply 优先；否则按场景差异化模板轮换
+
 	reply := ResolveDegradedTemplate(req.Scenario, cfg.TemplateReply)
 	return &DispatchResult{
 		Provider:     "degraded",

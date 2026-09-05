@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupLiveCodeQRTestDB 设置活码二维码测试数据库
 func setupLiveCodeQRTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.LiveCodeQR{},
@@ -19,7 +18,6 @@ func setupLiveCodeQRTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// setupLiveCodeQRRepository 创建测试用的活码二维码仓库实例
 func setupLiveCodeQRRepository(t *testing.T) LiveCodeQRRepository {
 	db := setupLiveCodeQRTestDB(t)
 	return NewLiveCodeQRRepository(db)

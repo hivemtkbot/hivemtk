@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupEmailSendTestDB 设置邮件发送测试数据库
 func setupEmailSendTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.EmailSend{},
@@ -22,7 +21,6 @@ func setupEmailSendTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupEmailSendRepository 创建测试用的邮件发送仓库实例
 func setupEmailSendRepository(t *testing.T) EmailSendRepository {
 	setupEmailSendTestDB(t)
 	return NewEmailSendRepository()

@@ -180,4 +180,3 @@ func (r *FlowExecutionRepository) CleanupOldExecutions() error {
 	return r.db.Where("completed_at < ? AND status IN ?", threshold, []string{"completed", "failed", "cancelled"}).
 		Delete(&model.FlowExecution{}).Error
 }
-

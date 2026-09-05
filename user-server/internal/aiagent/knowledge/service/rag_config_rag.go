@@ -65,7 +65,6 @@ func (s *RagConfigService) QueryKnowledgeBase(ctx context.Context, productID, qu
 
 	productNumericID := productID
 
-	// per 知识库覆盖：若配置了 text-embedding 或 rerank，构造临时 HybridSearcher（不碰共享单例，避免竞态）
 	var merchantChunks []MerchantRAGChunk
 	var vecErr error
 	if product.EmbeddingProviderConfig.BaseURL != "" || (product.RerankProviderConfig.BaseURL != "" && product.RerankProviderConfig.Enabled) {
@@ -73,7 +72,8 @@ func (s *RagConfigService) QueryKnowledgeBase(ctx context.Context, productID, qu
 		if product.EmbeddingProviderConfig.BaseURL != "" {
 			dim := product.EmbeddingProviderConfig.Dimension
 			if dim == 0 {
-				dim = EmbeddingDim()			}
+				dim = EmbeddingDim()
+			}
 			embClient = llm.NewEmbeddingServiceWithConfig(&llm.EmbeddingConfig{
 				APIType:        "openai",
 				BaseURL:        product.EmbeddingProviderConfig.BaseURL,
@@ -145,7 +145,7 @@ func (s *RagConfigService) QueryKnowledgeBase(ctx context.Context, productID, qu
 				ChunkOverlap:        50,
 				MaxChunksToRetrieve: topK,
 				SimilarityThreshold: DefaultSimilarityThreshold(),
-				VectorDimension: EmbeddingDim(),
+				VectorDimension:     EmbeddingDim(),
 			}
 			queryReq := &rag_service.QueryRequest{
 				Query:     query,
@@ -183,4 +183,3 @@ func (s *RagConfigService) QueryKnowledgeBase(ctx context.Context, productID, qu
 		ExecTime: 0,
 	}, nil
 }
-

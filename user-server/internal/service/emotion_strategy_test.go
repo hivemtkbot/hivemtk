@@ -5,8 +5,6 @@ import (
 	"testing"
 )
 
-// P1g 情感分层响应策略测试
-
 func TestClassifyEmotion_PriorityAngerOverAnxiety(t *testing.T) {
 	cases := []struct {
 		content string
@@ -14,7 +12,7 @@ func TestClassifyEmotion_PriorityAngerOverAnxiety(t *testing.T) {
 	}{
 		{"我要投诉你们", EmotionAnger},
 		{"你们是骗子吧", EmotionAnger},
-		{"马上退款，不然315曝光", EmotionAnger}, // 愤怒+焦虑并存 → 愤怒优先
+		{"马上退款，不然315曝光", EmotionAnger},
 		{"这个东西真的很紧急，快点帮我处理", EmotionAnxiety},
 		{"我着急啊，等了三天了还没发货", EmotionAnxiety},
 		{"用了很不错，五星好评", EmotionSatisfied},
@@ -29,7 +27,7 @@ func TestClassifyEmotion_PriorityAngerOverAnxiety(t *testing.T) {
 }
 
 func TestClassifyEmotion_NegationWindow(t *testing.T) {
-	// N-2 否定窗口复用：否定语境不触发对应情绪层
+
 	if got := ClassifyEmotion("算了，不用退款了，就留着吧"); got != EmotionNeutral {
 		t.Errorf("否定退款不应触发愤怒层, got %s", got)
 	}
@@ -39,7 +37,7 @@ func TestClassifyEmotion_NegationWindow(t *testing.T) {
 }
 
 func TestStrategyForEmotion_LayeredResponse(t *testing.T) {
-	// 愤怒 → 转人工（补偿+高级客服语义）
+
 	as := StrategyForEmotion(EmotionAnger)
 	if !as.TransferToHuman {
 		t.Error("愤怒层必须转人工")
@@ -48,7 +46,6 @@ func TestStrategyForEmotion_LayeredResponse(t *testing.T) {
 		t.Errorf("愤怒层应携带补偿语义, got %q", as.TransferReason)
 	}
 
-	// 焦虑 → 不转人工 + 进度可视化提示
 	ax := StrategyForEmotion(EmotionAnxiety)
 	if ax.TransferToHuman {
 		t.Error("焦虑层不应盲转人工（进度可视化策略）")
@@ -57,7 +54,6 @@ func TestStrategyForEmotion_LayeredResponse(t *testing.T) {
 		t.Errorf("焦虑层提示应含进度可视化语义, got %q", ax.ReplyHint)
 	}
 
-	// 满意 → 不转人工 + 裂变引导
 	st := StrategyForEmotion(EmotionSatisfied)
 	if st.TransferToHuman {
 		t.Error("满意层不转人工")
@@ -66,14 +62,13 @@ func TestStrategyForEmotion_LayeredResponse(t *testing.T) {
 		t.Error("满意层应有裂变引导提示")
 	}
 
-	// 中性 → 零值
 	if s := StrategyForEmotion(EmotionNeutral); s != (EmotionStrategy{}) {
 		t.Errorf("中性层应为零值策略, got %+v", s)
 	}
 }
 
 func TestEmotionKeywords_CoverLegacyUrgentSet(t *testing.T) {
-	// 契约守护：旧 Urgent 全集必须落入 Anger∪Anxiety（互斥拆分无第三态漂移）
+
 	for _, kw := range NLPKeywords.Urgent {
 		got := ClassifyEmotion(kw)
 		if got != EmotionAnger && got != EmotionAnxiety {

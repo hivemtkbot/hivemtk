@@ -24,16 +24,12 @@ type ReActParseResult struct {
 	RawContent  string
 }
 
-// reactActionRe 匹配 Action: xxx
 var reactActionRe = regexp.MustCompile(`(?i)Action\s*:\s*([a-zA-Z0-9_.\-]+)`)
 
-// reactActionInputRe 匹配 Action Input: {...}（多行 JSON）
 var reactActionInputRe = regexp.MustCompile(`(?is)Action\s*Input\s*:\s*(\{.*?\})`)
 
-// reactFinalAnswerRe 匹配 Final Answer: xxx
 var reactFinalAnswerRe = regexp.MustCompile(`(?is)Final\s*Answer\s*:\s*(.+)`)
 
-// reactThoughtRe 匹配 Thought: xxx（单行）
 var reactThoughtRe = regexp.MustCompile(`(?is)Thought\s*:\s*(.+?)(?:\n\s*(?:Action|Final)|$)`)
 
 // ParseReActResponse 解析 LLM ReAct 文本响应
@@ -192,10 +188,6 @@ func (a *ReActAdapter) AdaptResult(result *DispatchResult) *DispatchResult {
 	return result
 }
 
-// nextToolCallID 生成唯一 tool_call ID（线程安全）
-//
-// 格式：react_<unix_nano>_<seq>
-// 用 nano + seq 确保并发场景下不重复
 func (a *ReActAdapter) nextToolCallID() string {
 	seq := atomic.AddUint64(&a.toolCallSeq, 1)
 	return fmt.Sprintf("react_%d_%d", time.Now().UnixNano(), seq)

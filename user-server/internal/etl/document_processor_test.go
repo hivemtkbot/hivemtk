@@ -43,7 +43,7 @@ func TestProcessDocument_NoInfiniteLoop(t *testing.T) {
 		if len(chunks) == 0 {
 			t.Fatalf("ProcessDocument 未产出任何分片")
 		}
-		// 校验分片内容完整覆盖原文（无丢失）
+
 		var sb strings.Builder
 		for _, c := range chunks {
 			sb.WriteString(c.Content)
@@ -56,4 +56,3 @@ func TestProcessDocument_NoInfiniteLoop(t *testing.T) {
 		t.Fatal("ProcessDocument 在 5s 内未返回，疑似死循环（splitByFixedLength 推进失败）")
 	}
 }
-

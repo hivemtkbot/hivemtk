@@ -46,7 +46,6 @@ func (c *DynamicThresholdCalculator) Calculate(in *ThresholdInput) float64 {
 
 	t := policy.BaseThreshold
 
-	// 2. customer_level_factor
 	var clFactor float64
 	switch in.CustomerLevel {
 	case "vip":
@@ -70,7 +69,6 @@ func (c *DynamicThresholdCalculator) Calculate(in *ThresholdInput) float64 {
 	}
 	t += policy.TimeslotWeight * tsFactor
 
-	// 4. agent_availability_factor
 	var avFactor float64
 	switch {
 	case in.AgentAvailability > 0.5:

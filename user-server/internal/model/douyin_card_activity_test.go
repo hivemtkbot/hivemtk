@@ -223,4 +223,3 @@ func TestXiaohongshuCardActivity_ActivityTypeValues(t *testing.T) {
 		}
 	}
 }
-

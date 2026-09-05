@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// 通用字段定义（与本地系统对齐）
 const (
 	srcCustomerName      = "customer.name"
 	srcCustomerPhone     = "customer.phone"
@@ -22,16 +21,11 @@ const (
 	srcCustomerSource    = "customer.source"
 	srcCustomerUnifiedID = "customer.unified_id"
 
-
 	srcOrderID    = "order.id"
 	srcOrderPrice = "order.price"
 	srcOrderTime  = "order.create_time"
 )
 
-// ============================================================================
-// 钉钉 (DingTalk)
-// 文档: https://open.dingtalk.com/document/orgapp/obtain-identity-credentials
-// ============================================================================
 func dingTalkTemplate() *model.IntegrationTemplate {
 	return &model.IntegrationTemplate{
 		Code:     "dingtalk_erp_default",
@@ -66,10 +60,6 @@ func dingTalkTemplate() *model.IntegrationTemplate {
 	}
 }
 
-// ============================================================================
-// 企业微信 (WeCom)
-// 文档: https://developer.work.weixin.qq.com/document/path/91039
-// ============================================================================
 func weComTemplate() *model.IntegrationTemplate {
 	return &model.IntegrationTemplate{
 		Code:     "wecom_crm_default",
@@ -105,10 +95,6 @@ func weComTemplate() *model.IntegrationTemplate {
 	}
 }
 
-// ============================================================================
-// 飞书 (Feishu / Lark)
-// 文档: https://open.feishu.cn/document/server-docs/contact-v3/user/create
-// ============================================================================
 func feishuTemplate() *model.IntegrationTemplate {
 	return &model.IntegrationTemplate{
 		Code:     "feishu_crm_default",
@@ -140,10 +126,6 @@ func feishuTemplate() *model.IntegrationTemplate {
 	}
 }
 
-// ============================================================================
-// 用友 (Yonyou U8 / YonBIP / NC Cloud)
-// 文档: https://developer.yonyoucloud.com/
-// ============================================================================
 func yonyouTemplate() *model.IntegrationTemplate {
 	return &model.IntegrationTemplate{
 		Code:     "yonyou_erp_default",
@@ -182,10 +164,6 @@ func yonyouTemplate() *model.IntegrationTemplate {
 	}
 }
 
-// ============================================================================
-// 金蝶 (Kingdee K3Cloud / EAS / Cosmic)
-// 文档: https://openapi.kingdee.com/
-// ============================================================================
 func kingdeeTemplate() *model.IntegrationTemplate {
 	return &model.IntegrationTemplate{
 		Code:     "kingdee_erp_default",
@@ -223,10 +201,6 @@ func kingdeeTemplate() *model.IntegrationTemplate {
 	}
 }
 
-// ============================================================================
-// 管家婆 (Grasp / 财贸/工贸/辉煌系列)
-// 文档: https://www.grasp.com.cn/
-// ============================================================================
 func graspTemplate() *model.IntegrationTemplate {
 	return &model.IntegrationTemplate{
 		Code:     "grasp_erp_default",
@@ -262,10 +236,6 @@ func graspTemplate() *model.IntegrationTemplate {
 	}
 }
 
-// ============================================================================
-// SAP S/4HANA / ECC
-// 文档: https://api.sap.com/
-// ============================================================================
 func sapTemplate() *model.IntegrationTemplate {
 	return &model.IntegrationTemplate{
 		Code:     "sap_s4hana_default",
@@ -317,7 +287,6 @@ func All() []*model.IntegrationTemplate {
 	}
 }
 
-// MustMarshal 工具函数：marshal 失败则 panic（用于常量初始化）
 func mustJSON(v any) string {
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -325,4 +294,3 @@ func mustJSON(v any) string {
 	}
 	return string(b)
 }
-

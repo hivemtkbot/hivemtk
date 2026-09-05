@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-// sampleCPUOnce Unix 实现：getrusage 采样进程用户态+内核态 CPU 时间。
 func sampleCPUOnce() float64 {
 	var r1, r2 syscall.Rusage
 	if err := syscall.Getrusage(syscall.RUSAGE_SELF, &r1); err != nil {
@@ -26,7 +25,6 @@ func sampleCPUOnce() float64 {
 	return cpuUsagePercent(cpu1, cpu2, t1, t2)
 }
 
-// sampleDiskOnce Unix 实现：statfs 统计工作目录所在文件系统使用率。
 func sampleDiskOnce() float64 {
 	cwd, err := os.Getwd()
 	if err != nil {

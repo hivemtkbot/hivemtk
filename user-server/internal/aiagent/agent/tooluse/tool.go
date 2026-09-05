@@ -9,16 +9,15 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 // ToolCategory 工具分类
 type ToolCategory string
 
 const (
-	CategoryCustomer       ToolCategory = "customer"        
-	CategoryReach          ToolCategory = "reach"           
-	CategoryPrivateMessage ToolCategory = "private_message" 
-	CategoryKnowledge      ToolCategory = "knowledge"       
-	CategoryBusiness       ToolCategory = "business"        
+	CategoryCustomer       ToolCategory = "customer"
+	CategoryReach          ToolCategory = "reach"
+	CategoryPrivateMessage ToolCategory = "private_message"
+	CategoryKnowledge      ToolCategory = "knowledge"
+	CategoryBusiness       ToolCategory = "business"
 )
 
 // Tool 工具接口（所有工具必须实现）
@@ -32,10 +31,10 @@ type Tool interface {
 
 // ToolParameters 工具参数 JSON Schema
 type ToolParameters struct {
-	Type        string               `json:"type"`                  
-	Properties  map[string]ToolParam `json:"properties"`            
-	Required    []string             `json:"required,omitempty"`    
-	Definitions map[string]ToolParam `json:"definitions,omitempty"` 
+	Type        string               `json:"type"`
+	Properties  map[string]ToolParam `json:"properties"`
+	Required    []string             `json:"required,omitempty"`
+	Definitions map[string]ToolParam `json:"definitions,omitempty"`
 }
 
 // ToolParam 单个参数定义
@@ -49,29 +48,29 @@ type ToolParam struct {
 	Ref         string               `json:"$ref,omitempty"`
 
 	// v3 审计 P3-2 增强：JSON Schema 完整字段（原版缺失）
-	Required   []string `json:"required,omitempty"`     // 仅 object 类型生效
-	MinLength  int      `json:"minLength,omitempty"`   // 仅 string 类型生效
-	MaxLength  int      `json:"maxLength,omitempty"`   // 仅 string 类型生效
-	Minimum    *float64 `json:"minimum,omitempty"`     // number/integer 类型生效
-	Maximum    *float64 `json:"maximum,omitempty"`     // number/integer 类型生效
+	Required  []string `json:"required,omitempty"`
+	MinLength int      `json:"minLength,omitempty"`
+	MaxLength int      `json:"maxLength,omitempty"`
+	Minimum   *float64 `json:"minimum,omitempty"`
+	Maximum   *float64 `json:"maximum,omitempty"`
 }
 
 // ToolResult 工具执行结果
 type ToolResult struct {
-	Success    bool       `json:"success"`               
-	Data       any        `json:"data,omitempty"`        
-	Error      string     `json:"error,omitempty"`       
-	Timing     ToolTiming `json:"timing"`                
-	ToolName   string     `json:"tool_name"`             
-	ExecutedAt time.Time  `json:"executed_at"`           
-	AuditTrace string     `json:"audit_trace,omitempty"` 
-	Card *model.RichCard `json:"card,omitempty"`
+	Success    bool            `json:"success"`
+	Data       any             `json:"data,omitempty"`
+	Error      string          `json:"error,omitempty"`
+	Timing     ToolTiming      `json:"timing"`
+	ToolName   string          `json:"tool_name"`
+	ExecutedAt time.Time       `json:"executed_at"`
+	AuditTrace string          `json:"audit_trace,omitempty"`
+	Card       *model.RichCard `json:"card,omitempty"`
 }
 
 // ToolTiming 执行耗时统计
 type ToolTiming struct {
-	DurationMs int64 `json:"duration_ms"` 
-	RetryCount int   `json:"retry_count"` 
+	DurationMs int64 `json:"duration_ms"`
+	RetryCount int   `json:"retry_count"`
 }
 
 // ToJSON 将 ToolResult 序列化为 JSON 字符串
@@ -130,7 +129,6 @@ func SuccessResult(toolName string, data any) ToolResult {
 	}
 }
 
-// withTiming 填充执行耗时（供工具实现统一计时）
 func (r ToolResult) withTiming(toolName string, start time.Time) ToolResult {
 	r.ToolName = toolName
 	r.ExecutedAt = time.Now()
@@ -203,4 +201,3 @@ func GetFloatArg(args map[string]any, key string) (float64, error) {
 		return 0, fmt.Errorf("参数 %s 类型错误，期望 float，实际 %T", key, v)
 	}
 }
-

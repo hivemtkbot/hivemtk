@@ -7,7 +7,7 @@ import "strings"
 func StripHTML(html string) string {
 	html = StripBetween(html, "<script", "</script>")
 	html = StripBetween(html, "<style", "</style>")
-	// 移除所有标签
+
 	var result strings.Builder
 	inTag := false
 	for _, r := range html {
@@ -50,4 +50,3 @@ func Truncate(s string, max int) string {
 	}
 	return string(r[:max]) + "…"
 }
-

@@ -159,7 +159,6 @@ func (c *EmailUnsubscribeController) RegisterRoutes(public *gin.RouterGroup, aut
 	}
 }
 
-// unsubscribeConfirmHTML 返回退订确认页 HTML
 func unsubscribeConfirmHTML(email, token string) string {
 	escEmail := template.HTMLEscapeString(email)
 	escTokenJS := template.JSEscapeString(token)
@@ -212,7 +211,6 @@ document.getElementById('form').addEventListener('submit', function(e){
 </html>`
 }
 
-// unsubscribedAlreadyHTML 返回已退订提示页
 func unsubscribedAlreadyHTML(email string) string {
 	escEmail := template.HTMLEscapeString(email)
 	return `<!DOCTYPE html>
@@ -236,4 +234,3 @@ func unsubscribedAlreadyHTML(email string) string {
 </body>
 </html>`
 }
-

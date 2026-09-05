@@ -342,7 +342,7 @@ func TestAIContentController_RateRecord_InvalidRating(t *testing.T) {
 	ctrl, router := setupAIContentController(t)
 	router.POST("/ai/records/:id/rate", ctrl.RateRecord)
 
-	body, _ := json.Marshal(map[string]any{"rating": 10}) 
+	body, _ := json.Marshal(map[string]any{"rating": 10})
 	req, _ := http.NewRequest("POST", "/ai/records/1/rate", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -676,4 +676,3 @@ func TestAIContentController_NewAIContentController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
-

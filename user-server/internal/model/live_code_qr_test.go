@@ -216,4 +216,3 @@ func TestLiveCodeQRStat_WithHighCounts(t *testing.T) {
 		t.Errorf("Expected ClickCount 50000, got %d", stat.ClickCount)
 	}
 }
-

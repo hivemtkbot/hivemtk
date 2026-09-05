@@ -17,7 +17,6 @@ import (
 // 默认恒 false（生产零绕过），测试环境由 *_test.go 替换。
 var IsTestMode bool
 
-// testModeGate 测试模式判定（默认恒 false；仅 *_test.go 中替换）
 var testModeGate = func() bool { return false }
 
 // JWTAuthMiddleware JWT认证中间件
@@ -85,7 +84,7 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 			if claims.DataScope != "" {
 				c.Set("data_scope", claims.DataScope)
 			} else {
-				c.Set("data_scope", "self") 
+				c.Set("data_scope", "self")
 			}
 		}
 		c.Set("department_id", claims.DepartmentID)
@@ -162,4 +161,3 @@ func OptionalAuthMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
-

@@ -238,7 +238,6 @@ func TestSmartCSOrchestrator_HandleResult(t *testing.T) {
 	}
 }
 
-// setupOrchestratorFindOrCreateTestDB 为 findOrCreateSession 测试准备 DB
 func setupOrchestratorFindOrCreateTestDB(t *testing.T) {
 	database := testutil.NewTestDB(t,
 		&model.CustomerSession{},

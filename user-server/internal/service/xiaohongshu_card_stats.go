@@ -19,7 +19,6 @@ type XiaohongshuCardStatsService interface {
 	RecordActivity(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string) error
 }
 
-// xiaohongshuCardStatsService 小红书卡片统计服务实现
 type xiaohongshuCardStatsService struct {
 	repo repository.XiaohongshuCardStatsRepository
 }
@@ -31,7 +30,6 @@ func NewXiaohongshuCardStatsService(db *gorm.DB) XiaohongshuCardStatsService {
 	}
 }
 
-// GetCardStats 获取单个卡片的统计数据
 func (s *xiaohongshuCardStatsService) GetCardStats(ctx context.Context, req *dto.XiaohongshuCardStatsRequest) (*dto.XiaohongshuCardStatsResponse, error) {
 	card, err := s.repo.GetCardByID(ctx, req.CardID)
 	if err != nil {
@@ -54,7 +52,6 @@ func (s *xiaohongshuCardStatsService) GetCardStats(ctx context.Context, req *dto
 		return nil, err
 	}
 
-	// 转换活动数据
 	var activities []dto.Activity
 	for _, activity := range recentActivities {
 		activities = append(activities, dto.Activity{
@@ -78,7 +75,6 @@ func (s *xiaohongshuCardStatsService) GetCardStats(ctx context.Context, req *dto
 	return response, nil
 }
 
-// convertXiaohongshuTempStats 将仓库返回的临时统计结果转换为 DailyStat
 func convertXiaohongshuTempStats(tempStats []repository.XiaohongshuCardStatsTempStat) []dto.DailyStat {
 	dateMap := make(map[string]*dto.DailyStat)
 	for _, stat := range tempStats {
@@ -94,7 +90,6 @@ func convertXiaohongshuTempStats(tempStats []repository.XiaohongshuCardStatsTemp
 		}
 	}
 
-	// 转换为切片
 	var dailyStats []dto.DailyStat
 	for _, stat := range dateMap {
 		dailyStats = append(dailyStats, *stat)
@@ -102,7 +97,6 @@ func convertXiaohongshuTempStats(tempStats []repository.XiaohongshuCardStatsTemp
 	return dailyStats
 }
 
-// GetOverallStats 获取所有卡片的总体统计数据
 func (s *xiaohongshuCardStatsService) GetOverallStats(ctx context.Context, req *dto.XiaohongshuCardOverallStatsRequest) (*dto.XiaohongshuCardOverallStatsResponse, error) {
 	totalCards, err := s.repo.CountTotalCards(ctx)
 	if err != nil {
@@ -123,7 +117,6 @@ func (s *xiaohongshuCardStatsService) GetOverallStats(ctx context.Context, req *
 		return nil, err
 	}
 
-	// 转换热门卡片数据
 	var cards []dto.PopularCard
 	for _, card := range topCards {
 		cards = append(cards, dto.PopularCard{
@@ -145,7 +138,6 @@ func (s *xiaohongshuCardStatsService) GetOverallStats(ctx context.Context, req *
 		return nil, err
 	}
 
-	// 转换活动数据
 	var activities []dto.Activity
 	for _, activity := range recentActivities {
 		activities = append(activities, dto.Activity{
@@ -168,7 +160,6 @@ func (s *xiaohongshuCardStatsService) GetOverallStats(ctx context.Context, req *
 	}, nil
 }
 
-// RecordActivity 记录卡片活动
 func (s *xiaohongshuCardStatsService) RecordActivity(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string) error {
 	if action != "view" {
 		return nil

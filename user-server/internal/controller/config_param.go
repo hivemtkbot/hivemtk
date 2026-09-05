@@ -105,8 +105,6 @@ func (c *ConfigParamController) AuditLogs(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": logs, "message": "ok"})
 }
 
-// currentUserID 从 context 中提取 actor（main DI 层会注入）。
-// 为 0 时视为系统操作。
 func (c *ConfigParamController) currentUserID(ctx *gin.Context) uint {
 	if id, exists := ctx.Get("user_id"); exists {
 		switch v := id.(type) {

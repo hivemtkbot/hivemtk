@@ -11,10 +11,10 @@ type PerformanceTestResult struct {
 	ID            uint             `gorm:"primaryKey;autoIncrement" json:"id"`
 	TestName      string           `gorm:"type:varchar(200);not null" json:"test_name"`
 	TargetURL     string           `gorm:"type:varchar(500);not null" json:"target_url"`
-	TestType      string           `gorm:"type:varchar(50);not null" json:"test_type"` 
+	TestType      string           `gorm:"type:varchar(50);not null" json:"test_type"`
 	Concurrency   int              `gorm:"not null" json:"concurrency"`
 	DurationSec   int              `gorm:"not null" json:"duration_seconds"`
-	Status        string           `gorm:"type:varchar(20);default:'running';index" json:"status"` 
+	Status        string           `gorm:"type:varchar(20);default:'running';index" json:"status"`
 	TotalRequests int64            `gorm:"default:0" json:"total_requests"`
 	SuccessCount  int64            `gorm:"default:0" json:"success_count"`
 	ErrorCount    int64            `gorm:"default:0" json:"error_count"`
@@ -32,4 +32,3 @@ type PerformanceTestResult struct {
 }
 
 func (PerformanceTestResult) TableName() string { return "performance_test_results" }
-

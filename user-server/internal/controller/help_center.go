@@ -1,7 +1,5 @@
 package controller
 
-// help_center.go 帮助中心控制器（R48 T1）
-
 import (
 	"strconv"
 

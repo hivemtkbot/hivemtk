@@ -281,4 +281,3 @@ func TestErrorCodeFromHTTPCode(t *testing.T) {
 		})
 	}
 }
-

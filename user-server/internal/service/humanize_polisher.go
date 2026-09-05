@@ -15,7 +15,7 @@ type HumanizePolisher struct {
 	platformStyle    PlatformStyle
 	particlePool     []string
 	emojiPool        map[string][]string
-	randFn           func() float64 // 测试注入的确定性随机函数，nil 时用全局 math/rand
+	randFn           func() float64
 }
 
 // PlatformStyle 平台风格
@@ -92,7 +92,6 @@ func (p *HumanizePolisher) Polish(ctx context.Context, raw string, pctx *PolishC
 	return strings.TrimSpace(polished), nil
 }
 
-// shouldPreserveLeadingAck 是否保留句首"好的"等客套过渡(用于投诉/挽留/售后场景的安抚话术)。
 func (p *HumanizePolisher) shouldPreserveLeadingAck(pctx *PolishContext) bool {
 	if pctx == nil {
 		return false
@@ -104,14 +103,6 @@ func (p *HumanizePolisher) shouldPreserveLeadingAck(pctx *PolishContext) bool {
 	return false
 }
 
-// removeLeadingFlattery 清理句首纯客套过渡词（"好的"/"可以的"等 + 分隔符）。
-// P2-5 修复:由 Polish 调用,complaint 场景由 shouldPreserveLeadingAck 跳过此步。
-//
-// 严格定义"句首客套"为"客套词 + 分隔符 + 非空后续内容":
-//   - "好的，xxx"  →  "xxx"      ✅ 删除
-//   - "好的😊 xxx"  →  " xxx"     ✅ 删除(emoji 视为分隔符)
-//   - "好的"        →  "好的"     ❌ 保留(整段作有效回答,如"有问题吗"→"好的")
-//   - "好的 xxx"   →  "好的 xxx"  ❌ 保留(中间是空格+普通内容,不是分隔符 → 视为"好的"作实词)
 func (p *HumanizePolisher) removeLeadingFlattery(text string) string {
 	trimmed := strings.TrimSpace(text)
 	if trimmed == "" {
@@ -140,7 +131,6 @@ func (p *HumanizePolisher) removeLeadingFlattery(text string) string {
 	return text
 }
 
-// removeAITraces 去除 AI 痕迹
 func (p *HumanizePolisher) removeAITraces(ctx context.Context, text string) string {
 	aiTraces := []string{
 		"作为 AI 助手",
@@ -190,10 +180,6 @@ func (p *HumanizePolisher) removeAITraces(ctx context.Context, text string) stri
 	return text
 }
 
-// adLawReplacements 广告法极限词过滤表（H-5/X-3，集中定义）。
-// Polisher 输出前将《广告法》禁用的绝对化用词替换为合规表述。
-// 注意：长词必须排在短词前（顺序替换），且避免误伤正常词（如"最近"不处理，
-// "第一"仅处理"销量第一/行业第一/第一品牌"等组合，不动"第一次"）。
 var adLawReplacements = []struct{ From, To string }{
 	{"全网最低价", "价格很有优势"},
 	{"全网最低", "价格很有优势"},
@@ -218,7 +204,6 @@ var adLawReplacements = []struct{ From, To string }{
 	{"极致", "出色"},
 }
 
-// filterExtremeClaims 过滤广告法极限词（H-5/X-3）
 func filterExtremeClaims(text string) string {
 	for _, r := range adLawReplacements {
 		text = strings.ReplaceAll(text, r.From, r.To)
@@ -226,7 +211,6 @@ func filterExtremeClaims(text string) string {
 	return text
 }
 
-// removeExtraSymbols 去除多余符号
 func (p *HumanizePolisher) removeExtraSymbols(ctx context.Context, text string) string {
 	multiBang := regexp.MustCompile(`[!！]{2,}`)
 	text = multiBang.ReplaceAllString(text, "！")
@@ -240,7 +224,6 @@ func (p *HumanizePolisher) removeExtraSymbols(ctx context.Context, text string) 
 	return text
 }
 
-// applyPlatformStyle 应用平台风格
 func (p *HumanizePolisher) applyPlatformStyle(ctx context.Context, text string, pctx *PolishContext) string {
 	if pctx == nil || pctx.Platform == "" {
 		return text
@@ -260,7 +243,6 @@ func (p *HumanizePolisher) applyPlatformStyle(ctx context.Context, text string, 
 	return text
 }
 
-// getStyleForPlatform 获取平台风格
 func (p *HumanizePolisher) getStyleForPlatform(ctx context.Context, platform string) PlatformStyle {
 	switch strings.ToLower(platform) {
 	case "wechat", "weixin":
@@ -282,7 +264,6 @@ func (p *HumanizePolisher) getStyleForPlatform(ctx context.Context, platform str
 	}
 }
 
-// truncateByLength 按长度截断
 func (p *HumanizePolisher) truncateByLength(ctx context.Context, text string, maxLen int) string {
 	runes := []rune(text)
 	if len(runes) <= maxLen {
@@ -294,7 +275,6 @@ func (p *HumanizePolisher) truncateByLength(ctx context.Context, text string, ma
 	return text
 }
 
-// personalize 个性化称呼
 func (p *HumanizePolisher) personalize(ctx context.Context, text, name, platform string) string {
 	if name == "" {
 		return text
@@ -305,7 +285,6 @@ func (p *HumanizePolisher) personalize(ctx context.Context, text, name, platform
 	return name + "，" + text
 }
 
-// shouldAddParticle 是否应添加语气词
 func (p *HumanizePolisher) shouldAddParticle(ctx context.Context, pctx *PolishContext) bool {
 	noParticleIntents := map[string]bool{
 		IntentComplaint: true,
@@ -318,7 +297,6 @@ func (p *HumanizePolisher) shouldAddParticle(ctx context.Context, pctx *PolishCo
 	return true
 }
 
-// addNaturalParticle 添加自然语气词
 func (p *HumanizePolisher) addNaturalParticle(ctx context.Context, text string, pctx *PolishContext) string {
 	if text == "" || len([]rune(text)) > 60 {
 		return text
@@ -339,7 +317,6 @@ var typoPool = map[string][]string{
 	"好的呢": {"好的呀", "好的~"},
 }
 
-// randFloat 返回 [0,1) 随机数，优先使用注入的 randFn（测试用）。
 func (p *HumanizePolisher) randFloat() float64 {
 	if p.randFn != nil {
 		return p.randFn()
@@ -347,7 +324,6 @@ func (p *HumanizePolisher) randFloat() float64 {
 	return rand.Float64()
 }
 
-// randIntn 返回 [0,n) 随机整数，基于 randFloat。
 func (p *HumanizePolisher) randIntn(n int) int {
 	if n <= 0 {
 		return 0

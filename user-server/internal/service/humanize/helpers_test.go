@@ -9,17 +9,14 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// approxEqual 浮点近似相等（绝对误差 ≤ 1e-6）
 func approxEqual(a, b float64) bool {
 	return math.Abs(a-b) < 1e-6
 }
 
-// approxEqualTol 带容差的浮点近似相等
 func approxEqualTol(a, b, tol float64) bool {
 	return math.Abs(a-b) < tol
 }
 
-// stubLLMDispatcher 测试用 LLM 调度器
 type stubLLMDispatcher struct {
 	mu              sync.Mutex
 	responses       []string
@@ -55,7 +52,6 @@ func (s *stubLLMDispatcher) ChatSend(ctx context.Context, prompt string) (string
 	return s.responses[idx], s.model, nil
 }
 
-// stubScoreRepo 测试用评分仓储
 type stubScoreRepo struct {
 	mu             sync.Mutex
 	saved          int
@@ -68,8 +64,6 @@ func newStubScoreRepo() *stubScoreRepo {
 	return &stubScoreRepo{}
 }
 
-// Save 实现 humanize.HumanizeScoreRepository 接口
-// 五层架构：repository 仅持久化 model 类型，dto→model 转换在 service 层完成
 func (r *stubScoreRepo) Save(ctx context.Context, score *model.HumanizeScore, dimensions []model.HumanizeDimensionRecord) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -82,7 +76,6 @@ func (r *stubScoreRepo) Save(ctx context.Context, score *model.HumanizeScore, di
 	return nil
 }
 
-// stubBaselineRepo 测试用销冠基线仓储
 type stubBaselineRepo struct {
 	mu         sync.Mutex
 	baseline   *model.ChampionBaseline
@@ -134,7 +127,6 @@ func (r *stubBaselineRepo) RefreshPhrases(ctx context.Context, baselineID uint64
 	return nil
 }
 
-// stubSampleCollector 测试用低质样本收集器
 type stubSampleCollector struct {
 	mu         sync.Mutex
 	collected  int
@@ -146,8 +138,6 @@ func newStubSampleCollector() *stubSampleCollector {
 	return &stubSampleCollector{}
 }
 
-// Collect 实现 humanize.LowQualitySampleCollector 接口
-// 五层架构：service 层预构建 model.LowQualitySample，repository 仅负责持久化
 func (c *stubSampleCollector) Collect(ctx context.Context, sample *model.LowQualitySample) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -159,7 +149,6 @@ func (c *stubSampleCollector) Collect(ctx context.Context, sample *model.LowQual
 	return nil
 }
 
-// 编译时接口断言
 var (
 	_ HumanizeScoreRepository    = (*stubScoreRepo)(nil)
 	_ ChampionBaselineRepository = (*stubBaselineRepo)(nil)
@@ -168,12 +157,6 @@ var (
 	_ HumanizeEvaluator          = (*stubEvaluator)(nil)
 )
 
-// stubEvaluator 测试用评估器：按调用顺序返回预设结果
-//
-// 用法：
-//   - results: 按调用顺序依次返回（每次返回副本，避免被修改）
-//   - err: 非 nil 时所有调用都报错
-//   - calls: 累计调用次数
 type stubEvaluator struct {
 	mu             sync.Mutex
 	results        []*dto.HumanizeEvalResult
@@ -186,7 +169,6 @@ func newStubEvaluator(results ...*dto.HumanizeEvalResult) *stubEvaluator {
 	return &stubEvaluator{results: results}
 }
 
-// Evaluate 实现 HumanizeEvaluator 接口
 func (s *stubEvaluator) Evaluate(ctx context.Context, input *dto.HumanizeEvalInput) (*dto.HumanizeEvalResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

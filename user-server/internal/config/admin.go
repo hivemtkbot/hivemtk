@@ -46,9 +46,6 @@ type LoginConfig struct {
 	DefaultCredentialsHint string `json:"default_credentials_hint" yaml:"default_credentials_hint"`
 }
 
-// defaultAdminConfig 默认配置（仅 UI 行为；密码字段不存在）
-//
-// ShowDefaultCredentials 强制 false：登录页不展示默认账号提示，避免引导用户使用弱口令。
 var defaultAdminConfig = AdminConfig{
 	DefaultAdmin: DefaultAdminConfig{
 		Username: "admin",
@@ -130,4 +127,3 @@ func GetAdminConfig() *AdminConfig {
 
 	return &config
 }
-

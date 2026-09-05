@@ -12,8 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ---------- helpers ----------
-
 func setupXiaohongshuCardStatsRepo(t *testing.T) (XiaohongshuCardStatsRepository, context.Context) {
 	t.Helper()
 	db := testutil.NewTestDB(t,
@@ -34,8 +32,7 @@ func newTestCard(t *testing.T, repo XiaohongshuCardStatsRepository, title string
 		RedirectURL: "https://example.com/" + title,
 	}
 	require.NoError(t, r.db.Create(card).Error)
-	// GORM v2 对 bool 零值 (false) 的 Create 会跳过该字段，导致 DB 默认值 true 生效
-	// 这里显式 Update is_active 确保写入正确值
+
 	require.NoError(t, r.db.Model(card).Update("is_active", isActive).Error)
 	return card
 }
@@ -55,15 +52,11 @@ func newTestActivity(t *testing.T, repo XiaohongshuCardStatsRepository, cardID, 
 	return act
 }
 
-// ---------- NewXiaohongshuCardStatsRepository ----------
-
 func TestXiaohongshuCardStats_NewRepository(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.XiaohongshuCard{}, &model.XiaohongshuCardActivity{})
 	repo := NewXiaohongshuCardStatsRepository(db)
 	assert.NotNil(t, repo)
 }
-
-// ---------- GetCardByID ----------
 
 func TestXiaohongshuCardStats_GetCardByID_Found(t *testing.T) {
 	repo, ctx := setupXiaohongshuCardStatsRepo(t)
@@ -84,8 +77,6 @@ func TestXiaohongshuCardStats_GetCardByID_NotFound(t *testing.T) {
 	assert.Nil(t, got)
 }
 
-// ---------- CountTotalCards ----------
-
 func TestXiaohongshuCardStats_CountTotalCards(t *testing.T) {
 	repo, ctx := setupXiaohongshuCardStatsRepo(t)
 
@@ -102,8 +93,6 @@ func TestXiaohongshuCardStats_CountTotalCards(t *testing.T) {
 	assert.Equal(t, int64(3), n)
 }
 
-// ---------- CountActiveCards ----------
-
 func TestXiaohongshuCardStats_CountActiveCards(t *testing.T) {
 	repo, ctx := setupXiaohongshuCardStatsRepo(t)
 
@@ -115,8 +104,6 @@ func TestXiaohongshuCardStats_CountActiveCards(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), n)
 }
-
-// ---------- CountCardViews ----------
 
 func TestXiaohongshuCardStats_CountCardViews(t *testing.T) {
 	repo, ctx := setupXiaohongshuCardStatsRepo(t)
@@ -133,8 +120,6 @@ func TestXiaohongshuCardStats_CountCardViews(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(5), n, "只统计 activity_type=view 的")
 }
-
-// ---------- CountTotalViews ----------
 
 func TestXiaohongshuCardStats_CountTotalViews(t *testing.T) {
 	repo, ctx := setupXiaohongshuCardStatsRepo(t)
@@ -154,8 +139,6 @@ func TestXiaohongshuCardStats_CountTotalViews(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(5), n)
 }
-
-// ---------- GetTopCards ----------
 
 func TestXiaohongshuCardStats_GetTopCards(t *testing.T) {
 	repo, ctx := setupXiaohongshuCardStatsRepo(t)
@@ -190,8 +173,6 @@ func TestXiaohongshuCardStats_GetTopCards_Empty(t *testing.T) {
 	assert.Len(t, list, 0)
 }
 
-// ---------- CreateActivity ----------
-
 func TestXiaohongshuCardStats_CreateActivity(t *testing.T) {
 	repo, ctx := setupXiaohongshuCardStatsRepo(t)
 	card := newTestCard(t, repo, "ACT", 0, true)
@@ -214,8 +195,6 @@ func TestXiaohongshuCardStats_CreateActivity(t *testing.T) {
 	assert.Len(t, activities, 1)
 	assert.Equal(t, "view", activities[0].ActivityType)
 }
-
-// ---------- IncrementCardViewCount ----------
 
 func TestXiaohongshuCardStats_IncrementCardViewCount(t *testing.T) {
 	repo, ctx := setupXiaohongshuCardStatsRepo(t)
@@ -241,8 +220,6 @@ func TestXiaohongshuCardStats_IncrementCardViewCount_NonExistent(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// ---------- GetRecentActivitiesByCard ----------
-
 func TestXiaohongshuCardStats_GetRecentActivitiesByCard(t *testing.T) {
 	repo, ctx := setupXiaohongshuCardStatsRepo(t)
 	card := newTestCard(t, repo, "REC", 0, true)
@@ -267,8 +244,6 @@ func TestXiaohongshuCardStats_GetRecentActivitiesByCard_Empty(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, acts, 0)
 }
-
-// ---------- GetRecentActivities ----------
 
 func TestXiaohongshuCardStats_GetRecentActivities(t *testing.T) {
 	repo, ctx := setupXiaohongshuCardStatsRepo(t)
@@ -297,10 +272,6 @@ func TestXiaohongshuCardStats_GetRecentActivities_Limit(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, acts, 3)
 }
-
-// ---------- GetCardDailyStats: groupBy 分支 ----------
-// 注意：源码用了 MySQL 函数 YEARWEEK() 和 DATE_FORMAT()，PostgreSQL 不支持
-// 我们的测试覆盖到这些分支即可（在 PG 上会返回 error，这是预期行为）
 
 func TestXiaohongshuCardStats_GetCardDailyStats_Day(t *testing.T) {
 	repo, ctx := setupXiaohongshuCardStatsRepo(t)
@@ -334,7 +305,7 @@ func TestXiaohongshuCardStats_GetCardDailyStats_Week(t *testing.T) {
 	newTestActivity(t, repo, card.ID, 1, "view", time.Now())
 
 	_, err := repo.GetCardDailyStats(ctx, card.ID, "", "", "week")
-	// PG 上 YEARWEEK 不存在，会报错；至少覆盖了 week 分支
+
 	assert.Error(t, err)
 }
 
@@ -369,9 +340,8 @@ func TestXiaohongshuCardStats_GetCardDailyStats_WithDateRange(t *testing.T) {
 	now := time.Now()
 	newTestActivity(t, repo, card.ID, 1, "view", now)
 	newTestActivity(t, repo, card.ID, 2, "view", now.Add(-2*24*time.Hour))
-	newTestActivity(t, repo, card.ID, 3, "view", now.Add(-30*24*time.Hour)) // 范围外
+	newTestActivity(t, repo, card.ID, 3, "view", now.Add(-30*24*time.Hour))
 
-	// end 加一天避免 PG 上 created_at <= '2026-08-31' 解析为 00:00:00 漏掉当天时间
 	start := now.Add(-7 * 24 * time.Hour).Format("2006-01-02")
 	end := now.Add(24 * time.Hour).Format("2006-01-02")
 
@@ -393,8 +363,6 @@ func TestXiaohongshuCardStats_GetCardDailyStats_NoData(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, stats, 0)
 }
-
-// ---------- GetOverallDailyStats ----------
 
 func TestXiaohongshuCardStats_GetOverallDailyStats_All(t *testing.T) {
 	repo, ctx := setupXiaohongshuCardStatsRepo(t)
@@ -441,7 +409,7 @@ func TestXiaohongshuCardStats_GetOverallDailyStats_WithDateRange(t *testing.T) {
 	c1 := newTestCard(t, repo, "ODR", 0, true)
 	now := time.Now()
 	newTestActivity(t, repo, c1.ID, 1, "view", now)
-	newTestActivity(t, repo, c1.ID, 2, "view", now.Add(-30*24*time.Hour)) // 范围外
+	newTestActivity(t, repo, c1.ID, 2, "view", now.Add(-30*24*time.Hour))
 
 	start := now.Add(-7 * 24 * time.Hour).Format("2006-01-02")
 	end := now.Add(24 * time.Hour).Format("2006-01-02")

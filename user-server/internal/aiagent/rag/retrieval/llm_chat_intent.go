@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"encoding/json"
@@ -14,13 +13,13 @@ import (
 type KeyIntentType string
 
 const (
-	KeyIntentPriceObjection      KeyIntentType = "price_objection"      
-	KeyIntentQualityObjection    KeyIntentType = "quality_objection"    
-	KeyIntentPurchaseIntent      KeyIntentType = "purchase_intent"      
-	KeyIntentTrustObjection      KeyIntentType = "trust_objection"      
-	KeyIntentCompetitorObjection KeyIntentType = "competitor_objection" 
-	KeyIntentDiscountRequest     KeyIntentType = "discount_request"     
-	KeyIntentRefundRequest       KeyIntentType = "refund_request"       
+	KeyIntentPriceObjection      KeyIntentType = "price_objection"
+	KeyIntentQualityObjection    KeyIntentType = "quality_objection"
+	KeyIntentPurchaseIntent      KeyIntentType = "purchase_intent"
+	KeyIntentTrustObjection      KeyIntentType = "trust_objection"
+	KeyIntentCompetitorObjection KeyIntentType = "competitor_objection"
+	KeyIntentDiscountRequest     KeyIntentType = "discount_request"
+	KeyIntentRefundRequest       KeyIntentType = "refund_request"
 )
 
 // KeyIntentDescription 7 子类中文名映射
@@ -47,15 +46,14 @@ var AllKeyIntents = []KeyIntentType{
 
 // KeyIntentResult 精细意图识别结果
 type KeyIntentResult struct {
-	Intent KeyIntentType `json:"intent"`
-	Confidence float64 `json:"confidence"`
-	Evidence string `json:"evidence,omitempty"`
-	Reasoning string `json:"reasoning,omitempty"`
-	Method string `json:"method"`
-	LatencyMs int `json:"latency_ms,omitempty"`
+	Intent     KeyIntentType `json:"intent"`
+	Confidence float64       `json:"confidence"`
+	Evidence   string        `json:"evidence,omitempty"`
+	Reasoning  string        `json:"reasoning,omitempty"`
+	Method     string        `json:"method"`
+	LatencyMs  int           `json:"latency_ms,omitempty"`
 }
 
-// keyIntentKeywords 7 子类规则关键词（用于快速规则匹配）
 var keyIntentKeywords = map[KeyIntentType][]string{
 	KeyIntentPriceObjection:      {"太贵", "价格高", "有点高", "贵了", "不划算", "不值", "价格有点高", "价格贵"},
 	KeyIntentQualityObjection:    {"质量差", "假货", "次品", "质量不行", "做工差", "不好用", "质量有问题"},
@@ -120,8 +118,6 @@ func ExtractKeyIntents(ctx context.Context, texts []string, chat LLMChatClient) 
 	return out
 }
 
-// matchKeyIntentByRule 规则匹配（仅基于关键词）
-// 返回得分最高且 > 0 的意图
 func matchKeyIntentByRule(text string) *KeyIntentResult {
 	bestIntent := KeyIntentType("")
 	bestScore := 0
@@ -158,7 +154,6 @@ func matchKeyIntentByRule(text string) *KeyIntentResult {
 	}
 }
 
-// classifyKeyIntentByLLM 调用 LLM 进行精细意图识别
 func classifyKeyIntentByLLM(ctx context.Context, text string, chat LLMChatClient) (*KeyIntentResult, error) {
 	if chat == nil {
 		return nil, fmt.Errorf("LLM chat client is nil")
@@ -200,7 +195,6 @@ func classifyKeyIntentByLLM(ctx context.Context, text string, chat LLMChatClient
 	}, nil
 }
 
-// buildKeyIntentPrompt 构造 LLM prompt
 func buildKeyIntentPrompt(text string) string {
 	var sb strings.Builder
 	sb.WriteString("客户消息：")
@@ -220,7 +214,6 @@ func buildKeyIntentPrompt(text string) string {
 	return sb.String()
 }
 
-// isValidKeyIntent 校验 key intent 合法性
 func isValidKeyIntent(intent KeyIntentType) bool {
 	for _, k := range AllKeyIntents {
 		if k == intent {
@@ -230,7 +223,6 @@ func isValidKeyIntent(intent KeyIntentType) bool {
 	return false
 }
 
-// extractJSONFromStr 从字符串中提取 JSON 子串（与 intent_recognition_fine.go 兼容）
 func extractJSONFromStr(s string) string {
 	start := strings.Index(s, "{")
 	if start < 0 {
@@ -259,4 +251,3 @@ func ClassifyKeyIntentWithDispatcher(ctx context.Context, text string, dispatche
 	adapter := NewDispatcherChatAdapter(dispatcher)
 	return ClassifyKeyIntent(ctx, text, adapter)
 }
-

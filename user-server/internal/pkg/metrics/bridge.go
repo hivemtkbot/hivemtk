@@ -8,7 +8,7 @@
 //   - bridge_outbox_duration_ms    Histogram outbox 拉取耗时分布
 //   - bridge_outbox_acked_total    Counter   outbox ack 数（按状态分类）
 //   - bridge_ack_duration_ms       Histogram ack 耗时分布
-//   -bridge_circuit_breaker_state  Gauge     熔断器状态（0=CLOSED 1=HALF_OPEN 2=OPEN）
+//     -bridge_circuit_breaker_state  Gauge     熔断器状态（0=CLOSED 1=HALF_OPEN 2=OPEN）
 //   - bridge_pending_ack_size      Gauge     pendingAck 队列长度
 //   - bridge_pending_dead_letters  Gauge     dead letters 队列长度
 //   - bridge_dlq_total             Counter   DLQ 累计（按 channel）
@@ -125,5 +125,3 @@ func GetBridge() *BridgeMetrics {
 	})
 	return bridge
 }
-
-

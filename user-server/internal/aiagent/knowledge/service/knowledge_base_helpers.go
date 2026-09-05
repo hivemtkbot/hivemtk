@@ -7,7 +7,6 @@ import (
 	"os"
 )
 
-// getFileSize 获取文件大小
 func getFileSize(path string) (int64, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -15,4 +14,3 @@ func getFileSize(path string) (int64, error) {
 	}
 	return info.Size(), nil
 }
-

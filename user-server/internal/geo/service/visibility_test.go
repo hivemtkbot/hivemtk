@@ -38,7 +38,7 @@ func (r *memDailyRepo) DeleteBefore(_ context.Context, _ time.Time) error {
 
 func TestVisibilityTrendAggregationAndCompare(t *testing.T) {
 	repo := &memDailyRepo{stats: []*model.GeoDailyStat{
-		// 4 天数据：前半（前2天）可见率 50%，后半（后2天）可见率 100%
+
 		{Date: "2026-09-01", Engine: "perplexity", Intent: "AI客服", ProbeCount: 4, BrandMentionedCount: 2},
 		{Date: "2026-09-02", Engine: "perplexity", Intent: "AI客服", ProbeCount: 4, BrandMentionedCount: 2},
 		{Date: "2026-09-03", Engine: "perplexity", Intent: "AI客服", ProbeCount: 4, BrandMentionedCount: 4},
@@ -55,11 +55,11 @@ func TestVisibilityTrendAggregationAndCompare(t *testing.T) {
 	if res.TotalProbes != 16 || res.TotalBrandHits != 12 {
 		t.Fatalf("总量异常: probes=%d hits=%d", res.TotalProbes, res.TotalBrandHits)
 	}
-	// 逐点可见率
+
 	if res.Points[0].Visibility != 0.5 {
 		t.Fatalf("首日可见率期望 0.5，got %v", res.Points[0].Visibility)
 	}
-	// 环比：前半 0.5 → 后半 1.0
+
 	if res.PreviousAvg != 0.5 || res.CurrentAvg != 1.0 {
 		t.Fatalf("环比异常: prev=%v cur=%v", res.PreviousAvg, res.CurrentAvg)
 	}
@@ -92,7 +92,7 @@ func TestParseFanoutVariants(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseFanoutVariants: %v", err)
 	}
-	// 5 条：空 query 被过滤（无），空类别降级 direct，无重复
+
 	if len(variants) != 5 {
 		t.Fatalf("期望 5 个变体，got %d: %+v", len(variants), variants)
 	}

@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupCustomerEventTestDB sets up the test database for customer event tests
 func setupCustomerEventTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.CustomerEvent{},
@@ -22,7 +21,6 @@ func setupCustomerEventTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupCustomerEventRepository creates a test customer event repository instance
 func setupCustomerEventRepository(t *testing.T) CustomerEventRepository {
 	setupCustomerEventTestDB(t)
 	return NewCustomerEventRepository()

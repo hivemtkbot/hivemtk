@@ -1,6 +1,5 @@
 package bridge
 
-
 import (
 	"testing"
 	"time"
@@ -61,4 +60,3 @@ func TestBridgeDefaultsDocConsistency(t *testing.T) {
 		}
 	})
 }
-

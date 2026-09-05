@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupStatsTestDB 设置统计测试数据库
 func setupStatsTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&sysmodel.APILog{},
@@ -21,7 +20,6 @@ func setupStatsTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// setupStatsRepository 创建测试用的统计仓库实例
 func setupStatsRepository(t *testing.T) StatsRepository {
 	database := setupStatsTestDB(t)
 	return NewStatsRepository(database)
@@ -566,4 +564,3 @@ func TestStatsRepository_GetVisitLogs(t *testing.T) {
 		t.Errorf("Expected 5 visit logs, got %d", len(logs))
 	}
 }
-

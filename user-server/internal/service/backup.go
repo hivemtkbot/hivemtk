@@ -22,8 +22,6 @@ type BackupService struct {
 	backupDataRepo repository.BackupDataRepository
 }
 
-// validateBackupName 校验 backup_name 仅允许 [A-Za-z0-9_-]+
-// v3 审计 P0-06 修复：防止路径穿越
 func validateBackupName(name string) error {
 	if name == "" {
 		return errors.New("backup_name 不能为空")
@@ -71,8 +69,7 @@ func (s *BackupService) CreateBackup(ctx context.Context, createdBy uint, req *C
 	if backup.BackupName == "" {
 		backup.BackupName = fmt.Sprintf("backup_%s", time.Now().Format("20060102_150405"))
 	}
-	// v3 审计 P0-06 修复：校验 backup_name 防止路径穿越
-	// 风险：传 "../../etc/cron.d/evil" 可写到任意目录
+
 	if err := validateBackupName(backup.BackupName); err != nil {
 		return nil, err
 	}
@@ -81,10 +78,6 @@ func (s *BackupService) CreateBackup(ctx context.Context, createdBy uint, req *C
 		return nil, err
 	}
 
-	// v3 审计 P1-31 修复：async 执行改用 pointer-to-pointer
-	// 原：go func(src model.Backup) { ... }(*backup) 传值拷贝
-	//      executeBackup 内部修改的 Status 不会写回 controller 拿到的对象
-	// 新：用 pointer 索引，再由 executeBackup 通过 DB 改写真实记录
 	go func(b *model.Backup) {
 		s.executeBackup(context.WithoutCancel(ctx), b)
 	}(backup)
@@ -114,11 +107,6 @@ func ParseBackupType(s string) model.BackupType {
 	return model.BackupTypeFull
 }
 
-// executeBackup 执行备份
-//
-// 并发安全：本方法以 goroutine 异步执行（CreateBackup 中 `go s.executeBackup(...)`）。
-// 为防止异步 goroutine panic 导致整个进程崩溃（如测试场景下 backupDataRepo 未注入），
-// 此处 defer recover 兜底，将 panic 转为错误状态落库。
 func (s *BackupService) executeBackup(ctx context.Context, backup *model.Backup) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -183,7 +171,6 @@ func (s *BackupService) executeBackup(ctx context.Context, backup *model.Backup)
 	}
 }
 
-// backupDatabase 备份数据库
 func (s *BackupService) backupDatabase(ctx context.Context, dir string) error {
 	data, err := s.exportData(ctx)
 	if err != nil {
@@ -207,8 +194,6 @@ func (s *BackupService) exportData(ctx context.Context) ([]byte, error) {
 		return nil, err
 	}
 
-	// v3 审计 P0-07 修复：分页全量 dump，不再 1000 硬上限
-	// 原：DumpUsers(ctx, 1000) / DumpShortLinks(ctx, 1000) → 超过 1000 静默丢失
 	users, err := s.dumpAllUsers(ctx)
 	if err != nil {
 		return nil, err
@@ -238,7 +223,6 @@ func (s *BackupService) exportData(ctx context.Context) ([]byte, error) {
 	return json.Marshal(data)
 }
 
-// rawMessage 把 json.RawMessage 暴露为 json.RawMessage;否则将 []byte 包成 RawMessage。
 func rawMessage(b []byte) json.RawMessage {
 	if len(b) == 0 {
 		return json.RawMessage("[]")
@@ -246,10 +230,8 @@ func rawMessage(b []byte) json.RawMessage {
 	return json.RawMessage(b)
 }
 
-// backupPageSize 备份分页大小（v3 审计 P0-07 修复）
 const backupPageSize = 1000
 
-// dumpAllUsers 分页全量 dump users
 func (s *BackupService) dumpAllUsers(ctx context.Context) ([]byte, error) {
 	var all []json.RawMessage
 	for offset := 0; ; offset += backupPageSize {
@@ -275,7 +257,6 @@ func (s *BackupService) dumpAllUsers(ctx context.Context) ([]byte, error) {
 	return json.Marshal(all)
 }
 
-// dumpAllShortLinks 分页全量 dump short_links
 func (s *BackupService) dumpAllShortLinks(ctx context.Context) ([]byte, error) {
 	var all []json.RawMessage
 	for offset := 0; ; offset += backupPageSize {
@@ -301,7 +282,6 @@ func (s *BackupService) dumpAllShortLinks(ctx context.Context) ([]byte, error) {
 	return json.Marshal(all)
 }
 
-// jsonArrayLen 粗略统计 JSON 数组内元素数量(用于 stats 统计)
 func jsonArrayLen(b []byte) int {
 	if len(b) < 2 {
 		return 0
@@ -313,7 +293,6 @@ func jsonArrayLen(b []byte) int {
 	return len(arr)
 }
 
-// compressBackup 压缩备份文件
 func (s *BackupService) compressBackup(ctx context.Context, dir, output string) error {
 	zipFile, err := os.Create(output)
 	if err != nil {
@@ -424,14 +403,13 @@ func (s *RestoreService) RestoreBackup(ctx context.Context, createdBy uint, req 
 	}
 
 	go func(src model.RestoreRecord) {
-		// R52 修复: 恢复为后台异步执行，必须脱离请求 ctx（请求返回后 ctx 取消 → 状态更新静默失败，记录停留 pending）
+
 		s.executeRestore(context.WithoutCancel(ctx), &src, backup)
 	}(*record)
 
 	return record, nil
 }
 
-// executeRestore 执行恢复
 func (s *RestoreService) executeRestore(ctx context.Context, record *model.RestoreRecord, backup *model.Backup) {
 	record.Status = "running"
 	s.restoreRepo.Update(ctx, record)
@@ -454,7 +432,6 @@ func (s *RestoreService) executeRestore(ctx context.Context, record *model.Resto
 	s.restoreRepo.Update(ctx, record)
 }
 
-// decompressBackup 解压备份文件
 func (s *RestoreService) decompressBackup(ctx context.Context, backupFile string) error {
 	r, err := zip.OpenReader(backupFile)
 	if err != nil {
@@ -496,7 +473,6 @@ func (s *RestoreService) decompressBackup(ctx context.Context, backupFile string
 	return nil
 }
 
-// restoreDatabase 恢复数据库
 func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Backup) error {
 	jsonFile := filepath.Join("restore_tmp", "data.json")
 	data, err := os.ReadFile(jsonFile)
@@ -504,37 +480,36 @@ func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Back
 		return err
 	}
 
-	// 解析 JSON 数据
-        var backupData struct {
-                Version string           `json:"version"`
-                Clues   []map[string]any `json:"clues"`
-                Users   []map[string]any `json:"users"`
-                // AD-P0-2 扩表：新增字段（v1.1.0 及以上版本）
-                MFA                []map[string]any `json:"mfa"`
-                OBSConfig          []map[string]any `json:"obs_config"`
-                EmailAccounts      []map[string]any `json:"email_accounts"`
-                EmailJobs          []map[string]any `json:"email_jobs"`
-                DNC                []map[string]any `json:"dnc"`
-                SystemConfig       []map[string]any `json:"system_config"`
-                WebhookSubs        []map[string]any `json:"webhook_subscriptions"`
-                PasswordHistory    []map[string]any `json:"password_history"`
-                // AD-P0-2 续：v1.2.0+ 核心业务表字段（RestoreBackup extras 数组引用）
-                CustomerSessions   []map[string]any `json:"customer_sessions"`
-                Messages           []map[string]any `json:"messages"`
-                CsatScores         []map[string]any `json:"csat_scores"`
-                Customers          []map[string]any `json:"customers"`
-                AgentStatuses      []map[string]any `json:"agent_statuses"`
-                AlertRules         []map[string]any `json:"alert_rules"`
-                AutomationRules    []map[string]any `json:"automation_rules"`
-                BridgeAccounts     []map[string]any `json:"bridge_accounts"`
-                OperationLogs      []map[string]any `json:"operation_logs"`
-                LoginEvents        []map[string]any `json:"login_events"`
-                SecurityAlerts     []map[string]any `json:"security_alerts"`
-                PasswordResetTokens []map[string]any `json:"password_reset_tokens"`
-                Prompts            []map[string]any `json:"prompts"`
-                AIAgents           []map[string]any `json:"ai_agents"`
-                FeatureFlags       []map[string]any `json:"feature_flags"`
-        }
+	var backupData struct {
+		Version string           `json:"version"`
+		Clues   []map[string]any `json:"clues"`
+		Users   []map[string]any `json:"users"`
+
+		MFA             []map[string]any `json:"mfa"`
+		OBSConfig       []map[string]any `json:"obs_config"`
+		EmailAccounts   []map[string]any `json:"email_accounts"`
+		EmailJobs       []map[string]any `json:"email_jobs"`
+		DNC             []map[string]any `json:"dnc"`
+		SystemConfig    []map[string]any `json:"system_config"`
+		WebhookSubs     []map[string]any `json:"webhook_subscriptions"`
+		PasswordHistory []map[string]any `json:"password_history"`
+
+		CustomerSessions    []map[string]any `json:"customer_sessions"`
+		Messages            []map[string]any `json:"messages"`
+		CsatScores          []map[string]any `json:"csat_scores"`
+		Customers           []map[string]any `json:"customers"`
+		AgentStatuses       []map[string]any `json:"agent_statuses"`
+		AlertRules          []map[string]any `json:"alert_rules"`
+		AutomationRules     []map[string]any `json:"automation_rules"`
+		BridgeAccounts      []map[string]any `json:"bridge_accounts"`
+		OperationLogs       []map[string]any `json:"operation_logs"`
+		LoginEvents         []map[string]any `json:"login_events"`
+		SecurityAlerts      []map[string]any `json:"security_alerts"`
+		PasswordResetTokens []map[string]any `json:"password_reset_tokens"`
+		Prompts             []map[string]any `json:"prompts"`
+		AIAgents            []map[string]any `json:"ai_agents"`
+		FeatureFlags        []map[string]any `json:"feature_flags"`
+	}
 	if err := json.Unmarshal(data, &backupData); err != nil {
 		return err
 	}
@@ -584,14 +559,13 @@ func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Back
 		if exists {
 			continue
 		}
-		// AD-P0-3 修复：恢复用户时包含 password（bcrypt 哈希原样写回）
-		// 原：只恢复 id/username/email/phone → 用户丢失密码，登录即失败
+
 		if err := s.backupDataRepo.RestoreUser(ctx, map[string]any{
 			"id":       u["id"],
 			"username": username,
 			"email":    u["email"],
 			"phone":    u["phone"],
-			"password": u["password"], // bcrypt 哈希，RestoreUser 用 Table() 绕过 BeforeCreate 钩子
+			"password": u["password"],
 		}); err != nil {
 			logger.Error(err, "恢复用户失败: "+username)
 			continue
@@ -599,14 +573,13 @@ func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Back
 		restoredUsers++
 	}
 
-	// AD-P0-2 扩表恢复：v1.1.0+ 备份包含这些表，旧版本为 nil 则跳过
 	type restoreExtra struct {
 		key       string
 		tableName string
 		rows      []map[string]any
 	}
 	extras := []restoreExtra{
-		// AD-P0-2 v1.1.0+ 原有
+
 		{"mfa", "user_mfa", backupData.MFA},
 		{"obs_config", "obs_config", backupData.OBSConfig},
 		{"email_accounts", "email_accounts", backupData.EmailAccounts},
@@ -615,7 +588,7 @@ func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Back
 		{"system_config", "system_config", backupData.SystemConfig},
 		{"webhook_subscriptions", "webhook_subscriptions", backupData.WebhookSubs},
 		{"password_history", "password_history", backupData.PasswordHistory},
-		// P0-1 v1.2.0+ 核心业务表
+
 		{"customer_sessions", "customer_sessions", backupData.CustomerSessions},
 		{"messages", "message", backupData.Messages},
 		{"csat_scores", "csat_surveys", backupData.CsatScores},

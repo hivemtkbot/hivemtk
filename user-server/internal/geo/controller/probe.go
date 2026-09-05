@@ -59,14 +59,13 @@ func (c *ProbeController) ProbeAll(ctx *gin.Context) {
 	}
 	runs, errs := c.probeSvc.ProbeAllEngines(ctx.Request.Context(), body.Query)
 	response.Success(ctx, gin.H{
-		"runs":     runs,
-		"errors":   errlistStrings(errs),
-		"total":    len(runs),
-		"failed":   len(errs),
+		"runs":   runs,
+		"errors": errlistStrings(errs),
+		"total":  len(runs),
+		"failed": len(errs),
 	}, "ok")
 }
 
-// errlistStrings []error → []string
 func errlistStrings(errs []error) []string {
 	out := make([]string, 0, len(errs))
 	for _, e := range errs {

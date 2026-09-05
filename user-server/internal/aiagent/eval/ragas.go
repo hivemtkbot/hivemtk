@@ -7,18 +7,6 @@ import (
 	"strings"
 )
 
-// P1f RAGAS 四指标评测集（竞品吸收，见 AI_CORE_COMPETITIVE_ANALYSIS.md）
-//
-// 指标与目标线（业界 RAGAS 默认标准）：
-//   - Faithfulness     忠实度：答案中的论断是否被检索上下文支持（目标 >0.9）
-//   - AnswerRelevancy  答案相关性：答案与问题的对齐程度
-//   - ContextPrecision 上下文精确率：相关块的排序加权精确率（目标 >0.8）
-//   - ContextRecall    上下文召回率：参考答案的信息点被上下文覆盖的比例
-//
-// 双实现：LLM Judge 模式（结构化四指标一次产出）失败时降级为
-// 无外部依赖的启发式模式（字符 bigram 覆盖），Mode 字段显式标注，
-// 避免无 LLM 环境"无评测=裸奔"，同时不伪造 LLM 结论。
-
 // RAGAS 目标线常量
 const (
 	FaithfulnessTarget     = 0.90
@@ -30,7 +18,7 @@ type RAGASReport struct {
 	Faithfulness     float64  `json:"faithfulness"`
 	AnswerRelevancy  float64  `json:"answer_relevancy"`
 	ContextPrecision float64  `json:"context_precision"`
-	ContextRecall    float64  `json:"context_recall"` // -1 表示无参考答案未测量
+	ContextRecall    float64  `json:"context_recall"`
 	Issues           []string `json:"issues,omitempty"`
 	// Mode 评分来源："llm_judge" / "heuristic"
 	Mode string `json:"mode"`
@@ -79,7 +67,6 @@ func (e *RAGASEvaluator) Evaluate(ctx context.Context, query, answer string, con
 	return evaluateHeuristic(query, answer, contexts, groundTruth), nil
 }
 
-// ragasRawScores LLM 返回的原始分数结构
 type ragasRawScores struct {
 	Faithfulness     float64  `json:"faithfulness"`
 	AnswerRelevancy  float64  `json:"answer_relevancy"`
@@ -134,15 +121,12 @@ func (e *RAGASEvaluator) evaluateWithLLM(ctx context.Context, query, answer stri
 	}, nil
 }
 
-// ---------- 启发式模式（零外部依赖，纯函数可测） ----------
-
 func evaluateHeuristic(query, answer string, contexts []string, groundTruth string) *RAGASReport {
 	rep := &RAGASReport{Mode: "heuristic"}
 
 	ansGrams := contentBigrams(answer)
 	qGrams := contentBigrams(query)
 
-	// Faithfulness：答案句子中被任一上下文支持（共享内容 bigram）的比例
 	sentences := splitSentences(answer)
 	if len(sentences) > 0 {
 		supported := 0
@@ -157,10 +141,9 @@ func evaluateHeuristic(query, answer string, contexts []string, groundTruth stri
 		}
 		rep.Faithfulness = float64(supported) / float64(len(sentences))
 	} else {
-		rep.Faithfulness = 1 // 无答案无从失实
+		rep.Faithfulness = 1
 	}
 
-	// AnswerRelevancy：问题与答案的内容 bigram 重合度
 	if len(qGrams) > 0 {
 		inter := 0
 		for g := range qGrams {
@@ -173,7 +156,6 @@ func evaluateHeuristic(query, answer string, contexts []string, groundTruth stri
 		rep.AnswerRelevancy = 1
 	}
 
-	// ContextPrecision：标准 Average Precision —— 相关块越靠前且不掺噪声分越高
 	if len(contexts) > 0 {
 		var hits, apSum float64
 		for i, c := range contexts {
@@ -189,7 +171,6 @@ func evaluateHeuristic(query, answer string, contexts []string, groundTruth stri
 		rep.Issues = append(rep.Issues, "no contexts provided")
 	}
 
-	// ContextRecall：参考答案句子被上下文覆盖的比例；无参考答案记 -1（未测量）
 	if strings.TrimSpace(groundTruth) == "" {
 		rep.ContextRecall = -1
 		rep.Issues = append(rep.Issues, "context_recall not measurable without ground truth")
@@ -212,7 +193,6 @@ func evaluateHeuristic(query, answer string, contexts []string, groundTruth stri
 	return rep
 }
 
-// normalizeScore 钳位到 [0,1]，兼容 0-100 打分的模型输出
 func normalizeScore(v float64) float64 {
 	if v > 1 {
 		v = v / 100
@@ -226,7 +206,6 @@ func normalizeScore(v float64) float64 {
 	return v
 }
 
-// contentBigrams 提取内容字符 bigram（过滤空白与常见标点，中英文通用）
 func contentBigrams(s string) map[string]struct{} {
 	runes := make([]rune, 0, len(s))
 	for _, r := range strings.ToLower(s) {
@@ -257,7 +236,6 @@ func gramsOverlap(a, b map[string]struct{}) bool {
 	return false
 }
 
-// splitSentences 按中英文句读切分句子
 func splitSentences(s string) []string {
 	parts := strings.FieldsFunc(s, func(r rune) bool {
 		switch r {

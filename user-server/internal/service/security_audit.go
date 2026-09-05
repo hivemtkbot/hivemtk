@@ -41,8 +41,6 @@ func (s *SecurityAuditService) SetRepository(ctx context.Context, repo *reposito
 	}
 }
 
-// withDB 统一返回 GORM 执行器，优先走 repository，缺失时回退 db 字段。
-// 这样既保留 repository 解耦红利，又不强制一次性迁移所有查询。
 func (s *SecurityAuditService) withDB(ctx context.Context) *gorm.DB {
 	if s.repo != nil {
 		return s.repo.GetDB(ctx)
@@ -148,7 +146,6 @@ func (s *SecurityAuditService) GetAuditDetail(ctx context.Context, id uint) (*mo
 	return &a, nil
 }
 
-// buildChecks 构造安全检查清单。所有检查均为本地/配置级，无外部副作用。
 func (s *SecurityAuditService) buildChecks(ctx context.Context) []auditCheck {
 	return []auditCheck{
 		{
@@ -221,8 +218,6 @@ func (s *SecurityAuditService) buildChecks(ctx context.Context) []auditCheck {
 	}
 }
 
-// auditOutboundLinkSafety 审计短链与活码的目标地址是否指向外部/可疑域名（Open Redirect / 钓鱼风险）。
-// 仅统计本系统自有域名池（domain_pools）之外、或非 http(s) 协议的外发跳转，标记潜在风险。
 func (s *SecurityAuditService) auditOutboundLinkSafety(ctx context.Context) (string, string) {
 	ownHosts := map[string]bool{}
 	if list, err := s.repo.ListDomainPoolDomains(ctx); err == nil {
@@ -274,7 +269,6 @@ func (s *SecurityAuditService) auditOutboundLinkSafety(ctx context.Context) (str
 	return "warn", msg
 }
 
-// hostOf 从域名串中提取 host（去掉协议头与端口），失败返回空串。
 func hostOf(domain string) string {
 	if domain == "" {
 		return ""
@@ -290,12 +284,10 @@ func hostOf(domain string) string {
 	return u.Hostname()
 }
 
-// hasScheme 判断字符串是否带 http/https 协议头。
 func hasScheme(s string) bool {
 	return len(s) >= 7 && (s[:7] == "http://" || (len(s) >= 8 && s[:8] == "https://"))
 }
 
-// classifyOutbound 判断外发地址是否属于风险目标：非 http(s) 协议、或指向非自有域名 → 返回原因，否则返回空串。
 func classifyOutbound(rawURL string, ownHosts map[string]bool) string {
 	u, err := url.Parse(rawURL)
 	if err != nil || u.Scheme == "" {

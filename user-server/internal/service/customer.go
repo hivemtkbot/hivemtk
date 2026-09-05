@@ -147,8 +147,7 @@ func (s *CustomerService) CreateOrUpdate(ctx context.Context, dto *CustomerDTO) 
 	}
 
 	if err := s.repo.Create(ctx, customer); err != nil {
-		// 并发竞争：FindByIdentity 之后、Create 之前另一请求已插入同 unified_id。
-		// PG 23505 唯一约束 → 重新按 unified_id 查一次，幂等返回已存在行。
+
 		if repository.IsDuplicateKeyErr(err) {
 			existing2, getErr := s.repo.FindByIdentity(ctx, dto.Phone, dto.Email, dto.WechatOpenID, dto.DouyinOpenID, dto.XiaohongshuID)
 			if getErr == nil && existing2 != nil {
@@ -299,11 +298,9 @@ func (s *CustomerService) MergeCustomers(ctx context.Context, primaryID, seconda
 		return errors.New("次要客户不存在")
 	}
 
-	// 1) 在内存中合并字段（仅写，不持久化）
 	if secondary.Phone != "" && primary.Phone == "" {
 		primary.Phone = secondary.Phone
-		// v7 审计修复：收养手机号必须同步重算 phone_hash（BeforeCreate 仅在创建时算），
-		// 否则合并后 GetByPhoneHash 对该客户永久失效。
+
 		primary.PhoneHash = PhoneHash(primary.Phone)
 	}
 	if secondary.Email != "" && primary.Email == "" {
@@ -336,54 +333,43 @@ func (s *CustomerService) MergeCustomers(ctx context.Context, primaryID, seconda
 		return err
 	}
 
-	// 2) OPT-ARC-06：事务保护 — 全部写操作包在一个事务中
-	//    任意一步失败回滚，避免出现"主已更新但次未删除"或"会话迁移但客户未更新"
 	err = s.repo.WithTransaction(ctx, func(txCtx context.Context) error {
-		// 2.1 更新主客户（合并字段 + 标签）
+
 		if err := s.repo.Update(txCtx, primary); err != nil {
 			return fmt.Errorf("更新主客户失败: %w", err)
 		}
 
 		if secondary.UnifiedID != "" && secondary.UnifiedID != primary.UnifiedID {
-			// 2.2 迁移 customer_sessions（已有）
+
 			if err := s.repo.ReassignSessionOneID(txCtx, secondary.UnifiedID, primary.UnifiedID); err != nil {
 				return fmt.Errorf("迁移会话失败: %w", err)
 			}
 
-			// CS-P0-3: 补全遗漏的 OneID 关联表迁移
-
-			// 2.2b customer_do_not_contact — 有唯一索引 (one_id, channel) 冲突需专用方法
 			if err := s.repo.ReassignDNCOneID(txCtx, secondary.UnifiedID, primary.UnifiedID); err != nil {
 				return fmt.Errorf("迁移 DNC 失败: %w", err)
 			}
 
-			// 2.2c customer_channels
 			if err := s.repo.ReassignOneID(txCtx, "customer_channels", secondary.UnifiedID, primary.UnifiedID); err != nil {
 				return fmt.Errorf("迁移客户渠道失败: %w", err)
 			}
 
-			// 2.2d csat_surveys
 			if err := s.repo.ReassignOneID(txCtx, "csat_surveys", secondary.UnifiedID, primary.UnifiedID); err != nil {
 				return fmt.Errorf("迁移 CSAT 失败: %w", err)
 			}
 
-			// 2.2e clues
 			if err := s.repo.ReassignOneID(txCtx, "clues", secondary.UnifiedID, primary.UnifiedID); err != nil {
 				return fmt.Errorf("迁移线索失败: %w", err)
 			}
 
-			// 2.2f script_exposure_logs
 			if err := s.repo.ReassignOneID(txCtx, "script_exposure_logs", secondary.UnifiedID, primary.UnifiedID); err != nil {
 				return fmt.Errorf("迁移话术曝光日志失败: %w", err)
 			}
 		}
 
-		// 2.3 迁移事件流水
 		if err := s.migrateCustomerEvents(txCtx, secondaryID, primaryID); err != nil {
 			return fmt.Errorf("迁移事件失败: %w", err)
 		}
 
-		// 2.4 删除次要客户
 		if err := s.repo.Delete(txCtx, secondaryID); err != nil {
 			return fmt.Errorf("删除次要客户失败: %w", err)
 		}
@@ -394,12 +380,10 @@ func (s *CustomerService) MergeCustomers(ctx context.Context, primaryID, seconda
 		return err
 	}
 
-	// 2.5 审计日志（事务外，best-effort）
 	s.writeMergeAuditLog(ctx, primary, secondary)
 	return nil
 }
 
-// writeMergeAuditLog 记录合并操作的审计日志（best-effort，失败不影响合并结果）。
 func (s *CustomerService) writeMergeAuditLog(ctx context.Context, primary, secondary *model.Customer) {
 	op := OperatorFromContext(ctx)
 	detail, _ := json.Marshal(map[string]any{
@@ -431,11 +415,6 @@ func (s *CustomerService) writeMergeAuditLog(ctx context.Context, primary, secon
 	}
 }
 
-// migrateCustomerEvents 将次要客户的事件流水整体迁移到主客户。
-//
-// v3 审计 P1-2 修复：改为 UPDATE 移动语义（原"复制新记录+旧记录指向已删客户"
-// 会造成事件历史翻倍与孤儿行）；查询/迁移错误向上传播（在合并事务内触发回滚），
-// 不再吞错为"无事件"。
 func (s *CustomerService) migrateCustomerEvents(ctx context.Context, secondaryID, primaryID string) error {
 	eventRepo := repository.NewCustomerEventRepository()
 	if _, err := eventRepo.ReassignCustomerID(ctx, secondaryID, primaryID); err != nil {

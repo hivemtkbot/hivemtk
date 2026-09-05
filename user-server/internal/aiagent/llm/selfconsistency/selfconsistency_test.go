@@ -9,12 +9,11 @@ import (
 	"time"
 )
 
-// stringSampler 字符串采样器
 type stringSampler struct {
 	mu      sync.Mutex
 	answers []string
 	idx     int
-	failAt  int // -1 = never fail; 默认 -1 避免 0 误触发
+	failAt  int
 }
 
 func (s *stringSampler) Sample(_ context.Context) (string, error) {
@@ -31,7 +30,6 @@ func (s *stringSampler) Sample(_ context.Context) (string, error) {
 	return s.answers[idx], nil
 }
 
-// stringVoter 按答案文本投票
 type stringVoter struct{}
 
 func (stringVoter) Key(answer string) string {
@@ -40,7 +38,7 @@ func (stringVoter) Key(answer string) string {
 
 // TestSelfConsistency_BasicMajorityVote 验证基本多数票
 func TestSelfConsistency_BasicMajorityVote(t *testing.T) {
-	// 5 次采样，3 次 "Paris"，2 次 "London"
+
 	sampler := &stringSampler{
 		answers: []string{"Paris", "London", "Paris", "Paris", "London"},
 		failAt:  -1,
@@ -86,7 +84,7 @@ func TestSelfConsistency_AllDiffer(t *testing.T) {
 	}
 	sc := NewSelfConsistency[string](5)
 	result, _ := sc.Run(context.Background(), sampler, stringVoter{})
-	// 每个都是 1 票，winner 是第一个出现的
+
 	if result.Count != 1 {
 		t.Errorf("expected 1 vote, got %d", result.Count)
 	}
@@ -97,7 +95,7 @@ func TestSelfConsistency_AllDiffer(t *testing.T) {
 
 // TestSelfConsistency_Concurrent 验证并发安全
 func TestSelfConsistency_Concurrent(t *testing.T) {
-	// 5 次采样都返回 "Same"
+
 	sampler := &stringSampler{
 		answers: []string{"Same"},
 		failAt:  -1,
@@ -114,7 +112,7 @@ func TestSelfConsistency_Concurrent(t *testing.T) {
 
 // TestSelfConsistency_PartialFailure 验证部分采样失败
 func TestSelfConsistency_PartialFailure(t *testing.T) {
-	// 5 次采样，第 1 次失败；剩余 4 次 3 个 "A" 1 个 "B"
+
 	sampler := &stringSampler{
 		answers: []string{"", "A", "A", "B", "A"},
 		failAt:  0,
@@ -178,10 +176,10 @@ func TestSelfConsistency_ContextCancel(t *testing.T) {
 	slowSampler := &slowStringSampler{delay: 100 * time.Millisecond}
 	sc := NewSelfConsistency[string](5)
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // 立即取消
+	cancel()
 	result, _ := sc.Run(ctx, slowSampler, stringVoter{})
-	// 大部分采样应被 ctx 取消 → 0 票
-	_ = result // 接受任何结果
+
+	_ = result
 }
 
 // TestSelfConsistency_AllKeysSorted 验证 AllKeys 排序
@@ -195,7 +193,7 @@ func TestSelfConsistency_AllKeysSorted(t *testing.T) {
 	if len(result.AllKeys) != 3 {
 		t.Errorf("expected 3 distinct keys, got %d", len(result.AllKeys))
 	}
-	// 验证按票数降序
+
 	if result.AllKeys[0].Count < result.AllKeys[1].Count {
 		t.Error("AllKeys should be sorted by count desc")
 	}
@@ -209,7 +207,7 @@ func TestSelfConsistency_AllKeysContent(t *testing.T) {
 	}
 	sc := NewSelfConsistency[string](5)
 	result, _ := sc.Run(context.Background(), sampler, stringVoter{})
-	// 应有 X(3) 和 Y(2)
+
 	counts := make(map[string]int)
 	for _, kc := range result.AllKeys {
 		counts[kc.Key] = kc.Count
@@ -227,7 +225,7 @@ func TestSelfConsistency_Normalization(t *testing.T) {
 	}
 	sc := NewSelfConsistency[string](5)
 	result, _ := sc.Run(context.Background(), sampler, stringVoter{})
-	if result.Winner != "paris" { // voter normalizes to lowercase
+	if result.Winner != "paris" {
 		t.Errorf("expected normalized winner 'paris', got %q", result.Winner)
 	}
 	if result.Count != 5 {
@@ -235,7 +233,6 @@ func TestSelfConsistency_Normalization(t *testing.T) {
 	}
 }
 
-// TestSelfConsistency_CaseInsensitiveVoter 验证自定义 voter
 type intVoter struct{}
 
 func (intVoter) Key(answer int) string {
@@ -245,7 +242,6 @@ func (intVoter) Key(answer int) string {
 	return "odd"
 }
 
-// intSampler int 采样器
 type intSampler struct {
 	mu      sync.Mutex
 	answers []int
@@ -284,7 +280,6 @@ func TestSelfConsistency_GenericType(t *testing.T) {
 	}
 }
 
-// slowStringSampler 慢速 sampler（用于 ctx 取消测试）
 type slowStringSampler struct {
 	delay time.Duration
 	mu    sync.Mutex

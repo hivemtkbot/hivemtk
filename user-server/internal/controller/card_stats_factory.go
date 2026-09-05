@@ -35,7 +35,6 @@ func NewCardStatsFactoryController(services ...service.PlatformCardStatsService)
 	return &CardStatsFactoryController{registry: reg}
 }
 
-// resolve 解析 platform 路径参数，返回对应 service
 func (c *CardStatsFactoryController) resolve(ctx *gin.Context) (service.PlatformCardStatsService, bool) {
 	platform := ctx.Param("platform")
 	if platform == "" {
@@ -91,7 +90,6 @@ func (c *CardStatsFactoryController) GetOverallStats(ctx *gin.Context) {
 	response.Success(ctx, stats, "获取成功")
 }
 
-// buildPlatformCardStatsRequest 从 gin.Context 构造统一请求
 func buildPlatformCardStatsRequest(ctx *gin.Context, cardID uint, platform string) *dto.PlatformCardStatsRequest {
 	groupBy := ctx.DefaultQuery("groupBy", "day")
 	startDate := ctx.Query("startDate")
@@ -111,7 +109,6 @@ func buildPlatformCardStatsRequest(ctx *gin.Context, cardID uint, platform strin
 	}
 }
 
-// buildPlatformCardOverallStatsRequest 从 gin.Context 构造统一总体统计请求
 func buildPlatformCardOverallStatsRequest(ctx *gin.Context, platform string) *dto.PlatformCardOverallStatsRequest {
 	groupBy := ctx.DefaultQuery("groupBy", "day")
 	startDate := ctx.Query("startDate")
@@ -132,4 +129,3 @@ func buildPlatformCardOverallStatsRequest(ctx *gin.Context, platform string) *dt
 		Limit:     limit,
 	}
 }
-

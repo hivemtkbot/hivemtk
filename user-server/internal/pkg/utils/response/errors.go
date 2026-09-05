@@ -64,4 +64,3 @@ const (
 
 	ErrSystemAlreadyInitialized = "系统已初始化，禁止重复创建超管"
 )
-

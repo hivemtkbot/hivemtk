@@ -63,7 +63,6 @@ func TestHandleIngress_SelfEcho_BridgeRelay_Blocked(t *testing.T) {
 		t.Fatalf("自回显必须 QueuedForAI=false（不触发 AI，避免回环）")
 	}
 
-	// 关键回归：AI 话术不能再次以 inbound 入库
 	var inboundCount int64
 	db.Model(&model.MessageHub{}).
 		Where("platform=? AND conversation_id=? AND direction='inbound'", platform, conv).
@@ -103,8 +102,7 @@ func TestHandleIngress_SelfEcho_RealCustomer_NotBlocked(t *testing.T) {
 	if !res.Accepted {
 		t.Fatalf("真实客户消息应 Accepted=true")
 	}
-	// 注意：QueuedForAI 取决于 aiTrigger 是否注入；本测试只断言未被自回显误杀（Accepted=true 且未因 self-echo 拦截）。
-	// 落库校验：应存在一条该内容的 inbound。
+
 	var inboundCount int64
 	db.Model(&model.MessageHub{}).
 		Where("platform=? AND conversation_id=? AND direction='inbound' AND md5(content)=md5(?)", platform, conv, customerQ).

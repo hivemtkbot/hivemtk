@@ -17,4 +17,3 @@ func ContextMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
-

@@ -18,7 +18,6 @@ type PersonaLowQualitySampleRepository interface {
 	Create(ctx context.Context, sample *model.LowQualitySample) error
 }
 
-// personaLowQualitySampleRepository 实现 PersonaLowQualitySampleRepository
 type personaLowQualitySampleRepository struct {
 	db *gorm.DB
 }
@@ -33,10 +32,6 @@ func NewPersonaLowQualitySampleRepositoryWithDB(db *gorm.DB) PersonaLowQualitySa
 	return &personaLowQualitySampleRepository{db: db}
 }
 
-// Create 持久化低质样本到 low_quality_samples 表
-// 与原 service.DBLowQualitySampleCollector.Collect 行为一致：
-//   - sample 为 nil 时直接返回 nil（noop）
-//   - 错误信息包裹 "save low quality sample: %w"
 func (r *personaLowQualitySampleRepository) Create(ctx context.Context, sample *model.LowQualitySample) error {
 	if sample == nil {
 		return nil

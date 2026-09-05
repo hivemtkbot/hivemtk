@@ -75,7 +75,7 @@ func TestTFIDF_TFIDFScoreCalculation(t *testing.T) {
 	}
 	extractor := NewTFIDFPhraseExtractor()
 	phrases := extractor.Extract(messages, 50)
-	// 找出 "成分" 这个短语
+
 	var found *TFIDFPhrase
 	for i := range phrases {
 		if phrases[i].Phrase == "成分" {

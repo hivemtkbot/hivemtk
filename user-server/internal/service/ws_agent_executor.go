@@ -22,7 +22,6 @@ func NewWSAgentExecutor(svc *CustomerSessionService) *WSAgentExecutor {
 	return &WSAgentExecutor{svc: svc}
 }
 
-// 编译期接口实现断言
 var _ websocket.AgentSessionExecutor = (*WSAgentExecutor)(nil)
 
 // MarkSessionRead 标记会话内消息已读
@@ -95,11 +94,6 @@ func (e *WSAgentExecutor) CloseSession(ctx context.Context, agentID uint, sessio
 	return e.svc.UpdateSessionStatus(ctx, id, model.SessionStatusClosed)
 }
 
-// resolveSessionID 把 WebSocket 协议中的 session_id 字符串解析为数据库主键 ID
-//
-// 兼容两种格式：
-//  1. 数字主键 ID（如 "123"）→ 直接返回
-//  2. 业务字符串 sessionID（如 "sess_xxx"）→ 查表转换为数字 ID
 func (e *WSAgentExecutor) resolveSessionID(ctx context.Context, raw string) (uint, error) {
 	if n, err := strconv.ParseUint(raw, 10, 32); err == nil {
 		return uint(n), nil

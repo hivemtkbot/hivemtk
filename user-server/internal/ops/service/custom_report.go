@@ -215,7 +215,6 @@ func (s *CustomReportService) QueryReportData(ctx context.Context, report *model
 	}
 }
 
-// isValidDataSource 验证数据源
 func isValidDataSource(dataSource string) bool {
 	validSources := map[string]bool{
 		"sessions": true,
@@ -229,7 +228,6 @@ func isValidDataSource(dataSource string) bool {
 	return validSources[dataSource]
 }
 
-// isValidChartType 验证图表类型
 func isValidChartType(chartType string) bool {
 	validTypes := map[string]bool{
 		"table": true,
@@ -242,17 +240,14 @@ func isValidChartType(chartType string) bool {
 	return validTypes[chartType]
 }
 
-// querySessionData 查询会话数据
 func (s *CustomReportService) querySessionData(ctx context.Context, report *model.CustomReport, params map[string]any) (*model.ReportData, error) {
-	// 解析维度配置
+
 	var dimensions []model.ReportDimension
 	json.Unmarshal([]byte(report.Dimensions), &dimensions)
 
-	// 解析指标配置
 	var metrics []model.ReportMetric
 	json.Unmarshal([]byte(report.Metrics), &metrics)
 
-	// R55 T2: 应用报表过滤器（此前 filters 存储/编辑完备但查询不应用）
 	conds, args := BuildReportFilterSQL("sessions", report.Filters)
 
 	type sessionAgg struct {
@@ -260,7 +255,7 @@ func (s *CustomReportService) querySessionData(ctx context.Context, report *mode
 		SessionCount int64
 		MessageSum   int64
 	}
-	// 维度分组聚合（此前逐行 count=1 假聚合）
+
 	dimField := "status"
 	if len(dimensions) > 0 {
 		dimField = dimensions[0].Field
@@ -274,7 +269,7 @@ func (s *CustomReportService) querySessionData(ctx context.Context, report *mode
 	case "agent_name":
 		groupExpr = "COALESCE(NULLIF(agent_name, ''), '未分配')"
 		dimValueExpr = "COALESCE(NULLIF(agent_name, ''), '未分配')"
-	default: // status / 其他降级 status
+	default:
 		groupExpr = "status"
 		dimValueExpr = "status::text"
 	}
@@ -322,7 +317,6 @@ func (s *CustomReportService) querySessionData(ctx context.Context, report *mode
 	}, nil
 }
 
-// queryMessageData 查询消息数据
 func (s *CustomReportService) queryMessageData(ctx context.Context, report *model.CustomReport, params map[string]any) (*model.ReportData, error) {
 	var dimensions []model.ReportDimension
 	json.Unmarshal([]byte(report.Dimensions), &dimensions)
@@ -343,7 +337,7 @@ func (s *CustomReportService) queryMessageData(ctx context.Context, report *mode
 		DimValue string
 		Count    int64
 	}
-	// R55 T2: 应用报表过滤器 + 按所选维度分组（此前硬编码 content_type 且不读 filters）
+
 	conds, args := BuildReportFilterSQL("messages", report.Filters)
 
 	dimValueExpr := "COALESCE(content_type, 'unknown')"
@@ -355,14 +349,14 @@ func (s *CustomReportService) queryMessageData(ctx context.Context, report *mode
 	case "platform":
 		groupExpr = "COALESCE(platform, 'unknown')"
 		dimValueExpr = "COALESCE(platform, 'unknown')"
-	default: // msg_type / content_type
+	default:
 		groupExpr = "COALESCE(content_type, 'unknown')"
 		dimValueExpr = "COALESCE(content_type, 'unknown')"
 	}
 
 	q := s.db.WithContext(ctx).
 		Table("unified_messages").
-		Select(dimValueExpr+" AS dim_value, COUNT(*) AS count").
+		Select(dimValueExpr + " AS dim_value, COUNT(*) AS count").
 		Group(groupExpr).
 		Order(groupExpr)
 	q = applyConds(q, conds, args)
@@ -397,7 +391,6 @@ func (s *CustomReportService) queryMessageData(ctx context.Context, report *mode
 	}, nil
 }
 
-// queryClueData 查询线索数据
 func (s *CustomReportService) queryClueData(ctx context.Context, report *model.CustomReport, params map[string]any) (*model.ReportData, error) {
 	var dimensions []model.ReportDimension
 	json.Unmarshal([]byte(report.Dimensions), &dimensions)
@@ -405,7 +398,6 @@ func (s *CustomReportService) queryClueData(ctx context.Context, report *model.C
 	var metrics []model.ReportMetric
 	json.Unmarshal([]byte(report.Metrics), &metrics)
 
-	// R55 T2: SQL GROUP BY 真聚合 + filters 应用（此前拉 1000 条逐行 count=1 假聚合）
 	conds, args := BuildReportFilterSQL("clues", report.Filters)
 
 	dimField := "type"
@@ -424,7 +416,7 @@ func (s *CustomReportService) queryClueData(ctx context.Context, report *model.C
 	case "is_group":
 		dimValueExpr = "is_group::text"
 		groupExpr = "is_group"
-	default: // type
+	default:
 		dimValueExpr = "type::text"
 		groupExpr = "type"
 	}
@@ -451,8 +443,8 @@ func (s *CustomReportService) queryClueData(ctx context.Context, report *model.C
 	data := make([]map[string]any, 0, len(aggs))
 	for _, a := range aggs {
 		row := map[string]any{
-			dimField:     a.DimValue,
-			metricField:  a.Count,
+			dimField:    a.DimValue,
+			metricField: a.Count,
 		}
 		data = append(data, row)
 	}
@@ -475,7 +467,6 @@ func (s *CustomReportService) queryClueData(ctx context.Context, report *model.C
 	}, nil
 }
 
-// queryRFMData 查询 RFM 数据
 func (s *CustomReportService) queryRFMData(ctx context.Context, report *model.CustomReport, params map[string]any) (*model.ReportData, error) {
 	var dimensions []model.ReportDimension
 	json.Unmarshal([]byte(report.Dimensions), &dimensions)
@@ -545,7 +536,6 @@ func (s *CustomReportService) queryRFMData(ctx context.Context, report *model.Cu
 	}, nil
 }
 
-// queryUserData 查询用户数据
 func (s *CustomReportService) queryUserData(ctx context.Context, report *model.CustomReport, params map[string]any) (*model.ReportData, error) {
 	var dimensions []model.ReportDimension
 	json.Unmarshal([]byte(report.Dimensions), &dimensions)
@@ -576,7 +566,7 @@ func (s *CustomReportService) queryUserData(ctx context.Context, report *model.C
 		DimValue string
 		Count    int64
 	}
-	// R55 T2: 应用报表过滤器
+
 	conds, args := BuildReportFilterSQL("users", report.Filters)
 	q := s.db.WithContext(ctx).
 		Table("customers").
@@ -617,7 +607,6 @@ func (s *CustomReportService) queryUserData(ctx context.Context, report *model.C
 	}, nil
 }
 
-// queryAgentData 查询客服数据
 func (s *CustomReportService) queryAgentData(ctx context.Context, report *model.CustomReport, params map[string]any) (*model.ReportData, error) {
 	var dimensions []model.ReportDimension
 	json.Unmarshal([]byte(report.Dimensions), &dimensions)
@@ -625,11 +614,10 @@ func (s *CustomReportService) queryAgentData(ctx context.Context, report *model.
 	var metrics []model.ReportMetric
 	json.Unmarshal([]byte(report.Metrics), &metrics)
 
-	// 真实聚合：从 customer_sessions 表按客服分组统计会话数与平均响应时长
 	type agentAgg struct {
-		AgentName        string
-		SessionCount     int64
-		AvgResponseTime  float64
+		AgentName       string
+		SessionCount    int64
+		AvgResponseTime float64
 	}
 	var aggs []agentAgg
 	if err := s.db.WithContext(ctx).
@@ -667,4 +655,3 @@ func (s *CustomReportService) queryAgentData(ctx context.Context, report *model.
 		Total:      int64(len(data)),
 	}, nil
 }
-

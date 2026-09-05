@@ -17,8 +17,6 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// newBenchDB 与 testutil.NewTestDB 行为一致，但接受 testing.TB（兼容 *testing.T 和 *testing.B）。
-// 用途：让 benchmark 测试也能复用相同的「PG 不可达则跳过」逻辑。
 func newBenchDB(tb testing.TB, models ...any) *gorm.DB {
 	tb.Helper()
 	host := getBenchEnv("POSTGRES_TEST_HOST", "127.0.0.1")
@@ -31,7 +29,7 @@ func newBenchDB(tb testing.TB, models ...any) *gorm.DB {
 	}
 	benchProcDBInit.Do(func() {
 		benchProcDBName = fmt.Sprintf("user_db_test_bench_%d", os.Getpid())
-		// 与 testutil.ensureProcTestDB 对齐：先经维护库建库，避免直连不存在的库名
+
 		maintDSN := benchDBNameRe.ReplaceAllString(getBenchTestDSN(), "dbname=postgres")
 		if m, err := gorm.Open(postgres.Open(maintDSN), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),

@@ -16,7 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupCustomerSessionTestDB 设置客服会话测试数据库
 func setupCustomerSessionTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.CustomerSession{},
@@ -27,7 +26,6 @@ func setupCustomerSessionTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupCustomerSessionController 设置客服会话控制器测试环境
 func setupCustomerSessionController(t *testing.T) (*CustomerSessionController, *AgentStatusController, *gin.Engine) {
 	setupCustomerSessionTestDB(t)
 	sessionCtrl := NewCustomerSessionController()
@@ -41,7 +39,6 @@ func setupCustomerSessionController(t *testing.T) (*CustomerSessionController, *
 
 	return sessionCtrl, agentCtrl, router
 }
-
 
 // TestCustomerSessionController_GetSessions_Success 测试获取会话列表成功
 func TestCustomerSessionController_GetSessions_Success(t *testing.T) {
@@ -465,7 +462,6 @@ func TestCustomerSessionController_GetPendingSessions(t *testing.T) {
 	}
 }
 
-
 // TestAgentStatusController_CreateAgent_Success 测试创建客服成功
 func TestAgentStatusController_CreateAgent_Success(t *testing.T) {
 	setupCustomerSessionTestDB(t)
@@ -668,4 +664,3 @@ func TestAgentStatusController_NewAgentStatusController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
-

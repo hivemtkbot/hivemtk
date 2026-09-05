@@ -13,7 +13,7 @@ type GeoKnowledgeDocument struct {
 	Title       string `gorm:"type:varchar(500)" json:"title"`
 	Content     string `gorm:"type:text" json:"content"`
 	DocType     string `gorm:"type:varchar(50)" json:"doc_type"`
-	SourceLevel string `gorm:"column:source_level;size:2;index" json:"source_level"` // A/B/C/D 信源等级
+	SourceLevel string `gorm:"column:source_level;size:2;index" json:"source_level"`
 	SourceURL   string `gorm:"column:source_url;size:512" json:"source_url"`
 	Metadata    string `gorm:"type:text" json:"metadata"`
 

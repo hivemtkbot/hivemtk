@@ -43,4 +43,3 @@ const (
 	SmlistTypeManSnaMistType   SmlistType = 3
 	SmlistTypeManMnaM          SmlistType = 4
 )
-

@@ -204,11 +204,8 @@ type ReachPipelineService struct {
 	perUserMu    sync.RWMutex
 	perUserHits  map[string][]time.Time
 
-	// rateCache R-5/R-6：跨实例共享的 Redis 频控/配额后端（cache.Cache）。
-	// nil 时使用 cache.GetGlobalCache()；Redis 故障自动降级进程内计数并 WARN。
 	rateCache cache.Cache
 
-	// perUserLimitCfg R-5：system_config_kv 配置的 PerUser 上限缓存（60s 刷新）
 	perUserLimitMu      sync.Mutex
 	perUserLimitVal     int
 	perUserLimitLoadAt  time.Time
@@ -614,7 +611,7 @@ func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.Re
 	if len(steps) == 0 {
 		steps = DefaultPipelineSteps
 	}
-	// 解析策略
+
 	var rp RetryPolicy
 	if err := json.Unmarshal(mustJSON(pipe.RetryPolicy), &rp); err != nil {
 		logger.Errorf("[reach_pipeline] 解析 RetryPolicy 失败: %v", err)
@@ -736,8 +733,7 @@ func (s *ReachPipelineService) dispatchLoop(ctx context.Context, interval time.D
 			logger.Infof("[reach_dispatcher] 调度器退出")
 			return
 		case <-ticker.C:
-			// 修复：dispatchDueJobs 内单条任务执行（如渠道发送器 NPE）panic 不得杀死调度主循环，
-			// 否则整条触达调度器永久停摆。recover 后仅记日志，下一 tick 继续。
+
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
@@ -876,17 +872,6 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 	return res
 }
 
-// prepareContent 真实模板渲染（V3 整改）
-//
-// 优先级：
-//  1. job.Payload["content"] 字符串模板（含 {{var}} 占位符）
-//  2. job.Payload["template_id"] 数据库中的话术模板
-//  3. 兜底错误：未提供任何内容
-//
-// 占位符语法：{{key}}，key 在 job.Payload 中查找（递归子 map），未命中时
-// 保留原始 {{key}} 形式以便前端联调时直观看到未填充的字段。
-//
-// 自动注入变量：customer_id、account_id、channel、date、time、datetime。
 func (s *ReachPipelineService) prepareContent(ctx context.Context, job *model.ReachJob) (string, error) {
 	if job == nil {
 		return "", fmt.Errorf("job is nil")
@@ -914,13 +899,6 @@ func (s *ReachPipelineService) prepareContent(ctx context.Context, job *model.Re
 	return renderReachTemplate(raw, job), nil
 }
 
-// loadTemplateContent 从数据库加载话术模板内容
-//
-// 兼容多张历史话术表（ScriptTemplate / ScriptLibrary），按 ID 优先匹配。
-// 私域独立部署：单租户，不带 merchant_id 过滤。
-//
-// 五层架构整改：原 Table().Select().Where().Scan() 下沉到
-// repository.ReachPipelineRepository.GetScriptContent。
 func (s *ReachPipelineService) loadTemplateContent(ctx context.Context, templateID string) (string, error) {
 	if s.repo == nil || !s.repo.Available() {
 		return "", fmt.Errorf("db is nil")
@@ -928,11 +906,6 @@ func (s *ReachPipelineService) loadTemplateContent(ctx context.Context, template
 	return s.repo.GetScriptContent(ctx, templateID)
 }
 
-// generateMessage 消息个性化（V3 整改）
-//
-// 复用 prepareContent 的渲染结果（已注入客户/账号/渠道变量），仅做轻量增强：
-//  1. trim 首尾空白 + 折叠连续换行
-//  2. 在末尾追加渠道后缀（仅当 payload.include_channel_footer=true，避免营销文案被破坏）
 func (s *ReachPipelineService) generateMessage(ctx context.Context, job *model.ReachJob) (string, error) {
 	if job == nil {
 		return "", fmt.Errorf("job is nil")
@@ -1045,10 +1018,6 @@ func (s *ReachPipelineService) dispatchOutbound(ctx context.Context, job *model.
 	return id, nil
 }
 
-// trackSendResult 写入追踪字段（V3 整改）
-//
-// 从 job.Payload["_last_send"] 读取 StepSend 写入的 message_id / channel，
-// 然后合并到 job.Payload["_tracking"]。本步不依赖额外表，避免引入新迁移。
 func (s *ReachPipelineService) trackSendResult(ctx context.Context, job *model.ReachJob, _ StepResult) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
@@ -1077,16 +1046,6 @@ func (s *ReachPipelineService) trackSendResult(ctx context.Context, job *model.R
 	return nil
 }
 
-// aggregateReport 聚合 step 结果（V3 整改）
-//
-// 汇总指标：
-//   - total_steps：job.StepResults 长度
-//   - success_steps / failed_steps
-//   - total_duration_ms：所有 step 的 DurationMs 之和
-//   - max_step / slowest_step_ms：耗时最长的 step
-//   - message_id / channel：从 _tracking 取
-//
-// 同时更新 ReachPipeline.TotalSuccess / TotalFailure 计数（生产路径上的真实更新）。
 func (s *ReachPipelineService) aggregateReport(ctx context.Context, job *model.ReachJob) (map[string]any, error) {
 	if job == nil {
 		return nil, fmt.Errorf("job is nil")
@@ -1146,14 +1105,6 @@ func (s *ReachPipelineService) aggregateReport(ctx context.Context, job *model.R
 	return report, nil
 }
 
-// renderReachTemplate 模板渲染（V3 整改）
-//
-// 语法：{{key}} - 从 job.Payload["key"] 提取值（string/number/bool 都可）
-// 未命中：保留原始 {{key}}（不替换为空字符串），便于排查
-//
-// 自动注入变量：customer_id / account_id / channel / date / time / datetime
-//
-// 实现：单遍扫描，每次找到 {{ 就定位 }} 替换或跳过本块（保证进度）。
 func renderReachTemplate(template string, job *model.ReachJob) string {
 	if template == "" || job == nil {
 		return template
@@ -1196,7 +1147,6 @@ func renderReachTemplate(template string, job *model.ReachJob) string {
 	return b.String()
 }
 
-// appendStepResult 追加单步结果
 func (s *ReachPipelineService) appendStepResult(ctx context.Context, job *model.ReachJob, res StepResult) {
 	results := []StepResult{}
 	if job.StepResults != nil {
@@ -1210,11 +1160,6 @@ func (s *ReachPipelineService) appendStepResult(ctx context.Context, job *model.
 	s.repo.SaveJob(ctx, job)
 }
 
-// checkRateLimit 检查限流
-//
-// R-5 频控分层：PerUser 频控状态迁 Redis（INCR+TTL，跨实例共享）；
-// 交易类消息（payload.transactional=true）豁免 PerUser 频控（Braze 分层频控语义），
-// DailyQuota/QPS 仍然生效；Redis 不可用时降级进程内计数并 WARN。
 func (s *ReachPipelineService) checkRateLimit(ctx context.Context, channel, accountID, customerID string, rl *RateLimitConfig, transactional bool) bool {
 	if rl.DailyQuota > 0 {
 		if !s.checkDailyQuota(ctx, channel, rl.DailyQuota) {
@@ -1259,10 +1204,6 @@ func (s *ReachPipelineService) SetRateCache(c cache.Cache) {
 	s.rateCache = c
 }
 
-// rateCacheOrGlobal 解析频控/配额共享后端：
-// 显式注入优先；未注入时仅当全局缓存为 Redis 后端才复用（生产多实例共享），
-// 否则返回 nil 由调用方降级进程内计数——避免内存单例被误用为跨实例存储、
-// 也避免单测间经全局单例互相污染。
 func (s *ReachPipelineService) rateCacheOrGlobal() cache.Cache {
 	if s.rateCache != nil {
 		return s.rateCache
@@ -1273,7 +1214,6 @@ func (s *ReachPipelineService) rateCacheOrGlobal() cache.Cache {
 	return nil
 }
 
-// warnRedisDegraded R-5/R-6：Redis 故障降级告警（每组件仅告警一次防刷屏）
 func (s *ReachPipelineService) warnRedisDegraded(component string, err error) {
 	if _, loaded := s.redisDegradedWarned.LoadOrStore(component, true); loaded {
 		return
@@ -1281,8 +1221,6 @@ func (s *ReachPipelineService) warnRedisDegraded(component string, err error) {
 	logger.Warnf("[R-5/R-6] Redis 不可用，%s 降级为进程内计数（多实例配额语义失效）: %v", component, err)
 }
 
-// isTransactionalPayload R-5：交易类消息标记判定（豁免 PerUser 频控）。
-// 支持 bool / string("true","1") / float64(非零) 宽松解析。
 func isTransactionalPayload(job *model.ReachJob) bool {
 	if job == nil || job.Payload == nil {
 		return false
@@ -1304,16 +1242,12 @@ func isTransactionalPayload(job *model.ReachJob) bool {
 }
 
 const (
-	// reachPerUserLimitConfigKey R-5：system_config_kv 中 PerUser 频控上限的配置键
 	reachPerUserLimitConfigKey = "reach_per_user_limit"
 
 	defaultPerUserLimit  = 3
 	perUserLimitCacheTTL = time.Minute
 )
 
-// resolvePerUserLimit R-5：解析生效的 PerUser 上限。
-// 优先级：pipeline 显式配置 > system_config_kv(reach_per_user_limit) > 默认 3。
-// 配置读取结果进程内缓存 60s，避免每次触达打 DB。
 func (s *ReachPipelineService) resolvePerUserLimit(ctx context.Context, configured int) int {
 	if configured > 0 {
 		return configured
@@ -1326,7 +1260,7 @@ func (s *ReachPipelineService) resolvePerUserLimit(ctx context.Context, configur
 	val := defaultPerUserLimit
 	s.kvRepoOnce.Do(func() { s.kvRepo = repository.NewSystemConfigKVRepository() })
 	if s.kvRepo != nil {
-		// 全局 DB 未初始化时（单测/降级）systemConfigKVRepo 内部会 panic，此处兜底回默认值
+
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -1347,12 +1281,10 @@ func (s *ReachPipelineService) resolvePerUserLimit(ctx context.Context, configur
 	return val
 }
 
-// dailyQuotaRedisKey R-6：日配额 Redis 键（按 CST 日期分键，天然隔离跨日）
 func dailyQuotaRedisKey(channel, day string) string {
 	return fmt.Sprintf("reach:dailyquota:%s:%s", channel, day)
 }
 
-// nextCSTMidnight 距下一个 CST 零点的时长（R-6 TTL 至当日 24:00）
 func nextCSTMidnight(t time.Time) time.Duration {
 	local := t.In(cstZone)
 	mid := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, cstZone).AddDate(0, 0, 1)
@@ -1364,9 +1296,6 @@ func (s *ReachPipelineService) ConsumeDailyQuota(ctx context.Context, channel st
 	return s.consumeDailyQuota(ctx, channel, 1)
 }
 
-// checkDailyQuota 检查并消耗每日配额（R-6：Redis INCRBY 共享计数 + TTL 至当日 CST 24:00；
-// Redis 故障降级进程内计数 + WARN。注意：拒绝的请求同样占用额度——保守方向防止超发，
-// 因 Cache 接口无原子 DECR，超发风险大于少发。）
 func (s *ReachPipelineService) checkDailyQuota(ctx context.Context, channel string, quota int) bool {
 	today := time.Now().In(cstZone).Format("2006-01-02")
 	key := dailyQuotaRedisKey(channel, today)
@@ -1396,7 +1325,6 @@ func (s *ReachPipelineService) checkDailyQuota(ctx context.Context, channel stri
 	return true
 }
 
-// consumeDailyQuota 消耗每日配额（R-6：优先 Redis 共享计数；故障降级进程内）
 func (s *ReachPipelineService) consumeDailyQuota(ctx context.Context, channel string, n int) bool {
 	today := time.Now().In(cstZone).Format("2006-01-02")
 	key := dailyQuotaRedisKey(channel, today)
@@ -1430,10 +1358,8 @@ func (s *ReachPipelineService) consumeDailyQuota(ctx context.Context, channel st
 	return true
 }
 
-// checkPerUser 检查单用户频次（R-5：Redis INCR+TTL 固定窗口跨实例共享；
-// Redis 故障或未配置时降级进程内滑动窗口 + WARN）
 func (s *ReachPipelineService) checkPerUser(ctx context.Context, customerID string, limit int, cooldown time.Duration) bool {
-	// cooldown<=0 语义与原滑动窗口一致：无冷却窗口即不限制
+
 	if cooldown <= 0 {
 		return true
 	}
@@ -1481,17 +1407,16 @@ func (s *ReachPipelineService) ResetRateLimit(ctx context.Context, channel strin
 	s.rateMu.Unlock()
 	s.dailyQuotaMu.Lock()
 	delete(s.dailyQuota, prefix)
-	// R-6：进程内降级路径的键为 Redis 风格全键，一并清理
+
 	delete(s.dailyQuota, dailyQuotaRedisKey(prefix, time.Now().In(cstZone).Format("2006-01-02")))
 	s.dailyQuotaMu.Unlock()
-	// R-6：尽力清理 Redis 当日配额键
+
 	if c := s.rateCacheOrGlobal(); c != nil {
 		today := time.Now().In(cstZone).Format("2006-01-02")
 		_ = c.Delete(ctx, dailyQuotaRedisKey(channel, today))
 	}
 }
 
-// validateSteps 校验步骤列表
 func (s *ReachPipelineService) validateSteps(ctx context.Context, steps []string) error {
 	if len(steps) == 0 {
 		return ErrReachInvalidSteps
@@ -1518,7 +1443,6 @@ func (s *ReachPipelineService) validateSteps(ctx context.Context, steps []string
 	return nil
 }
 
-// computeNextRunTime 计算下次重试时间
 func computeNextRunTime(rp RetryPolicy, retryCount int) time.Time {
 	interval := rp.IntervalMs
 	if rp.Backoff == "exponential" {
@@ -1569,7 +1493,6 @@ func (s *ReachPipelineService) Stats(ctx context.Context) (map[string]int64, err
 	return stats, nil
 }
 
-// ===== 全局实例 =====
 var (
 	reachOnce     sync.Once
 	reachInstance *ReachPipelineService
@@ -1594,6 +1517,6 @@ func (s *ReachPipelineService) ListJobsByExperiment(ctx context.Context, experim
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	// 复用 repo 现有查询，按 pipeline_id 过滤（AB 实验通常把 pipeline_id 当 experiment_id 用）
+
 	return s.repo.ListJobs(ctx, experimentID, "", page, pageSize)
 }

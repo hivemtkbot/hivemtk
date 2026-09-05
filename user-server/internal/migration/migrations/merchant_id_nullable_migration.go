@@ -73,7 +73,6 @@ func (m *MerchantIDNullableMigration) upPostgres() error {
 		tables = append(tables, t)
 	}
 
-	// 2. 逐一执行 ALTER
 	var success, failed int
 	for _, t := range tables {
 		alterSQL := fmt.Sprintf(`ALTER TABLE %q.%q ALTER COLUMN merchant_id DROP NOT NULL`,
@@ -102,6 +101,4 @@ func (m *MerchantIDNullableMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// Ensure MerchantIDNullableMigration implements Migration interface
 var _ migration.Migration = (*MerchantIDNullableMigration)(nil)
-

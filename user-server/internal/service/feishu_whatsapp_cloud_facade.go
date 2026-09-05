@@ -290,7 +290,6 @@ func (s *WhatsAppCloudService) DeleteWhatsAppCloudAccountVO(ctx context.Context,
 	return s.DeleteAccount(ctx, id)
 }
 
-// maskSecret 敏感信息掩码
 func maskSecret(secret string) string {
 	if secret == "" {
 		return ""

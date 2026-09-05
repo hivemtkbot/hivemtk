@@ -118,10 +118,6 @@ func (c *Calibrator) LoadActiveFromDB(ctx context.Context) error {
 	return nil
 }
 
-// evaluate 计算给定 T 下的 ECE 和 NLL
-//
-// ECE = Σ (|B_m|/N) * |acc(B_m) - conf(B_m)|   （15 个分桶）
-// NLL = -(1/N) Σ log(p_{y_i})
 func (c *Calibrator) evaluate(samples []CalibrationSample, t float64) (ece, nll float64) {
 	bins := 15
 	binConf := make([]float64, bins)

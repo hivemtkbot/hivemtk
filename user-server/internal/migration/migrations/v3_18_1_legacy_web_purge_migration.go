@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -10,14 +9,13 @@ import (
 	"gorm.io/gorm"
 )
 
-// legacyWebPurgeMap 历史渠道名 -> 来源平台全名（2026-08-13 收尾归一）。
 var legacyWebPurgeMap = map[string]string{
 	"xhs_web":      "xiaohongshu",
 	"douyin_web":   "douyin",
 	"kuaishou_web": "kuaishou",
-	"xianyu_web":    "xianyu",
+	"xianyu_web":   "xianyu",
 	"tiktok_web":   "tiktok",
-	"xhs":          "xiaohongshu", 
+	"xhs":          "xiaohongshu",
 }
 
 type BridgeChannelUnifyV3_18_1Migration struct {
@@ -151,4 +149,3 @@ func (m *BridgeChannelUnifyV3_18_1Migration) Down(ctx context.Context) error {
 }
 
 var _ migration.Migration = (*BridgeChannelUnifyV3_18_1Migration)(nil)
-

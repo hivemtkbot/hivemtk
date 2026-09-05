@@ -37,4 +37,3 @@ func NewReachWeixinSendTool(deps ReachToolDeps) *ReachWeixinSendTool {
 		deps: deps,
 	}
 }
-

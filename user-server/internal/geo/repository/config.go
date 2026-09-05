@@ -87,9 +87,6 @@ func (r *geoPlatformAccountRepo) GetByPlatformAndName(platform, accountName stri
 	return &account, err
 }
 
-// GetLatestByPlatform 返回指定平台最近更新的账号（发布时优先取用其存储凭据）。
-// 以 updated_at 为准：SaveAccount 的覆盖更新不刷新 created_at，
-// 旧账号更新凭据后仍应被优先取用；id 兜底保证同刻并列时结果确定。
 func (r *geoPlatformAccountRepo) GetLatestByPlatform(platform string) (*model.GeoPlatformAccount, error) {
 	var account model.GeoPlatformAccount
 	err := r.db.Where("platform = ?", platform).

@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupWorkflowDeepService 复用与现有测试一致的 DB 初始化逻辑，并在无 DB 时优雅跳过。
 func setupWorkflowDeepService(t *testing.T) (*WorkflowOrchestratorService, *gorm.DB) {
 	t.Helper()
 	database := setupWorkflowServiceTestDB(t)

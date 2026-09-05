@@ -5,8 +5,6 @@ import (
 	"strings"
 )
 
-
-// 多语言 ctx key（私有类型避免与其他包冲突）
 type (
 	ctxKeyInternalLang struct{}
 	ctxKeyTargetLang   struct{}
@@ -116,4 +114,3 @@ func NormalizeLang(code string) string {
 	}
 	return code
 }
-

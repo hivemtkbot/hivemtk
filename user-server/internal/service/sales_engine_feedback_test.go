@@ -235,7 +235,6 @@ func TestSalesEngine_RecordFeedback_StepDetail(t *testing.T) {
 	t.Logf("✅ 第 9 步详情: %s", detail)
 }
 
-// containsStr 字符串包含判断（避免和同包其他 contains 冲突）
 func containsStr(s, sub string) bool {
 	if len(sub) == 0 {
 		return true

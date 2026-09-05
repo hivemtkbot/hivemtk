@@ -57,7 +57,6 @@ type ChampionProfileReport struct {
 	GeneratedAt  time.Time                `json:"generated_at"`
 }
 
-// DimensionDimensionName 维度中文名映射
 var dimensionNameMap = map[model.SalesChampionDimension]string{
 	model.DimensionObjectionHandling:   "异议处理能力",
 	model.DimensionClosingInvitation:   "逼单邀约能力",
@@ -126,7 +125,6 @@ func (s *FeedbackLearningService) ExtractProfile(ctx context.Context, staffID ui
 	return report, nil
 }
 
-// extractDimension 提取单维度得分
 func (s *FeedbackLearningService) extractDimension(ctx context.Context, dim model.SalesChampionDimension, messages []model.SessionMessage, customerMsgs map[string][]model.SessionMessage) ChampionDimensionScore {
 	score := ChampionDimensionScore{
 		Dimension:    dim,
@@ -171,14 +169,11 @@ func (s *FeedbackLearningService) extractDimension(ctx context.Context, dim mode
 	return score
 }
 
-// dimensionEvidence 维度证据
 type dimensionEvidence struct {
 	positive bool
 	tag      string
 }
 
-// classifyDimensionHit 判断该消息是否命中指定维度
-// 返回 (是否命中, 证据)
 func classifyDimensionHit(dim model.SalesChampionDimension, aiReply, customerMsg string) (bool, dimensionEvidence) {
 	switch dim {
 	case model.DimensionObjectionHandling:
@@ -195,9 +190,6 @@ func classifyDimensionHit(dim model.SalesChampionDimension, aiReply, customerMsg
 	return false, dimensionEvidence{}
 }
 
-// classifyObjectionHandling 异议处理能力
-// 触发：客户表达异议（太贵/不需要/考虑一下/别人家更便宜）
-// 正向：AI 回复包含解释/对比/价值塑造/让步
 func classifyObjectionHandling(aiReply, customerMsg string) (bool, dimensionEvidence) {
 	objectionWords := []string{"太贵", "贵了", "不需要", "不用了", "考虑一下", "考虑下",
 		"再说吧", "算了", "别人家", "其他家", "竞品", "对比", "不值", "不划算"}
@@ -231,9 +223,6 @@ func classifyObjectionHandling(aiReply, customerMsg string) (bool, dimensionEvid
 	return true, dimensionEvidence{positive: true, tag: "异议已回应"}
 }
 
-// classifyClosingInvitation 逼单邀约能力
-// 触发：AI 主动推进下单/到店/体验/预约
-// 正向：客户后续回复包含正向信号（好的/可以/行/试试/预约）
 func classifyClosingInvitation(aiReply, customerMsg string) (bool, dimensionEvidence) {
 	closingWords := []string{"下单", "预约", "到店", "体验", "试试", "下单", "购买",
 		"付款", "订金", "锁定", "名额", "限时", "今天", "马上", "安排", "帮您下单"}
@@ -264,9 +253,6 @@ func classifyClosingInvitation(aiReply, customerMsg string) (bool, dimensionEvid
 	return true, dimensionEvidence{positive: true, tag: "逼单发起"}
 }
 
-// classifyFollowupActivation 跟进激活能力
-// 触发：AI 对沉默客户的主动跟进
-// 正向：跟进消息包含关怀/价值/新信息，避免纯催促
 func classifyFollowupActivation(aiReply, customerMsg string) (bool, dimensionEvidence) {
 	followupWords := []string{"好久没", "最近", "在吗", "打扰了", "想您", "想到您",
 		"更新", "新品", "到货", "上架", "活动", "优惠", "福利",
@@ -297,9 +283,6 @@ func classifyFollowupActivation(aiReply, customerMsg string) (bool, dimensionEvi
 	return true, dimensionEvidence{positive: true, tag: "常规跟进"}
 }
 
-// classifyNurturingConversion 培育转化能力
-// 触发：长期培育场景（多次互动后的转化推进）
-// 正向：AI 回复体现对客户需求的持续理解 + 推进
 func classifyNurturingConversion(aiReply, customerMsg string) (bool, dimensionEvidence) {
 	nurturingWords := []string{"之前", "上次", "记得", "了解您", "根据您", "为您",
 		"推荐", "适合", "专属", "定制", "方案"}
@@ -323,9 +306,6 @@ func classifyNurturingConversion(aiReply, customerMsg string) (bool, dimensionEv
 	return true, dimensionEvidence{positive: false, tag: "培育无推进"}
 }
 
-// classifyRepurchaseOperation 复购运营能力
-// 触发：老客复购/增购/推荐场景
-// 正向：AI 主动提及复购/老客权益/推荐奖励
 func classifyRepurchaseOperation(aiReply, customerMsg string) (bool, dimensionEvidence) {
 	repurchaseWords := []string{"老客", "老朋友", "回购", "复购", "再次", "回头",
 		"推荐", "分享", "老用户", "会员", "积分", "专属"}
@@ -489,7 +469,6 @@ func (s *FeedbackLearningService) GenerateOptimizationSuggestions(ctx context.Co
 	return suggestions, nil
 }
 
-// buildOptimizationSuggestion 根据节点类型和问题生成建议
 func buildOptimizationSuggestion(sopID uint, sopName string, node NodeConversionDetail, threshold float64) model.OptimizationSuggestion {
 	sug := model.OptimizationSuggestion{
 		SOPID:        sopID,
@@ -614,7 +593,6 @@ func (s *FeedbackLearningService) GetLatestProfile(ctx context.Context, staffID 
 	return list, nil
 }
 
-// persistProfileSnapshot 持久化画像快照
 func (s *FeedbackLearningService) persistProfileSnapshot(ctx context.Context, report *ChampionProfileReport) error {
 	for _, dim := range report.Dimensions {
 		snapshot := model.SalesChampionProfileSnapshot{
@@ -637,7 +615,6 @@ func (s *FeedbackLearningService) persistProfileSnapshot(ctx context.Context, re
 	return nil
 }
 
-// queryCustomerMessages 查询客户消息（按 session 分组）
 func (s *FeedbackLearningService) queryCustomerMessages(ctx context.Context, sessionIDs []string, start, end time.Time) (map[string][]model.SessionMessage, error) {
 	if len(sessionIDs) == 0 {
 		return map[string][]model.SessionMessage{}, nil
@@ -653,7 +630,6 @@ func (s *FeedbackLearningService) queryCustomerMessages(ctx context.Context, ses
 	return m, nil
 }
 
-// extractSessionIDs 提取 session ID 列表（去重）
 func extractSessionIDs(messages []model.SessionMessage) []string {
 	seen := map[string]bool{}
 	var ids []string
@@ -666,7 +642,6 @@ func extractSessionIDs(messages []model.SessionMessage) []string {
 	return ids
 }
 
-// latestCustomerMessage 获取指定时间点前最近的一条客户消息
 func latestCustomerMessage(msgs []model.SessionMessage, before time.Time) string {
 	for i := len(msgs) - 1; i >= 0; i-- {
 		if msgs[i].CreatedAt.Before(before) || msgs[i].CreatedAt.Equal(before) {
@@ -676,7 +651,6 @@ func latestCustomerMessage(msgs []model.SessionMessage, before time.Time) string
 	return ""
 }
 
-// dedupeTags 标签去重（限制数量）
 func dedupeTags(tags []string, max int) []string {
 	seen := map[string]bool{}
 	var out []string
@@ -692,7 +666,6 @@ func dedupeTags(tags []string, max int) []string {
 	return out
 }
 
-// toStringArray []string → JSONArray
 func toStringArray(items []string) model.JSONArray {
 	if len(items) == 0 {
 		return model.JSONArray{}
@@ -704,7 +677,6 @@ func toStringArray(items []string) model.JSONArray {
 	return out
 }
 
-// roundTo2 四舍五入到 2 位小数
 func roundTo2(f float64) float64 {
 	return float64(int(f*100+0.5)) / 100
 }

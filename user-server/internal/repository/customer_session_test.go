@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupCustomerSessionTestDB 设置客服会话测试数据库
 func setupCustomerSessionTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.CustomerSession{},
@@ -26,7 +25,6 @@ func setupCustomerSessionTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupCustomerSessionRepositories 创建测试用的仓库实例
 func setupCustomerSessionRepositories(t *testing.T) (
 	*CustomerSessionRepository,
 	*SessionMessageRepository,
@@ -671,7 +669,6 @@ func TestSessionMessageRepository_MarkAsRead(t *testing.T) {
 		t.Errorf("MarkAsRead() error = %v", err)
 	}
 
-	// 验证消息已标记为已读
 	var messages []*model.SessionMessage
 	db.GetDB().Where("session_id = ?", "session-read-test").Find(&messages)
 
@@ -1140,7 +1137,6 @@ func TestAISuggestionRepository_MarkAsUsed(t *testing.T) {
 		t.Errorf("MarkAsUsed() error = %v", err)
 	}
 
-	// 验证标记
 	var updated model.AISuggestion
 	db.GetDB().First(&updated, suggestion.ID)
 

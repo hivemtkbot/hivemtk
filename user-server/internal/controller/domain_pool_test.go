@@ -380,4 +380,3 @@ func TestDomainPoolController_NewDomainPoolController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
-

@@ -24,7 +24,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// contextualEnhanceEnabled R-3 上下文增强开关（默认启用）
 func contextualEnhanceEnabled() bool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("RAG_CONTEXTUAL_ENHANCE"))) {
 	case "0", "false", "off":
@@ -34,11 +33,6 @@ func contextualEnhanceEnabled() bool {
 	}
 }
 
-// enhanceDocumentContextual 对文档全部 chunk 做 Contextual Retrieval 增强
-//
-// 失败仅告警不阻断入库主流程（文档已向量化可用，上下文前缀属增量优化）。
-// embedding 使用全局默认配置（TEI bge-m3）；per-product 自定义 embedding 的
-// 文档如维度与默认不一致，enhancer 内部 re-embed 会失败并被日志记录，不影响原向量。
 func (s *KnowledgeService) enhanceDocumentContextual(ctx context.Context, documentID uint64) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -49,7 +43,7 @@ func (s *KnowledgeService) enhanceDocumentContextual(ctx context.Context, docume
 		return
 	}
 	chatClient := ragretrieval.NewDispatcherChatAdapter(llm.NewDispatcher(s.llmSvc)).
-		WithScenario(llm.ScenarioLongSummary) // llm_chat.go 建议：Contextual Retrieval 用长上下文场景
+		WithScenario(llm.ScenarioLongSummary)
 	enhancer := ragretrieval.NewContextualRetrievalEnhancer(s.db, chatClient, s.embeddingSvc, nil)
 	if err := enhancer.EnhanceDocument(ctx, documentID); err != nil {
 		logger.Warnf("[R-3] contextual enhance failed doc=%d (non-blocking): %v", documentID, err)

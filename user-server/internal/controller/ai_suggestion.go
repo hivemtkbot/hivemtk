@@ -51,4 +51,3 @@ func (c *AISuggestionController) UseSuggestion(ctx *gin.Context) {
 
 	response.Success(ctx, nil, "使用成功")
 }
-

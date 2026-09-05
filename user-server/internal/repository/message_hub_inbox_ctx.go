@@ -172,12 +172,7 @@ func (r *MessageHubRepository) NormalizePollutedConversationIDs(ctx context.Cont
 	if r == nil || r.db == nil {
 		return 0, nil
 	}
-	// 末尾时间戳/状态 token 正则（按 $ 锚定，'g' 模式去除所有后缀时间戳）：
-	//   昨天/今天/前天/明天 + HH:MM（两 token，须排在单 token 日前词之前，否则会只剥半截）
-	//   刚刚/刚才/前天/昨天/今天/明天/周X（单 token 日标识）
-	//   N分钟前/小时前/天前（相对时间）
-	//   YYYY/MM/DD、MM/DD（日期）   HH:MM（时刻）
-	//   有新交易评价/交易成功（交易状态串）
+
 	const tsPat = "( 昨天 \\d{1,2}:\\d{2}| 今天 \\d{1,2}:\\d{2}| 前天 \\d{1,2}:\\d{2}| 明天 \\d{1,2}:\\d{2}" +
 		"| 刚刚| 刚才| 前天| 大前天| 昨天| 今天| 明天| 周[一二三四五六日天]" +
 		"| \\d+分钟前| \\d+小时前| \\d+天前" +

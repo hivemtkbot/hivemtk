@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ctxKeyOwnership cache key namespace（避免与现有 ctx 值冲突）
 type ctxKeyOwnership struct{}
 
 // OwnershipChecker 资源归属查询接口。
@@ -70,16 +69,12 @@ func (c *DBOwnershipChecker) GetOwnerID(ctx context.Context, table string, resou
 	return ownerID, nil
 }
 
-// ownershipCacheEntry 内存缓存条目（带过期时间）。
 type ownershipCacheEntry struct {
 	ownerID uint
 	err     error
 	expire  time.Time
 }
 
-// ownershipCache 进程级归属查询缓存（5s TTL，防 DoS + 减轻 DB）。
-//
-// 单进程内全局共享；如需多实例一致可换 Redis，但归属校验可容忍短窗口过期。
 type ownershipCache struct {
 	mu   sync.RWMutex
 	data map[string]ownershipCacheEntry

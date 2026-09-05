@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupRFMRuleTestDB 设置 RFM 规则测试数据库
 func setupRFMRuleTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.RFMRule{},
@@ -22,7 +21,6 @@ func setupRFMRuleTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupRFMRuleRepositories 创建测试用的仓库实例
 func setupRFMRuleRepositories(t *testing.T) (*gorm.DB, *RFMRuleRepository, *UserRFMRepository) {
 	database := setupRFMRuleTestDB(t)
 
@@ -426,7 +424,6 @@ func TestUserRFMRepository_GetLayerCount(t *testing.T) {
 	}
 }
 
-// layerCount is a helper to generate unique user IDs
 func layerCount(layer string, index int) int {
 	return len(layer)*10 + index
 }

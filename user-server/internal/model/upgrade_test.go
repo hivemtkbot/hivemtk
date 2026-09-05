@@ -237,4 +237,3 @@ func TestVersionInfo(t *testing.T) {
 		t.Errorf("Expected 3 changes, got %d", len(info.Changes))
 	}
 }
-

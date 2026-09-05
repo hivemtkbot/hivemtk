@@ -799,5 +799,4 @@ func TestLLMDecision_FieldNamesMatchJSONContract(t *testing.T) {
 	}
 }
 
-// 引用 llm 包以确保导入（避免 unused import 在条件编译下被误判）
 var _ llm.DispatchScenario = llm.ScenarioHighQuality

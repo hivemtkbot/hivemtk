@@ -57,4 +57,3 @@ func TestGetEnvDir_CreatesDirectory(t *testing.T) {
 		t.Errorf("Expected env directory to exist, got error: %v", err)
 	}
 }
-

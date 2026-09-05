@@ -92,22 +92,18 @@ type IntentResult struct {
 	LLMModel   string  `json:"llm_model,omitempty"`
 }
 
-// minorRule 子类规则定义
 type minorRule struct {
 	minor    string
 	keywords []string
 	weight   int
 }
 
-// majorRule 大类规则定义
 type majorRule struct {
 	major    string
 	minors   []minorRule
 	keywords []string
 }
 
-// fineIntentRules 精细意图规则表
-// 按 major 分组，每个 major 下含若干 minor 子类规则
 var fineIntentRules = []majorRule{
 	{
 		major:    IntentMajorConsult,
@@ -185,8 +181,6 @@ var fineIntentRules = []majorRule{
 	},
 }
 
-// minorLLMThreshold 触发 LLM 二次识别的置信度阈值（DB 驱动）
-// seed: agent_llm.minor_llm_threshold
 func minorLLMThreshold() float64 {
 	return GlobalConfigParam().GetFloat(context.Background(), "agent_llm", "minor_llm_threshold", 0.6)
 }
@@ -256,8 +250,6 @@ func (s *IntentRecognizer) RecognizeIntent(ctx context.Context, message, custome
 	return final, nil
 }
 
-// recognizeFineByRule 精细意图规则匹配
-// 优先匹配子类关键词，未命中子类则匹配大类通用关键词
 func (s *IntentRecognizer) recognizeFineByRule(ctx context.Context, text string) *IntentResult {
 	text = strings.TrimSpace(text)
 	if text == "" {
@@ -318,17 +310,11 @@ func (s *IntentRecognizer) recognizeFineByRule(ctx context.Context, text string)
 	}
 }
 
-// recognizeFineByLLM LLM 精细意图识别
-//
-// M4 I-4：LLM 只做一级粗分类（8 大类）；27 个 minor 子类降级为"类内关键词细分规则"，
-// 由 refineMinorByKeywords 在 LLM 结果的 major 内部用关键词打分得出，不再进入 LLM prompt。
-// temperature=0（M4 I-2：分类任务确定性输出）。
 func (s *IntentRecognizer) recognizeFineByLLM(ctx context.Context, text string) (*IntentResult, error) {
 	if s.dispatcher == nil {
 		return nil, fmt.Errorf("dispatcher is nil")
 	}
 
-	// 只列大类，不再展开 27 子类（>12-15 意图时精度下降，M4 I-4）
 	var sb strings.Builder
 	for _, mr := range fineIntentRules {
 		sb.WriteString(fmt.Sprintf("- %s\n", mr.major))
@@ -369,7 +355,6 @@ unknown: 无法确定或消息不属于以上任何意图（这是合法答案�
 		return nil, fmt.Errorf("parse llm intent: %w", err)
 	}
 
-	// M4 I-2 unknown 契约：解析出非法大类或置信 <0.7 一律降级 unknown（fail-closed）
 	if !isValidMajor(parsed.Major) || parsed.Confidence < 0.7 {
 		parsed.Major = "unknown"
 	}
@@ -391,8 +376,6 @@ unknown: 无法确定或消息不属于以上任何意图（这是合法答案�
 	}, nil
 }
 
-// refineMinorByKeywords 类内关键词细分规则（M4 I-4）：在给定 major 的 minor 规则表内
-// 按关键词加权打分选最优子类；无命中时回退该 major 默认子类；major 非法/为 unknown 时返回空。
 func refineMinorByKeywords(major, text string) string {
 	if !isValidMajor(major) {
 		return ""
@@ -418,7 +401,7 @@ func refineMinorByKeywords(major, text string) string {
 		if bestScore > 0 {
 			return bestMinor
 		}
-		// 大类内无任何关键词命中 → 该 major 默认子类
+
 		if len(mr.minors) > 0 {
 			return mr.minors[0].minor
 		}
@@ -426,7 +409,6 @@ func refineMinorByKeywords(major, text string) string {
 	return IntentMinorConsultGeneral
 }
 
-// isValidMajor 判断是否合法的大类
 func isValidMajor(major string) bool {
 	for _, mr := range fineIntentRules {
 		if mr.major == major {
@@ -436,7 +418,6 @@ func isValidMajor(major string) bool {
 	return false
 }
 
-// isValidMinor 判断 minor 是否属于指定 major
 func isValidMinor(major, minor string) bool {
 	for _, mr := range fineIntentRules {
 		if mr.major == major {
@@ -450,7 +431,6 @@ func isValidMinor(major, minor string) bool {
 	return false
 }
 
-// getDefaultMinor 获取大类的默认子类（第一个）
 func getDefaultMinor(major string) string {
 	for _, mr := range fineIntentRules {
 		if mr.major == major && len(mr.minors) > 0 {
@@ -460,7 +440,6 @@ func getDefaultMinor(major string) string {
 	return IntentMinorConsultGeneral
 }
 
-// saveIntentLog 持久化 IntentLog
 func (s *IntentRecognizer) saveIntentLog(ctx context.Context, customerID, sessionID, message string, result *IntentResult) {
 	if s.logRepo == nil || result == nil {
 		return

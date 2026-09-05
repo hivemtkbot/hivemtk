@@ -9,18 +9,16 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ---------- DecayScore 纯函数（λ=ln2/168，7 天半衰期） ----------
-
 func TestDecayScore_HalfLife7Days(t *testing.T) {
 	now := time.Now()
-	last := now.Add(-168 * time.Hour) // 恰好一个半衰期
+	last := now.Add(-168 * time.Hour)
 	if got := DecayScore(1.0, last, now); math.Abs(got-0.5) > 1e-9 {
 		t.Errorf("168h 后得分应为 0.5，got %v", got)
 	}
 	if got := DecayScore(0.8, last, now); math.Abs(got-0.4) > 1e-9 {
 		t.Errorf("168h 后 0.8 应衰减为 0.4，got %v", got)
 	}
-	// 半个半衰期：exp(-ln2/2)=1/√2
+
 	half := now.Add(-84 * time.Hour)
 	want := 1.0 / math.Sqrt2
 	if got := DecayScore(1.0, half, now); math.Abs(got-want) > 1e-9 {
@@ -58,18 +56,16 @@ func TestDecayScore_MonotonicInTime(t *testing.T) {
 	}
 }
 
-// ---------- 归档阈值判定 ----------
-
 func TestDecayShouldArchiveMemory(t *testing.T) {
 	cases := []struct {
 		score, conf float64
 		want        bool
 	}{
-		{0.149, 1.0, true},  // score 低于阈值 → 归档
-		{0.15, 1.0, false},  // 边界值不归档
-		{0.151, 1.0, false}, // 高于阈值 → 保留
-		{1.0, 0.199, true},  // confidence 低于阈值 → 归档
-		{1.0, 0.2, false},   // confidence 边界保留
+		{0.149, 1.0, true},
+		{0.15, 1.0, false},
+		{0.151, 1.0, false},
+		{1.0, 0.199, true},
+		{1.0, 0.2, false},
 	}
 	for _, c := range cases {
 		if got := shouldArchiveMemory(c.score, c.conf); got != c.want {
@@ -93,8 +89,6 @@ func TestDecayItemConfidence(t *testing.T) {
 	}
 }
 
-// ---------- 作业与循环的 nil-DB 防御（不连数据库） ----------
-
 func TestDecayRunMemoryDecayJobNilDB(t *testing.T) {
 	stats, err := RunMemoryDecayJob(context.Background(), nil, false)
 	if err != nil {
@@ -115,5 +109,5 @@ func TestDecayStartMemoryDecayLoopCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	StartMemoryDecayLoop(ctx, nil, 10*time.Millisecond)
 	cancel()
-	time.Sleep(50 * time.Millisecond) // 循环应在 cancel 后退出且无 panic
+	time.Sleep(50 * time.Millisecond)
 }

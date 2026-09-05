@@ -63,7 +63,7 @@ func TestParsePagination_PageSizeNonNumeric_FallbackToDefault(t *testing.T) {
 }
 
 func TestParsePagination_PageSizeBelowMin_Clamped(t *testing.T) {
-	// page_size=2 + WithMinSize(5) → clamp 到 5
+
 	_, pageSize, err := ParsePagination(newPaginationCtx("page_size=2"),
 		WithMinSize(5),
 	)
@@ -76,7 +76,7 @@ func TestParsePagination_PageSizeBelowMin_Clamped(t *testing.T) {
 }
 
 func TestParsePagination_PageSizeZero_FallbackToDefault(t *testing.T) {
-	// page_size=0（非正整数）→ fallback 到 defaultSize
+
 	_, pageSize, err := ParsePagination(newPaginationCtx("page_size=0"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -104,7 +104,7 @@ func TestParsePagination_PageSizeExceedsMax_Rejected(t *testing.T) {
 }
 
 func TestParsePagination_PageSizeExceedsMax_ClampedWhenAllowed(t *testing.T) {
-	// page_size=2000 超过 maxSize=1000 → clamp 到 1000
+
 	_, pageSize, err := ParsePagination(newPaginationCtx("page_size=2000"),
 		WithMaxSize(MaxPageSizeAdmin),
 		WithAllowOverMax(true),
@@ -130,7 +130,7 @@ func TestParsePagination_DefaultSizeOption(t *testing.T) {
 }
 
 func TestParsePagination_AdminScenario(t *testing.T) {
-	// 管理端常见配置：maxSize=1000，allowOverMax=true
+
 	page, pageSize, err := ParsePagination(newPaginationCtx("page=2&page_size=500"),
 		WithMaxSize(MaxPageSizeAdmin),
 		WithAllowOverMax(true),
@@ -145,7 +145,6 @@ func TestParsePagination_AdminScenario(t *testing.T) {
 		t.Errorf("pageSize = %d, want 500", pageSize)
 	}
 
-	// 同样配置下，page_size=2000 应被 clamp 到 1000
 	_, pageSize, err = ParsePagination(newPaginationCtx("page_size=2000"),
 		WithMaxSize(MaxPageSizeAdmin),
 		WithAllowOverMax(true),

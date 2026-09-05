@@ -55,7 +55,6 @@ func (r *geoQueryChainRepository) ListByOneID(ctx context.Context, oneID string)
 	return rows, err
 }
 
-// CountToday 当日新增行数（跨库安全写法，避免 CURDATE/date_trunc 方言差异）
 func (r *geoQueryChainRepository) CountToday(ctx context.Context) (int64, error) {
 	today := time.Now().Format("2006-01-02") + " 00:00:00"
 	var n int64

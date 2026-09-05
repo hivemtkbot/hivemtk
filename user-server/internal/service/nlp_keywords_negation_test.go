@@ -5,8 +5,6 @@ import (
 	"testing"
 )
 
-// --- N-2 否定窗口 ---
-
 func TestMatchTransferKeywords_NegationWindow(t *testing.T) {
 	tests := []struct {
 		name    string

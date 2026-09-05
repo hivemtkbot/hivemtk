@@ -45,4 +45,3 @@ func NewReachWhatsAppSendTool(deps ReachToolDeps) *ReachWhatsAppSendTool {
 		deps: deps,
 	}
 }
-

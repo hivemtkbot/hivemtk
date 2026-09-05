@@ -69,13 +69,10 @@ type TranslateOptions struct {
 	PreserveTerms map[string]string
 }
 
-// deeplDefaultBaseURL DeepL API 默认地址（Pro 版本；Free 版本使用 https://api-free.deepl.com/v2）。
 const deeplDefaultBaseURL = "https://api.deepl.com/v2"
 
-// deeplTimeout DeepL API 请求超时默认值（ConfigParam "misc.deepl_timeout" 驱动实际值）
 const deeplTimeout = 30 * time.Second
 
-// deeplTimeoutProvider 返回实际生效的 DeepL API 超时，可被上层注入
 var deeplTimeoutProvider = func() time.Duration { return deeplTimeout }
 
 // SetDeeplTimeoutProvider 上层注入函数（ConfigParam 初始化后调用）
@@ -178,7 +175,6 @@ func (t *DeepLTranslator) Translate(ctx context.Context, text, fromLang, toLang 
 		return "", fmt.Errorf("deepl: api error status=%d body=%s", resp.StatusCode, truncateForLog(string(raw), 256))
 	}
 
-	// 解析响应
 	var result deeplTranslateResponse
 	if err := json.Unmarshal(raw, &result); err != nil {
 		return "", fmt.Errorf("deepl: unmarshal response failed: %w", err)
@@ -197,7 +193,6 @@ func (t *DeepLTranslator) Translate(ctx context.Context, text, fromLang, toLang 
 // ErrTranslatorUnavailable 翻译器不可用（如 api key 未配置）。
 var ErrTranslatorUnavailable = errors.New("translator: unavailable (api key not configured)")
 
-// deeplTranslateRequest DeepL /v2/translate 请求体。
 type deeplTranslateRequest struct {
 	Text       []string `json:"text"`
 	SourceLang string   `json:"source_lang,omitempty"`
@@ -205,7 +200,6 @@ type deeplTranslateRequest struct {
 	GlossaryID string   `json:"glossary_id,omitempty"`
 }
 
-// deeplTranslateResponse DeepL /v2/translate 响应体。
 type deeplTranslateResponse struct {
 	Translations []struct {
 		DetectedSourceLanguage string `json:"detected_source_language"`
@@ -213,10 +207,6 @@ type deeplTranslateResponse struct {
 	} `json:"translations"`
 }
 
-// applyPreserveTerms 应用强制保留术语：将翻译结果中出现的 src 词替换为 dst。
-//
-// DeepL glossary 已能处理大部分术语，PreserveTerms 作为兜底手段，
-// 用于 glossary 未覆盖或引擎遗漏的场景。
 func applyPreserveTerms(text string, terms map[string]string) string {
 	for src, dst := range terms {
 		if src == "" || dst == "" || src == dst {
@@ -227,7 +217,6 @@ func applyPreserveTerms(text string, terms map[string]string) string {
 	return text
 }
 
-// truncateForLog 截断字符串用于日志输出，避免超长响应体刷屏。
 func truncateForLog(s string, max int) string {
 	if len(s) <= max {
 		return s

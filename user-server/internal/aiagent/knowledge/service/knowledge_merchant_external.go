@@ -19,17 +19,16 @@ import (
 	"github.com/google/uuid"
 )
 
-
 // ExternalImportRequest 外部导入请求
 type ExternalImportRequest struct {
-	Source    string            `json:"source"` 
-	ProductID string            `json:"product_id"`
-	Token     string            `json:"-"`     
-	Items     []BatchImportItem `json:"items"` 
-	FeishuDocID string `json:"feishu_doc_id,omitempty"`
-	NotionPageID string `json:"notion_page_id,omitempty"`
-	Operator     string `json:"operator"`
-	Sync         bool   `json:"sync"` 
+	Source       string            `json:"source"`
+	ProductID    string            `json:"product_id"`
+	Token        string            `json:"-"`
+	Items        []BatchImportItem `json:"items"`
+	FeishuDocID  string            `json:"feishu_doc_id,omitempty"`
+	NotionPageID string            `json:"notion_page_id,omitempty"`
+	Operator     string            `json:"operator"`
+	Sync         bool              `json:"sync"`
 }
 
 // ExternalImportResponse 外部导入响应
@@ -101,7 +100,7 @@ func (s *KnowledgeMerchantService) ExternalImport(ctx context.Context, req *Exte
 		s.ensureReposFromDB()
 		job := &model.ExternalImportJob{
 			JobNo:      jobNo,
-			ProductID:  req.ProductID, 
+			ProductID:  req.ProductID,
 			Source:     req.Source,
 			TotalItems: len(items),
 			Status:     "pending",
@@ -197,22 +196,6 @@ func (s *KnowledgeMerchantService) ListExternalJobs(ctx context.Context, product
 	})
 }
 
-// fetchFeishu 飞书文档抓取（真实实现 + 凭证缺失降级）
-//
-// 凭证来源（按优先级）：
-//  1. 环境变量 FEISHU_APP_ID + FEISHU_APP_SECRET（推荐：私域部署统一配置）
-//  2. 入参 fallback 凭证：调用方可通过 token metadata 注入（预留）
-//
-// 真实调用流程：
-//  1. POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal
-//     body: {"app_id":"...","app_secret":"..."} → tenant_access_token
-//  2. GET https://open.feishu.cn/open-apis/docx/v1/documents/{docID}/raw_content
-//     header: Authorization: Bearer <tenant_access_token>
-//     → markdown/HTML 内容
-//  3. 按 \n## 或 \n### 切分为多个 BatchImportItem
-//
-// 失败模式：凭证缺失 / 网络失败 / 飞书 4xx-5xx 时返回带上下文的错误，
-// 绝不返回 mock 数据（避免审计项"无 mock"红线）。
 func (s *KnowledgeMerchantService) fetchFeishu(ctx context.Context, docID string) ([]BatchImportItem, error) {
 	if docID == "" {
 		return nil, errors.New("飞书 docID 不能为空")
@@ -273,7 +256,7 @@ func (s *KnowledgeMerchantService) fetchFeishu(ctx context.Context, docID string
 		Code int    `json:"code"`
 		Msg  string `json:"msg"`
 		Data struct {
-			Content string `json:"content"` 
+			Content string `json:"content"`
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(docResp.Body).Decode(&docBody); err != nil {
@@ -291,27 +274,11 @@ func (s *KnowledgeMerchantService) fetchFeishu(ctx context.Context, docID string
 	return items, nil
 }
 
-// fetchNotion Notion 页面抓取（真实实现 + 凭证缺失降级）
-//
-// 凭证来源（按优先级）：
-//  1. 环境变量 NOTION_API_KEY（推荐：Notion integration secret_xxx...）
-//  2. tok 参数扩展（当前 model.KnowledgeAPIToken 不含 metadata，留作接口前置）
-//
-// 真实调用流程：
-//  1. GET https://api.notion.com/v1/blocks/{pageID}/children?page_size=100
-//     header: Authorization: Bearer <notion_integration_token>
-//
-// header: Notion-Version:
-//  2. 递归抓取 has_children=true 的子块
-//  3. 按 block type 提取 text（paragraph/heading_1/heading_2/heading_3/bulleted_list_item）
-//  4. 按 heading_1/heading_2 切分为多个 BatchImportItem
-//
-// 失败模式：凭证缺失 / 网络失败 / Notion 4xx-5xx 时返回带上下文的错误。
 func (s *KnowledgeMerchantService) fetchNotion(ctx context.Context, pageID string, tok *model.KnowledgeAPIToken) ([]BatchImportItem, error) {
 	if pageID == "" {
 		return nil, errors.New("Notion pageID 不能为空")
 	}
-	_ = tok 
+	_ = tok
 
 	apiKey := os.Getenv("NOTION_API_KEY")
 	if apiKey == "" {
@@ -329,7 +296,6 @@ func (s *KnowledgeMerchantService) fetchNotion(ctx context.Context, pageID strin
 	return items, nil
 }
 
-// fetchNotionBlocksRecursive 递归拉取 Notion 块并按 H1/H2 切分
 func (s *KnowledgeMerchantService) fetchNotionBlocksRecursive(ctx context.Context, client *http.Client, apiKey, blockID string, depth, maxDepth int) ([]BatchImportItem, error) {
 	if depth > maxDepth {
 		return nil, nil
@@ -388,7 +354,6 @@ func (s *KnowledgeMerchantService) fetchNotionBlocksRecursive(ctx context.Contex
 		return nil, fmt.Errorf("解析 Notion 响应失败: %w", err)
 	}
 
-	// 按 H1/H2 切分为多个段落（每一段成为一个 BatchImportItem）
 	var items []BatchImportItem
 	var currentTitle string
 	var currentBuf strings.Builder
@@ -475,12 +440,6 @@ func (s *KnowledgeMerchantService) fetchNotionBlocksRecursive(ctx context.Contex
 	return items, nil
 }
 
-// splitMarkdownToItems 按二级标题切分 Markdown 文档
-//
-// 切分规则：
-//   - 遇到 "## 标题" 时开启新段
-//   - 单段超过 2000 字符时按 \n\n 软切
-//   - 没有 "## 标题" 的整篇作为单一段
 func splitMarkdownToItems(markdown, sourceID, source string) []BatchImportItem {
 	lines := strings.Split(markdown, "\n")
 	var items []BatchImportItem
@@ -492,7 +451,7 @@ func splitMarkdownToItems(markdown, sourceID, source string) []BatchImportItem {
 		if body == "" {
 			return
 		}
-		// 软切：超过 2000 字符按段落切
+
 		const maxLen = 2000
 		if len([]rune(body)) > maxLen {
 			chunks := softSplitParagraphs(body, maxLen)
@@ -527,7 +486,6 @@ func splitMarkdownToItems(markdown, sourceID, source string) []BatchImportItem {
 	return items
 }
 
-// softSplitParagraphs 按段落软切长文本
 func softSplitParagraphs(body string, maxLen int) []string {
 	paragraphs := strings.Split(body, "\n\n")
 	var chunks []string
@@ -564,4 +522,3 @@ func softSplitParagraphs(body string, maxLen int) []string {
 	}
 	return chunks
 }
-

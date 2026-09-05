@@ -19,11 +19,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// fakeAIOutboundTrigger 同时完成两件事：
-//  1. 记录 AITrigger 被正确调用（参数语义验证）
-//  2. 向 message_hub 插入一条 outbound AI 回复 + message_trace outbound_enqueue 事件
-//
-// 这样 e2e 测试不依赖本地 LLM，速度快且稳定，同时覆盖了 AI 触发后的 DB 侧链路。
 type fakeAIOutboundTrigger struct {
 	called   atomic.Int64
 	lastCall struct {
@@ -46,7 +41,6 @@ func (f *fakeAIOutboundTrigger) TriggerInboundAI(ctx context.Context, channel, a
 	f.lastCall.content = content
 	f.lastCall.eventID = eventID
 
-	// mock AI：直接插一条 outbound 消息
 	outbound := model.MessageHub{
 		MsgID:          fmt.Sprintf("mock-ai-%d", f.called.Load()),
 		Platform:       channel,
@@ -66,7 +60,6 @@ func (f *fakeAIOutboundTrigger) TriggerInboundAI(ctx context.Context, channel, a
 		return
 	}
 
-	// 同步写 message_trace outbound_enqueue
 	var lastOrder int64
 	f.db.Model(&model.MessageTrace{}).
 		Where("trace_id = ?", outbound.TraceID).
@@ -88,7 +81,7 @@ func (f *fakeAIOutboundTrigger) TriggerInboundAI(ctx context.Context, channel, a
 }
 
 func (f *fakeAIOutboundTrigger) currentTraceID() string {
-	// 从 DB 查最新一条 inbound 的 trace_id（确保贯通）
+
 	var hub model.MessageHub
 	if err := f.db.Where("direction = 'inbound'").Order("id DESC").First(&hub).Error; err == nil && hub.TraceID != "" {
 		return hub.TraceID
@@ -102,7 +95,7 @@ func (f *fakeAIOutboundTrigger) currentTraceID() string {
 func TestBridgeE2EChain_FullLifecycle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testutil.NewTestDB(t, &model.MessageHub{}, &model.MessageTrace{})
-	// 清空测试数据
+
 	db.Exec("DELETE FROM message_hub WHERE conversation_id LIKE 'e2e-chain-%'")
 	db.Exec("DELETE FROM message_trace WHERE conversation_id LIKE 'e2e-chain-%'")
 
@@ -113,15 +106,12 @@ func TestBridgeE2EChain_FullLifecycle(t *testing.T) {
 		customer  = "e2e-cust-001"
 	)
 
-	// --- 构造 handler ---
 	ingressSvc := service.NewInboxIngressServiceWithDB(db, nil)
 	handler := NewBridgeIngestHandler(ingressSvc)
 
-	// 注入 fake AI trigger：同时验证 AI 触发语义 + mock outbound 生成
 	aiTrigger := newFakeAIOutboundTrigger(db, nil)
 	ingressSvc.SetAITrigger(aiTrigger)
 
-	// --- Step 1: POST /api/bridge/ingest 入库 ---
 	body := fmt.Sprintf(`{"v":1,"channel":"%s","account_id":"%s","conversation_id":"%s","messages":[
 		{"event_id":"e2e-evt-1","role":"customer","sender_id":"%s","content":"hello, 咨询价格"},
 		{"event_id":"e2e-evt-2","role":"customer","sender_id":"%s","content":"有没有优惠"}
@@ -152,7 +142,6 @@ func TestBridgeE2EChain_FullLifecycle(t *testing.T) {
 		t.Fatalf("ingested count=%d want=2", len(ingested))
 	}
 
-	// --- Step 2: 验证 message_hub inbound 入库 ---
 	var inbounds []model.MessageHub
 	if err := db.Where("conversation_id = ? AND direction = 'inbound'", convID).Find(&inbounds).Error; err != nil {
 		t.Fatalf("query inbound: %v", err)
@@ -161,7 +150,6 @@ func TestBridgeE2EChain_FullLifecycle(t *testing.T) {
 		t.Fatalf("inbound count=%d want=2", len(inbounds))
 	}
 
-	// 验证 inbound 字段正确性
 	for i, m := range inbounds {
 		if m.Platform != channel {
 			t.Errorf("inbound[%d].Platform=%s want=%s", i, m.Platform, channel)
@@ -180,7 +168,6 @@ func TestBridgeE2EChain_FullLifecycle(t *testing.T) {
 		}
 	}
 
-	// --- Step 3: 验证 trace_id 贯通 ---
 	var traceIDs []string
 	db.Model(&model.MessageHub{}).
 		Where("conversation_id = ?", convID).
@@ -191,7 +178,6 @@ func TestBridgeE2EChain_FullLifecycle(t *testing.T) {
 	}
 	traceID := traceIDs[0]
 
-	// --- Step 4: 验证 AITrigger 被正确调用 ---
 	if aiTrigger.called.Load() < 1 {
 		t.Fatal("AITrigger 未被调用")
 	}
@@ -205,7 +191,6 @@ func TestBridgeE2EChain_FullLifecycle(t *testing.T) {
 		t.Errorf("AITrigger conversationID=%s want=%s", aiTrigger.lastCall.conversationID, convID)
 	}
 
-	// --- Step 5: 验证 outbound AI 回复入库 ---
 	var outbounds []model.MessageHub
 	if err := db.Where("conversation_id = ? AND direction = 'outbound'", convID).Find(&outbounds).Error; err != nil {
 		t.Fatalf("query outbound: %v", err)
@@ -224,7 +209,6 @@ func TestBridgeE2EChain_FullLifecycle(t *testing.T) {
 		t.Errorf("outbound TraceID=%s want=%s (贯通)", aiOut.TraceID, traceID)
 	}
 
-	// --- Step 6: 验证 message_trace 事件存在（至少 fake trigger 写的 outbound_enqueue）
 	var traces []model.MessageTrace
 	db.Where("trace_id = ?", traceID).Order("node_order").Find(&traces)
 	if len(traces) < 1 {
@@ -241,8 +225,6 @@ func TestBridgeE2EChain_FullLifecycle(t *testing.T) {
 		t.Error("message_trace 缺少 outbound_enqueue ok 事件")
 	}
 
-	// --- Step 7: GetBridgeOutbox 拉取出库 ---
-	// 先确保 handler 有 outbox querier（用默认 outbox repo）
 	w2 := httptest.NewRecorder()
 	req2 := httptest.NewRequest("GET", fmt.Sprintf("/api/bridge/outbox?channel=%s&account_id=%s&limit=10", channel, accountID), nil)
 	req2.Header.Set("X-Bridge-Token", "test-token")
@@ -264,7 +246,6 @@ func TestBridgeE2EChain_FullLifecycle(t *testing.T) {
 		t.Fatalf("outbox messages count=%d want>=1", len(msgs))
 	}
 
-	// --- Step 8: AckBridgeOutbox 确认出库 ---
 	msgID := aiOut.MsgID
 	ackBody := fmt.Sprintf(`{"msg_ids":["%s"],"status":"delivered"}`, msgID)
 	w3 := httptest.NewRecorder()
@@ -312,7 +293,6 @@ func TestBridgeE2EChain_DedupAndDuplicate(t *testing.T) {
 		{"event_id":"dup-ev-1","msg_id":"dup-msg-1","role":"customer","content":"重复消息"}
 	]}`, channel, accountID, convID)
 
-	// 第一次
 	req := httptest.NewRequest("POST", "/api/bridge/ingest", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -323,7 +303,6 @@ func TestBridgeE2EChain_DedupAndDuplicate(t *testing.T) {
 		t.Fatalf("first ingest status=%d", w.Code)
 	}
 
-	// 第二次（完全相同）
 	req2 := httptest.NewRequest("POST", "/api/bridge/ingest", bytes.NewBufferString(body))
 	req2.Header.Set("Content-Type", "application/json")
 	w2 := httptest.NewRecorder()
@@ -334,7 +313,6 @@ func TestBridgeE2EChain_DedupAndDuplicate(t *testing.T) {
 		t.Fatalf("second ingest status=%d", w2.Code)
 	}
 
-	// 验证 DB 没有重复
 	var count int64
 	db.Model(&model.MessageHub{}).
 		Where("conversation_id = ? AND direction = 'inbound'", convID).
@@ -372,7 +350,6 @@ func TestBridgeE2EChain_TraceConsistency(t *testing.T) {
 	ingressSvc := service.NewInboxIngressServiceWithDB(db, nil)
 	handler := NewBridgeIngestHandler(ingressSvc)
 
-	// 发送两条独立请求，都落到同一 conv（可能各自有不同 trace_id）
 	for i := 0; i < 2; i++ {
 		body := fmt.Sprintf(`{"v":1,"channel":"%s","account_id":"%s","conversation_id":"%s","messages":[
 			{"event_id":"tr-ev-%d","role":"customer","content":"trace test %d"}
@@ -388,7 +365,6 @@ func TestBridgeE2EChain_TraceConsistency(t *testing.T) {
 		}
 	}
 
-	// 核心验证：每条 inbound 都有 trace_id（不为空）
 	var noTraceCount int64
 	db.Model(&model.MessageHub{}).
 		Where("conversation_id = ? AND direction = 'inbound' AND trace_id = ''", convID).
@@ -422,8 +398,8 @@ func TestBridgeE2EChain_ValidationErrors(t *testing.T) {
 		name        string
 		body        string
 		wantStatus  int
-		wantKeyword string // 错误消息必须包含此关键词（空表示验证 ok=true）
-		wantOK      *bool  // 对成功场景验证 ok 字段
+		wantKeyword string
+		wantOK      *bool
 	}{
 		{
 			name:        "缺失 channel",
@@ -478,16 +454,16 @@ func TestBridgeE2EChain_ValidationErrors(t *testing.T) {
 				t.Errorf("status=%d want=%d body=%s", w.Code, tt.wantStatus, w.Body.String())
 			}
 			if tt.wantKeyword != "" && !strings.Contains(strings.ToLower(w.Body.String()), strings.ToLower(tt.wantKeyword)) {
-						t.Errorf("err msg missing keyword %q, body=%s", tt.wantKeyword, w.Body.String())
-					}
-					if tt.wantOK != nil {
-						var resp map[string]any
-						json.Unmarshal(w.Body.Bytes(), &resp)
-						gotOK, _ := resp["ok"].(bool)
-						if gotOK != *tt.wantOK {
-							t.Errorf("ok=%v want=%v body=%s", gotOK, *tt.wantOK, w.Body.String())
-						}
-					}
+				t.Errorf("err msg missing keyword %q, body=%s", tt.wantKeyword, w.Body.String())
+			}
+			if tt.wantOK != nil {
+				var resp map[string]any
+				json.Unmarshal(w.Body.Bytes(), &resp)
+				gotOK, _ := resp["ok"].(bool)
+				if gotOK != *tt.wantOK {
+					t.Errorf("ok=%v want=%v body=%s", gotOK, *tt.wantOK, w.Body.String())
+				}
+			}
 		})
 	}
 }

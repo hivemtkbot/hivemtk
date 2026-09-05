@@ -11,8 +11,8 @@ type CreateMaterialCategoryRequest struct {
 	Color       string `json:"color" binding:"omitempty,max=20"`
 	Sort        int    `json:"sort"`
 	Description string `json:"description" binding:"omitempty,max=500"`
-	LicenseID   string `json:"license_id"` 
-	UserID      string `json:"user_id"`    
+	LicenseID   string `json:"license_id"`
+	UserID      string `json:"user_id"`
 }
 
 type UpdateMaterialCategoryRequest struct {
@@ -60,8 +60,8 @@ type CreateMaterialRequest struct {
 	Duration    int    `json:"duration"`
 	Provider    string `json:"provider"`
 	StoragePath string `json:"storage_path"`
-	LicenseID   string `json:"license_id"` 
-	UserID      string `json:"user_id"`    
+	LicenseID   string `json:"license_id"`
+	UserID      string `json:"user_id"`
 	Tags        string `json:"tags"`
 	Description string `json:"description"`
 }
@@ -115,8 +115,8 @@ type UploadMaterialRequest struct {
 	Name        string `json:"name"`
 	Tags        string `json:"tags"`
 	Description string `json:"description"`
-	LicenseID   string `json:"license_id"` 
-	UserID      string `json:"user_id"`    
+	LicenseID   string `json:"license_id"`
+	UserID      string `json:"user_id"`
 }
 
 // MaterialSelectorResponse 素材选择器响应
@@ -146,4 +146,3 @@ type MaterialStatsResponse struct {
 	TodayAddedCount int64 `json:"today_added_count"`
 	TodayUsageCount int64 `json:"today_usage_count"`
 }
-

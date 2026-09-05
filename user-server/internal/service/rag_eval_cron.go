@@ -16,7 +16,6 @@ import (
 type RagEvalCron struct {
 	svc *RagEvalAutoService
 
-	// runFn 单次评测入口（测试可注入 mock）
 	runFn func(ctx context.Context) error
 
 	stop      chan struct{}
@@ -77,7 +76,6 @@ func (c *RagEvalCron) loop(_ context.Context) {
 	}
 }
 
-// nextDailyRun 下一次每日 run（hour:minute，过点顺延明日）
 func nextRagEvalRun(hour, minute int) time.Time {
 	now := time.Now()
 	next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())

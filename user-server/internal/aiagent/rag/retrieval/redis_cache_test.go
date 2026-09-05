@@ -43,4 +43,3 @@ func TestRedisBackedCacheSearchResultRoundTrip(t *testing.T) {
 		t.Fatal("expected miss after delete")
 	}
 }
-

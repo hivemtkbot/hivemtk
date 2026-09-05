@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-
-
 func TestLoopGuard_AllowUnderThreshold(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
 		MaxRepeatCount: 3,
@@ -45,7 +43,6 @@ func TestLoopGuard_BlockOverThreshold(t *testing.T) {
 	}
 }
 
-
 func TestLoopGuard_DifferentArgsNoLoop(t *testing.T) {
 	guard := NewLoopGuard(DefaultLoopGuardConfig())
 
@@ -56,7 +53,6 @@ func TestLoopGuard_DifferentArgsNoLoop(t *testing.T) {
 		}
 	}
 }
-
 
 func TestLoopGuard_DifferentTraceIndependent(t *testing.T) {
 	guard := NewLoopGuard(DefaultLoopGuardConfig())
@@ -72,11 +68,10 @@ func TestLoopGuard_DifferentTraceIndependent(t *testing.T) {
 	}
 }
 
-
 func TestLoopGuard_WindowExpiry(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
 		MaxRepeatCount: 2,
-		WindowSize:     50 * time.Millisecond, 
+		WindowSize:     50 * time.Millisecond,
 		Enabled:        true,
 	})
 
@@ -97,7 +92,6 @@ func TestLoopGuard_WindowExpiry(t *testing.T) {
 	}
 }
 
-
 func TestLoopGuard_EmptyTraceFallback(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
 		MaxRepeatCount: 2,
@@ -117,7 +111,6 @@ func TestLoopGuard_EmptyTraceFallback(t *testing.T) {
 		t.Errorf("第 3 次调用应被拦截（trace_id 为空时退化），实际 %v", err)
 	}
 }
-
 
 func TestLoopGuardDecorator_BlocksLoop(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
@@ -174,7 +167,7 @@ func TestLoopGuardDecorator_NilGuard_NoOp(t *testing.T) {
 
 func TestLoopGuardDecorator_DisabledConfig_NoOp(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
-		Enabled: false, 
+		Enabled: false,
 	})
 
 	var callCount int32
@@ -189,7 +182,6 @@ func TestLoopGuardDecorator_DisabledConfig_NoOp(t *testing.T) {
 	}
 }
 
-
 func TestErrLoopDetected_NonRetryable(t *testing.T) {
 	if !isNonRetryableError(ErrLoopDetected) {
 		t.Errorf("ErrLoopDetected 应为不可重试错误")
@@ -203,12 +195,11 @@ func TestErrLoopDetected_NonRetryable(t *testing.T) {
 	}
 }
 
-
 func TestLoopGuard_MaxTracesEviction(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
 		MaxRepeatCount: 100,
 		WindowSize:     60 * time.Second,
-		MaxTraces:      3, 
+		MaxTraces:      3,
 		Enabled:        true,
 	})
 
@@ -224,7 +215,6 @@ func TestLoopGuard_MaxTracesEviction(t *testing.T) {
 		t.Errorf("期望 ActiveTraces <= 3（容量保护），实际 %d", stats.ActiveTraces)
 	}
 }
-
 
 func TestLoopGuardConfig_Defaults(t *testing.T) {
 	cfg := DefaultLoopGuardConfig()
@@ -249,10 +239,9 @@ func TestNewLoopGuard_ZeroConfig_Defaults(t *testing.T) {
 	}
 }
 
-
 func TestLoopGuard_ConcurrentSafe(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
-		MaxRepeatCount: 1000, 
+		MaxRepeatCount: 1000,
 		WindowSize:     60 * time.Second,
 		MaxTraces:      10000,
 		Enabled:        true,
@@ -278,7 +267,6 @@ func TestLoopGuard_ConcurrentSafe(t *testing.T) {
 	}
 }
 
-
 func TestLoopGuard_Reset(t *testing.T) {
 	guard := NewLoopGuard(DefaultLoopGuardConfig())
 
@@ -302,7 +290,6 @@ func TestLoopGuard_Reset(t *testing.T) {
 	}
 }
 
-
 func TestLoopGuard_Stats(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
 		MaxRepeatCount: 10,
@@ -323,7 +310,6 @@ func TestLoopGuard_Stats(t *testing.T) {
 		t.Errorf("期望 TotalRecords=3，实际 %d", stats.TotalRecords)
 	}
 }
-
 
 func TestLoopGuard_FeedbackRecordsLoopEvent(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
@@ -364,8 +350,6 @@ func TestLoopGuard_FeedbackRecordsLoopEvent(t *testing.T) {
 		t.Fatalf("期望 3 个事件（含循环命中事件），实际 %d", len(events))
 	}
 
-	// 异步 goroutine 写入顺序不确定，不能依赖 events[2] 是循环命中事件
-	// 扫描所有事件，查找循环命中的失败事件
 	var loopEvent *ToolCallEvent
 	successCount := 0
 	for i := range events {
@@ -388,7 +372,6 @@ func TestLoopGuard_FeedbackRecordsLoopEvent(t *testing.T) {
 		t.Errorf("循环命中事件应有 loop detected 错误信息，实际：%s", loopEvent.Error)
 	}
 }
-
 
 func TestLoopGuard_RetryDoesNotTriggerLoop(t *testing.T) {
 	guard := NewLoopGuard(LoopGuardConfig{
@@ -434,4 +417,3 @@ func TestLoopGuard_RetryDoesNotTriggerLoop(t *testing.T) {
 		t.Errorf("期望 Success=true")
 	}
 }
-

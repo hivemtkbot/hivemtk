@@ -60,7 +60,7 @@ func (s *BridgeOfflineReplayService) DetectOfflineChannels(ctx context.Context) 
 	if s.db == nil {
 		return nil, nil
 	}
-	// 先尝试 bridge_metrics（如果表不存在则 fallback 到 bridge_accounts）
+
 	type channelStat struct {
 		Platform  string    `gorm:"column:platform"`
 		AccountID string    `gorm:"column:account_id"`
@@ -73,7 +73,7 @@ func (s *BridgeOfflineReplayService) DetectOfflineChannels(ctx context.Context) 
 		Group("platform, account_id").
 		Scan(&stats).Error
 	if err != nil {
-		// 表不存在或无数据，尝试 bridge_accounts
+
 		logger.Warnf("[BridgeReplay] bridge_metrics 查询失败，fallback bridge_accounts: %v", err)
 		type accOffline struct {
 			Platform  string    `gorm:"column:platform"`
@@ -147,7 +147,7 @@ func (s *BridgeOfflineReplayService) ReplayDelayedOutbound(ctx context.Context, 
 		return 0, 0
 	}
 	for _, m := range msgs {
-		// 调用统一出站入口（已注入 outbox SSE）
+
 		err := DeliverBridgeOutbound(ctx, platform, accountID, m.ConversationID, m.MsgType, m.Content, m.EventID)
 		if err != nil {
 			failed++
@@ -181,7 +181,6 @@ func (s *BridgeOfflineReplayService) RunOnce(ctx context.Context) ReplayStats {
 	stats.OfflineChannels = len(channels)
 	stats.OfflineSnapshots = channels
 
-	// 每个渠道最多重放 50 条，避免雪崩
 	perChannelLimit := 50
 	for _, ch := range channels {
 		r, f := s.ReplayDelayedOutbound(ctx, ch.Platform, ch.AccountID, perChannelLimit)

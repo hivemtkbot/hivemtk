@@ -105,7 +105,6 @@ func (s *RagRecallMonitorService) Stop(ctx context.Context) {
 	s.wg.Wait()
 }
 
-// run 定时循环
 func (s *RagRecallMonitorService) run(ctx context.Context) {
 	defer s.wg.Done()
 	ticker := time.NewTicker(s.interval)

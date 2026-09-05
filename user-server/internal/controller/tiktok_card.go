@@ -169,4 +169,3 @@ func (ctrl *TikTokCardController) Stats(c *gin.Context) {
 	}
 	response.Success(c, data, "获取成功")
 }
-

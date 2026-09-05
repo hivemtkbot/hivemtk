@@ -51,12 +51,11 @@ type FAQEntry struct {
 	QualityScore     float64        `gorm:"type:decimal(5,4);default:0.5" json:"quality_score"`
 	LastHitAt        *time.Time     `gorm:"type:timestamptz" json:"last_hit_at,omitempty"`
 	NegativeHitCount int            `gorm:"type:integer;default:0" json:"negative_hit_count"`
-	AgentID *uint `gorm:"index" json:"agent_id,omitempty"`
-	Enabled   *bool     `gorm:"type:boolean;default:true;not null" json:"enabled"`
-	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	AgentID          *uint          `gorm:"index" json:"agent_id,omitempty"`
+	Enabled          *bool          `gorm:"type:boolean;default:true;not null" json:"enabled"`
+	CreatedAt        time.Time      `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt        time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 // TableName GORM 表名
 func (FAQEntry) TableName() string { return "faq_entries" }
-

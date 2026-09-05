@@ -225,8 +225,6 @@ func (o *CustomerOrchestrator) OnRFMComputed(ctx context.Context, customerID str
 	}
 }
 
-// stageForEvent 根据事件类型映射到目标旅程阶段。
-// 返回空字符串表示不触发阶段迁移。
 func stageForEvent(eventType model.EventType) JourneyStage {
 	switch eventType {
 	case model.EventTypeSignup:

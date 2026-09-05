@@ -58,12 +58,11 @@ func (s *ClueScoreService) ScoreClue(ctx context.Context, clue *model.Clue) (*mo
 
 	engagementScore, err := s.scoreEngagement(ctx, clue.ID)
 	if err != nil {
-		// X-1：engagement 查询失败不再静默吞没（降级为 0 分继续评分，但记录告警）
+
 		logger.Warnf("[clue-score] scoreEngagement failed (clue=%s): %v", clue.ID, err)
 		engagementScore = 0
 	}
 
-	// 群聊线索 engagement 维度加成
 	if clue.IsGroup {
 		engagementScore = int(math.Min(100, float64(engagementScore)*1.10))
 	}
@@ -127,8 +126,6 @@ func (s *ClueScoreService) ScoreClue(ctx context.Context, clue *model.Clue) (*mo
 	return score, nil
 }
 
-// writeBackLevel 将评分映射的线索温度等级写回 clues 表（P-9 Level 动态化）。
-// 映射：score>=70→hot / 40-69→warm / <40→cold。失败仅告警，不影响评分结果返回。
 func (s *ClueScoreService) writeBackLevel(ctx context.Context, clueID string, score int) {
 	if s.clueRepo == nil || clueID == "" {
 		return
@@ -184,7 +181,6 @@ func (s *ClueScoreService) ScoreAll(ctx context.Context, limit int) (int, error)
 	return success, nil
 }
 
-// scoreClueWithEngagement 使用已 batch 拉取的 engagement count 评分单条线索
 func (s *ClueScoreService) scoreClueWithEngagement(ctx context.Context, clue *model.Clue, engagementCount int64) (*model.ClueScore, error) {
 	if clue == nil {
 		return nil, errors.New("线索不能为空")
@@ -207,7 +203,6 @@ func (s *ClueScoreService) scoreClueWithEngagement(ctx context.Context, clue *mo
 	}
 	engagementScore := int(c) * 12
 
-	// 群聊线索 engagement 维度加成
 	if clue.IsGroup {
 		engagementScore = int(math.Min(100, float64(engagementScore)*1.10))
 	}
@@ -322,9 +317,6 @@ func (s *ClueScoreService) LoadClueForScoring(ctx context.Context, clueID string
 	return nil, errors.New("线索不存在")
 }
 
-// scoreChannel 渠道质量评分
-// 依据：电话/微信/WhatsApp 触达成功率高于纯社交账号
-// 新增渠道类型: 企业微信、抖音、快手、小红书、闲鱼、飞书、TikTok、网页组件、邮件、短信
 func scoreChannel(clueType int64) int {
 	switch clueType {
 	case ClueTypeQQ:
@@ -366,7 +358,6 @@ func scoreChannel(clueType int64) int {
 	}
 }
 
-// scoreProfile 资料完整度评分（4 个字段，每字段 25 分）
 func scoreProfile(clue *model.Clue) int {
 	score := 0
 	if clue.Name != "" {
@@ -384,10 +375,6 @@ func scoreProfile(clue *model.Clue) int {
 	return score
 }
 
-// scoreEngagement 行为参与度评分
-//
-//	事件权重：reply 20 / click 15 / call 25 / visit 10；近 7 天有效
-//	总分上限 100
 func (s *ClueScoreService) scoreEngagement(ctx context.Context, clueID string) (int, error) {
 	if clueID == "" {
 		return 0, nil
@@ -403,9 +390,6 @@ func (s *ClueScoreService) scoreEngagement(ctx context.Context, clueID string) (
 	return int(count) * 12, nil
 }
 
-// scoreRecency 时效性评分
-//
-//	<= 24h → 100, <= 7d → 70, <= 30d → 40, > 30d → 0
 func clueScoreRecency(createTime int64) int {
 	if createTime <= 0 {
 		return 50
@@ -424,7 +408,6 @@ func clueScoreRecency(createTime int64) int {
 	}
 }
 
-// calcConfidence 置信度（基于维度数据完整度）
 func calcConfidence(channel, verify, profile, engagement, recency int) int {
 	score := 0
 	if channel > 0 {

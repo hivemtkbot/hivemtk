@@ -31,7 +31,7 @@ func TestABRecorder_AssignBucket_EmptyID(t *testing.T) {
 
 // TestABRecorder_AssignBucket_Distribution 验证分桶分布
 func TestABRecorder_AssignBucket_Distribution(t *testing.T) {
-	r := NewABRecorder(50) // 50/50 split
+	r := NewABRecorder(50)
 	control, treatment := 0, 0
 	for i := 0; i < 1000; i++ {
 		id := "c-" + itoa(i)
@@ -41,7 +41,7 @@ func TestABRecorder_AssignBucket_Distribution(t *testing.T) {
 			treatment++
 		}
 	}
-	// 期望 ~50/50（±10% 容差）
+
 	if control < 400 || control > 600 {
 		t.Errorf("expected ~500 control, got %d", control)
 	}
@@ -52,7 +52,7 @@ func TestABRecorder_AssignBucket_Distribution(t *testing.T) {
 
 // TestABRecorder_AssignBucket_TrafficSplit 验证不同 split 比例
 func TestABRecorder_AssignBucket_TrafficSplit(t *testing.T) {
-	r := NewABRecorder(20) // 20/80 split
+	r := NewABRecorder(20)
 	control, treatment := 0, 0
 	for i := 0; i < 1000; i++ {
 		if r.AssignBucket("c-"+itoa(i)) == ABGroupControl {
@@ -61,7 +61,7 @@ func TestABRecorder_AssignBucket_TrafficSplit(t *testing.T) {
 			treatment++
 		}
 	}
-	// 期望 200/800（±15%）
+
 	if control < 150 || control > 250 {
 		t.Errorf("expected ~200 control for 20%% split, got %d", control)
 	}
@@ -133,7 +133,7 @@ func TestABRecorder_ConcurrentSafety(t *testing.T) {
 // TestABRecorder_Compare_TreatmentWins 验证 treatment 显著胜出
 func TestABRecorder_Compare_TreatmentWins(t *testing.T) {
 	r := NewABRecorder(50)
-	// Control: 1000 样本，5% 转化
+
 	for i := 0; i < 1000; i++ {
 		r.RecordScore(ABGroupControl, 0.5, 1000)
 		if i < 50 {
@@ -143,7 +143,7 @@ func TestABRecorder_Compare_TreatmentWins(t *testing.T) {
 			r.RecordOutcome(ABGroupControl, "churn")
 		}
 	}
-	// Treatment: 1000 样本，12% 转化
+
 	for i := 0; i < 1000; i++ {
 		r.RecordScore(ABGroupTreatment, 0.7, 1500)
 		if i < 120 {
@@ -207,7 +207,7 @@ func TestABRecorder_Compare_InconclusiveSmallSample(t *testing.T) {
 // TestABRecorder_Compare_InconclusiveNoDifference 验证无显著差异
 func TestABRecorder_Compare_InconclusiveNoDifference(t *testing.T) {
 	r := NewABRecorder(50)
-	// 两桶都 ~10% 转化
+
 	for i := 0; i < 500; i++ {
 		r.RecordScore(ABGroupControl, 0.5, 1000)
 		if i < 50 {
@@ -262,11 +262,11 @@ func TestABRecorder_RatesEmptyMetrics(t *testing.T) {
 
 // TestABRecorder_DefaultTrafficSplit 验证非法 split 归一化
 func TestABRecorder_DefaultTrafficSplit(t *testing.T) {
-	r := NewABRecorder(0) // 应归一为 50
+	r := NewABRecorder(0)
 	if r.traffic != 50 {
 		t.Errorf("traffic=0 should normalize to 50, got %d", r.traffic)
 	}
-	r = NewABRecorder(150) // 应归一为 50
+	r = NewABRecorder(150)
 	if r.traffic != 50 {
 		t.Errorf("traffic=150 should normalize to 50, got %d", r.traffic)
 	}
@@ -275,12 +275,11 @@ func TestABRecorder_DefaultTrafficSplit(t *testing.T) {
 // TestTracker_ElapsedMs 验证耗时跟踪
 func TestTracker_ElapsedMs(t *testing.T) {
 	tr := NewTracker()
-	// 至少经过 0ms（可能极短）
+
 	if tr.ElapsedMs() < 0 {
 		t.Error("elapsed should be non-negative")
 	}
-	// 100ms 后
-	// 不 sleep 直接验证，sleep 引入非确定性
+
 }
 
 // TestABRecorder_PersistHook 验证持久化钩子
@@ -301,7 +300,6 @@ func TestABRecorder_PersistHook(t *testing.T) {
 	r.RecordScore(ABGroupControl, 0.85, 1000, "c1")
 	r.RecordOutcome(ABGroupTreatment, "conversion", "c2")
 
-	// 收集所有 hook 调用
 	gotCalls := make([]call, 0, 5)
 	timeout := time.After(2 * time.Second)
 	for len(gotCalls) < 3 {
@@ -316,14 +314,12 @@ func TestABRecorder_PersistHook(t *testing.T) {
 		t.Fatalf("expected at least 3 hook calls, got %d", len(gotCalls))
 	}
 
-	// 验证：所有调用都应有正确的 testID
 	for _, c := range gotCalls {
 		if c.testID != "humanize_ab" {
 			t.Errorf("testID should be humanize_ab, got %s", c.testID)
 		}
 	}
 
-	// 验证：应包含 humanize_score, first_reply_ms, conversion 三个指标
 	seenMetrics := make(map[string]bool)
 	for _, c := range gotCalls {
 		seenMetrics[c.metric] = true
@@ -334,7 +330,6 @@ func TestABRecorder_PersistHook(t *testing.T) {
 		}
 	}
 
-	// 验证 humanize_score 数值正确
 	for _, c := range gotCalls {
 		if c.metric == "humanize_score" && c.value != 0.85 {
 			t.Errorf("humanize_score should be 0.85, got %v", c.value)
@@ -351,10 +346,10 @@ func TestABRecorder_PersistHook(t *testing.T) {
 // TestABRecorder_PersistHook_NilSafe 验证 nil hook 不破坏
 func TestABRecorder_PersistHook_NilSafe(t *testing.T) {
 	r := NewABRecorder(50)
-	// 显式不设 hook
+
 	r.RecordScore(ABGroupControl, 0.85, 1000, "c1")
 	r.RecordOutcome(ABGroupControl, "conversion", "c1")
-	// 内存状态应正常
+
 	ctrl, _ := r.Snapshot()
 	if ctrl.SampleCount != 1 {
 		t.Errorf("in-memory state should be intact, got %d samples", ctrl.SampleCount)
@@ -377,10 +372,9 @@ func TestABRecorder_PersistHook_ReentrantSafety(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	// 不 panic 即可
+
 }
 
-// itoa 简化版 int → string（避免 strconv 导入）
 func itoa(n int) string {
 	if n == 0 {
 		return "0"

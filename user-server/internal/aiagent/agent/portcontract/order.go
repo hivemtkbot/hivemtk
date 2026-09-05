@@ -28,4 +28,3 @@ type OrderPort interface {
 	LookupByOrderID(ctx context.Context, platform, orderID string) (*OrderView, error)
 	LookupByCustomer(ctx context.Context, phone, name string) ([]*OrderView, error)
 }
-

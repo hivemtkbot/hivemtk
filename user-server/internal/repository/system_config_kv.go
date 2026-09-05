@@ -30,7 +30,6 @@ func NewSystemConfigKVRepository() SystemConfigKVRepository {
 	return &systemConfigKVRepo{db: db.GetDB()}
 }
 
-// Get 按 key 查询
 func (r *systemConfigKVRepo) Get(ctx context.Context, key string) (string, error) {
 	var row model.SystemConfigKV
 	err := r.db.WithContext(ctx).Where("key = ?", key).First(&row).Error
@@ -43,7 +42,6 @@ func (r *systemConfigKVRepo) Get(ctx context.Context, key string) (string, error
 	return row.Value, nil
 }
 
-// Upsert 写入或更新
 func (r *systemConfigKVRepo) Upsert(ctx context.Context, key, value string) (string, error) {
 	now := time.Now()
 	row := model.SystemConfigKV{
@@ -77,7 +75,6 @@ func (r *systemConfigKVRepo) Upsert(ctx context.Context, key, value string) (str
 	return value, nil
 }
 
-// EnsureTable 建表（IF NOT EXISTS）
 func (r *systemConfigKVRepo) EnsureTable(ctx context.Context) error {
 	stmt := `CREATE TABLE IF NOT EXISTS system_config_kv (
 		key VARCHAR(100) PRIMARY KEY,

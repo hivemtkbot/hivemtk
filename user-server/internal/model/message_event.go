@@ -11,7 +11,7 @@ const (
 	ChannelWeb       = "web"
 	ChannelTelegram  = "telegram"
 	ChannelWhatsApp  = "whatsapp"
-	ChannelXHS       = "xiaohongshu" 
+	ChannelXHS       = "xiaohongshu"
 	ChannelWeCom     = "wecom"
 	ChannelXianyu    = "xianyu"
 	ChannelDouyin    = "douyin"
@@ -39,8 +39,8 @@ const (
 
 // 发送者类型（用于 InboxIngress 区分客户/平台/AI）
 //
-//  2026-08-17 引入：替代散落的魔法字符串 "customer"/"ai"/"system"/"agent"，
-//  统一消费方对 SenderType 的判定
+//	2026-08-17 引入：替代散落的魔法字符串 "customer"/"ai"/"system"/"agent"，
+//	统一消费方对 SenderType 的判定
 const (
 	SenderTypeCustomer = "customer"
 	SenderTypeAI       = "ai"
@@ -56,24 +56,24 @@ const (
 //  3. 不映射到数据库表，仅作为运行时事件结构在内存与 Redis 中流转
 //  4. 与 model.MessageHub（持久化消息）通过 Normalize 转换：MessageEvent -> MessageHub
 type MessageEvent struct {
-	EventID    string `json:"event_id"`   
-	SessionID  string `json:"session_id"` 
-	Channel    string `json:"channel"`    
-	SenderID   string `json:"sender_id"`  
-	SenderName string `json:"sender_name,omitempty"`
-	SenderType     string         `json:"sender_type,omitempty"`
-	ReceiverID     string         `json:"receiver_id,omitempty"`
-	MsgType        string         `json:"msg_type"` 
-	Content        string         `json:"content"`
-	MediaURL       string         `json:"media_url,omitempty"`
-	ConversationID string         `json:"conversation_id,omitempty"`
-	IsGroup        bool           `json:"is_group,omitempty"`
-	GroupID        string         `json:"group_id,omitempty"`
-	IsAIReply      bool           `json:"is_ai_reply,omitempty"`
-	AIAgent        string         `json:"ai_agent,omitempty"`
-	Extra          map[string]any `json:"extra,omitempty"`
-	Timestamp      time.Time      `json:"timestamp"`
-	History []MessageEventHistoryItem `json:"history,omitempty"`
+	EventID        string                    `json:"event_id"`
+	SessionID      string                    `json:"session_id"`
+	Channel        string                    `json:"channel"`
+	SenderID       string                    `json:"sender_id"`
+	SenderName     string                    `json:"sender_name,omitempty"`
+	SenderType     string                    `json:"sender_type,omitempty"`
+	ReceiverID     string                    `json:"receiver_id,omitempty"`
+	MsgType        string                    `json:"msg_type"`
+	Content        string                    `json:"content"`
+	MediaURL       string                    `json:"media_url,omitempty"`
+	ConversationID string                    `json:"conversation_id,omitempty"`
+	IsGroup        bool                      `json:"is_group,omitempty"`
+	GroupID        string                    `json:"group_id,omitempty"`
+	IsAIReply      bool                      `json:"is_ai_reply,omitempty"`
+	AIAgent        string                    `json:"ai_agent,omitempty"`
+	Extra          map[string]any            `json:"extra,omitempty"`
+	Timestamp      time.Time                 `json:"timestamp"`
+	History        []MessageEventHistoryItem `json:"history,omitempty"`
 }
 
 // MessageEventHistoryItem 多轮历史中的单轮（与扩展 HistoryItem 对齐的轻量镜像）
@@ -92,4 +92,3 @@ type MessageEventHistoryItem struct {
 	GroupID    string `json:"group_id,omitempty"`
 	GroupName  string `json:"group_name,omitempty"`
 }
-

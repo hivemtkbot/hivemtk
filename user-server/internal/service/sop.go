@@ -21,8 +21,8 @@ import (
 
 	"hivemtk-user/internal/model"
 
-	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/pkg/tracing"
+	"hivemtk-user/internal/pkg/utils/logger"
 
 	"hivemtk-user/internal/repository"
 )
@@ -145,9 +145,7 @@ type CreateRequest = dto.CreateRequest
 func (s *SOPService) TemplateFromActiveAsset(ctx context.Context, scenario string) (*CreateRequest, bool) {
 	if r := GetAssetResolver(); r != nil {
 		if sop, ok := r.GetActiveSOP(ctx); ok && sop != nil {
-			// v3 审计 P0-10 修复：保留 ctx 透传
-			// 原：return sop.ToCreateRequest(context.Background(), scenario), true
-			// 风险：trace_id 链路断裂，cancel 无法传播
+
 			return sop.ToCreateRequest(ctx, scenario), true
 		}
 	}
@@ -166,7 +164,7 @@ func (s *SOPService) Create(ctx context.Context, req *CreateRequest) (*model.SOP
 	if !req.ABTestConfig.Enabled && len(req.ABTestConfig.Variants) == 0 {
 		if r := GetAssetResolver(); r != nil {
 			if plan, ok := r.GetActiveABPlan(ctx); ok && plan != nil {
-				// v3 审计 P0-10 修复：保留 ctx 透传
+
 				if cfg := plan.ToSOPABTestConfig(ctx); ValidateSOPABTestConfig(cfg) == nil {
 					req.ABTestConfig = cfg
 				}
@@ -176,7 +174,7 @@ func (s *SOPService) Create(ctx context.Context, req *CreateRequest) (*model.SOP
 	if err := ValidateSOPABTestConfig(req.ABTestConfig); err != nil {
 		return nil, fmt.Errorf("A/B 测试配置非法：%w", err)
 	}
-	// S1-1：entry_policy 配置校验（缺省 once，非法配置拒绝保存）
+
 	if err := ValidateSOPTriggerConfigEntryPolicy(model.JSONMap(req.TriggerConfig)); err != nil {
 		return nil, err
 	}
@@ -187,8 +185,7 @@ func (s *SOPService) Create(ctx context.Context, req *CreateRequest) (*model.SOP
 	triggerMap := toJSONMap(req.TriggerConfig)
 	abMap := model.JSONMap{}
 	if req.ABTestConfig.Enabled {
-		// v3 审计 P1-33 修复：Marshal/Unmarshal 错误必须捕获并返回
-		// 原：_ = json.Marshal/Unmarshal 静默吞错
+
 		abData, err := json.Marshal(req.ABTestConfig)
 		if err != nil {
 			return nil, fmt.Errorf("marshal ABTestConfig: %w", err)
@@ -226,7 +223,7 @@ func (s *SOPService) Update(ctx context.Context, id uint, req *CreateRequest) (*
 	if err := ValidateSOPABTestConfig(req.ABTestConfig); err != nil {
 		return nil, fmt.Errorf("A/B 测试配置非法：%w", err)
 	}
-	// S1-1：entry_policy 配置校验（Update 同步）
+
 	if err := ValidateSOPTriggerConfigEntryPolicy(model.JSONMap(req.TriggerConfig)); err != nil {
 		return nil, err
 	}
@@ -323,7 +320,6 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 		return nil, errors.New("sop is not active")
 	}
 
-	// S1-1 防重复进入：入队前查 sop_executions(customer_id, sop_id) 历史
 	policy := ParseSOPEntryPolicy(agent.TriggerConfig)
 	if !s.entryAllowedByPolicy(ctx, req.SOPID, req.CustomerID, policy) {
 		logger.Infof("[SOP] entry_policy 拦截重复进入 sop=%d customer=%s mode=%s", req.SOPID, req.CustomerID, policy.Mode)
@@ -357,7 +353,7 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 	if err := s.execRepo.Create(ctx, exec); err != nil {
 		return nil, err
 	}
-	// BUG-10 修复：保留 ctx 透传，使 trace_id 链路不中断、cancel 可传播
+
 	graph, err := s.loadSOPGraph(ctx, agent, variantGraphID)
 	if err != nil {
 		return nil, err
@@ -432,8 +428,6 @@ func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOP
 		return nil, err
 	}
 
-	// 根据 exec.Variant 加载对应的 SOP 图
-	// variant=="" 表示未启用 A/B 测试，使用主图
 	var variantGraphID uint
 	if exec.Variant != "" {
 		cfg := ParseSOPABTestConfig(agent.ABTestConfig)
@@ -446,7 +440,7 @@ func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOP
 			}
 		}
 	}
-	// BUG-10 修复：保留 ctx 透传，使 trace_id 链路不中断、cancel 可传播
+
 	graph, err := s.loadSOPGraph(ctx, agent, variantGraphID)
 	if err != nil {
 		return nil, err
@@ -676,29 +670,24 @@ func (s *SOPService) validateGraph(ctx context.Context, graph *SOPGraph) error {
 			return fmt.Errorf("edge to missing node %s", e.To)
 		}
 	}
-	// v3 审计 P0-09 修复：DFS 环检测
-	// 原：只验证节点 ID 唯一 + 边终点存在 → 构造 A→B→A 死循环
-	// 风险：循环派发同一 ExecutionID，烧光 LLM 配额 + DoS
+
 	if err := detectSOPCycles(graph); err != nil {
 		return err
 	}
 	return nil
 }
 
-// detectSOPCycles DFS 三色标记检测 SOP 是否有环
-// v3 审计 P0-09 修复
 func detectSOPCycles(graph *SOPGraph) error {
 	const (
-		white = 0 // 未访问
-		gray  = 1 // DFS 栈中
-		black = 2 // 完成
+		white = 0
+		gray  = 1
+		black = 2
 	)
 	color := make(map[string]int, len(graph.Nodes))
 	for _, n := range graph.Nodes {
 		color[n.ID] = white
 	}
 
-	// 构造邻接表：每个节点的 next + condition.next
 	adj := make(map[string][]string, len(graph.Nodes))
 	for _, n := range graph.Nodes {
 		nexts := append([]string{}, n.Next...)
@@ -737,10 +726,6 @@ func detectSOPCycles(graph *SOPGraph) error {
 	return nil
 }
 
-// entryAllowedByPolicy S1-1：按 entry_policy 判断该客户是否可（重）进入该 SOP。
-//
-// 注意：repository 层暂无 (sop_id, customer_id) 最近历史查询方法，此处经 s.db 直查；
-// 迁移注册需求见报告——需下沉为 repository.FindLastExecution + 复合索引。
 func (s *SOPService) entryAllowedByPolicy(ctx context.Context, sopID uint, customerID string, policy SOPEntryPolicy) bool {
 	if policy.Mode == SOPEntryModeAlways {
 		return true
@@ -751,7 +736,7 @@ func (s *SOPService) entryAllowedByPolicy(ctx context.Context, sopID uint, custo
 		Order("created_at DESC").
 		First(&last).Error
 	if err != nil {
-		// 无历史记录 → 首次进入放行
+
 		return true
 	}
 	switch policy.Mode {
@@ -761,7 +746,7 @@ func (s *SOPService) entryAllowedByPolicy(ctx context.Context, sopID uint, custo
 			return true
 		}
 		return time.Since(last.CreatedAt) >= window
-	default: // once
+	default:
 		return false
 	}
 }

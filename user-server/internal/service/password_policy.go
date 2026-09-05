@@ -73,10 +73,8 @@ var DefaultCommonPasswords = []string{
 	"root", "toor", "test", "guest",
 }
 
-// specialCharRegex 特殊字符正则
 var specialCharRegex = regexp.MustCompile(`[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~\` + "`" + `]`)
 
-// policyCache 策略缓存（避免每次校验都查库）
 var (
 	policyCache      *PasswordPolicy
 	policyCacheMutex sync.RWMutex
@@ -126,8 +124,6 @@ func (s *PasswordPolicyService) GetPolicy(ctx context.Context) *PasswordPolicy {
 	return policy
 }
 
-// loadPolicyFromDB 从 system_config_kv 表加载密码策略
-// 失败时返回默认策略
 func (s *PasswordPolicyService) loadPolicyFromDB(ctx context.Context) *PasswordPolicy {
 	defaultPolicy := DefaultPasswordPolicy
 
@@ -198,7 +194,6 @@ func (s *PasswordPolicyService) SavePolicy(ctx context.Context, policy *Password
 	return nil
 }
 
-// validatePolicy 校验策略本身的合理性
 func (s *PasswordPolicyService) validatePolicy(ctx context.Context, p *PasswordPolicy) error {
 	if p.MinLength < 4 {
 		return errors.New("最小长度不能小于 4")
@@ -235,7 +230,6 @@ func (s *PasswordPolicyService) ValidatePasswordWithPolicy(ctx context.Context, 
 	return s.validateWithPolicy(ctx, password, userID, policy)
 }
 
-// validateWithPolicy 实际校验逻辑
 func (s *PasswordPolicyService) validateWithPolicy(ctx context.Context, password string, userID uint, policy *PasswordPolicy) error {
 	if password == "" {
 		return errors.New("密码不能为空")
@@ -293,7 +287,6 @@ func (s *PasswordPolicyService) validateWithPolicy(ctx context.Context, password
 	return nil
 }
 
-// checkPasswordHistory 检查密码是否与最近 N 个历史密码重复
 func (s *PasswordPolicyService) checkPasswordHistory(ctx context.Context, userID uint, password string, reuseCount int) error {
 	histories, err := s.historyRepo.ListRecent(ctx, userID, reuseCount)
 	if err != nil {

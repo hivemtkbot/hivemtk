@@ -170,4 +170,3 @@ func TestShortLink_WithLongURL(t *testing.T) {
 		t.Error("Expected long URL to be stored")
 	}
 }
-

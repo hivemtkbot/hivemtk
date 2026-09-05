@@ -16,7 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupMessageHubTestDB 创建测试数据库（每个测试用唯一 db 名称避免污染）
 func setupMessageHubTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.MessageHub{},
@@ -800,7 +799,6 @@ func TestStats_TimeRange(t *testing.T) {
 	}
 }
 
-// ptrTime 构造 *time.Time（原定义在 performance_test_service.go，该文件已移除）
 func ptrTime(t time.Time) *time.Time { return &t }
 
 func TestConsume_EmptyPartition(t *testing.T) {
@@ -1086,7 +1084,7 @@ func TestPush_Concurrent(t *testing.T) {
 			t.Fatalf("push %d: %v", i, err)
 		}
 	}
-	// 并发 List/Stats 读
+
 	var wg sync.WaitGroup
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
@@ -1122,7 +1120,7 @@ func TestConsume_ConcurrentSafe(t *testing.T) {
 
 func TestEndToEnd_PushListReadStats(t *testing.T) {
 	svc, _ := newMessageHubTestService(t)
-	// 1. 推送 10 条
+
 	var ids []uint
 	for i := 0; i < 10; i++ {
 		r := newReq()

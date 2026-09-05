@@ -43,4 +43,3 @@ func requireKeys(m map[string]interface{}, keys ...string) error {
 	}
 	return nil
 }
-

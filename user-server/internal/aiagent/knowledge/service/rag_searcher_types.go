@@ -19,10 +19,9 @@ type MerchantRAGChunk struct {
 	Content    string         `json:"content"`
 	Score      float64        `json:"score"`
 	Metadata   map[string]any `json:"metadata"`
-	Weight float64 `json:"weight"`
+	Weight     float64        `json:"weight"`
 }
 
-// chunkRow 数据库扫描行（向量检索结果）
 type chunkRow struct {
 	ID         uint64
 	DocumentID uint64
@@ -30,14 +29,6 @@ type chunkRow struct {
 	Score      float64
 }
 
-// chunksToRAGChunks ragretrieval.Chunk → dto.RAGChunk
-//
-// 字段映射：
-//   - Content: Chunk.Content → RAGChunk.Content（截断到 500 字）
-//   - Score:   Chunk.Score → RAGChunk.Score
-//   - DocID:   Chunk.DocumentID → RAGChunk.DocID（string 透传）
-//   - ChunkID: Chunk.ID → RAGChunk.ChunkID（string 透传）
-//   - Source:  固定 "hybrid"（区分 legacy 路径返回的 chunk）
 func chunksToRAGChunks(chunks []ragretrieval.Chunk) []RAGChunk {
 	if len(chunks) == 0 {
 		return nil
@@ -56,12 +47,6 @@ func chunksToRAGChunks(chunks []ragretrieval.Chunk) []RAGChunk {
 	return result
 }
 
-// chunksToMerchantChunks ragretrieval.Chunk → MerchantRAGChunk
-//
-// 字段映射：
-//   - ID / DocumentID: string → uint64（解析失败回退 0）
-//   - Content / Score: 透传（Content 截断 500）
-//   - Metadata: 携带 ChunkIndex / Title 用于上游展示
 func chunksToMerchantChunks(chunks []ragretrieval.Chunk) []MerchantRAGChunk {
 	if len(chunks) == 0 {
 		return nil
@@ -90,7 +75,6 @@ func chunksToMerchantChunks(chunks []ragretrieval.Chunk) []MerchantRAGChunk {
 	return result
 }
 
-// toRAGChunks scored → dto.RAGChunk
 func (s *RagSearcher) toRAGChunks(pairs []scored) []RAGChunk {
 	result := make([]RAGChunk, 0, len(pairs))
 	for _, p := range pairs {
@@ -104,7 +88,6 @@ func (s *RagSearcher) toRAGChunks(pairs []scored) []RAGChunk {
 	return result
 }
 
-// toMerchantChunks []scored → []MerchantRAGChunk
 func (s *RagSearcher) toMerchantChunks(pairs []scored) []MerchantRAGChunk {
 	result := make([]MerchantRAGChunk, 0, len(pairs))
 	for _, p := range pairs {
@@ -118,9 +101,6 @@ func (s *RagSearcher) toMerchantChunks(pairs []scored) []MerchantRAGChunk {
 	return result
 }
 
-// filterMerchantChunksByMetadata 按附加字段过滤分片。
-// 当且仅当分片的 Metadata 包含 filters 中所有键值对（字符串相等）时才保留。
-// 用于把检索收敛到特定业务上下文，例如 {"customer_id":"123","order_id":"A01"}。
 func filterMerchantChunksByMetadata(chunks []MerchantRAGChunk, filters map[string]string) []MerchantRAGChunk {
 	if len(filters) == 0 {
 		return chunks
@@ -134,7 +114,6 @@ func filterMerchantChunksByMetadata(chunks []MerchantRAGChunk, filters map[strin
 	return out
 }
 
-// chunkMatchesMetadata 判断分片元信息是否满足全部过滤条件。
 func chunkMatchesMetadata(meta map[string]any, filters map[string]string) bool {
 	for k, want := range filters {
 		got, ok := meta[k]
@@ -148,8 +127,6 @@ func chunkMatchesMetadata(meta map[string]any, filters map[string]string) bool {
 	return true
 }
 
-// truncateText 截断(已迁移到 text.Truncate,本函数保留为薄包装以维持外部兼容)
 func truncateText(s string, max int) string {
 	return text.Truncate(s, max)
 }
-

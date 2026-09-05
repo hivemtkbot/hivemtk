@@ -14,8 +14,8 @@ type CreateObsConfigRequest struct {
 	SecretKey  string `json:"secret_key"`
 	Bucket     string `json:"bucket"`
 	Region     string `json:"region"`
-	Endpoint   string `json:"endpoint"`   // local 时存本地目录；cloud 时存 S3 Endpoint
-	Domain     string `json:"domain"`      // local 时存公开 URL 前缀；cloud 时存自定义 CDN 域名
+	Endpoint   string `json:"endpoint"`
+	Domain     string `json:"domain"`
 	PathPrefix string `json:"path_prefix"`
 	Config     string `json:"config"`
 	MaxSize    int64  `json:"max_size"`

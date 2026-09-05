@@ -38,7 +38,7 @@ func TestRAGThreeTierAdapter_Stats(t *testing.T) {
 	adapter := NewRAGThreeTierAdapter(svc)
 
 	adapter.Search(context.Background(), "kb1", "hi", 5)
-	adapter.Search(context.Background(), "kb1", "hi", 5) 
+	adapter.Search(context.Background(), "kb1", "hi", 5)
 	stats := adapter.Stats()
 	if stats.Total < 1 {
 		t.Errorf("expected total >= 1, got %d", stats.Total)
@@ -76,4 +76,3 @@ func TestRAGThreeTierAdapter_ErrorPropagation(t *testing.T) {
 		t.Errorf("expected empty source, got %s", res.Source)
 	}
 }
-

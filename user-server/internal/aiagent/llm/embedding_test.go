@@ -192,7 +192,6 @@ func formatFloat(f float32) string {
 	return "0.01"
 }
 
-// clearEmbeddingEnv 清理所有 EMBEDDING_* 和 LLM_* 环境变量，确保测试隔离
 func clearEmbeddingEnv(t *testing.T) {
 	t.Helper()
 	keys := []string{

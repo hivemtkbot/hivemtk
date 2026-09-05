@@ -18,7 +18,6 @@ type AssetBundleVersionLogRepository interface {
 	List(ctx context.Context, assetID string, limit int) ([]*model.AssetBundleVersionLog, error)
 }
 
-// assetBundleVersionLogRepo GORM 实现
 type assetBundleVersionLogRepo struct {
 	db *gorm.DB
 }
@@ -28,7 +27,6 @@ func NewAssetBundleVersionLogRepository(db *gorm.DB) AssetBundleVersionLogReposi
 	return &assetBundleVersionLogRepo{db: db}
 }
 
-// Create 新建版本日志
 func (r *assetBundleVersionLogRepo) Create(ctx context.Context, m *model.AssetBundleVersionLog) error {
 	if m == nil {
 		return nil
@@ -36,7 +34,6 @@ func (r *assetBundleVersionLogRepo) Create(ctx context.Context, m *model.AssetBu
 	return r.db.WithContext(ctx).Create(m).Error
 }
 
-// List 列出某资产包的版本日志
 func (r *assetBundleVersionLogRepo) List(ctx context.Context, assetID string, limit int) ([]*model.AssetBundleVersionLog, error) {
 	var list []*model.AssetBundleVersionLog
 	q := r.db.WithContext(ctx).Model(&model.AssetBundleVersionLog{})

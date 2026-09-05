@@ -139,7 +139,7 @@ func TestStartBridgeMetricsSink_NilDB(t *testing.T) {
 	if stop == nil {
 		t.Fatal("StartBridgeMetricsSink(nil) 返回 nil stop")
 	}
-	stop() 
+	stop()
 	stop()
 }
 
@@ -185,4 +185,3 @@ func TestSinkFlush_WithDB(t *testing.T) {
 		t.Errorf("未找到 labels 含 agent_id=1 且 value=3 的行: %+v", rows)
 	}
 }
-

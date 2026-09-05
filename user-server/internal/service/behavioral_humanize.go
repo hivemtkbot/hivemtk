@@ -8,13 +8,10 @@ import (
 type HumanizeScene string
 
 const (
-	SceneSupport HumanizeScene = "support" // 客服场景（默认）
-	SceneSales   HumanizeScene = "sales"   // 销售场景
+	SceneSupport HumanizeScene = "support"
+	SceneSales   HumanizeScene = "sales"
 )
 
-// H-2 决策参数（MASTER_COMPETITIVE_DECISIONS.md M5/H-2）：
-//   - ≤40 字符不分条（短回复豁免，< 单句禁用气泡拆分）
-//   - 延迟 = 基线 2s + 每 20 字符 +0.8s；销售场景 ×1.5
 const (
 	noSplitMaxChars    = 40
 	delayBaselineSec   = 2.0
@@ -42,7 +39,7 @@ type BehavioralPlanBuilder struct {
 // NewBehavioralPlanBuilder 构造计划构造器
 func NewBehavioralPlanBuilder() *BehavioralPlanBuilder {
 	return &BehavioralPlanBuilder{
-		enabled: false, // 默认关闭（A/B 灰度）
+		enabled: false,
 		config:  behavioral.DefaultBehaviorConfig(),
 		scene:   SceneSupport,
 	}
@@ -109,7 +106,7 @@ func (b *BehavioralPlanBuilder) sceneOrDefault() HumanizeScene {
 //   - 延迟随长度线性增长模拟真人打字；销售回复更慎重故 ×1.5
 func (b *BehavioralPlanBuilder) BuildWithScene(raw string, isFirstMessage bool, scene HumanizeScene) behavioral.SendPlan {
 	if b == nil || !b.enabled {
-		// 关闭：返回 trivial plan
+
 		return behavioral.SendPlan{
 			Messages:  []string{raw},
 			Intervals: nil,
@@ -127,10 +124,8 @@ func (b *BehavioralPlanBuilder) BuildWithScene(raw string, isFirstMessage bool, 
 	return plan
 }
 
-// dynamicTotalDelay H-2 动态延迟公式：
-// (基线 2s + 每 20 字符 +0.8s) × 场景系数（sales=1.5）；非首条消息加思考停顿。
 func dynamicTotalDelay(n int, scene HumanizeScene, isFirstMessage bool, cfg behavioral.BehaviorConfig) float64 {
-	units := (n + 19) / 20 // ceil(n/20)
+	units := (n + 19) / 20
 	d := delayBaselineSec + float64(units)*delayPer20CharsSec
 	if scene == SceneSales {
 		d *= salesSceneFactor

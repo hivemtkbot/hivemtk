@@ -25,9 +25,6 @@ type TikTokCardService interface {
 	RecordView(ctx context.Context, cardID uint, ip, userAgent string) error
 }
 
-// tiktokCardService TikTok 卡片服务实现
-//
-// 五层架构合规:不持有 *gorm.DB,通过 repository 访问数据库。
 type tiktokCardService struct {
 	repo          repository.TikTokCardRepository
 	shortLinkRepo repository.ShortLinkRepository
@@ -49,7 +46,6 @@ func NewTikTokCardServiceWithDB(gormDB *gorm.DB) TikTokCardService {
 	}
 }
 
-// Create 创建 TikTok 卡片
 func (s *tiktokCardService) Create(ctx context.Context, req *dto.TikTokCardCreateRequest) (*dto.TikTokCardResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("请求不能为空")
@@ -81,7 +77,6 @@ func (s *tiktokCardService) Create(ctx context.Context, req *dto.TikTokCardCreat
 	return s.toResponse(ctx, created, ""), nil
 }
 
-// Update 更新 TikTok 卡片
 func (s *tiktokCardService) Update(ctx context.Context, req *dto.TikTokCardUpdateRequest) (*dto.TikTokCardResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("请求不能为空")
@@ -118,7 +113,6 @@ func (s *tiktokCardService) Update(ctx context.Context, req *dto.TikTokCardUpdat
 	return s.toResponse(ctx, updated, ""), nil
 }
 
-// Delete 删除 TikTok 卡片
 func (s *tiktokCardService) Delete(ctx context.Context, id uint) error {
 	_, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -127,7 +121,6 @@ func (s *tiktokCardService) Delete(ctx context.Context, id uint) error {
 	return s.repo.Delete(ctx, id)
 }
 
-// GetByID 获取 TikTok 卡片
 func (s *tiktokCardService) GetByID(ctx context.Context, id uint) (*dto.TikTokCardResponse, error) {
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -144,12 +137,10 @@ func (s *tiktokCardService) GetByID(ctx context.Context, id uint) (*dto.TikTokCa
 	return s.toResponse(ctx, card, shortCode), nil
 }
 
-// GetCardModelByID 获取卡片模型(用于内部操作)
 func (s *tiktokCardService) GetCardModelByID(ctx context.Context, id uint) (*model.TikTokCard, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
-// GetList 获取 TikTok 卡片列表
 func (s *tiktokCardService) GetList(ctx context.Context, req *dto.TikTokCardListRequest) (*dto.TikTokCardListResponse, error) {
 	if req == nil {
 		req = &dto.TikTokCardListRequest{Page: 1, PageSize: 20}
@@ -174,7 +165,6 @@ func (s *tiktokCardService) GetList(ctx context.Context, req *dto.TikTokCardList
 	return &dto.TikTokCardListResponse{List: responses, Total: total}, nil
 }
 
-// GenerateShortLink 为卡片生成短链
 func (s *tiktokCardService) GenerateShortLink(ctx context.Context, cardID uint) (*dto.TikTokCardResponse, error) {
 	card, err := s.repo.GetByID(ctx, cardID)
 	if err != nil {
@@ -187,7 +177,6 @@ func (s *tiktokCardService) GenerateShortLink(ctx context.Context, cardID uint) 
 		_ = s.shortLinkRepo.Delete(context.Background(), card.ShortLinkID)
 	}
 
-	// v3 审计修复：铁律#24 要求绝对 https 目标；未配置跳转目标时跳过
 	if card.RedirectURL == "" {
 		return nil, nil
 	}
@@ -213,7 +202,6 @@ func (s *tiktokCardService) GenerateShortLink(ctx context.Context, cardID uint) 
 	return s.toResponse(ctx, card, shortCode), nil
 }
 
-// StatsOverall 获取总体统计
 func (s *tiktokCardService) StatsOverall(ctx context.Context) (*dto.TikTokCardStatsOverallResponse, error) {
 	totalCards, activeCards, totalViews, popular, err := s.repo.GetOverallStats(ctx)
 	if err != nil {
@@ -259,7 +247,6 @@ func (s *tiktokCardService) StatsOverall(ctx context.Context) (*dto.TikTokCardSt
 	}, nil
 }
 
-// Stats 单卡片统计
 func (s *tiktokCardService) Stats(ctx context.Context, cardID uint) (*dto.TikTokCardStatsDetailResponse, error) {
 	card, activities, err := s.repo.GetCardStats(ctx, cardID, 7)
 	if err != nil {
@@ -292,7 +279,6 @@ func (s *tiktokCardService) Stats(ctx context.Context, cardID uint) (*dto.TikTok
 	}, nil
 }
 
-// RecordView 记录一次浏览(递增计数 + 写活动)
 func (s *tiktokCardService) RecordView(ctx context.Context, cardID uint, ip, userAgent string) error {
 	if err := s.repo.IncrementViewCount(ctx, cardID); err != nil {
 		return err
@@ -307,7 +293,6 @@ func (s *tiktokCardService) RecordView(ctx context.Context, cardID uint, ip, use
 	return s.repo.CreateActivity(ctx, activity)
 }
 
-// toResponse 转换为响应 DTO
 func (s *tiktokCardService) toResponse(ctx context.Context, card *model.TikTokCard, shortCode string) *dto.TikTokCardResponse {
 	shortLinkURL := ""
 	if shortCode != "" {
@@ -333,7 +318,6 @@ func (s *tiktokCardService) toResponse(ctx context.Context, card *model.TikTokCa
 	}
 }
 
-// generateRandomCode 生成短码
 func generateRandomCode(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, length)

@@ -19,8 +19,6 @@ func LocaleOf(c *gin.Context) i18n.Locale {
 	return localeOf(c)
 }
 
-// localeOf 从 gin 上下文解析请求语言（由 LocaleMiddleware 注入，缺省回退中文）。
-// 业务层据此把返回的提示/消息本地化为对应语言。
 func localeOf(c *gin.Context) i18n.Locale {
 	if c != nil {
 		if v, ok := c.Get("locale"); ok {
@@ -40,9 +38,9 @@ func localeOf(c *gin.Context) i18n.Locale {
 
 // Response 统一响应结构
 type Response struct {
-	Code    any    `json:"code"`           
-	Message string `json:"message"`        
-	Data    any    `json:"data,omitempty"` 
+	Code    any    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
 }
 
 // Success 成功响应
@@ -175,7 +173,6 @@ func ErrorFromDB(c *gin.Context, err error, fallbackMsg string, data ...any) {
 	Error(c, http.StatusInternalServerError, fallbackMsg, data...)
 }
 
-// errorCodeFromHTTPCode 根据 HTTP 状态码返回错误码
 func errorCodeFromHTTPCode(code int) utils.ErrorCode {
 	switch code {
 	case http.StatusBadRequest:
@@ -343,4 +340,3 @@ func BindQuery(c *gin.Context, obj any) bool {
 	}
 	return true
 }
-

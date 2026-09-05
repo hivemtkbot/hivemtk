@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupAgentTestDB 设置测试数据库
 func setupAgentTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.AIAgent{},
@@ -26,7 +25,6 @@ func setupAgentTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// makeAgent 构造测试智能体
 func makeAgent(code, name, agentType string) *model.AIAgent {
 	return &model.AIAgent{
 		AgentCode:           code,
@@ -544,7 +542,6 @@ func TestCSAgentMount_CreateByUserID(t *testing.T) {
 		t.Error("AgentStatusID 不应为 0")
 	}
 
-	// 验证 AgentStatus 已创建
 	var st model.AgentStatus
 	_ = db.GetDB().Where("agent_id = ?", 700).First(&st)
 	if st.ID == 0 {

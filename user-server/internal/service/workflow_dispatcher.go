@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/tracing"
 	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
-	"hivemtk-user/internal/pkg/tracing"
 	"hivemtk-user/internal/repository"
 )
 
@@ -108,7 +108,7 @@ func (d *WorkflowDispatcher) Stop(ctx context.Context) {
 // Run 异步触发执行，立即返回
 func (d *WorkflowDispatcher) Run(ctx context.Context, executionID uint, traceID string) {
 	d.wg.Add(1)
-	// 最高标准审计 P1-3 修复：workflow 执行改走 SafeGo
+
 	utils.SafeGo(ctx, "workflow_dispatcher.run", func(ctx context.Context) {
 		defer d.wg.Done()
 		d.runExecution(ctx, executionID, traceID)
@@ -150,8 +150,6 @@ func (d *WorkflowDispatcher) runExecution(ctx context.Context, executionID uint,
 		return
 	}
 
-	// v3 审计：DAG 定义可能被误配成环（A→B→A），无步数上限会永久空转
-	// 消耗 DB 轮询与 CPU。上限取 1000 步（远超合理工作流长度）。
 	const maxWorkflowSteps = 1000
 	steps := 0
 
@@ -235,8 +233,7 @@ func (d *WorkflowDispatcher) executeNode(
 		StartedAt:   wfTimePtr(time.Now()),
 	}
 	if err := d.nodeExecRepo.Create(ctx, nodeExec); err != nil {
-		// v3 审计 P2：原 return "","",false 会被调用方判为 completed（空 nextNodeID），
-		// 节点未执行却标记执行成功。改为终态失败并经 retryScheduled 通道退出循环。
+
 		logger.Ctx(ctx).Error().Err(err).Msg("create node execution record failed")
 		d.failExecution(ctx, exec, fmt.Sprintf("create node execution failed: %v", err))
 		return "", false, true
@@ -300,8 +297,7 @@ func (d *WorkflowDispatcher) executeNode(
 	case NodeStatusCompleted, NodeStatusSkipped:
 		return result.NextNodeID, false, false
 	case NodeStatusWaiting:
-		// v3 审计 P2：等待态原被误标 completed。置 execution 为 waiting 并退出循环，
-		// 由外部唤醒机制重新调度（retryScheduled=true 仅表示"本轮结束，勿写完成态"）
+
 		if err := d.execRepo.UpdateFields(ctx, exec.ID, map[string]any{
 			"status":     model.WorkflowExecWaiting,
 			"updated_at": time.Now(),
@@ -332,8 +328,6 @@ func (d *WorkflowDispatcher) mapNodeStatus(s string) string {
 	}
 }
 
-// handleNodeFailure 处理节点失败的重试 / 终结流程
-// 返回 true 表示已调度重试（外层应退出循环）。
 func (d *WorkflowDispatcher) handleNodeFailure(
 	ctx context.Context,
 	exec *model.WorkflowExecution,
@@ -366,7 +360,7 @@ func (d *WorkflowDispatcher) handleNodeFailure(
 		})
 
 		d.wg.Add(1)
-		// 最高标准审计 P1-3 修复：节点重试调度改走 SafeGo
+
 		utils.SafeGo(nil, "workflow_dispatcher.retry", func(_ context.Context) {
 			defer d.wg.Done()
 			select {

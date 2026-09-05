@@ -29,7 +29,6 @@ func setupSystemOpsRouter(ctrl *SystemOpsController) *gin.Engine {
 	return router
 }
 
-// initSystemOpsTestDB 初始化测试数据库
 func initSystemOpsTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.Backup{},
@@ -154,7 +153,6 @@ func TestSystemOpsController_GetSystemStats_NeedsDB(t *testing.T) {
 	router.ServeHTTP(w, req)
 }
 
-
 func TestResolveLogPath_RejectTraversal(t *testing.T) {
 	cases := []string{
 		"/etc/passwd",
@@ -227,4 +225,3 @@ func TestGetSystemLogs_RejectTraversal(t *testing.T) {
 		}
 	}
 }
-

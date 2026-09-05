@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -175,6 +174,4 @@ func (m *HP1Migration) Down(ctx context.Context) error {
 	return execAllMP1(ctx, m.db, stmts)
 }
 
-// 编译期接口断言
 var _ migration.Migration = (*HP1Migration)(nil)
-

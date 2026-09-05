@@ -30,14 +30,14 @@ func TestPlanSend_TypingSpeedVariance(t *testing.T) {
 // 犹豫停顿：概率触发时片段间隔显著大于基础间隔
 func TestPlanSend_HesitationPauseInjected(t *testing.T) {
 	base := DefaultBehaviorConfig()
-	base.HesitationProb = 0 // 对照组：无犹豫
-	// >80 字符且含强标点，确保触发分条
+	base.HesitationProb = 0
+
 	text := "好的呢。这个确实值得考虑。我给您详细介绍下产品细节。另外还有配套的售后服务。我们这款产品的核心优势在于品质稳定。很多老客户用了之后都反馈非常好。现在下单还有优惠活动。您看什么时候方便我给您详细说明一下呢。"
 
 	noHesit := PlanSend(text, base, false, rand.New(rand.NewSource(7)))
 
 	hesi := base
-	hesi.HesitationProb = 1.0 // 必然触发
+	hesi.HesitationProb = 1.0
 	withHesit := PlanSend(text, hesi, false, rand.New(rand.NewSource(7)))
 
 	if len(withHesit.Intervals) == 0 || len(noHesit.Intervals) == 0 {
@@ -66,7 +66,7 @@ func TestPlanSend_ZeroVarianceBackwardCompatible(t *testing.T) {
 		TypingSpeedJitter:   0,
 		HesitationProb:      0,
 	}
-	p1 := PlanSend("短消息", cfg, true, rand.New(rand.NewSource(42))) // 首条无思考停顿
+	p1 := PlanSend("短消息", cfg, true, rand.New(rand.NewSource(42)))
 	p2 := PlanSend("短消息", cfg, true, rand.New(rand.NewSource(99)))
 	if p1.TotalDelay != p2.TotalDelay {
 		t.Fatalf("零方差下延迟应确定: %.4f vs %.4f", p1.TotalDelay, p2.TotalDelay)

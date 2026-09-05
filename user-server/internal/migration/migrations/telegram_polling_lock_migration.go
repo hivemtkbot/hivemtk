@@ -80,6 +80,4 @@ func (m *TelegramPollingLockMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// 编译期接口断言
 var _ migration.Migration = (*TelegramPollingLockMigration)(nil)
-

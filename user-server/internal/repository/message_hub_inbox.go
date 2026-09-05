@@ -75,9 +75,6 @@ func (r *MessageHubRepository) CreateWithInboxTx(
 		return r.Create(ctx, hub)
 	}
 
-	// 幂等预检查：已落库的消息直接返回，避免并发竞态下事务内 INSERT 触发
-	// duplicate key → PostgreSQL 将事务置为 aborted 状态 → commit 阶段报
-	// "commit unexpectedly resulted in rollback"（即使代码 return nil 也救不回来）。
 	if hub.MsgID != "" {
 		var existing model.MessageHub
 		if err := r.db.WithContext(ctx).Where("msg_id = ?", hub.MsgID).First(&existing).Error; err == nil {
@@ -282,7 +279,7 @@ func (r *MessageHubRepository) UpdateDeliveryStatus(ctx context.Context, platfor
 	if err != nil {
 		return err
 	}
-	// 终态守卫：send_failed 是终态，后续回执（乱序 sent/delivered/read）不再回翻
+
 	if row.Status == "send_failed" && status != "failed" {
 		return nil
 	}
@@ -299,13 +296,12 @@ func (r *MessageHubRepository) UpdateDeliveryStatus(ctx context.Context, platfor
 	case "sent", "delivered":
 		updates["status"] = status
 	default:
-		return nil // 未知状态（含 deleted——非 Meta 标准回执）忽略，不盲目写入
+		return nil
 	}
 	return r.db.WithContext(ctx).Model(&model.MessageHub{}).
 		Where("id = ?", row.ID).Updates(updates).Error
 }
 
-// mergeHubExtra 合并 Extra JSON（保留既有键，新键覆盖）。
 func mergeHubExtra(existing model.JSONMap, patch map[string]any) model.JSONMap {
 	out := model.JSONMap{}
 	for k, v := range existing {
@@ -479,8 +475,7 @@ func (r *InboxConversationRepository) Create(ctx context.Context, conv *model.In
 
 // UpdateLastMessage 更新最后消息字段（含 unread_count 自增）
 func (r *InboxConversationRepository) UpdateLastMessage(ctx context.Context, id uint, lastMessage string, lastMessageAt time.Time, unreadInc int) error {
-	// inbox_conversations 表的真实列名是 last_message_preview（varchar(500)）。
-	// 早期代码错用 last_message，每次都报 SQLSTATE 42703。这里同时截断到 500 字符以匹配列宽。
+
 	const previewMaxLen = 500
 	if len(lastMessage) > previewMaxLen {
 		lastMessage = lastMessage[:previewMaxLen]
@@ -642,9 +637,6 @@ func (r *InboxConversationRepository) DeleteOrphanInboxByConversation(ctx contex
 	return res.RowsAffected, res.Error
 }
 
-// sanitizeUTF8 将字符串中的非法 UTF-8 字节序列替换为 Unicode 替换符（U+FFFD），
-// 避免将损坏内容写入 Postgres（utf8 编码）时报 "invalid byte sequence" 错误。
-// 这是防御性清洗：桥接/历史消息可能携带截断的多字节序列（如 0xe8 0x81）。
 func sanitizeUTF8(s string) string {
 	if s == "" {
 		return s
@@ -704,7 +696,6 @@ func (r *InboxConversationRepository) ListByQuery(ctx context.Context, q InboxCo
 		return nil, 0, err
 	}
 
-	// 默认置顶优先（收件箱标准语义），其余按 id 倒序；显式OrderBy仍可覆盖
 	orderBy := "pinned DESC, id DESC"
 	switch q.OrderBy {
 	case "pinned_first":
@@ -731,9 +722,6 @@ func (r *InboxConversationRepository) ListByQuery(ctx context.Context, q InboxCo
 	return list, total, nil
 }
 
-// attachLatestMessages 用关联查询（DISTINCT ON conversation_id）读取每个会话的最新一条 message_hub 消息，
-// 覆盖收件箱会话上的 last_message_* 冗余字段，避免与消息表不一致。
-// 注意：仅覆盖有对应 message_hub 记录的会话；无消息记录的会话保留原字段。
 func (r *InboxConversationRepository) attachLatestMessages(ctx context.Context, list []*model.InboxConversation) {
 	if len(list) == 0 {
 		return
@@ -792,8 +780,6 @@ func (r *InboxConversationRepository) attachLatestMessages(ctx context.Context, 
 	r.attachSessionMessageFallback(ctx, list)
 }
 
-// attachSessionMessageFallback 对仍无 last_message_preview 的会话，从 session_messages
-// 读取其最新一条消息内容补全预览（截断到 200 字符）。
 func (r *InboxConversationRepository) attachSessionMessageFallback(ctx context.Context, list []*model.InboxConversation) {
 	missing := make([]*model.InboxConversation, 0, len(list))
 	for _, c := range list {
@@ -1012,7 +998,6 @@ func (r *InboxConversationRepository) AssignTx(ctx context.Context, in AssignTxI
 			}
 		}
 
-		// 先清掉需要置 NULL 的字段（硬编码 SET NULL，绕开 GORM map nil/参数绑定歧义）
 		switch in.Action {
 		case "release":
 			if err := tx.Model(&model.InboxConversation{}).
@@ -1224,7 +1209,6 @@ func (r *InboxAssignmentRepository) GroupCountByToUserID(ctx context.Context, ca
 	return counts, nil
 }
 
-// inferFromType 根据 assigned_to / assigned_to_sop 推断来源类型
 func inferFromType(assignedTo string, assignedSOP uint) string {
 	if assignedSOP > 0 {
 		return "sop"
@@ -1235,7 +1219,6 @@ func inferFromType(assignedTo string, assignedSOP uint) string {
 	return "system"
 }
 
-// firstNonEmpty 返回第一个非空字符串（trim 后非空）
 func firstNonEmpty(a, b string) string {
 	if strings.TrimSpace(a) != "" {
 		return a

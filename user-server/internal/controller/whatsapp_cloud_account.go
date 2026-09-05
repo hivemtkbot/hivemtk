@@ -50,7 +50,6 @@ func (ctrl *WhatsAppCloudAccountController) RegisterRoutes(router *gin.RouterGro
 	}
 }
 
-// whatsAppCloudAccountVO 列表/详情返回视图（敏感字段掩码）
 type whatsAppCloudAccountVO struct {
 	ID                 uint       `json:"id"`
 	AccountName        string     `json:"account_name"`
@@ -115,13 +114,12 @@ func (ctrl *WhatsAppCloudAccountController) Get(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
-	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) {
 		return
 	}
 	response.Success(c, toWhatsAppCloudVO(acc), "查询成功")
 }
 
-// whatsAppCloudCreateReq 创建请求
 type whatsAppCloudCreateReq struct {
 	AccountName        string `json:"account_name" binding:"required"`
 	PhoneNumberID      string `json:"phone_number_id" binding:"required"`
@@ -150,7 +148,7 @@ func (ctrl *WhatsAppCloudAccountController) Create(c *gin.Context) {
 		WebhookEnabled:     req.WebhookEnabled,
 		AIAgentEnabled:     req.AIAgentEnabled,
 		Status:             1,
-		OwnerUserID:        currentStaffUserID(c), // P1-5：归属当前登录 staff
+		OwnerUserID:        currentStaffUserID(c),
 	}
 	out, err := ctrl.svc.CreateAccount(context.Background(), acc)
 	if err != nil {
@@ -160,7 +158,6 @@ func (ctrl *WhatsAppCloudAccountController) Create(c *gin.Context) {
 	response.Success(c, toWhatsAppCloudVO(out), "创建成功")
 }
 
-// whatsAppCloudUpdateReq 更新请求
 type whatsAppCloudUpdateReq struct {
 	AccountName    *string `json:"account_name"`
 	AccessToken    *string `json:"access_token"`
@@ -188,7 +185,7 @@ func (ctrl *WhatsAppCloudAccountController) Update(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
-	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) {
 		return
 	}
 	if req.AccountName != nil {
@@ -231,7 +228,7 @@ func (ctrl *WhatsAppCloudAccountController) Delete(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
-	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) {
 		return
 	}
 	if err := ctrl.svc.DeleteAccount(context.Background(), uint(id)); err != nil {
@@ -241,7 +238,6 @@ func (ctrl *WhatsAppCloudAccountController) Delete(c *gin.Context) {
 	response.Success(c, nil, "删除成功")
 }
 
-// whatsAppCloudTestSendReq 测试发送请求
 type whatsAppCloudTestSendReq struct {
 	ToPhone string `json:"to_phone" binding:"required"`
 	Content string `json:"content" binding:"required"`
@@ -259,7 +255,7 @@ func (ctrl *WhatsAppCloudAccountController) TestSend(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", accErr.Error())
 		return
 	}
-	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) {
 		return
 	}
 	var req whatsAppCloudTestSendReq
@@ -276,6 +272,3 @@ func (ctrl *WhatsAppCloudAccountController) TestSend(c *gin.Context) {
 	}
 	response.Success(c, nil, "发送成功")
 }
-
-
-

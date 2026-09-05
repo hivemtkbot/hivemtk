@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupIntegrationServiceTestDB 设置测试数据库
 func setupIntegrationServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.IntegrationAccount{},
@@ -26,7 +25,6 @@ func setupIntegrationServiceTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupIntegrationService 设置测试服务
 func setupIntegrationService(t *testing.T) *IntegrationService {
 	setupIntegrationServiceTestDB(t)
 	return NewIntegrationService()
@@ -284,7 +282,6 @@ func TestIntegrationService_DeleteIntegrationAccount_SingleTenant(t *testing.T) 
 		t.Fatalf("DeleteIntegrationAccount should succeed in single-tenant mode, got: %v", err)
 	}
 
-	// 验证已删除
 	var count int64
 	db.GetDB().Model(&model.IntegrationAccount{}).Where("id = ?", account.ID).Count(&count)
 	if count != 0 {

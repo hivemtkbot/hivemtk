@@ -1,6 +1,5 @@
 package controller
 
-
 import (
 	"net/http"
 	"strconv"
@@ -80,4 +79,3 @@ func (ctrl *RoleController) ListMembers(c *gin.Context) {
 	}
 	response.SuccessWithPage(c, members, int64(page), int64(size), total)
 }
-

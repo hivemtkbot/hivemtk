@@ -12,7 +12,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-
 // NewReachToolDepsWithAdapter 创建触达工具依赖（带真实 Adapter，打通全部业务渠道）。
 //
 // SendPipeline 的 ChannelAdapter 桥接【真实 adapter】，确保 reach.web.send 等工具
@@ -30,11 +29,6 @@ func NewReachToolDepsWithAdapter(db *gorm.DB, adapter tooluse.ReachAdapter) tool
 	}
 }
 
-// newReachSendPipeline 构造 9 步 SendPipeline（带限流）并桥接 tooluse.ReachAdapter。
-// R-4 装配：启用全渠道 quiet hours 守卫（22:00-8:00 CST），命中消息进全局延迟队列
-// （进程内 MemoryQuietHoursQueue，惰性单例；Start 幂等，重复装配不叠加 goroutine）。
-// 测试逃生开关：REACH_DISABLE_QUIET_HOURS=true 时禁用守卫（对齐 SMS_ALLOW_NIGHT_SEND 先例），
-// 否则夜间（22:00-8:00 CST）跑集成测试所有发送会被 defer 导致断言失败。
 func newReachSendPipeline(adapter tooluse.ReachAdapter) tooluse.ReachSendPipelinePort {
 	cfg := service.NewDefaultRateLimitedPipelineConfig(&reachChannelAdapterBridge{adapter: adapter})
 	if os.Getenv("REACH_DISABLE_QUIET_HOURS") != "true" {
@@ -49,7 +43,6 @@ func newReachSendPipeline(adapter tooluse.ReachAdapter) tooluse.ReachSendPipelin
 	return &reachSendPipelineAdapter{sp: sp}
 }
 
-// reachSendPipelineAdapter service.SendPipeline → tooluse.ReachSendPipelinePort
 type reachSendPipelineAdapter struct {
 	sp service.SendPipeline
 }
@@ -59,7 +52,6 @@ func (a *reachSendPipelineAdapter) Send(ctx context.Context, req *tooluse.ReachS
 	return fromServiceSendResponse(resp)
 }
 
-// reachBatchPipelineAdapter *service.ReachPipelineService → tooluse.ReachBatchPipelinePort
 type reachBatchPipelineAdapter struct {
 	svc *service.ReachPipelineService
 }
@@ -80,7 +72,6 @@ func (a *reachBatchPipelineAdapter) EnqueueJob(ctx context.Context, req *tooluse
 	return tooluse.ReachJobView{ID: job.ID, State: job.State}, nil
 }
 
-// ListJobs 返回可直接 JSON 序列化的任务快照列表（保持工具输出形状与旧实现一致）
 func (a *reachBatchPipelineAdapter) ListJobs(ctx context.Context, channel, state string, page, pageSize int) ([]any, int64, error) {
 	jobs, total, err := a.svc.ListJobs(ctx, channel, state, page, pageSize)
 	if err != nil {
@@ -101,13 +92,10 @@ func (a *reachBatchPipelineAdapter) ListJobs(ctx context.Context, channel, state
 	return out, total, nil
 }
 
-// reachChannelAdapterBridge 把 tooluse.ReachAdapter 桥接为 service.ChannelAdapter
-// 根据 req.Channel 分发到对应的 ReachAdapter 方法
 type reachChannelAdapterBridge struct {
 	adapter tooluse.ReachAdapter
 }
 
-// Send 实现 service.ChannelAdapter
 func (b *reachChannelAdapterBridge) Send(ctx context.Context, req *service.ReachSendRequest) (string, error) {
 	if b.adapter == nil {
 		return "", service.ErrSendChannelNotConfig
@@ -154,7 +142,6 @@ func (b *reachChannelAdapterBridge) Send(ctx context.Context, req *service.Reach
 	}
 }
 
-// toServiceReachRequest tooluse 镜像 DTO → service DTO
 func toServiceReachRequest(req *tooluse.ReachSendRequest) *service.ReachSendRequest {
 	if req == nil {
 		return nil
@@ -185,7 +172,6 @@ func toServiceReachRequest(req *tooluse.ReachSendRequest) *service.ReachSendRequ
 	return out
 }
 
-// fromServiceSendResponse service 发送结果 → tooluse 镜像 DTO
 func fromServiceSendResponse(resp *service.SendResponse) *tooluse.ReachSendResponse {
 	if resp == nil {
 		return nil
@@ -219,4 +205,3 @@ func fromServiceSendResponse(resp *service.SendResponse) *tooluse.ReachSendRespo
 	}
 	return out
 }
-

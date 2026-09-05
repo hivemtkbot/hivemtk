@@ -1,6 +1,5 @@
 package model
 
-
 import "time"
 
 // ConfidenceSignal 5 维置信度信号快照（对应 confidence_signals 表）
@@ -134,7 +133,7 @@ func (ABTest) TableName() string { return "ab_tests" }
 type ABTestMetric struct {
 	ID         int64     `gorm:"primaryKey;autoIncrement" json:"id"`
 	TestID     string    `gorm:"column:test_id;size:64;not null;index:idx_abm_test,priority:1" json:"test_id"`
-	Group      string    `gorm:"column:group_name;size:16;not null;index:idx_abm_test,priority:2" json:"group_name"` 
+	Group      string    `gorm:"column:group_name;size:16;not null;index:idx_abm_test,priority:2" json:"group_name"`
 	MetricName string    `gorm:"column:metric_name;size:64;not null;index:idx_abm_test,priority:3" json:"metric_name"`
 	Value      float64   `gorm:"column:value;type:decimal(15,6);not null" json:"value"`
 	CreatedAt  time.Time `gorm:"column:created_at;not null;default:now();index:idx_abm_test,priority:4" json:"created_at"`
@@ -142,4 +141,3 @@ type ABTestMetric struct {
 
 // TableName 表名
 func (ABTestMetric) TableName() string { return "ab_test_metrics" }
-

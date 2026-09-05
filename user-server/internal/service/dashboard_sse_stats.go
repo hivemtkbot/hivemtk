@@ -82,7 +82,6 @@ type MessageVolumePoint struct {
 	Source string `json:"source"`
 }
 
-// summary 汇总可接受的最大陈旧度（X-8：summary 陈旧 >10min 回源原生 SQL）
 const summaryStaleThreshold = 10 * time.Minute
 
 const (
@@ -104,7 +103,6 @@ type DashboardStatsService interface {
 	CollectMessageVolume(ctx context.Context, windowHours int) []MessageVolumePoint
 }
 
-// dashboardStatsService 默认实现
 type dashboardStatsService struct {
 	repo repository.DashboardStatsRepository
 }
@@ -117,12 +115,10 @@ func NewDashboardStatsService(db *gorm.DB) DashboardStatsService {
 	return &dashboardStatsService{repo: repository.NewDashboardStatsRepository(db)}
 }
 
-// Available 表示底层 db 是否可用
 func (s *dashboardStatsService) Available(ctx context.Context) bool {
 	return s.repo != nil && s.repo.Available(ctx)
 }
 
-// CollectSessionStats 采集会话统计
 func (s *dashboardStatsService) CollectSessionStats(ctx context.Context, snap *DashboardSnapshot) {
 	if s.repo == nil {
 		return
@@ -152,7 +148,6 @@ func (s *dashboardStatsService) CollectSessionStats(ctx context.Context, snap *D
 	snap.InFlightReplies = snap.AISessions
 }
 
-// CollectHumanizeDistribution 采集拟人度分布（最近 1h）
 func (s *dashboardStatsService) CollectHumanizeDistribution(ctx context.Context) HumanizeDistribution {
 	dist := HumanizeDistribution{WindowHours: 1}
 	if s.repo == nil {
@@ -177,10 +172,6 @@ func (s *dashboardStatsService) CollectHumanizeDistribution(ctx context.Context)
 	return dist
 }
 
-// CollectFunnel 采集转化漏斗（基于 customer_sessions 的 customer_id 在客户旅程中的阶段）
-//
-// 数据源：customer_sessions 中 customer_id 在 customer_journey 表的阶段分布
-// 失败时返回基于 session 状态的简化漏斗
 func (s *dashboardStatsService) CollectFunnel(ctx context.Context) *FunnelProgress {
 	funnel := &FunnelProgress{
 		Stages: []FunnelStage{},
@@ -244,7 +235,6 @@ func (s *dashboardStatsService) CollectFunnel(ctx context.Context) *FunnelProgre
 	return funnel
 }
 
-// collectFunnelFromSessions 兜底：基于 customer_sessions 状态聚合
 func (s *dashboardStatsService) collectFunnelFromSessions(ctx context.Context) *FunnelProgress {
 	funnel := &FunnelProgress{
 		Stages: []FunnelStage{},
@@ -300,18 +290,12 @@ func (s *dashboardStatsService) collectFunnelFromSessions(ctx context.Context) *
 	return funnel
 }
 
-// CollectMessageVolume 采集消息量指标（X-8 双读策略）：
-//
-// 主路径：读 msg_hourly_summary（D-3 watermark 增量汇总表，容忍分钟级陈旧）；
-// 兜底：summary 为空、查询失败或最新 bucket 陈旧 > 10min 时，回源 message_hub
-// 原生 SQL 聚合（原生聚合保留作为实时兜底）。返回行携带 source 标记来源。
 func (s *dashboardStatsService) CollectMessageVolume(ctx context.Context, windowHours int) []MessageVolumePoint {
 	if s.repo == nil || windowHours <= 0 {
 		return []MessageVolumePoint{}
 	}
 	since := time.Now().Add(-time.Duration(windowHours) * time.Hour)
 
-	// 主路径：summary 表 + 陈旧判定
 	if rows, err := s.repo.QueryMessageVolumeFromSummary(ctx, since); err == nil {
 		stale := true
 		if latest, lerr := s.repo.LatestSummaryBucket(ctx); lerr == nil && latest != nil {
@@ -339,7 +323,6 @@ func (s *dashboardStatsService) CollectMessageVolume(ctx context.Context, window
 		logger.Ctx(ctx).Warn().Err(err).Msg("dashboard_sse: summary query failed, falling back to raw aggregation (X-8)")
 	}
 
-	// 兜底：message_hub 原生 SQL 聚合
 	rawRows, err := s.repo.QueryMessageVolumeRaw(ctx, since)
 	if err != nil {
 		logger.Ctx(ctx).Warn().Err(err).Msg("dashboard_sse: raw volume query failed")
@@ -360,7 +343,6 @@ func (s *dashboardStatsService) CollectMessageVolume(ctx context.Context, window
 	return points
 }
 
-// roundToFloat 浮点保留 n 位小数
 func roundToFloat(v float64, n int) float64 {
 	if math.IsNaN(v) || math.IsInf(v, 0) {
 		return 0

@@ -19,7 +19,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupTestDouyinCardService 设置测试服务
 func setupTestDouyinCardService(t *testing.T) (service.DouyinCardService, *gorm.DB) {
 	database := testutil.NewTestDB(t,
 		&model.DouyinCard{},
@@ -380,7 +379,6 @@ func TestParseIDWithValidation(t *testing.T) {
 	}
 }
 
-// 辅助函数
 func createReqToJSON(t *testing.T, req any) *strings.Reader {
 	t.Helper()
 	data, err := json.Marshal(req)
@@ -389,4 +387,3 @@ func createReqToJSON(t *testing.T, req any) *strings.Reader {
 	}
 	return strings.NewReader(string(data))
 }
-

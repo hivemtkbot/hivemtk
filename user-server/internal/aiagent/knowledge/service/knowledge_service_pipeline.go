@@ -22,14 +22,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// processDocumentAsync 异步处理文档
-//
-// 流程：mark processing → 文本提取 → 分片 → 写分段表 → 向量化 → 持久化向量
-//
-//	→ 入内存索引（生产 s.indexer==nil 跳过）→ mark indexed。
-//
-// 任何步骤失败通过 markFailed 写入 document.error_msg 并终止，
-// panic 通过 defer recover 兜底确保文档不会永久 pending。
 func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentID uint64, productID string, filePath, fileName, content, mimeType, title string, source model.SourceType, docMeta map[string]any) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -134,7 +126,7 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 		s.markFailed(bgCtx, documentID, fmt.Sprintf("向量化失败: %v", err))
 		return
 	}
-	// N-4 维度守卫：preset 不符条目剔除（log+跳过），不中断批量写入
+
 	chunkModels, embeddings = filterValidEmbeddings(embService, embCfg, chunkModels, embeddings)
 	if err := s.docRepo.UpdateStatus(bgCtx, documentID, model.EmbedStatusProcessing, 80, ""); err != nil {
 		logger.Errorf("[knowledge] 更新进度失败: %v", err)
@@ -145,9 +137,6 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 		return
 	}
 
-	// R-3 Contextual Retrieval（入库期 chunk 上下文前缀，非 HyDE）：
-	// LLM 为每个 chunk 生成语境摘要写入 contextual_context 并重新 embedding，
-	// 使 BM25 的 contextual_tsv 与向量检索同时受益。失败不阻断入库主流程。
 	if contextualEnhanceEnabled() {
 		s.enhanceDocumentContextual(bgCtx, documentID)
 	}
@@ -179,7 +168,7 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 	docCount, _ := s.docRepo.CountByProduct(bgCtx, productID)
 	chunkCount, _ := s.chunkRepo.CountByProductID(bgCtx, productID)
 	now := time.Now()
-	// 反查 UUID
+
 	var productUUID string
 	if s.ragRepo != nil {
 		if prod, _ := s.ragRepo.FindRagProductByIDOnly(bgCtx, productID); prod != nil {
@@ -191,7 +180,6 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 	}
 }
 
-// markFailed 标记文档为失败状态
 func (s *KnowledgeService) markFailed(ctx context.Context, documentID uint64, errMsg string) {
 	if err := s.docRepo.UpdateStatus(ctx, documentID, model.EmbedStatusFailed, 0, errMsg); err != nil {
 		logger.Errorf("[knowledge] 标记失败状态错误: %v", err)

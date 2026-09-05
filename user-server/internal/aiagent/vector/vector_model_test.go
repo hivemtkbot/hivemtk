@@ -56,7 +56,7 @@ func TestInMemoryVectorStore_AddVectors_WrongDimension(t *testing.T) {
 	store := NewInMemoryVectorStore(3)
 
 	vectors := [][]float32{
-		{1.0, 0.0}, 
+		{1.0, 0.0},
 	}
 	metadatas := []map[string]any{
 		{"id": "1"},
@@ -100,7 +100,7 @@ func TestInMemoryVectorStore_Search(t *testing.T) {
 func TestInMemoryVectorStore_Search_WrongDimension(t *testing.T) {
 	store := NewInMemoryVectorStore(3)
 
-	queryVector := []float32{1.0, 0.0} 
+	queryVector := []float32{1.0, 0.0}
 	_, err := store.Search(queryVector, 5)
 	if err == nil {
 		t.Error("Expected error for wrong dimension")
@@ -321,7 +321,7 @@ func TestVectorProcessor_ProcessAndStore_MismatchedLength(t *testing.T) {
 	texts := []string{"test1", "test2"}
 	metadatas := []map[string]any{
 		{"id": "1"},
-	} 
+	}
 
 	err := processor.ProcessAndStore(ctx, texts, metadatas)
 	if err == nil {
@@ -457,7 +457,7 @@ func TestVectorProcessor_ProcessAndStore_EmbedBatchError(t *testing.T) {
 
 // TestVectorProcessor_ProcessAndStore_AddVectorsError tests ProcessAndStore when AddVectors fails
 func TestVectorProcessor_ProcessAndStore_AddVectorsError(t *testing.T) {
-	v := NewHashVectorizer(3) 
+	v := NewHashVectorizer(3)
 	store := NewInMemoryVectorStore(3)
 	processor := NewVectorProcessor(v, store)
 
@@ -567,9 +567,9 @@ func TestInMemoryVectorStore_Search_SortingVerification(t *testing.T) {
 	store := NewInMemoryVectorStore(3)
 
 	vectors := [][]float32{
-		{0, 1, 0}, 
-		{0, 0, 1}, 
-		{1, 0, 0}, 
+		{0, 1, 0},
+		{0, 0, 1},
+		{1, 0, 0},
 	}
 	metadatas := []map[string]any{
 		{"id": "v1"},
@@ -676,4 +676,3 @@ func TestVectorProcessor_Search_MockStoreError(t *testing.T) {
 		t.Errorf("Expected 'failed to search' error, got %v", err)
 	}
 }
-

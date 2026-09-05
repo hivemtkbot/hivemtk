@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/websocket"
 )
 
-
 // TestReachWebSend_RealEndToEnd 真实打通网页客服渠道
 func TestReachWebSend_RealEndToEnd(t *testing.T) {
 	db := testutil.NewTestDB(t,
@@ -59,7 +58,6 @@ func TestReachWebSend_RealEndToEnd(t *testing.T) {
 	}
 	t.Logf("✅ SendWeb 真实返回 msgID=%s", msgID)
 
-	// ---- 4. 断言 DB 真实落库 ----
 	var dbMsg model.SessionMessage
 	if qErr := db.Where("session_id = ? AND content = ?", sessionID, pushContent).
 		First(&dbMsg).Error; qErr != nil {
@@ -73,7 +71,6 @@ func TestReachWebSend_RealEndToEnd(t *testing.T) {
 	}
 	t.Logf("✅ 消息真实落库 session_messages(id=%d, sender=%s)", dbMsg.ID, dbMsg.SenderName)
 
-	// 会话最后消息应被更新
 	var updated model.CustomerSession
 	if qErr := db.Where("session_id = ?", sessionID).First(&updated).Error; qErr != nil {
 		t.Fatalf("查询会话失败：%v", qErr)
@@ -115,4 +112,3 @@ func TestReachWebSend_RealEndToEnd(t *testing.T) {
 	}
 	t.Logf("✅ 会话不存在真实返回错误：%v", errNotFound)
 }
-

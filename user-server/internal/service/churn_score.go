@@ -1,12 +1,5 @@
 package service
 
-// ===== P-8 流失评分 =====
-//
-// 决策依据 M17 P-8：
-//   - 加权线性评分：40*RFM + 25*消息斜率 + 20*负面情绪占比 + 15*回复延迟延长（满分 100）
-//   - 三档分级：<40 healthy / 40-70 watch / >70 high_risk
-//   - 纯函数：无状态无 IO，now 无需注入
-
 // 分档常量
 const (
 	ChurnBandHealthy  = "healthy"
@@ -26,7 +19,6 @@ type ChurnInput struct {
 	ReplyDelayProlong float64
 }
 
-// churnClamp01 截断到 [0,1]
 func churnClamp01(v float64) float64 {
 	if v < 0 {
 		return 0

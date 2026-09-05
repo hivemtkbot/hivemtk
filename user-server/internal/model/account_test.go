@@ -14,17 +14,17 @@ func TestAccount_TableName(t *testing.T) {
 
 func TestAccount_BasicFields(t *testing.T) {
 	account := &Account{
-		TgName:              "testbot",
-		TgBotToken:          "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
-		GroupID:             123456789,
-		Price:               "99.00",
-		ProxyEnableProxy:    true,
-		ProxyProtoclo:       "https",
-		ProxyHost:           "proxy.example.com",
-		ProxyPort:           8080,
-		Status:              1,
-		Msg:                 "test message",
-		URL:                 "https://example.com",
+		TgName:           "testbot",
+		TgBotToken:       "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
+		GroupID:          123456789,
+		Price:            "99.00",
+		ProxyEnableProxy: true,
+		ProxyProtoclo:    "https",
+		ProxyHost:        "proxy.example.com",
+		ProxyPort:        8080,
+		Status:           1,
+		Msg:              "test message",
+		URL:              "https://example.com",
 	}
 
 	if account.TgName != "testbot" {
@@ -63,7 +63,7 @@ func TestAccount_DefaultProxyValues(t *testing.T) {
 
 func TestAccount_Status(t *testing.T) {
 	account := &Account{
-		Status: 1, 
+		Status: 1,
 	}
 
 	if account.Status != 1 {
@@ -120,4 +120,3 @@ func TestAccount_BeforeCreate(t *testing.T) {
 		t.Errorf("Expected ID length 36 (UUID), got %d", len(account.ID))
 	}
 }
-

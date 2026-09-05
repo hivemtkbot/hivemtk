@@ -16,7 +16,7 @@ import (
 // 实时计算首响/解决 SLA 达标率、违规检测、看板聚合。
 type SLAService struct {
 	mu         sync.RWMutex
-	policies   map[uint]*model.SLAPolicy // id -> policy
+	policies   map[uint]*model.SLAPolicy
 	ticker     *time.Ticker
 	violations chan *model.SLAViolation
 	stopCh     chan struct{}
@@ -61,7 +61,7 @@ func (s *SLAService) Start(ctx context.Context) {
 			case <-s.stopCh:
 				return
 			case <-s.ticker.C:
-				// 触发 SLA 检测（实际从 DB 拉取会话 + 检查）
+
 				_ = s.checkAll(ctx)
 			}
 		}
@@ -75,7 +75,6 @@ func (s *SLAService) Stop() {
 	close(s.stopCh)
 }
 
-// checkAll 检查所有活跃会话（DB 聚合：open 状态 + policy.WarnThreshold 触发 violation）
 func (s *SLAService) checkAll(ctx context.Context) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -93,7 +92,7 @@ func (s *SLAService) checkAll(ctx context.Context) error {
 			continue
 		}
 		if pendingCount > 0 && policy.WarnThreshold > 0 {
-			// 触发 warning violation
+
 		}
 	}
 	return nil
@@ -106,7 +105,7 @@ type SLAStats struct {
 	TotalSessions       int     `json:"total_sessions"`
 	FirstResponseMet    int     `json:"first_response_met"`
 	ResolutionMet       int     `json:"resolution_met"`
-	FirstResponseRate   float64 `json:"first_response_rate"` // 0-100
+	FirstResponseRate   float64 `json:"first_response_rate"`
 	ResolutionRate      float64 `json:"resolution_rate"`
 	AvgFirstResponseSec int     `json:"avg_first_response_sec"`
 	AvgResolutionSec    int     `json:"avg_resolution_sec"`
@@ -170,8 +169,7 @@ func (s *SLAService) RecordFirstResponse(sess *model.CustomerSession) {
 	if sess.LastMessageAt == nil {
 		return
 	}
-	// 计算 first response 耗时
-	// 实际实现：与 SLA 策略比对 + 记录 violation
+
 	_ = sess
 }
 

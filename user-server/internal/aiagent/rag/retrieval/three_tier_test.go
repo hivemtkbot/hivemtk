@@ -6,7 +6,6 @@ import (
 	"testing"
 )
 
-// mock vectorizer
 type mockVectorizer struct {
 	dim int
 }
@@ -34,7 +33,6 @@ func (m *mockVectorizer) EmbedBatch(texts []string) ([][]float32, error) {
 func (m *mockVectorizer) GetDimension() int                  { return m.dim }
 func (m *mockVectorizer) ValidateEmbedding(e []float32) bool { return len(e) == m.dim }
 
-// mock index manager
 type mockIndex struct {
 	chunks map[string][]Chunk
 	err    error
@@ -65,7 +63,6 @@ func (m *mockIndex) GetIndexStats(ctx context.Context, kbID string) (*IndexStats
 	return &IndexStats{KbID: kbID, VectorCount: len(m.chunks[kbID])}, nil
 }
 
-// mock keyword searcher
 type mockKeyword struct {
 	chunks []Chunk
 	err    error
@@ -80,7 +77,6 @@ func (m *mockKeyword) SearchKeyword(ctx context.Context, kbID, q string, topK in
 	}
 	return m.chunks[:topK], nil
 }
-
 
 func newThreeTierService() (*RAGThreeTierService, *mockIndex, *mockIndex, *mockKeyword) {
 	v := &mockVectorizer{dim: 16}
@@ -361,7 +357,7 @@ func TestRAGThreeTier_L2WithScore(t *testing.T) {
 
 func TestRAGThreeTier_L2NoResults_FallbackL3(t *testing.T) {
 	s, l2, l3, _ := newThreeTierService()
-	l2.chunks = map[string][]Chunk{} 
+	l2.chunks = map[string][]Chunk{}
 	l3.chunks = map[string][]Chunk{
 		"kb1": {{ID: "c1", Score: 0.8}},
 	}
@@ -423,4 +419,3 @@ func TestRAGThreeTier_PutCache_Disabled(t *testing.T) {
 		t.Errorf("expected 0 L1 hit, got %d", stats.L1Hits)
 	}
 }
-

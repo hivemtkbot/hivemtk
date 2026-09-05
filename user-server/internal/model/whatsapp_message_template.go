@@ -31,4 +31,3 @@ func (m *WhatsappMessageTemplate) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
-

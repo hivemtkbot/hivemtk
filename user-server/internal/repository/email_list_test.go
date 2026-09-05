@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupEmailListTestDB 设置邮件列表测试数据库
 func setupEmailListTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.EmailList{},
@@ -22,7 +21,6 @@ func setupEmailListTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupEmailListRepository 创建测试用的邮件列表仓库实例
 func setupEmailListRepository(t *testing.T) EmailListRepository {
 	setupEmailListTestDB(t)
 	return NewEmailListRepository()

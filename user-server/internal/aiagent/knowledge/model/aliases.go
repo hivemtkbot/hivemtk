@@ -10,7 +10,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 type (
 	KBDocument       = model.KBDocument
 	KBDocumentStatus = model.KBDocumentStatus
@@ -22,7 +21,6 @@ const (
 	KBDocumentStatusIndexed    = model.KBDocumentStatusIndexed
 	KBDocumentStatusFailed     = model.KBDocumentStatusFailed
 )
-
 
 type (
 	EmbedStatus = model.EmbedStatus
@@ -49,13 +47,11 @@ const (
 	SourceTypeOpenAPI = model.SourceTypeOpenAPI
 )
 
-
 type (
 	KnowledgeAPIToken = model.KnowledgeAPIToken
 	KnowledgeFeedback = model.KnowledgeFeedback
 	ExternalImportJob = model.ExternalImportJob
 )
-
 
 type (
 	LLMProviderConfig       = model.LLMProviderConfig
@@ -70,9 +66,7 @@ func DefaultIntentConfig() model.IntentConfig {
 	return model.DefaultIntentConfig()
 }
 
-
 type (
 	RagSession = model.RagSession
 	RagMessage = model.RagMessage
 )
-

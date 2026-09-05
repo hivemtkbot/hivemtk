@@ -83,4 +83,3 @@ func TestCardShowTool_DefaultsToGeneric(t *testing.T) {
 		t.Fatalf("expected generic card, got %+v", res.Card)
 	}
 }
-

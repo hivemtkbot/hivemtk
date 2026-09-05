@@ -23,4 +23,3 @@ func LocaleMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
-

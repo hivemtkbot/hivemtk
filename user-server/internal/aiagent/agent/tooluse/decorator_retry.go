@@ -142,4 +142,3 @@ func safeExecute(ctx context.Context, h ToolHandler, args map[string]any) (resul
 	}()
 	return h(ctx, args)
 }
-

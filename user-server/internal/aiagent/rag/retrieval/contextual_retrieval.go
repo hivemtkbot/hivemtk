@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"fmt"
@@ -16,9 +15,9 @@ import (
 type ContextualRetrievalEnhancer struct {
 	db          *gorm.DB
 	chatClient  LLMChatClient
-	embedding   llm.EmbeddingServiceInterface 
-	batchSize   int                           
-	maxCtxToken int                           
+	embedding   llm.EmbeddingServiceInterface
+	batchSize   int
+	maxCtxToken int
 }
 
 // ContextualEnhancerConfig 配置
@@ -85,7 +84,6 @@ func (e *ContextualRetrievalEnhancer) EnhanceDocument(ctx context.Context, docum
 		return fmt.Errorf("contextual enhancer 未初始化")
 	}
 
-	// 1) 拉取文档元信息
 	var doc struct {
 		Title  string `gorm:"column:title"`
 		Source string `gorm:"column:source_ref"`
@@ -97,7 +95,6 @@ func (e *ContextualRetrievalEnhancer) EnhanceDocument(ctx context.Context, docum
 		return fmt.Errorf("查询文档失败: %w", err)
 	}
 
-	// 2) 拉取所有 chunk
 	var chunks []struct {
 		ID         uint64 `gorm:"column:id"`
 		ChunkIndex int    `gorm:"column:chunk_index"`
@@ -129,7 +126,7 @@ func (e *ContextualRetrievalEnhancer) EnhanceDocument(ctx context.Context, docum
 		type updateItem struct {
 			id      uint64
 			ctx     string
-			content string 
+			content string
 		}
 		updates := make([]updateItem, 0, len(batch))
 		embedInputs := make([]string, 0, len(batch))
@@ -147,7 +144,6 @@ func (e *ContextualRetrievalEnhancer) EnhanceDocument(ctx context.Context, docum
 			embedInputs = append(embedInputs, enhancedContent)
 		}
 
-		// 4.2) 批量重新 embedding（增强后内容）
 		var vectors [][]float32
 		if e.embedding != nil {
 			cfg := e.embedding.DefaultConfig()
@@ -190,7 +186,6 @@ func (e *ContextualRetrievalEnhancer) EnhanceDocument(ctx context.Context, docum
 	return nil
 }
 
-// generateContext 调用 LLM 生成单个 chunk 的 50-100 token 上下文
 func (e *ContextualRetrievalEnhancer) generateContext(ctx context.Context, docSummary string, chunkIdx, totalChunks int, chunkContent string) (string, error) {
 	if e.chatClient == nil {
 		return "", nil
@@ -208,7 +203,7 @@ func (e *ContextualRetrievalEnhancer) generateContext(ctx context.Context, docSu
 		docSummary, chunkIdx+1, totalChunks, chunkContent)
 
 	resp, err := e.chatClient.Chat(ctx, prompt, LLMChatOptions{
-		Temperature: 0.0, 
+		Temperature: 0.0,
 		MaxTokens:   150,
 	})
 	if err != nil {
@@ -217,11 +212,9 @@ func (e *ContextualRetrievalEnhancer) generateContext(ctx context.Context, docSu
 	return strings.TrimSpace(resp), nil
 }
 
-// defaultIfEmpty 空字符串返回 fallback
 func defaultIfEmpty(s, fallback string) string {
 	if strings.TrimSpace(s) == "" {
 		return fallback
 	}
 	return s
 }
-

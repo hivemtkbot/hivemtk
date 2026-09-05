@@ -51,7 +51,6 @@ type AgentToolResult struct {
 }
 
 type SalesEngine struct {
-	// db 字段用于 agent_loop 中的 session_messages 历史读取（OPT-ARC-03 二期：迁移到 SessionMessageRepository）
 	db              *gorm.DB
 	dispatcher      *llm.Dispatcher
 	intent          IntentRecognizerInterface
@@ -136,14 +135,8 @@ func (e *SalesEngine) SetBehavioralHumanize(enabled bool) {
 	e.behaviorPl.SetEnabled(enabled)
 }
 
-// isFirstMessageOf 判断是否首条消息（决定是否需要 thinking pause）
-//
-// 业界依据：WhatsApp IM 行为研究
-//   - 首条消息：客户主动发起，无思考停顿
-//   - 后续消息：AI 接续上文，需要 ~3s 思考停顿（让用户感觉"在思考"）
 func isFirstMessageOf(req *SalesRequest) bool {
-	// 简化判定：session_id 变化 OR 显式标记
-	// 更精确实现需要查 session 消息历史
+
 	return req != nil && req.IsFirstTurn
 }
 
@@ -255,7 +248,6 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 	}
 	resp.Intent = intentResult
 
-	// M4 I-3：clarify 意图 → 发澄清话术并结束本轮（不强选意图、不转人工、不触发 SOP）
 	if intentResult.IntentType == IntentClarify {
 		reply := BuildClarifyReply(intentResult)
 		resp.Reply = reply
@@ -319,7 +311,7 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 		resp.Steps = append(resp.Steps, dto.SalesStepLog{
 			Step: "5.5_match_script", Status: "ok", LatencyMs: ms(stepStart),
 			Detail: fmt.Sprintf("script_id=%s rate=%.2f", script.ID, script.MatchRate),
-			// T-2 归因闭环：所用销冠话术 script_id + objection_category 结构化落 trace span extra
+
 			Extra: map[string]any{"script_id": script.ID, "objection_category": intentResult.IntentType},
 		})
 	} else {
@@ -420,10 +412,7 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 
 	if e.humanizeEvaluator != nil && HumanizeEvaluatorEnabled {
 		stepStart = time.Now()
-		// v3 审计 P0-#4 增强：行为层拟人（打字延迟 + 分条发送）
-		//   - 业界依据：文本层拟人（polisher）效果有限；行为层拟人（分条+延迟）真实感更强
-		//   - 默认关闭（A/B 灰度）；通过 SetBehavioralHumanize(true) 启用
-		//   - 完全独立于 humanize_polisher 文本层润色（两者正交）
+
 		if e.behaviorPl != nil && e.behaviorPl.IsEnabled() {
 			plan := e.behaviorPl.Build(finalReply, isFirstMessageOf(req))
 			resp.SendPlan = &dto.SendPlanDTO{
@@ -517,16 +506,16 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 	}
 
 	startChunk := &dto.StreamChunk{
-			Type:    dto.ChunkTypeStart,
-			// R58: Carrier 优先取 trace_id，startChunk 也走完整链路
-			TraceID: func() string {
-				if c := tracing.CarrierFromContext(ctx); c != nil {
-					return c.TraceID
-				}
-				return tracing.TraceIDFromContext(ctx)
-			}(),
-			Step:    "start",
-		}
+		Type: dto.ChunkTypeStart,
+
+		TraceID: func() string {
+			if c := tracing.CarrierFromContext(ctx); c != nil {
+				return c.TraceID
+			}
+			return tracing.TraceIDFromContext(ctx)
+		}(),
+		Step: "start",
+	}
 	if !onChunk(startChunk) {
 		return ctx.Err()
 	}
@@ -650,25 +639,10 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 	return nil
 }
 
-// agentLoopMaxIterations Agent Loop 最大迭代次数
-// 防止 LLM 无限调用工具或陷入循环。
-// 默认 5；运行期调参存数据库 system_config_kv[agent.settings].max_loop_iterations，
-// 由 LoadAgentSettingsConfig 读取覆盖；也可由 SetAgentLoopMaxIterations 注入（测试/内嵌）。
-// 注意：必须 >= 2。LLM 在第 1 轮返回 tool_calls 后，需要第 2 轮（携带工具结果）才能生成最终
-// 文本回复；若设为 1，工具调用永远无法产出答案，会被降级为“空回复→转人工”，工具调用形同失效。
-// 默认 5，兼顾多工具串联与 follow-up 问答；受 agentLoopTotalTimeout(默认180s) 约束。
 var agentLoopMaxIterations = 5
 
-// agentLoopMaxTools Agent Loop 向 LLM 注入的工具数量上限（默认优先级模式下）。
-// 当 Agent 未配置 Tools 白名单时，limitToolsForAgent 按默认优先级取前 agentLoopMaxTools 个工具。
-// 默认 18（覆盖原式硬编码的 10，使电商客服关键工具
-// reach.card.send / reach.sms.send / aftersale.* / logistics.track 默认可见）；
-// 运行期调参存数据库 system_config_kv[agent.settings].max_tools，由 LoadAgentSettingsConfig
-// 读取覆盖；也可由 SetAgentLoopMaxTools 注入（测试/内嵌）。
 var agentLoopMaxTools = 18
 
-// resolveAgentSettings 解析 Agent Loop 运行期调参（数据库 system_config_kv[agent.settings]
-// 为唯一真相源；缺配置/读取失败时回退到代码内默认值，尊重 SetAgentLoop* 注入）。
 func resolveAgentSettings(ctx context.Context) (maxTools, maxIter int) {
 	maxTools, maxIter = agentLoopMaxTools, agentLoopMaxIterations
 	if cfg, err := LoadAgentSettingsConfig(ctx); err == nil && cfg != nil {
@@ -682,35 +656,10 @@ func resolveAgentSettings(ctx context.Context) (maxTools, maxIter int) {
 	return
 }
 
-// agentLoopTotalTimeout Agent Loop wall-clock 总超时
-//
-// 演进：
-// 120s（1.5B Q4 CPU 推理 35-60s）
-// 改为可配置，由 main.go 启动时从 inference.llm.timeout_seconds 注入
-//
-// 设计：默认 180s（保守值，覆盖大多数 CPU 推理场景）。
-// 开发模式可在 config.yaml 设大值（如 720s）确保 LLM 调用不被 ctx 掐断；
-// 生产环境推荐 120-180s，超时后由 fallback 兜底。
-// 由 SetAgentLoopTimeout 注入；与 dispatcher.MaxLatency、llm_service.httpClient.Timeout
-// 共享同一配置源（inference.llm.timeout_seconds），全链路一致。
 var agentLoopTotalTimeout = 180 * time.Second
 
-// agentLoopMaxTotalTokens Agent Loop 累计 token 预算（所有 LLM 调用之和）。
-//
-// 业界依据（OpenAI Agents SDK / LangGraph 均支持）：
-//   - 仅 wall-clock 限不够：单次快但 token 多的循环（如长 system + 多 tool result）会爆 128K 上下文。
-//   - 仅 max_iterations 不够：每轮 token 大小差异巨大（tool result 可能 1k-10k tokens）。
-//
-// 设计：默认 50000（约 12.5 轮 4k 上下文），与业界 32k-128k 区间对齐偏保守。
-// 由 SetAgentLoopMaxTotalTokens 注入；<=0 时按默认值。
-// 达到上限时停止后续 LLM 调用，使用最后一次成功 result 的 content 兜底。
 var agentLoopMaxTotalTokens = 50000
 
-// agentLoopMaxPerIterTimeout 单次 LLM 调用超时（per-iteration）。
-//
-// 业界依据：总超时 180s 情况下，单次 LLM 调用应 < 总超时 50%，否则后续工具执行
-// + 结果回灌会无时间预算。默认 60s 留出 3 轮（60+60+60=180s）的安全边界。
-// 由 SetAgentLoopMaxPerIterTimeout 注入；<=0 时按默认值。
 var agentLoopMaxPerIterTimeout = 60 * time.Second
 
 // SetAgentLoopMaxTotalTokens 注入 Agent Loop 累计 token 预算
@@ -731,7 +680,6 @@ func SetAgentLoopMaxPerIterTimeout(seconds int) {
 	agentLoopMaxPerIterTimeout = time.Duration(seconds) * time.Second
 }
 
-// ms 计算耗时（毫秒）
 func ms(start time.Time) int {
 	return int(time.Since(start).Milliseconds())
 }
@@ -767,9 +715,6 @@ func (e *SalesEngine) ProcessIncomingMessage(ctx context.Context, msg *ChannelMe
 	return e.Handle(ctx, req)
 }
 
-// stageToJourneyStage SOP 阶段字符串 → JourneyStage
-// 商业产品级：把 SOP 引擎的语义阶段映射到客户旅程的标准化阶段
-// 便于话术库按客户实际所处阶段精准推荐
 func stageToJourneyStage(stage string) JourneyStage {
 	switch stage {
 	case "churn_risk":

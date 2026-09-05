@@ -114,8 +114,6 @@ func ValidateSOPTriggerConfigEntryPolicy(cfg model.JSONMap) error {
 	return ValidateSOPEntryPolicy(ParseSOPEntryPolicy(cfg))
 }
 
-// goalExitAchieved 评估 goal_exit 表达式是否已达成。
-// 复用条件表达式语言："field op value"，支持 AND/OR 复合。
 func goalExitAchieved(expr string, data model.JSONMap) bool {
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
@@ -128,7 +126,6 @@ func goalExitAchieved(expr string, data model.JSONMap) bool {
 	return matched
 }
 
-// sopCooldownWindow cooldown 模式的冷却窗口时长
 func (p SOPEntryPolicy) cooldownWindow() time.Duration {
 	if p.CooldownDays <= 0 {
 		return 0

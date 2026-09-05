@@ -16,14 +16,12 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-
-// fakePipeline 内存版 IngressPipeline：记录全部管道调用，供断言。
 type fakePipeline struct {
 	mu       sync.Mutex
-	ingested []*model.MessageEvent 
-	history  []*model.MessageEvent 
-	claimQue []*model.MessageHub   
-	acked    []string              
+	ingested []*model.MessageEvent
+	history  []*model.MessageEvent
+	claimQue []*model.MessageHub
+	acked    []string
 }
 
 func (f *fakePipeline) IngestBatch(_ context.Context, events []*model.MessageEvent) (*service.InboxIngressBatchResult, error) {
@@ -66,8 +64,6 @@ func (f *fakePipeline) AckOutbound(_ context.Context, _, _ string, msgIDs []stri
 	return len(msgIDs), nil
 }
 
-
-// newTestServer 起 httptest 服务挂载 WS 端点，pushInterval 调小加速测试。
 func newTestServer(t *testing.T, fp IngressPipeline) *httptest.Server {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -80,7 +76,6 @@ func newTestServer(t *testing.T, fp IngressPipeline) *httptest.Server {
 	return srv
 }
 
-// dialWS 建立 WS 客户端连接。
 func dialWS(t *testing.T, srv *httptest.Server) *websocket.Conn {
 	t.Helper()
 	u := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/ws/channel"
@@ -92,7 +87,6 @@ func dialWS(t *testing.T, srv *httptest.Server) *websocket.Conn {
 	return conn
 }
 
-// readFrame 带超时读取一帧。
 func readFrame(t *testing.T, conn *websocket.Conn, timeout time.Duration) *Frame {
 	t.Helper()
 	_ = conn.SetReadDeadline(time.Now().Add(timeout))
@@ -106,7 +100,6 @@ func readFrame(t *testing.T, conn *websocket.Conn, timeout time.Duration) *Frame
 func registerFrame(channel, accountID string) *Frame {
 	return &Frame{V: CurrentProtocolVersion, Type: FrameRegister, Channel: channel, AccountID: accountID}
 }
-
 
 // TestWS_RegisterReject 握手拒绝路径：首帧非 register / 未注册渠道 / 缺 account_id。
 func TestWS_RegisterReject(t *testing.T) {
@@ -266,4 +259,3 @@ func TestWS_HistoryFrame(t *testing.T) {
 		t.Errorf("history 帧不应触发 IngestBatch: %+v", fp.ingested)
 	}
 }
-

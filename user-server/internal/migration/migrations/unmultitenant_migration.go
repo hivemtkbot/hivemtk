@@ -33,7 +33,6 @@ func (m *UnmultitenantSchemaMigration) Description() string {
 	return "独立部署版本：删除 merchants 表，移除所有业务表中的 merchant_id 字段，重建唯一索引"
 }
 
-// 注意：与 system_config 等系统级表无关，仅针对业务数据表
 var businessTablesWithMerchantID = []string{
 	"operation_logs",
 	"marketing_flows",
@@ -129,7 +128,6 @@ func (m *UnmultitenantSchemaMigration) Up(ctx context.Context) error {
 	m.db.Exec("DROP TABLE IF EXISTS platform_licenses")
 	m.db.Exec("DROP TABLE IF EXISTS platform_installs")
 
-
 	return nil
 }
 
@@ -139,4 +137,3 @@ func (m *UnmultitenantSchemaMigration) Down(ctx context.Context) error {
 }
 
 var _ migration.Migration = (*UnmultitenantSchemaMigration)(nil)
-

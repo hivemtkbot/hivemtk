@@ -77,7 +77,6 @@ func (s *CustomerSessionService) TransferSession(ctx context.Context, sessionID 
 		return err
 	}
 
-	// 防自转：不能将会话转给自己
 	if session.AgentID > 0 && session.AgentID == newAgentID {
 		return errors.New("不能将会话转给自己")
 	}
@@ -87,7 +86,6 @@ func (s *CustomerSessionService) TransferSession(ctx context.Context, sessionID 
 		return errors.New("客服不存在")
 	}
 
-	// 目标坐席必须在线
 	if newAgent.Status != "online" {
 		return errors.New("目标客服不在线，无法转接")
 	}
@@ -117,10 +115,6 @@ func (s *CustomerSessionService) TransferSession(ctx context.Context, sessionID 
 	return nil
 }
 
-// 编译期类型断言：确保 CustomerSessionService 字段类型保持稳定
-// （reflect 方式避免 init 阶段 nil pointer）
-//
-// 仅保留 CustomerSessionService 的引用断言，其他服务见各自文件
 var _ = func() error {
 	t := struct {
 		x *repository.AgentStatusRepository

@@ -21,10 +21,6 @@ const (
 	PlatformCardStatsTiktok      = "tiktok"
 )
 
-// douyinCardStatsAdapter 抖音卡片统计适配器
-//
-// 实现 PlatformCardStatsService 统一接口，内部委托给原有
-// DouyinCardStatsService（保持向后兼容）。
 type douyinCardStatsAdapter struct {
 	inner DouyinCardStatsService
 }
@@ -84,12 +80,10 @@ func (a *douyinCardStatsAdapter) GetOverallStats(ctx context.Context, req *dto.P
 	}, nil
 }
 
-// RecordActivity 抖音适配：直接复用内部 RecordActivity
 func (a *douyinCardStatsAdapter) RecordActivity(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string) error {
 	return a.inner.RecordActivity(ctx, cardID, userID, action, username, ipAddress, userAgent)
 }
 
-// xiaohongshuCardStatsAdapter 小红书卡片统计适配器
 type xiaohongshuCardStatsAdapter struct {
 	inner XiaohongshuCardStatsService
 }
@@ -153,10 +147,6 @@ func (a *xiaohongshuCardStatsAdapter) RecordActivity(ctx context.Context, cardID
 	return a.inner.RecordActivity(ctx, cardID, userID, action, username, ipAddress, userAgent)
 }
 
-// kuaishouCardStatsAdapter 快手卡片统计适配器
-//
-// 快手原本是 struct（非 interface），且 RecordActivity 签名（cardID, action,
-// userIP, userAgent, extraData）与其他平台不一致；此处将其适配到统一接口。
 type kuaishouCardStatsAdapter struct {
 	inner *KuaishouCardStatsService
 }
@@ -218,19 +208,12 @@ func (a *kuaishouCardStatsAdapter) GetOverallStats(ctx context.Context, req *dto
 	}, nil
 }
 
-// RecordActivity 快手适配：原签名为 (cardID, action, userIP, userAgent, extraData)，
-// 统一接口为 (ctx, cardID, userID, action, username, ipAddress, userAgent)，
-// 这里将 userID 透传为 userID（快手旧实现不写 user_id 列），username 写到 extraData。
 func (a *kuaishouCardStatsAdapter) RecordActivity(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string) error {
 	_ = userID
 	_ = username
 	return a.inner.RecordActivity(ctx, cardID, action, ipAddress, userAgent, "")
 }
 
-// xianyuCardStatsAdapter 闲鱼卡片统计适配器
-//
-// 闲鱼原接口使用 (cardID, startDate, endDate string) 扁平参数，
-// 统一接口使用 req 包装。此处做格式转换。
 type xianyuCardStatsAdapter struct {
 	inner XianyuCardStatsService
 }
@@ -285,8 +268,6 @@ func (a *xianyuCardStatsAdapter) GetOverallStats(ctx context.Context, req *dto.P
 	}, nil
 }
 
-// RecordActivity 闲鱼适配：原签名 RecordView/RecordClick/RecordShare 分别实现，
-// 统一接口的 RecordActivity 按 action 字符串分派。
 func (a *xianyuCardStatsAdapter) RecordActivity(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string) error {
 	_ = userID
 	_ = username
@@ -302,10 +283,6 @@ func (a *xianyuCardStatsAdapter) RecordActivity(ctx context.Context, cardID uint
 	}
 }
 
-// tiktokCardStatsAdapter TikTok 卡片统计适配器
-//
-// TikTok 没有独立的 stats service，统计能力挂在 TikTokCardService
-// （Stats / StatsOverall / RecordView）。此处通过聚合这些方法满足统一接口。
 type tiktokCardStatsAdapter struct {
 	inner    TikTokCardService
 	activity repository.TikTokCardRepository
@@ -389,8 +366,6 @@ func (a *tiktokCardStatsAdapter) GetOverallStats(ctx context.Context, req *dto.P
 	}, nil
 }
 
-// RecordActivity TikTok 适配：原 RecordView(cardID, ip, userAgent) 不接收 userID/username，
-// 统一接口补充的 userID/username 通过附加 activity 记录持久化（保持兼容）。
 func (a *tiktokCardStatsAdapter) RecordActivity(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string) error {
 	if err := a.inner.RecordView(ctx, cardID, ipAddress, userAgent); err != nil {
 		return err
@@ -416,7 +391,6 @@ func (a *tiktokCardStatsAdapter) RecordActivity(ctx context.Context, cardID uint
 	return nil
 }
 
-// parseDateRange 把 "" 字符串转 time.Time；空字符串时返回零值
 func parseDateRange(start, end string) (time.Time, time.Time) {
 	var s, e time.Time
 	if start != "" {
@@ -432,7 +406,6 @@ func parseDateRange(start, end string) (time.Time, time.Time) {
 	return s, e
 }
 
-// normalizeDateRange 保证日期非空：为空时默认最近 30 天
 func normalizeDateRange(start, end string) (string, string) {
 	if end == "" {
 		end = time.Now().Format("2006-01-02")

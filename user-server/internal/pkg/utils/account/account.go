@@ -139,10 +139,10 @@ func handleUpdate(account accountData, update tgbotapi.Update) {
 		logger.Info(err.Error())
 	}
 
-	if update.Message != nil && update.Message.Chat.IsPrivate() { 
+	if update.Message != nil && update.Message.Chat.IsPrivate() {
 		if update.Message.IsCommand() {
 			switch update.Message.Command() {
-			case "start": 
+			case "start":
 				msgText := BuildAccountStartNoticeMsg(account.AccountName)
 				tgbot.SendTgMsg(account.Bot, msgText, update.Message.Chat.ID)
 			default:
@@ -174,4 +174,3 @@ func SendMsgBYBootToken(token string, msgText string, chatID int64) error {
 	tgbot.SendTgMsg(account.Bot, msgText, chatID)
 	return nil
 }
-

@@ -16,7 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupCommunityTestDB 设置社群管理测试数据库
 func setupCommunityTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.CommunityGroup{},
@@ -27,7 +26,6 @@ func setupCommunityTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupCommunityController 设置社群管理控制器测试环境
 func setupCommunityController(t *testing.T) (*CommunityController, *gin.Engine) {
 	setupCommunityTestDB(t)
 	ctrl := NewCommunityController()
@@ -35,7 +33,6 @@ func setupCommunityController(t *testing.T) (*CommunityController, *gin.Engine) 
 
 	return ctrl, router
 }
-
 
 // TestCommunityController_GetGroups_Success 测试获取社群列表成功
 func TestCommunityController_GetGroups_Success(t *testing.T) {
@@ -289,4 +286,3 @@ func TestCommunityController_NewCommunityController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
-

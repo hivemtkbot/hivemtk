@@ -6,7 +6,6 @@ import (
 	"testing"
 )
 
-
 // TestDirection6_Scenario1_CalmFAQ 场景1: 平静 + FAQ 问答 → AI 正常处理
 func TestDirection6_Scenario1_CalmFAQ(t *testing.T) {
 	cycle := NewInferenceCycle()
@@ -149,9 +148,9 @@ func TestDirection6_Scenario1_StageTrace(t *testing.T) {
 func TestDirection6_AllScenarios_Batch(t *testing.T) {
 	cycle := NewInferenceCycle()
 	scenarios := []struct {
-		name     string
-		content  string
-		agentCtx *AgentContext
+		name        string
+		content     string
+		agentCtx    *AgentContext
 		wantHandoff bool
 	}{
 		{"calm_faq", "这个产品怎么用？", &AgentContext{AgentCode: "default", EnableRAG: true}, false},
@@ -177,7 +176,6 @@ func TestDirection6_AllScenarios_Batch(t *testing.T) {
 	}
 }
 
-
 func planType(p *ActionPlan) string {
 	if p == nil {
 		return "(no-plan)"
@@ -191,4 +189,3 @@ func toolCount(p *ActionPlan) int {
 	}
 	return len(p.ToolCalls)
 }
-

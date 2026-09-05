@@ -43,21 +43,21 @@ type KnowledgeDocument struct {
 	EmbedStatus   EmbedStatus `gorm:"size:16;default:'pending';index" json:"embed_status"`
 	EmbedProgress int         `gorm:"default:0" json:"embed_progress"`
 	ErrorMsg      string      `gorm:"type:text" json:"error_msg"`
-	Tags          string      `gorm:"type:jsonb;default:'[]'" json:"tags"` 
+	Tags          string      `gorm:"type:jsonb;default:'[]'" json:"tags"`
 	Category      string      `gorm:"size:64;index" json:"category"`
-	PublicVisible bool        `gorm:"default:false;index" json:"public_visible"` // R48: 发布到公开帮助中心（兼容保留）
-	HCStatus      string      `gorm:"size:20;default:'';index" json:"help_center_status"` // R53 C1: draft/published/archived
-	HCViews       int64       `gorm:"default:0" json:"help_center_views"`                 // R53 C1: 公开访问计数
+	PublicVisible bool        `gorm:"default:false;index" json:"public_visible"`
+	HCStatus      string      `gorm:"size:20;default:'';index" json:"help_center_status"`
+	HCViews       int64       `gorm:"default:0" json:"help_center_views"`
 	Priority      int         `gorm:"default:0" json:"priority"`
 	Metadata      string      `gorm:"type:jsonb;default:'{}'" json:"metadata"`
 	ImportedBy    string      `gorm:"size:64" json:"imported_by"`
-	AgentID     *uint      `gorm:"index" json:"agent_id,omitempty"`
-	LastIndexAt *time.Time `json:"last_index_at"`
-	SearchCount int64      `gorm:"default:0" json:"search_count"`
-	HitCount    int64      `gorm:"default:0" json:"hit_count"`
-	Status      int        `gorm:"default:1" json:"status"`
-	CreatedAt   time.Time  `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt   time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
+	AgentID       *uint       `gorm:"index" json:"agent_id,omitempty"`
+	LastIndexAt   *time.Time  `json:"last_index_at"`
+	SearchCount   int64       `gorm:"default:0" json:"search_count"`
+	HitCount      int64       `gorm:"default:0" json:"hit_count"`
+	Status        int         `gorm:"default:1" json:"status"`
+	CreatedAt     time.Time   `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt     time.Time   `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 // TableName 表名
@@ -67,20 +67,20 @@ func (KnowledgeDocument) TableName() string {
 
 // KnowledgeChunk 知识库分段详情
 type KnowledgeChunk struct {
-	ID              uint64  `gorm:"primaryKey;autoIncrement" json:"id"`
-	DocumentID      uint64  `gorm:"index;not null" json:"document_id"`
-	ProductID       string  `gorm:"index;not null;default:''" json:"product_id"`
-	ChunkIndex      int     `gorm:"not null" json:"chunk_index"`
-	Content         string  `gorm:"type:text;not null" json:"content"`
-	ContentHash     string  `gorm:"size:64;index" json:"content_hash"`
-	TokenCount      int     `gorm:"default:0" json:"token_count"`
-	CharCount       int     `gorm:"default:0" json:"char_count"`
-	EmbeddingID     string  `gorm:"size:64" json:"embedding_id"`
-	SimilarityScore float64 `gorm:"default:0" json:"similarity_score"`
-	HitCount        int     `gorm:"default:0" json:"hit_count"`
-	Weight         float64 `gorm:"type:double precision;not null;default:1" json:"weight"`
-	Metadata       string  `gorm:"type:jsonb;default:'{}'" json:"metadata"`
-	SourceLanguage string  `gorm:"type:varchar(8);default:'zh'" json:"source_language"` 
+	ID                 uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
+	DocumentID         uint64    `gorm:"index;not null" json:"document_id"`
+	ProductID          string    `gorm:"index;not null;default:''" json:"product_id"`
+	ChunkIndex         int       `gorm:"not null" json:"chunk_index"`
+	Content            string    `gorm:"type:text;not null" json:"content"`
+	ContentHash        string    `gorm:"size:64;index" json:"content_hash"`
+	TokenCount         int       `gorm:"default:0" json:"token_count"`
+	CharCount          int       `gorm:"default:0" json:"char_count"`
+	EmbeddingID        string    `gorm:"size:64" json:"embedding_id"`
+	SimilarityScore    float64   `gorm:"default:0" json:"similarity_score"`
+	HitCount           int       `gorm:"default:0" json:"hit_count"`
+	Weight             float64   `gorm:"type:double precision;not null;default:1" json:"weight"`
+	Metadata           string    `gorm:"type:jsonb;default:'{}'" json:"metadata"`
+	SourceLanguage     string    `gorm:"type:varchar(8);default:'zh'" json:"source_language"`
 	TranslatedVersions JSONMap   `gorm:"type:jsonb;column:translated_versions" json:"translated_versions,omitempty"`
 	CreatedAt          time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
@@ -144,7 +144,7 @@ type KnowledgeOpenAPISource struct {
 	Endpoint        string     `gorm:"size:512;not null" json:"endpoint"`
 	Method          string     `gorm:"size:8;default:'GET'" json:"method"`
 	AuthType        string     `gorm:"size:16;default:'none'" json:"auth_type"`
-	AuthConfig      string     `gorm:"type:jsonb" json:"auth_config"` 
+	AuthConfig      string     `gorm:"type:jsonb" json:"auth_config"`
 	RequestTemplate string     `gorm:"type:text" json:"request_template"`
 	ResponsePath    string     `gorm:"size:256" json:"response_path"`
 	FieldMapping    string     `gorm:"type:jsonb;default:'{}'" json:"field_mapping"`
@@ -163,7 +163,6 @@ func (KnowledgeOpenAPISource) TableName() string {
 	return "knowledge_openapi_sources"
 }
 
-
 // HelpCenterTestRecord 检索测试记录（R53 C2，Dify Retrieval Testing 对标）
 type HelpCenterTestRecord struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
@@ -171,7 +170,7 @@ type HelpCenterTestRecord struct {
 	Query     string    `gorm:"type:varchar(300);not null" json:"query"`
 	TopK      int       `json:"top_k"`
 	Hits      int       `json:"hits"`
-	Results   string    `gorm:"type:text" json:"results"` // 命中 chunks JSON
+	Results   string    `gorm:"type:text" json:"results"`
 	CreatedAt time.Time `gorm:"autoCreateTime;index" json:"created_at"`
 }
 

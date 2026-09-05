@@ -62,8 +62,6 @@ func NewCustomerServicePlusService(
 	}
 }
 
-// ---------- 编辑锁（多人协作碰撞检测） ----------
-
 // AcquireEditLock 抢占编辑锁（他人持锁未过期 → false）
 func (s *CustomerServicePlusService) AcquireEditLock(_ context.Context, sessionID, holder string) (EditLock, bool) {
 	s.mu.Lock()
@@ -100,8 +98,6 @@ func (s *CustomerServicePlusService) GetEditLock(_ context.Context, sessionID st
 	return cur, true
 }
 
-// ---------- 内部备注（is_internal 消息，不发给客户） ----------
-
 // AddInternalNote 写入内部备注
 func (s *CustomerServicePlusService) AddInternalNote(ctx context.Context, sessionID, content, senderID, senderName string) (*model.SessionMessage, error) {
 	if strings.TrimSpace(content) == "" {
@@ -129,8 +125,6 @@ func (s *CustomerServicePlusService) ListInternalNotes(ctx context.Context, sess
 	return s.msgRepo.ListInternalBySession(ctx, sessionID, limit)
 }
 
-// ---------- 标签规则 ----------
-
 // SaveTagRuleRequest 规则保存请求
 type TagRuleRequest struct {
 	Code          string `json:"code" binding:"required"`
@@ -148,7 +142,7 @@ func (s *CustomerServicePlusService) SaveTagRule(ctx context.Context, req *TagRu
 	if err == nil {
 		return nil
 	}
-	// 标签不存在 → 自动创建后写入规则
+
 	tag := &model.SessionTag{
 		Name:          req.Code,
 		Code:          req.Code,
@@ -216,8 +210,6 @@ func (s *CustomerServicePlusService) ApplyTagRule(ctx context.Context, sessionID
 	return map[string]any{"session_id": sessionID, "applied": applied, "tags": current}, nil
 }
 
-// ---------- 坐席状态板 ----------
-
 // AgentBoardEntry 状态板行
 type AgentBoardEntry struct {
 	AgentID        uint       `json:"agent_id"`
@@ -256,8 +248,6 @@ func (s *CustomerServicePlusService) GetAgentStatusBoard(ctx context.Context) ([
 	return out, nil
 }
 
-// ---------- 快捷回复文件夹 ----------
-
 // ListFolders 文件夹列表
 func (s *CustomerServicePlusService) ListFolders(ctx context.Context) ([]*model.QuickReplyFolder, error) {
 	return s.folderRepo.List(ctx)
@@ -275,8 +265,6 @@ func (s *CustomerServicePlusService) CreateFolder(ctx context.Context, name stri
 func (s *CustomerServicePlusService) ReorderFolder(ctx context.Context, folderID uint, sortOrder int) error {
 	return s.folderRepo.UpdateSortOrder(ctx, folderID, sortOrder)
 }
-
-// ---------- helpers ----------
 
 func parseSessionTags(raw string) []string {
 	raw = strings.TrimSpace(raw)
@@ -322,15 +310,13 @@ func (s *CustomerServicePlusService) DeleteFolder(ctx context.Context, folderID 
 	return s.folderRepo.Delete(ctx, folderID)
 }
 
-// ---------- R46: 分群真实持久化（此前 saveSegment 为假按钮） ----------
-
 // SegmentSaveRequest 分群保存请求
 type SegmentSaveRequest struct {
 	Name        string          `json:"name" binding:"required"`
 	Description string          `json:"description"`
-	Rules       json.RawMessage `json:"rules"`               // 规则树/RFM 快照
-	Trigger     string          `json:"trigger"`             // static/dynamic
-	WhereSQL    string          `json:"where_sql,omitempty"` // 可编译条件（规模估算用，白名单校验）
+	Rules       json.RawMessage `json:"rules"`
+	Trigger     string          `json:"trigger"`
+	WhereSQL    string          `json:"where_sql,omitempty"`
 }
 
 // SaveSegment 创建分群（真实落库 + 规模估算）
@@ -363,11 +349,6 @@ func (s *CustomerServicePlusService) SaveSegment(ctx context.Context, req *Segme
 func (s *CustomerServicePlusService) ListSegments(ctx context.Context, limit int) ([]*model.CustomerSegment, error) {
 	return s.sessionRepo.ListSegments(ctx, limit)
 }
-
-// ---------- R46: MessageHub DLQ 真实实现（此前 batch-retry 为空转假实现: 表中无 dead_letter 状态） ----------
-//
-// 语义（源码核实）: message_hub.status ∈ pending/failed/inflight/delivered；
-// 死信 = status='failed'（投递失败）。重试 = failed→pending（由投递 consumer 重新拾取）。
 
 // DLQListRow 死信列表行（前端 Dashboard 契约: 含 failedAt）
 type DLQListRow struct {
@@ -465,8 +446,6 @@ func (s *CustomerServicePlusService) DLQBatchRetry(ctx context.Context) (int64, 
 	return res.RowsAffected, res.Error
 }
 
-// ---------- R48 T2/T3: 办公时间判定 + 会话优先级/暂缓 ----------
-
 // SetSessionPriority 设置会话优先级（0 普通 / 1 低 / 2 高 / 3 紧急）
 func (s *CustomerServicePlusService) SetSessionPriority(ctx context.Context, sessionID string, level int) error {
 	if level < 0 || level > 3 {
@@ -526,7 +505,6 @@ func (s *CustomerServicePlusService) RecoverSnoozed(ctx context.Context) (int64,
 	return res.RowsAffected, res.Error
 }
 
-// OfficeHoursSvc 办公时间服务实例（懒加载）
 var officeHoursOnce sync.Once
 var officeHoursSvc *OfficeHoursService
 

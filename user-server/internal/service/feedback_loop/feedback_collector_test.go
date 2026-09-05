@@ -185,14 +185,12 @@ func TestFeedbackCollector_CollectSync_SingleEvent(t *testing.T) {
 		t.Fatalf("CollectSync: %v", err)
 	}
 
-	// 验证 feedback_events 表
 	var eventCount int64
 	db.Model(&model.FeedbackEvent{}).Where("session_id = ?", "sess-single").Count(&eventCount)
 	if eventCount != 1 {
 		t.Errorf("feedback_events count = %d want 1", eventCount)
 	}
 
-	// 验证 feedback_signals 表（按 session 聚合）
 	var signal model.FeedbackSignal
 	if err := db.Where("session_id = ?", "sess-single").First(&signal).Error; err != nil {
 		t.Fatalf("query signal: %v", err)
@@ -237,14 +235,12 @@ func TestFeedbackCollector_CollectSync_MultiEventAggregate(t *testing.T) {
 		SignalKey: dto.FBSignalComplaint, SignalValue: true,
 	})
 
-	// 验证 feedback_events 3 条
 	var eventCount int64
 	db.Model(&model.FeedbackEvent{}).Where("session_id = ?", sessionID).Count(&eventCount)
 	if eventCount != 3 {
 		t.Errorf("feedback_events count = %d want 3", eventCount)
 	}
 
-	// 验证 feedback_signals 1 条
 	var signal model.FeedbackSignal
 	if err := db.Where("session_id = ?", sessionID).First(&signal).Error; err != nil {
 		t.Fatalf("query signal: %v", err)
@@ -284,7 +280,6 @@ func TestFeedbackCollector_Collect_AsyncPersist(t *testing.T) {
 
 	c.Stop()
 
-	// 验证 10 条 event 都已入库
 	var eventCount int64
 	db.Model(&model.FeedbackEvent{}).Where("session_id LIKE ?", "sess-async-%").Count(&eventCount)
 	if eventCount != 10 {
@@ -305,11 +300,6 @@ func TestFeedbackCollector_Collect_QueueFull(t *testing.T) {
 	defer c.Stop()
 	ctx := context.Background()
 
-	// 填满队列（QueueSize=2，缓冲 2 条）
-	// 第 1 条立即被 worker select 消费 → 入队成功
-	// 第 2 条入队成功（队列缓冲 2 条）
-	// 第 3 条入队失败（队列满）
-	// 实际行为受 goroutine 调度影响，多次尝试以确保触发 ErrQueueFull
 	var queueFullCount int
 	for i := 0; i < 100; i++ {
 		err := c.Collect(ctx, &dto.CollectRequest{
@@ -404,21 +394,18 @@ func TestFeedbackCollector_ConcurrentCollectSync(t *testing.T) {
 		t.Errorf("并发 CollectSync 有 %d 个错误", errCount)
 	}
 
-	// 验证 feedback_events 有 N 条
 	var eventCount int64
 	db.Model(&model.FeedbackEvent{}).Where("session_id = ?", "sess-concurrent").Count(&eventCount)
 	if eventCount != N {
 		t.Errorf("event count = %d want %d", eventCount, N)
 	}
 
-	// 验证 feedback_signals 只有 1 条（按 session 唯一）
 	var signalCount int64
 	db.Model(&model.FeedbackSignal{}).Where("session_id = ?", "sess-concurrent").Count(&signalCount)
 	if signalCount != 1 {
 		t.Errorf("signal count = %d want 1 (session unique)", signalCount)
 	}
 
-	// 验证 signal_count = N
 	var signal model.FeedbackSignal
 	_ = db.Where("session_id = ?", "sess-concurrent").First(&signal).Error
 	if signal.SignalCount != N {

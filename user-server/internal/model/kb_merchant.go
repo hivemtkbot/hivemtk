@@ -8,11 +8,11 @@ import (
 // 用于把 RAG 知识库开放给商户自有 CRM/ERP/Helpdesk
 type KnowledgeAPIToken struct {
 	ID         uint64     `gorm:"primaryKey;autoIncrement" json:"id"`
-	Name       string     `gorm:"size:64;not null" json:"name"`           
-	Token      string     `gorm:"size:128;uniqueIndex;not null" json:"-"` 
-	TokenPlain string     `gorm:"-" json:"token_plain,omitempty"`         
+	Name       string     `gorm:"size:64;not null" json:"name"`
+	Token      string     `gorm:"size:128;uniqueIndex;not null" json:"-"`
+	TokenPlain string     `gorm:"-" json:"token_plain,omitempty"`
 	Scopes     string     `gorm:"type:jsonb;default:'[\"read\",\"write\"]'" json:"scopes"`
-	ProductID  string     `gorm:"size:64;index;not null;default:''" json:"product_id"` 
+	ProductID  string     `gorm:"size:64;index;not null;default:''" json:"product_id"`
 	Enabled    int        `gorm:"default:1" json:"enabled"`
 	ExpiresAt  *time.Time `json:"expires_at"`
 	LastUsedAt *time.Time `json:"last_used_at"`
@@ -30,12 +30,12 @@ func (KnowledgeAPIToken) TableName() string {
 // KnowledgeFeedback 用户对检索结果的相关性反馈（用于持续学习）
 type KnowledgeFeedback struct {
 	ID         uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
-	ProductID  string    `gorm:"size:64;index;not null;default:''" json:"product_id"` 
+	ProductID  string    `gorm:"size:64;index;not null;default:''" json:"product_id"`
 	Query      string    `gorm:"type:text;not null" json:"query"`
 	QueryHash  string    `gorm:"size:64;index" json:"query_hash"`
 	DocumentID *uint64   `gorm:"index" json:"document_id"`
 	ChunkID    *uint64   `gorm:"index" json:"chunk_id"`
-	Rating     int       `gorm:"default:0" json:"rating"` 
+	Rating     int       `gorm:"default:0" json:"rating"`
 	Comment    string    `gorm:"type:text" json:"comment"`
 	Operator   string    `gorm:"size:64" json:"operator"`
 	SessionID  string    `gorm:"size:64;index" json:"session_id"`
@@ -51,8 +51,8 @@ func (KnowledgeFeedback) TableName() string {
 type ExternalImportJob struct {
 	ID          uint64     `gorm:"primaryKey;autoIncrement" json:"id"`
 	JobNo       string     `gorm:"size:32;uniqueIndex" json:"job_no"`
-	ProductID   string     `gorm:"size:64;index;not null" json:"product_id"` 
-	Source      string     `gorm:"size:32;not null" json:"source"`           
+	ProductID   string     `gorm:"size:64;index;not null" json:"product_id"`
+	Source      string     `gorm:"size:32;not null" json:"source"`
 	TotalItems  int        `gorm:"default:0" json:"total_items"`
 	DoneItems   int        `gorm:"default:0" json:"done_items"`
 	FailedItems int        `gorm:"default:0" json:"failed_items"`
@@ -70,4 +70,3 @@ type ExternalImportJob struct {
 func (ExternalImportJob) TableName() string {
 	return "external_import_jobs"
 }
-

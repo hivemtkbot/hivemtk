@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupChurnPredictionServiceTestDB 设置测试数据库
 func setupChurnPredictionServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.ChurnPrediction{},
@@ -24,7 +23,6 @@ func setupChurnPredictionServiceTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupChurnPredictionService 设置测试服务
 func setupChurnPredictionService(t *testing.T) *ChurnPredictionService {
 	setupChurnPredictionServiceTestDB(t)
 	return NewChurnPredictionService()
@@ -744,7 +742,6 @@ func TestChurnPredictionService_CalculateChurnPrediction_RiskFactorsJSON(t *test
 
 	prediction, _ := service.GetChurnPrediction("user_json")
 
-	// 验证风险因素可以正确解析
 	var factors []string
 	err = json.Unmarshal([]byte(prediction.RiskFactors), &factors)
 	if err != nil {
@@ -755,4 +752,3 @@ func TestChurnPredictionService_CalculateChurnPrediction_RiskFactorsJSON(t *test
 		t.Errorf("Expected at least 1 risk factor, got %d", len(factors))
 	}
 }
-

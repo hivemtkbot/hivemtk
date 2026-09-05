@@ -27,8 +27,7 @@ func (s *WebhookService) SetSmartOrchestrator(ctx context.Context, o *SmartCSOrc
 }
 
 func (s *WebhookService) retryWithBackoff(ctx context.Context, job *webhookJob, payload *ParsedPayload, origErr error) {
-	// T4（ChatbotX 模式移植）：按渠道错误分类调参——不可重试分类（鉴权/参数错误）
-	// 立即放弃；限速分类尊重平台 Retry-After；网络/未知沿用既有退避序列。
+
 	delays := retryDelaysFor(AsChannelError(origErr))
 	if delays == nil {
 		logger.Ctx(ctx).Error().Str("event", job.event.EventID).Msg("[Webhook] non-retryable channel error, giving up immediately")
@@ -58,7 +57,6 @@ func (s *WebhookService) markProcessed(ctx context.Context, evt *model.WebhookEv
 	}
 }
 
-// shouldTriggerAI 是否触发 智能体
 func (s *WebhookService) shouldTriggerAI(ctx context.Context, channel WebhookChannel, accountID string) bool {
 	if s.salesEngine == nil {
 		return false
@@ -109,15 +107,6 @@ func (s *WebhookService) shouldTriggerAI(ctx context.Context, channel WebhookCha
 	}
 }
 
-// triggerSalesEngine 触发 智能体处理入站消息
-// 优先走 SmartCSOrchestrator（统一编排：会话/消息/AI决策/转人工/建议保存）
-// 未注入 smartOrchestrator 时回退到 salesEngine.Handle 直接调用
-//
-// 多 AI 智能体路由（MULTI_AI_AGENT_DESIGN）：
-//   - 若 agentBindingSvc 已注入，先按 (channel_type, account_id) 查询绑定的智能体上下文
-//   - 智能体上下文非 nil 时调用 HandleWithAgent 按智能体配置执行
-//   - 智能体上下文为 nil 时回退到 DefaultSalesEngineConfig 默认行为
-//   - 在主流程之前 publish customer.message.received 事件，由 AgentRuntime.EventSubscriber 异步消费
 func (s *WebhookService) triggerSalesEngine(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, hubMsg *model.MessageHub) {
 
 	{
@@ -141,10 +130,6 @@ func (s *WebhookService) triggerSalesEngine(ctx context.Context, channel Webhook
 		return
 	}
 
-	// R58: 用上游 ctx 拷贝 Carrier，保留全链路 trace_id + 会话/渠道维度。
-	// 之前 parentCtx := context.Background() 只手动注入 trace_id，Carrier（含 trace_id +
-	// conversation_id + channel + account_id）丢失 → AgentLoop 内部 trace.Event 可能生成
-	// 新的 UUID trace_id 与 webhook 入口断裂。
 	parentCtx := context.Background()
 	if c := tracing.CarrierFromContext(ctx); c != nil {
 		parentCtx = tracing.WithCarrier(parentCtx, c)
@@ -192,8 +177,6 @@ func (s *WebhookService) triggerSalesEngine(ctx context.Context, channel Webhook
 	s.sendOutbound(ctx, channel, accountID, p, resp.Reply, hubMsg, RichCardsFromDTO(resp.Cards))
 }
 
-// loadAgentForChannel 加载渠道账号绑定的智能体上下文
-// agentBindingSvc 未注入或未绑定时返回 (nil, nil)，调用方回退默认配置
 func (s *WebhookService) loadAgentForChannel(ctx context.Context, channel WebhookChannel, accountID string) (*AgentContext, error) {
 	if s.agentBindingSvc == nil {
 		return nil, nil
@@ -202,16 +185,6 @@ func (s *WebhookService) loadAgentForChannel(ctx context.Context, channel Webhoo
 	return s.agentBindingSvc.LoadAgentForChannel(ctx, channelType, accountID)
 }
 
-// triggerSmartOrchestrator 智能体统一编排器路径
-// 调用 SmartCSOrchestrator.HandleIncomingWithAgent 完成会话/消息/AI决策/转人工，再按结果出站
-// 多 AI 智能体路由：先加载渠道账号绑定的智能体上下文，传给编排器
-//   - 编排器内部会按座席挂载智能体覆盖（座席挂载 > 渠道绑定 > 默认）
-//   - agentBindingSvc 未注入或未绑定时 agentCtx=nil，回退默认配置
-//
-// 修复（2026-08-05）：增加 panic recover + 显式告警日志。
-// 历史 bug：智能体未注入时仅 silent return，下游无任何反馈导致会话/AI 回复全链路静默缺失
-// （典型现场：message_hub 有 inbound 记录但 customer_sessions/ai_suggestions 均为空）。
-// 修复后 nil orchestrator 转为 Error 级别日志，panic 转 Error + 堆栈，便于线上定位。
 func (s *WebhookService) triggerSmartOrchestrator(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, hubMsg *model.MessageHub) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -344,7 +317,7 @@ func (s *WebhookService) TriggerInboundAI(ctx context.Context, channel, accountI
 		SentAt:         time.Now(),
 		Extra:          map[string]any{"sender_name": meta.SenderName},
 	}
-	// 钉钉临时回复通道透传（sendOutbound case ChannelDingTalk 消费）
+
 	if meta.SessionWebhook != "" {
 		hubMsg.Extra["session_webhook"] = meta.SessionWebhook
 		if meta.SessionWebhookExpiredAt > 0 {
@@ -366,7 +339,6 @@ func (s *WebhookService) TriggerInboundAI(ctx context.Context, channel, accountI
 	s.triggerSmartOrchestrator(ctx, WebhookChannel(channel), accountID, p, hubMsg)
 }
 
-// runAIGeneration 在独立有界池中执行 AI 生成与出站。
 func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, hubMsg *model.MessageHub, in *IncomingContext, agentCtx *AgentContext) {
 
 	defer func() {
@@ -382,16 +354,6 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 		}
 	}()
 
-	// 2026-08-25 修复（P0）：AI 处理锁全路径释放。
-	// 锁由 inbox_ingress.triggerAIForEvent 在触发前 SetNX（TTL 2min），此前唯一释放点在
-	// sendOutbound 尾部。本函数任何失败退出（replySem 超时 / 编排器重试后仍失败 /
-	// nil 结果 / 转人工 / panic）都不经过 sendOutbound → 会话锁滞留最长 2 分钟，
-	// 期间该会话所有新消息命中"AI 已在进行中，跳过本次触发"被静默丢弃（机器人不回复的直接原因之一）。
-	// 改为 defer 统一释放（幂等，sendOutbound 内的二次删除无害）；用 Background ctx，
-	// 避免入参 ctx（wechat webhook 的 30s 短生命周期 ctx）已取消导致释放失败。
-	//
-	// 注意：此处只释放不补触发——转人工/AI 主动不回复属于业务决策，立即重推会造成回复循环；
-	// 失败后的自愈依赖下一条入站消息（与既有设计一致），成功投递路径的补触发仍由 sendOutbound 负责。
 	if hubMsg != nil && hubMsg.ConversationID != "" {
 		convID := hubMsg.ConversationID
 		ingress := s.ingressSvc
@@ -401,9 +363,7 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 			}
 		}()
 	}
-	// 修复（2026-08-05 P0 大扫除）：replySem 加超时获取。
-	// 历史 bug：`s.replySem <- struct{}{}` 是阻塞写，AI 任务排队满时 goroutine 全部阻塞在 sema 上 → 越积越多 → OOM。
-	// 修复后超 5s 仍拿不到 sema → 当前 AI 任务跳过 + Error 日志，依赖下轮 inbound 重试。
+
 	const replySemTimeout = 5 * time.Second
 	select {
 	case s.replySem <- struct{}{}:
@@ -423,13 +383,13 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 	}
 
 	parentCtx := context.Background()
-    if c := tracing.CarrierFromContext(ctx); c != nil {
-        parentCtx = tracing.WithCarrier(parentCtx, c)
-    } else if parentTraceID := trace.TraceIDFromContext(ctx); parentTraceID != "" {
-        parentCtx = trace.NewContextWithTraceID(parentCtx, parentTraceID)
-    }
+	if c := tracing.CarrierFromContext(ctx); c != nil {
+		parentCtx = tracing.WithCarrier(parentCtx, c)
+	} else if parentTraceID := trace.TraceIDFromContext(ctx); parentTraceID != "" {
+		parentCtx = trace.NewContextWithTraceID(parentCtx, parentTraceID)
+	}
 
-    aiTimeout := webhookEnvInt("WEBHOOK_AI_TIMEOUT_SECONDS", 180)
+	aiTimeout := webhookEnvInt("WEBHOOK_AI_TIMEOUT_SECONDS", 180)
 	if aiTimeout < 60 {
 		aiTimeout = 60
 	}
@@ -437,12 +397,6 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 	defer cancel()
 	ctx = logger.WithModule(ctx, "webhook")
 
-	// 修复（2026-09-03 R56 追踪链修复）：runAIGeneration 入口的 hubMsg 是手工构造（line 326），
-	// 没设置 TraceID → traceCarrier.TraceID 空 → Span.toPending fallback 到 ctx 的 trace_id，
-	// 但 ctx 已被 orchestrator 覆盖成 session_id → ai_dispatch 节点 trace_id = session_id，
-	// 与 ingress/outbound_enqueue/inbox_sync 的 tr-xxx 稳定 trace 断裂。
-	// 修复：hubMsg.TraceID 为空时，用 LinkInboundTraceID 派生与 ingress 一致的稳定 trace_id，
-	// 保证同一会话全链路 trace_id 统一。
 	traceID := hubMsg.TraceID
 	if traceID == "" {
 		traceID = tracing.LinkInboundTraceID(ctx, hubMsg.ConversationID)
@@ -457,7 +411,6 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 
 	ctx = tracing.InitRecalledChunks(ctx)
 
-	// 本地推理偶发超时，最多重试 WebhookMaxRetries 次
 	var result *HandleResult
 	var err error
 	aiSpan := tracing.Start(ctx, tracing.NodeAIDispatch).

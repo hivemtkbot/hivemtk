@@ -77,7 +77,7 @@ func main() {
 
 	var okCount, skipCount, failCount int
 	for _, s := range seeds {
-		// 查重: 按 question
+
 		var existing model.FAQEntry
 		err := gdb.Where("question = ?", s.Question).First(&existing).Error
 		if err == nil {
@@ -115,4 +115,3 @@ func main() {
 		os.Exit(1)
 	}
 }
-

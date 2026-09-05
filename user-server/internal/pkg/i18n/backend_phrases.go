@@ -138,4 +138,3 @@ func Localize(loc Locale, zh string) string {
 	}
 	return zh
 }
-

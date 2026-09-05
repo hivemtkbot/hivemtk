@@ -1,6 +1,5 @@
 package controller
 
-
 import (
 	"net/http"
 	"strconv"
@@ -30,11 +29,11 @@ func NewSOPTemplateController() *SOPTemplateController {
 // RegisterRoutes 注册路由
 func (c *SOPTemplateController) RegisterRoutes(router *gin.RouterGroup) {
 	g := router.Group("/sop-templates")
-	// 读操作：任意登录用户
+
 	g.GET("", c.List)
 	g.GET("/:id", c.Get)
 	g.POST("/match", c.Match)
-	// 写操作：admin only（防 staff 篡改 SOP 模板）
+
 	admin := router.Group("/sop-templates", middleware.AdminAuthMiddleware())
 	{
 		admin.POST("", c.Create)
@@ -85,9 +84,6 @@ func (c *SOPTemplateController) Get(ctx *gin.Context) {
 	response.Success(ctx, tpl, "查询成功")
 }
 
-// sopTemplateCreateReq 创建/更新请求体
-//
-// Task 16 强 1对1: agent_id 必填 (所有 SOP 模板都必须归属于某个智能体或共享池)
 type sopTemplateCreateReq struct {
 	Name       string  `json:"name" binding:"required"`
 	Intent     string  `json:"intent" binding:"required"`
@@ -97,7 +93,7 @@ type sopTemplateCreateReq struct {
 	Priority   int     `json:"priority"`
 	Confidence float64 `json:"confidence"`
 	Enabled    *bool   `json:"enabled"`
-	AgentID uint `json:"agent_id" binding:"required"`
+	AgentID    uint    `json:"agent_id" binding:"required"`
 }
 
 // Create 新增
@@ -171,14 +167,11 @@ func (c *SOPTemplateController) Delete(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"id": id}, "删除成功")
 }
 
-// sopTemplateMatchReq 匹配请求
-//
-// Task 16 强 1对1: agent_id 必填 (uint); 不再支持"空 agent = 全局"分支
 type sopTemplateMatchReq struct {
 	Intent  string `json:"intent" binding:"required"`
 	Stage   string `json:"stage"`
 	TopK    int    `json:"top_k"`
-	AgentID uint   `json:"agent_id" binding:"required"` 
+	AgentID uint   `json:"agent_id" binding:"required"`
 }
 
 // Match 按 (agent_id, intent, stage) 匹配 (Task 16 强 1对1 改造后)
@@ -199,4 +192,3 @@ func (c *SOPTemplateController) Match(ctx *gin.Context) {
 	}
 	response.Success(ctx, matches, "匹配成功")
 }
-

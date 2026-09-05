@@ -19,7 +19,6 @@ var ErrPollingLockDBNil = errors.New("polling lock: db is nil")
 // 此常量仅作为 fallback（DB 未接入时的安全兜底）。
 const PollingLockStaleThreshold = 60 * time.Second
 
-// pollingLockStaleThresholdProvider 返回实际生效的锁过期阈值
 var pollingLockStaleThresholdProvider = func() time.Duration { return PollingLockStaleThreshold }
 
 // GetPollingLockStaleThreshold 返回当前生效的锁过期阈值
@@ -184,7 +183,6 @@ func (r *TelegramPollingLockRepository) IsPollingLockHeldByMe(
 	return info.Owner == workerID
 }
 
-// getLockInfo 查询当前锁的 owner + 最后心跳（私有辅助）
 func (r *TelegramPollingLockRepository) getLockInfo(ctx context.Context, accountID uint) (PollingLockInfo, error) {
 	if r == nil || r.db == nil {
 		return PollingLockInfo{}, ErrPollingLockDBNil

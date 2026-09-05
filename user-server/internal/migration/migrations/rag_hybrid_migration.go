@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -69,9 +68,6 @@ func (m *RagHybridMigration) Up(ctx context.Context) error {
 	return nil
 }
 
-// installPgcrypto 安装 pgcrypto 扩展（content_hash 自动维护依赖 digest() 函数）
-//
-// 必须在 enhanceKnowledgeChunks 之前调用，否则触发器在 INSERT 时会因 digest() 不存在而失败
 func (m *RagHybridMigration) installPgcrypto(ctx context.Context) error {
 	var installed bool
 	if err := m.db.WithContext(ctx).Raw(
@@ -85,12 +81,8 @@ func (m *RagHybridMigration) installPgcrypto(ctx context.Context) error {
 	return m.db.WithContext(ctx).Exec(`CREATE EXTENSION IF NOT EXISTS pgcrypto`).Error
 }
 
-// installZhparser 安装 zhparser 扩展
-//
-// 前提: postgres 镜像已安装 zhparser.so（Dockerfile 中预装）
-// 失败时不阻断迁移（生产环境必须安装，开发环境可用 simple 配置兜底）
 func (m *RagHybridMigration) installZhparser(ctx context.Context) error {
-	// 检查是否已安装
+
 	var installed bool
 	if err := m.db.WithContext(ctx).Raw(
 		`SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'zhparser')`,
@@ -103,16 +95,13 @@ func (m *RagHybridMigration) installZhparser(ctx context.Context) error {
 	return m.db.WithContext(ctx).Exec(`CREATE EXTENSION IF NOT EXISTS zhparser`).Error
 }
 
-// createZhRagConfig 创建 zh_rag 文本搜索配置
-//
-// 基于 zhparser 分词器，配置同义词等可在后续维护
 func (m *RagHybridMigration) createZhRagConfig(ctx context.Context) error {
-	// 检查 zhparser 是否已安装
+
 	var installed bool
 	if err := m.db.WithContext(ctx).Raw(
 		`SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'zhparser')`,
 	).Scan(&installed).Error; err != nil || !installed {
-		return nil 
+		return nil
 	}
 
 	stmt := `
@@ -129,24 +118,6 @@ func (m *RagHybridMigration) createZhRagConfig(ctx context.Context) error {
 	return m.db.WithContext(ctx).Exec(stmt).Error
 }
 
-// enhanceKnowledgeChunks 增强 knowledge_chunks 表
-//
-// 新增列:
-//   - content_tsv tsvector（content 列的 tsvector，BM25 召回兜底路径）
-//   - contextual_context text（Anthropic Contextual Retrieval 生成的 50-100 token 上下文）
-//   - contextual_tsv tsvector（contextual_context + content 的 tsvector，BM25 召回优先路径）
-//   - content_hash varchar(64)（content SHA256，用于 chunk 去重）
-//   - embed_status varchar(20)（向量状态：pending/indexed/failed）
-//
-// 新增索引:
-//   - idx_knowledge_chunks_content_hash（content_hash）
-//   - idx_knowledge_chunks_embedding_id（embedding_id）
-//   - idx_knowledge_chunks_embed_status（embed_status）
-//   - idx_knowledge_chunks_content_tsv（GIN tsvector 索引）
-//   - idx_knowledge_chunks_contextual_tsv（GIN tsvector 索引）
-//
-// 新增触发器:
-//   - knowledge_chunks_tsv_update（INSERT/UPDATE 时自动维护 content_tsv / contextual_tsv）
 func (m *RagHybridMigration) enhanceKnowledgeChunks(ctx context.Context) error {
 	stmts := []string{
 		`ALTER TABLE knowledge_chunks ADD COLUMN IF NOT EXISTS content_tsv tsvector`,
@@ -217,15 +188,11 @@ func (m *RagHybridMigration) enhanceKnowledgeChunks(ctx context.Context) error {
 		END
 		WHERE content_tsv IS NULL
 	`
-	_ = m.db.WithContext(ctx).Exec(backfill).Error 
+	_ = m.db.WithContext(ctx).Exec(backfill).Error
 
 	return nil
 }
 
-// createQueryRewriteCache 创建 query_rewrite_cache 表
-//
-// 用途: 持久化 HyDE 假设文档 + Multi-Query 变体，避免重复 LLM 调用
-// TTL: 30 天（expires_at 字段控制）
 func (m *RagHybridMigration) createQueryRewriteCache(ctx context.Context) error {
 	stmt := `
 		CREATE TABLE IF NOT EXISTS query_rewrite_cache (
@@ -248,13 +215,8 @@ func (m *RagHybridMigration) createQueryRewriteCache(ctx context.Context) error 
 	return m.db.WithContext(ctx).Exec(stmt).Error
 }
 
-// createEmbeddingCache 创建 embedding_cache 表
-//
-// 用途: 持久化 query embedding 结果，避免重复 TEI 调用
-// TTL: 30 天（expires_at 字段控制）
-// 注意: embedding 列类型 vector(1024)（与 knowledge_chunks.embedding 一致）
 func (m *RagHybridMigration) createEmbeddingCache(ctx context.Context) error {
-	// 确认 pgvector 扩展可用
+
 	var extCount int64
 	if err := m.db.WithContext(ctx).Raw(
 		`SELECT COUNT(*) FROM pg_extension WHERE extname = 'vector'`,
@@ -266,7 +228,6 @@ func (m *RagHybridMigration) createEmbeddingCache(ctx context.Context) error {
 			return fmt.Errorf("pgvector 扩展未安装且创建失败: %w", err)
 		}
 	}
-
 
 	stmt := `
 		CREATE TABLE IF NOT EXISTS embedding_cache (
@@ -289,14 +250,8 @@ func (m *RagHybridMigration) createEmbeddingCache(ctx context.Context) error {
 	return m.db.WithContext(ctx).Exec(stmt).Error
 }
 
-// enhanceKnowledgeSearchLogs 增强 knowledge_search_logs 表
-//
-// 新增字段（混合检索各阶段延迟/计数，用于监控）:
-//   - vector_count / bm25_count / fused_count / rerank_count
-//   - vector_latency_ms / bm25_latency_ms / rewrite_latency_ms / rerank_latency_ms
-//   - rewrite_used / cache_hit
 func (m *RagHybridMigration) enhanceKnowledgeSearchLogs(ctx context.Context) error {
-	// 检查表是否存在
+
 	var tableExists bool
 	if err := m.db.WithContext(ctx).Raw(
 		`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'knowledge_search_logs')`,
@@ -388,6 +343,4 @@ func (m *RagHybridMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// compile-time 接口断言
 var _ migration.Migration = (*RagHybridMigration)(nil)
-

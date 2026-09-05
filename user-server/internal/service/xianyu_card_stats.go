@@ -21,7 +21,6 @@ type XianyuCardStatsService interface {
 	RecordShare(ctx context.Context, cardID uint, ip, userAgent, referer string) error
 }
 
-// xianyuCardStatsService 闲鱼卡片统计服务实现
 type xianyuCardStatsService struct {
 	repo repository.XianyuCardStatsRepository
 }
@@ -34,7 +33,6 @@ func NewXianyuCardStatsService(db any) XianyuCardStatsService {
 	}
 }
 
-// GetCardStats 获取卡片统计数据
 func (s *xianyuCardStatsService) GetCardStats(ctx context.Context, cardID uint, startDate, endDate string) (*dto.XianyuCardStatsResponse, error) {
 	start, err := time.Parse("2006-01-02", startDate)
 	if err != nil {
@@ -68,7 +66,6 @@ func (s *xianyuCardStatsService) GetCardStats(ctx context.Context, cardID uint, 
 	}, nil
 }
 
-// GetOverallStats 获取整体统计数据
 func (s *xianyuCardStatsService) GetOverallStats(ctx context.Context, startDate, endDate string) (*dto.XianyuCardOverallStatsResponse, error) {
 	start, err := time.Parse("2006-01-02", startDate)
 	if err != nil {
@@ -114,7 +111,6 @@ func (s *xianyuCardStatsService) GetOverallStats(ctx context.Context, startDate,
 	}, nil
 }
 
-// GetCardStatsRaw 返回原始卡片统计数据（包含 views/clicks/shares 完整字段）
 func (s *xianyuCardStatsService) GetCardStatsRaw(ctx context.Context, cardID uint, startDate, endDate string) (*dto.CardStatsData, error) {
 	start, err := time.Parse("2006-01-02", startDate)
 	if err != nil {
@@ -146,7 +142,6 @@ func (s *xianyuCardStatsService) GetCardStatsRaw(ctx context.Context, cardID uin
 	}, nil
 }
 
-// GetOverallStatsRaw 返回原始整体统计数据（包含完整的 StatsByDate 与 TopCards）
 func (s *xianyuCardStatsService) GetOverallStatsRaw(ctx context.Context, startDate, endDate string) (*dto.OverallStatsData, error) {
 	start, err := time.Parse("2006-01-02", startDate)
 	if err != nil {
@@ -189,17 +184,14 @@ func (s *xianyuCardStatsService) GetOverallStatsRaw(ctx context.Context, startDa
 	}, nil
 }
 
-// RecordView 记录浏览
 func (s *xianyuCardStatsService) RecordView(ctx context.Context, cardID uint, ip, userAgent, referer string) error {
 	return s.repo.RecordActivity(ctx, cardID, "view", ip, userAgent, referer)
 }
 
-// RecordClick 记录点击
 func (s *xianyuCardStatsService) RecordClick(ctx context.Context, cardID uint, ip, userAgent, referer string) error {
 	return s.repo.RecordActivity(ctx, cardID, "click", ip, userAgent, referer)
 }
 
-// RecordShare 记录分享
 func (s *xianyuCardStatsService) RecordShare(ctx context.Context, cardID uint, ip, userAgent, referer string) error {
 	return s.repo.RecordActivity(ctx, cardID, "share", ip, userAgent, referer)
 }

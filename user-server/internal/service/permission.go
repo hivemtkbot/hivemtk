@@ -157,7 +157,6 @@ func (s *AuthorizationService) ListAuditLogs(ctx context.Context, req *ListAudit
 	return &ListAuditLogsResponse{Total: total, List: logs}, nil
 }
 
-// writeAuditLog 写操作审计日志
 func (s *AuthorizationService) writeAuditLog(ctx context.Context, actorID, targetID uint, targetUsername, action, detail string) error {
 	log := &model.OperationLog{
 		UserID:     actorID,

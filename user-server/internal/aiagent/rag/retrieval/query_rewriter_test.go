@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"errors"
@@ -9,7 +8,6 @@ import (
 	"time"
 )
 
-// mockRedisClient mock RedisClient
 type mockRedisClient struct {
 	mu      sync.RWMutex
 	store   map[string]string
@@ -48,7 +46,6 @@ func (m *mockRedisClient) Set(_ context.Context, key, value string, ttl time.Dur
 	return nil
 }
 
-// Contains 线程安全地判断 key 是否存在（供测试在并发回填后读取）
 func (m *mockRedisClient) Contains(key string) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -56,7 +53,6 @@ func (m *mockRedisClient) Contains(key string) bool {
 	return ok
 }
 
-// errRedisNil 模拟 redis.Nil 错误（避免引入 redis 包）
 var errRedisNil = errors.New("redis: nil")
 
 func TestQueryRewriter_EmptyQuery(t *testing.T) {
@@ -252,9 +248,6 @@ func TestSha256Hex_Deterministic(t *testing.T) {
 	}
 }
 
-// 验证 mockLLMChatClient 满足接口
 var _ LLMChatClient = (*mockLLMChatClient)(nil)
 
-// 确保 mockRedisClient 满足 RedisClient 接口（编译期断言）
 var _ RedisClient = (*mockRedisClient)(nil)
-

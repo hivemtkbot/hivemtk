@@ -136,4 +136,3 @@ func TestGlobalPendingAck_Singleton(t *testing.T) {
 		t.Error("singleton Track/Ack failed")
 	}
 }
-

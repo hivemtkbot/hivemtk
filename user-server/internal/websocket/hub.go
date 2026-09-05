@@ -11,19 +11,14 @@ import (
 
 // Hub WebSocket连接中心
 type Hub struct {
-	clients     map[string]*Client 
+	clients     map[string]*Client
 	register    chan *Client
 	unregister  chan *Client
 	broadcast   chan *envelopeFrame
 	mu          sync.RWMutex
-	agentOnline map[string]bool 
+	agentOnline map[string]bool
 }
 
-// envelopeFrame hub 内部帧（agentID + 已序列化的 Envelope 字节）
-//
-// 设计动机：原 broadcast chan 承载 *Message，要求 hub 重新组装 Envelope。
-// hub 承载 *envelopeFrame，只做"按 agentID 路由"职责，
-// seq / 序列化 / ACK 跟踪全部由调用方（notify.go / hub.Broadcast）完成。
 type envelopeFrame struct {
 	agentID string
 	bytes   []byte
@@ -32,20 +27,20 @@ type envelopeFrame struct {
 // Client WebSocket客户端
 // 同时支持 agent（坐席）和 visitor（访客）两种类型
 type Client struct {
-	hub        *Hub
-	send       chan []byte
-	clientType ClientType
-	agentID    string
-	agentName  string
-	sessionID string 
-	visitorID string 
-	channelID string 
+	hub               *Hub
+	send              chan []byte
+	clientType        ClientType
+	agentID           string
+	agentName         string
+	sessionID         string
+	visitorID         string
+	channelID         string
 	onConnectInflight atomic.Bool
 }
 
 // Message WebSocket消息
 type Message struct {
-	Type    string          `json:"type"` 
+	Type    string          `json:"type"`
 	AgentID string          `json:"agent_id"`
 	Payload json.RawMessage `json:"payload"`
 }
@@ -92,8 +87,7 @@ func (h *Hub) Run() {
 			if !ok {
 				continue
 			}
-			// 非阻塞发送：通道满时丢弃（避免 Run 循环被阻塞）
-			// 不 close 通道，由 unregister 统一负责
+
 			select {
 			case client.send <- frame.bytes:
 			default:
@@ -112,7 +106,7 @@ func (h *Hub) Run() {
 				select {
 				case client.send <- []byte(`{"type":"heartbeat"}`):
 				default:
-					// 通道满说明连接已僵死，由 unregister 清理
+
 					logger.GetLogger().Warn().Str("agent_id", client.agentID).Msg("ws heartbeat dropped, marking offline")
 					h.mu.Lock()
 					if existing, ok := h.clients[client.agentID]; ok {
@@ -152,7 +146,6 @@ func (h *Hub) Broadcast(message *Message) {
 	h.broadcast <- &envelopeFrame{agentID: message.AgentID, bytes: bytes}
 }
 
-// sendToAgentWithEnvelope 内部用 Envelope 投递（不分配新 seq，沿用 Envelope.Seq）
 func (h *Hub) sendToAgentWithEnvelope(agentID string, env *Envelope) error {
 	if env == nil {
 		return nil
@@ -193,7 +186,7 @@ func (h *Hub) BroadcastToMerchant(merchantID string, messageType string, payload
 
 	for agentID, client := range h.clients {
 		_ = client
-		_ = merchantID 
+		_ = merchantID
 		h.Broadcast(&Message{
 			Type:    messageType,
 			AgentID: agentID,
@@ -273,7 +266,6 @@ func (c *Client) SendChan() <-chan []byte {
 	return c.send
 }
 
-// globalHub 全局WebSocket中心
 var globalHub *Hub
 var once sync.Once
 
@@ -310,4 +302,3 @@ func NotifyAISuggestion(agentID string, suggestionData any) error {
 func BroadcastAgentStatus(statusData any) error {
 	return GetHub().BroadcastToMerchant("", "agent_status", statusData)
 }
-

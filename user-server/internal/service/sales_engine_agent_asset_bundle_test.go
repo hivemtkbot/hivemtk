@@ -6,7 +6,6 @@ import (
 	"testing"
 )
 
-// stubAssetBundleResolver 测试用资产包解析器
 type stubAssetBundleResolver struct {
 	prompt string
 	err    error

@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -10,8 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// baseToBridge 旧基础渠道 -> 桥接渠道映射
-// 注意：tiktok 不再需要转换（bridge 渠道直接使用 tiktok 而非 tiktok_web）
 var baseToBridge = map[string]string{
 	"douyin":      "douyin_web",
 	"xhs":         "xhs_web",
@@ -114,4 +111,3 @@ func (m *BridgeChannelNormalizeMigration) Down(ctx context.Context) error {
 }
 
 var _ migration.Migration = (*BridgeChannelNormalizeMigration)(nil)
-

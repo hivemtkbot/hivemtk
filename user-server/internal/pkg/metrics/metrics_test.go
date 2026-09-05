@@ -55,10 +55,10 @@ func TestGauge_SetIncDec(t *testing.T) {
 func TestHistogram_Observe(t *testing.T) {
 	h := NewHistogram("test_histogram_basic", "Test histogram", []string{"l"},
 		[]float64{1, 5, 10})
-	h.WithLabel("a").Observe(0.5)  
-	h.WithLabel("a").Observe(3)    
-	h.WithLabel("a").Observe(7)    
-	h.WithLabel("a").Observe(20)   
+	h.WithLabel("a").Observe(0.5)
+	h.WithLabel("a").Observe(3)
+	h.WithLabel("a").Observe(7)
+	h.WithLabel("a").Observe(20)
 	h.WithLabel("a").Observe(20)
 }
 
@@ -129,7 +129,7 @@ func TestLabelValidation(t *testing.T) {
 		}
 	}()
 	c := NewCounter("test_label_validation", "Test", []string{"a", "b"})
-	c.WithLabel("only_one") 
+	c.WithLabel("only_one")
 }
 
 func TestGetBridge_AllMetrics(t *testing.T) {
@@ -158,5 +158,3 @@ func TestGetBridge_AllMetrics(t *testing.T) {
 		}
 	}
 }
-
-

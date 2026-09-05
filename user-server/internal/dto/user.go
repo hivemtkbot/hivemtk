@@ -16,7 +16,7 @@ type CreateUserRequest struct {
 }
 
 type UpdateUserRequest struct {
-	ID       string `json:"id" binding:"omitempty"` 
+	ID       string `json:"id" binding:"omitempty"`
 	Username string `json:"username"`
 	Email    string `json:"email"`
 	RealName string `json:"real_name"`
@@ -63,4 +63,3 @@ type GetUserListRequest struct {
 type DeleteUserRequest struct {
 	ID string `uri:"id" binding:"required"`
 }
-

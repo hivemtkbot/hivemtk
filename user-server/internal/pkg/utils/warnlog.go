@@ -45,14 +45,10 @@ func WarnErrKV(scope string, err error, kvs ...string) {
 	ev.Msg("warn-only err with kv")
 }
 
-// zerologContext 抽象：让 WarnErrCtx 不必直接依赖 gin/context，
-// 调用方只传最小必要信息（trace_id / request_id）。
 type zerologContext interface{}
 
-// ctxStringView 把传入的 ctx 投影到 KV，减少调用方 import。
-// 当前为预留——M11 trace_id 贯通时由 zerolog hook 自动注入；这里仅防御性实现。
 func ctxStringView(_ zerologContext) map[string]string {
 	out := make(map[string]string)
-	// M11 落地后，从 ctx 读 trace_id 填充
+
 	return out
 }

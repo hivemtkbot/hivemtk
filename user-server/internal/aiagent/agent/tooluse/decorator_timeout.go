@@ -14,15 +14,13 @@ func TimeoutDecorator(duration time.Duration) ToolDecorator {
 			}
 			childCtx, cancel := context.WithTimeout(ctx, duration)
 			defer cancel()
-			// 用 channel + goroutine 实现，避免 next 内部不响应 context 取消
+
 			type ret struct {
 				r ToolResult
 				e error
 			}
 			ch := make(chan ret, 1)
-			// v3 审计 P0-15 修复：超时后 next goroutine 持续运行泄漏
-			// 原：goroutine 启动后不关联 childCtx 取消，超时后仍持 DB/Socket 资源
-			// 新：让 next 接受 childCtx（cancel 自动级联），并加超时保护
+
 			go func() {
 				defer func() {
 					if rec := recover(); rec != nil {
@@ -34,8 +32,7 @@ func TimeoutDecorator(duration time.Duration) ToolDecorator {
 			}()
 			select {
 			case <-childCtx.Done():
-				// v3 审计 P0-15 修复：超时后立即取消 childCtx 释放下游资源
-				// next 函数如果尊重 ctx（DB 查询 / HTTP 请求），会立即终止
+
 				toolName := GetToolName(ctx)
 				if childCtx.Err() == context.DeadlineExceeded {
 					return ErrorResult(toolName, ErrToolTimeout), ErrToolTimeout
@@ -47,4 +44,3 @@ func TimeoutDecorator(duration time.Duration) ToolDecorator {
 		}
 	}
 }
-

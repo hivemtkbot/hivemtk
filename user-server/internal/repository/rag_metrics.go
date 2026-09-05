@@ -44,12 +44,10 @@ func NewRagMetricsRepository(db *gorm.DB) RagMetricsRepository {
 	return &ragMetricsRepo{db: db}
 }
 
-// CreateQueryLog 创建单条 RAG 查询日志
 func (r *ragMetricsRepo) CreateQueryLog(ctx context.Context, log *model.RagQueryLog) error {
 	return r.db.WithContext(ctx).Create(log).Error
 }
 
-// CreateQueryLogsInBatches 批量创建 RAG 查询日志
 func (r *ragMetricsRepo) CreateQueryLogsInBatches(ctx context.Context, logs []*model.RagQueryLog, batchSize int) error {
 	if len(logs) == 0 {
 		return nil
@@ -57,9 +55,6 @@ func (r *ragMetricsRepo) CreateQueryLogsInBatches(ctx context.Context, logs []*m
 	return r.db.WithContext(ctx).CreateInBatches(logs, batchSize).Error
 }
 
-// AggregateQueryLogs 聚合时间窗口内的查询日志
-//
-// SQL 与原实现保持一致：使用 COUNT(*) FILTER (WHERE ...) 统计 zero_hit / low_recall
 func (r *ragMetricsRepo) AggregateQueryLogs(ctx context.Context, start, end time.Time, lowRecallThreshold float64) (*RagQueryLogAggRow, error) {
 	row := &RagQueryLogAggRow{}
 	if err := r.db.WithContext(ctx).
@@ -79,9 +74,6 @@ func (r *ragMetricsRepo) AggregateQueryLogs(ctx context.Context, start, end time
 	return row, nil
 }
 
-// PluckP99Latency 取 延迟
-//
-// 通过 Order + Offset + Limit(1) + Pluck 实现偏移法取百分位
 func (r *ragMetricsRepo) PluckP99Latency(ctx context.Context, start, end time.Time, offset int) (int64, error) {
 	var p99Latency int64
 	if err := r.db.WithContext(ctx).
@@ -96,9 +88,6 @@ func (r *ragMetricsRepo) PluckP99Latency(ctx context.Context, start, end time.Ti
 	return p99Latency, nil
 }
 
-// FindLowRecallQueryLogs 查询召回率低于阈值的样本
-//
-// 仅 SELECT 必要字段；按 created_at DESC 优先返回最近样本
 func (r *ragMetricsRepo) FindLowRecallQueryLogs(ctx context.Context, threshold float64, limit int) ([]model.RagQueryLog, error) {
 	var rows []model.RagQueryLog
 	err := r.db.WithContext(ctx).
@@ -114,7 +103,6 @@ func (r *ragMetricsRepo) FindLowRecallQueryLogs(ctx context.Context, threshold f
 	return rows, nil
 }
 
-// FindDailyByWindow 按 window_start + window_end 查找聚合记录
 func (r *ragMetricsRepo) FindDailyByWindow(ctx context.Context, start, end time.Time) (*model.RagMetricsDaily, error) {
 	var existing model.RagMetricsDaily
 	err := r.db.WithContext(ctx).
@@ -126,17 +114,14 @@ func (r *ragMetricsRepo) FindDailyByWindow(ctx context.Context, start, end time.
 	return &existing, nil
 }
 
-// SaveDaily 保存（更新）聚合记录
 func (r *ragMetricsRepo) SaveDaily(ctx context.Context, daily *model.RagMetricsDaily) error {
 	return r.db.WithContext(ctx).Save(daily).Error
 }
 
-// CreateDaily 创建聚合记录
 func (r *ragMetricsRepo) CreateDaily(ctx context.Context, daily *model.RagMetricsDaily) error {
 	return r.db.WithContext(ctx).Create(daily).Error
 }
 
-// FindLatestDailies 查询最近 N 条聚合记录（按 window_start DESC）
 func (r *ragMetricsRepo) FindLatestDailies(ctx context.Context, limit int) ([]model.RagMetricsDaily, error) {
 	var rows []model.RagMetricsDaily
 	if err := r.db.WithContext(ctx).
@@ -153,5 +138,4 @@ func IsRecordNotFound(err error) bool {
 	return errors.Is(err, gorm.ErrRecordNotFound)
 }
 
-// 编译期断言
 var _ RagMetricsRepository = (*ragMetricsRepo)(nil)

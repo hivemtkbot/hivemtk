@@ -41,4 +41,3 @@ func TestDefaultPortDocsConsistency(t *testing.T) {
 		}
 	})
 }
-

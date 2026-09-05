@@ -41,10 +41,6 @@ func ExportReportDataCSV(w io.Writer, data *model.ReportData) error {
 	return writeReportCSV(w, data)
 }
 
-// writeReportCSV 把 ReportData 写成 CSV：
-//   - 列集以数据行实际键为准（各数据源的行键均为字段名）：
-//     声明的维度/指标列若存在于行键中则优先按声明顺序排列，其余键按字典序追加，
-//     保证列序确定（map 遍历无序）；csv.Writer 自带 RFC4180 转义。
 func writeReportCSV(w io.Writer, data *model.ReportData) error {
 	cw := csv.NewWriter(w)
 
@@ -52,7 +48,6 @@ func writeReportCSV(w io.Writer, data *model.ReportData) error {
 	declared = append(declared, data.Dimensions...)
 	declared = append(declared, data.Metrics...)
 
-	// 收集全部行键
 	rowKeys := make(map[string]bool)
 	for _, row := range data.Data {
 		for k := range row {
@@ -62,14 +57,14 @@ func writeReportCSV(w io.Writer, data *model.ReportData) error {
 
 	header := make([]string, 0, len(rowKeys))
 	seen := make(map[string]bool)
-	// 1) 声明列与行键的交集，保持声明顺序
+
 	for _, d := range declared {
 		if !seen[d] && rowKeys[d] {
 			seen[d] = true
 			header = append(header, d)
 		}
 	}
-	// 2) 其余行键按字典序追加（列序确定性）
+
 	extra := make([]string, 0, len(rowKeys))
 	for k := range rowKeys {
 		if !seen[k] {

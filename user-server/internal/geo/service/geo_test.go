@@ -42,7 +42,6 @@ func TestKBService(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Save
 	doc, err := svc.Save(ctx, &dto.SaveKnowledgeDocumentRequest{
 		Title:   "品牌介绍",
 		Content: "我们是一家专注于GEO优化的公司",
@@ -55,7 +54,6 @@ func TestKBService(t *testing.T) {
 		t.Fatal("doc ID should be generated")
 	}
 
-	// Search
 	results, err := svc.Search(ctx, "GEO", 10)
 	if err != nil {
 		t.Fatalf("Search failed: %v", err)
@@ -64,7 +62,6 @@ func TestKBService(t *testing.T) {
 		t.Fatalf("expected at least 1 result, got %d", len(results))
 	}
 
-	// List
 	list, err := svc.List(ctx)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
@@ -73,7 +70,6 @@ func TestKBService(t *testing.T) {
 		t.Fatalf("expected at least 1 doc, got %d", len(list))
 	}
 
-	// Delete
 	if err := svc.Delete(ctx, doc.ID); err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
@@ -88,7 +84,6 @@ func TestPlatformService_ListPlatforms(t *testing.T) {
 		t.Fatal("expected non-empty platform list")
 	}
 
-	// 验证包含 GitHub
 	found := false
 	for _, p := range platforms {
 		if p.Name == "github_readme" {
@@ -103,7 +98,7 @@ func TestPlatformService_ListPlatforms(t *testing.T) {
 
 func TestPlatformService_SaveAccount(t *testing.T) {
 	db := geoTestDB(t)
-	// 加密密钥由 TestMain 统一注入
+
 	svc := NewPlatformService(newGeoAccountRepo(db), newGeoRecordRepo(db), newGeoArticleRepo(db))
 
 	account, err := svc.SaveAccount(context.Background(), &dto.SavePlatformAccountRequest{
@@ -118,7 +113,6 @@ func TestPlatformService_SaveAccount(t *testing.T) {
 		t.Fatal("account ID should be generated")
 	}
 
-	// List（脱敏 DTO：不得回显凭据）
 	list, total, err := svc.ListAccounts(context.Background(), "github_readme", 1, 10)
 	if err != nil {
 		t.Fatalf("ListAccounts failed: %v", err)
@@ -136,7 +130,6 @@ func TestPlatformService_SaveAccount(t *testing.T) {
 		t.Fatal("credentials must never leak into response")
 	}
 
-	// 落库凭据必须为密文（DB 原始值不含明文 token）
 	stored, err := newGeoAccountRepo(db).GetByPlatformAndName("github_readme", "testuser")
 	if err != nil {
 		t.Fatalf("GetByPlatformAndName failed: %v", err)
@@ -147,7 +140,7 @@ func TestPlatformService_SaveAccount(t *testing.T) {
 }
 
 func TestEstimateCostUSD(t *testing.T) {
-	// 已知模型命中定价表：gpt-4o in=2.5 out=10 USD/1M
+
 	usd, cny := EstimateCostUSD("gpt-4o", 1_000_000, 500_000)
 	if usd != 2.5+5.0 {
 		t.Fatalf("expected gpt-4o cost 7.5 USD, got %v", usd)
@@ -156,25 +149,21 @@ func TestEstimateCostUSD(t *testing.T) {
 		t.Fatalf("CNY should be USD * rate, got %v vs %v", cny, usd)
 	}
 
-	// 带版本号的模型名按子串包含匹配命中 gpt-4o 档
 	usd2, _ := EstimateCostUSD("gpt-4o-2024-08-06", 1_000_000, 0)
 	if usd2 != 2.5 {
 		t.Fatalf("expected versioned gpt-4o input cost 2.5 USD, got %v", usd2)
 	}
 
-	// 长名优先：gpt-4o-mini 不得误命中 gpt-4o 档
 	usdMini, _ := EstimateCostUSD("gpt-4o-mini", 1_000_000, 0)
 	if usdMini != 0.15 {
 		t.Fatalf("expected gpt-4o-mini input cost 0.15 USD, got %v", usdMini)
 	}
 
-	// 未识别模型走兜底价
 	usd3, _ := EstimateCostUSD("unknown-model-x", 1_000_000, 0)
 	if usd3 != fallbackPriceIn {
 		t.Fatalf("expected fallback price %v, got %v", fallbackPriceIn, usd3)
 	}
 
-	// 零 token 成本为零
 	if usd4, _ := EstimateCostUSD("gpt-4o", 0, 0); usd4 != 0 {
 		t.Fatalf("expected zero cost for zero tokens, got %v", usd4)
 	}
@@ -238,7 +227,6 @@ func TestWorkflowService(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Create
 	wf, err := svc.Create(ctx, &dto.SaveWorkflowRequest{
 		Name: "测试工作流",
 		Steps: []dto.WorkflowStep{
@@ -253,7 +241,6 @@ func TestWorkflowService(t *testing.T) {
 		t.Fatal("workflow ID should be generated")
 	}
 
-	// List
 	list, err := svc.List(ctx)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
@@ -262,7 +249,6 @@ func TestWorkflowService(t *testing.T) {
 		t.Fatalf("expected at least 1 workflow, got %d", len(list))
 	}
 
-	// Get
 	got, err := svc.Get(ctx, wf.ID)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
@@ -271,7 +257,6 @@ func TestWorkflowService(t *testing.T) {
 		t.Fatalf("expected name '测试工作流', got '%s'", got.Name)
 	}
 
-	// Run (content_generate without LLM returns fallback text)
 	result, err := svc.Run(ctx, wf.ID)
 	if err != nil && result == nil {
 		t.Fatalf("Run failed: %v", err)
@@ -280,8 +265,6 @@ func TestWorkflowService(t *testing.T) {
 		t.Fatal("expected non-empty run status")
 	}
 }
-
-// === test helpers ===
 
 func newGeoKBRepo(db *gorm.DB) repository.GeoKnowledgeDocumentRepository {
 	return repository.NewGeoKnowledgeDocumentRepositoryWithDB(db)

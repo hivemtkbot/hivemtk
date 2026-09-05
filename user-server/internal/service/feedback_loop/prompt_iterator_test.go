@@ -194,14 +194,12 @@ func TestPromptIterator_IterateForNode_FullFlowWithAutoApprove(t *testing.T) {
 		t.Errorf("生成候选数 = %d want 2", len(got))
 	}
 
-	// 验证候选入库（status=approved）
 	var newCands []model.PromptCandidate
 	db.Where("sop_id = ? AND sop_node_id = ? AND status = ?", 1, "node_1", model.PromptCandidateStatusApproved).Find(&newCands)
 	if len(newCands) != 2 {
 		t.Errorf("approved 候选数 = %d want 2", len(newCands))
 	}
 
-	// 验证 A/B 测试已创建
 	var abTests []model.PromptABTest
 	db.Where("sop_id = ? AND sop_node_id = ?", 1, "node_1").Find(&abTests)
 	if len(abTests) == 0 {
@@ -277,14 +275,12 @@ func TestPromptIterator_IterateForNode_NoAutoApprove(t *testing.T) {
 		t.Errorf("候选数 = %d want 1", len(got))
 	}
 
-	// 验证候选状态为 draft（未自动审核）
 	var draftCands []model.PromptCandidate
 	db.Where("sop_id = ? AND sop_node_id = ? AND status = ?", 1, "node_1", model.PromptCandidateStatusDraft).Find(&draftCands)
 	if len(draftCands) != 1 {
 		t.Errorf("draft 候选数 = %d want 1", len(draftCands))
 	}
 
-	// 验证未创建 A/B 测试
 	var abTestCount int64
 	db.Model(&model.PromptABTest{}).Where("sop_id = ? AND sop_node_id = ?", 1, "node_1").Count(&abTestCount)
 	if abTestCount != 0 {

@@ -13,8 +13,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-
-
 // ReachToolProvider 提供 20 个多渠道触达工具
 type ReachToolProvider struct{}
 
@@ -41,7 +39,6 @@ func (p *ReachToolProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.Tool
 	return tooluse.BuildReachTools(deps), nil
 }
 
-
 // PrivateMessageToolProvider 提供 3 个私信工具
 type PrivateMessageToolProvider struct{}
 
@@ -62,7 +59,6 @@ func (p *PrivateMessageToolProvider) Provide(ctx tooluse.ProviderContext) ([]too
 	return tooluse.BuildPrivateMessageTools(deps), nil
 }
 
-
 // CustomerToolProvider 提供 8 个客户工具
 type CustomerToolProvider struct{}
 
@@ -81,7 +77,6 @@ func (p *CustomerToolProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.T
 	return tooluse.BuildCustomerTools(deps), nil
 }
 
-
 // KnowledgeToolProvider 提供 4 个知识工具
 type KnowledgeToolProvider struct{}
 
@@ -98,7 +93,6 @@ func (p *KnowledgeToolProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.
 	deps := tooluse.NewKnowledgeToolDepsWithDB(ctx.DB)
 	return tooluse.BuildKnowledgeTools(deps), nil
 }
-
 
 // BusinessToolProvider 提供 5 个业务工具
 type BusinessToolProvider struct{}
@@ -124,15 +118,8 @@ func (p *BusinessToolProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.T
 	return tooluse.BuildBusinessTools(deps), nil
 }
 
-
-// errProviderDBRequired Provider 依赖 DB 但未提供
 var errProviderDBRequired = &providerError{"provider requires DB in ProviderContext"}
 
-// permissionGuardedTool 权限装饰后的工具（最高标准审计 P1-7）。
-//
-// 包装 Tool.Execute：执行前经 PermissionChecker 校验，未通过返回
-// ErrPermissionDenied。语义与 tooluse.PermissionDecorator 一致，
-// 但作用于注册中心层，使绕过 ToolExecutor 的直接调用同样受权限约束。
 type permissionGuardedTool struct {
 	tooluse.Tool
 	checker tooluse.PermissionChecker
@@ -151,8 +138,6 @@ func (g *permissionGuardedTool) Execute(ctx context.Context, args map[string]any
 	return g.Tool.Execute(ctx, args)
 }
 
-// rewirePermissionDecorators 把注册中心内所有工具替换为带权限装饰的包装版本（幂等）。
-// 装配期一次性调用；checker 为 nil 时跳过（保持零开销向后兼容）。
 func rewirePermissionDecorators(registry *tooluse.ToolRegistry) {
 	if registry == nil {
 		return
@@ -183,10 +168,6 @@ type providerError struct{ msg string }
 
 func (e *providerError) Error() string { return e.msg }
 
-
-// globalProviderRegistry 全局 ProviderRegistry 单例
-//
-// 在 registerAllAgentTools 中初始化，供 /api/agent/tools/providers 接口读取
 var globalProviderRegistry *tooluse.ProviderRegistry
 
 // GetGlobalProviderRegistry 读取全局 ProviderRegistry（未装配时为 nil）
@@ -195,9 +176,6 @@ func GetGlobalProviderRegistry() *tooluse.ProviderRegistry { return globalProvid
 // SetGlobalProviderRegistryForTest 仅用于测试：临时替换/清空全局 ProviderRegistry
 func SetGlobalProviderRegistryForTest(r *tooluse.ProviderRegistry) { globalProviderRegistry = r }
 
-// initBuiltinToolProviders 注册 5 个内置 Provider 到指定 registry
-//
-// 调用方：registerAllAgentTools
 func initBuiltinToolProviders(registry *tooluse.ProviderRegistry) {
 	providers := []tooluse.ToolProvider{
 		&ReachToolProvider{},
@@ -213,18 +191,6 @@ func initBuiltinToolProviders(registry *tooluse.ProviderRegistry) {
 	}
 }
 
-// registerAllAgentToolsViaProviders 通过 Provider 模式装配所有工具
-//
-// 这是 registerAllAgentTools 的新实现（+ 优化），
-// 替代原有硬编码 5 个 registerAgent*Tools 调用。
-//
-// 流程：
-//  1. 创建 ProviderRegistry
-//  2. 注册 5 个内置 Provider
-//  3. 注册所有自注册的第三方 Provider
-//  4. 调用 RegisterAll 批量装配到 ToolRegistry
-//  5. 日志输出装配结果
-//  6. 初始化 ToolRouter（依赖工具已注册）
 func registerAllAgentToolsViaProviders(gormDB *gorm.DB) {
 	providerRegistry := tooluse.NewProviderRegistry()
 	globalProviderRegistry = providerRegistry
@@ -242,7 +208,7 @@ func registerAllAgentToolsViaProviders(gormDB *gorm.DB) {
 
 	ctx := tooluse.ProviderContext{
 		DB:     gormDB,
-		Config: tooluse.ProviderConfig{Enabled: true}, 
+		Config: tooluse.ProviderConfig{Enabled: true},
 	}
 	results, err := providerRegistry.RegisterAll(ctx, tooluse.GetGlobalRegistry())
 	if err != nil {
@@ -252,16 +218,8 @@ func registerAllAgentToolsViaProviders(gormDB *gorm.DB) {
 	tooluse.RegisterCardTools(tooluse.GetGlobalRegistry())
 	logger.Info("[agent] ✅ 会话内卡片工具（card.show）已接入全局注册中心")
 
-	// 最高标准审计 P1-7 修复：PermissionDecorator 接线。
-	// 此前 PermissionDecorator 仅在 ToolExecutor 装饰器链生效，直接从注册中心
-	// 取工具执行（registry.Get().Execute()）的路径零权限校验。此处把全局
-	// WhitelistPermissionChecker 以装饰器形式包到每个已注册工具上，
-	// 覆盖所有执行路径。checker 默认 defaultAllow=true → admin/存量调用语义不变，
-	// 但权限钩子已就位：后续按 AgentContext.Tools 设置白名单即刻全链路生效。
 	rewirePermissionDecorators(tooluse.GetGlobalRegistry())
 
-	// TL-3：租户级 disabled_tools 启停——装配完成后从注册中心剔除
-	// （配置缺失/解析失败/列表为空 → 全量，向后兼容）
 	applyTenantDisabledTools(tooluse.GetGlobalRegistry())
 
 	totalTools := 0
@@ -288,9 +246,6 @@ func registerAllAgentToolsViaProviders(gormDB *gorm.DB) {
 	InitGlobalToolRouter()
 }
 
-// applyTenantDisabledTools 读取 agent_settings 的 disabled_tools 列表，
-// 从注册中心剔除对应工具（TL-3 租户级启停）。
-// 无配置/解析失败/列表为空时不做任何剔除（全量，向后兼容）。
 func applyTenantDisabledTools(registry *tooluse.ToolRegistry) {
 	cfg, err := service.LoadAgentSettingsConfig(context.Background())
 	if err != nil || cfg == nil {
@@ -299,7 +254,6 @@ func applyTenantDisabledTools(registry *tooluse.ToolRegistry) {
 	applyDisabledTools(registry, cfg.DisabledTools)
 }
 
-// applyDisabledTools 将 disabled 列表中的工具从注册中心剔除，返回实际剔除数
 func applyDisabledTools(registry *tooluse.ToolRegistry, disabled []string) int {
 	if registry == nil || len(disabled) == 0 {
 		return 0
@@ -310,7 +264,7 @@ func applyDisabledTools(registry *tooluse.ToolRegistry, disabled []string) int {
 			continue
 		}
 		if err := registry.Unregister(name); err != nil {
-			// 工具不存在等情形：跳过即可（幂等）
+
 			continue
 		}
 		removed++
@@ -318,4 +272,3 @@ func applyDisabledTools(registry *tooluse.ToolRegistry, disabled []string) int {
 	}
 	return removed
 }
-

@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-
 func TestNormalizePhone_Empty(t *testing.T) {
 	if got := NormalizePhone(""); got != "" {
 		t.Errorf("expected empty, got %q", got)
@@ -123,10 +122,10 @@ func TestNormalizePhone_Not11Digits(t *testing.T) {
 		want string
 	}{
 		{"12345", "12345"},
-		{"abcdefghijk", "abcdefghijk"},   
-		{"1380013800", "1380013800"},     
-		{"138001380000", "138001380000"}, 
-		{"+861380013800", "1380013800"},  
+		{"abcdefghijk", "abcdefghijk"},
+		{"1380013800", "1380013800"},
+		{"138001380000", "138001380000"},
+		{"+861380013800", "1380013800"},
 	}
 	for i, c := range cases {
 		if got := NormalizePhone(c.in); got != c.want {
@@ -134,7 +133,6 @@ func TestNormalizePhone_Not11Digits(t *testing.T) {
 		}
 	}
 }
-
 
 func TestNormalizeEmail_Empty(t *testing.T) {
 	if got := NormalizeEmail(""); got != "" {
@@ -200,8 +198,8 @@ func TestNormalizeEmail_InvalidFormat(t *testing.T) {
 		"missing-at.com",
 		"@example.com",
 		"foo@",
-		"foo bar@example.com", 
-		"foo@bar",             
+		"foo bar@example.com",
+		"foo@bar",
 	}
 	for _, c := range cases {
 		got := NormalizeEmail(c)
@@ -211,7 +209,6 @@ func TestNormalizeEmail_InvalidFormat(t *testing.T) {
 	}
 }
 
-
 func TestNormalizeOpenID_Trim(t *testing.T) {
 	cases := []struct {
 		in   string
@@ -220,7 +217,7 @@ func TestNormalizeOpenID_Trim(t *testing.T) {
 		{"openid_001", "openid_001"},
 		{"  openid_002  ", "openid_002"},
 		{"\nopenid_003\n", "openid_003"},
-		{"OpenID_CaseSensitive", "OpenID_CaseSensitive"}, 
+		{"OpenID_CaseSensitive", "OpenID_CaseSensitive"},
 		{"", ""},
 		{"   ", ""},
 		{"\t\n\ropenid_007\r\n\t", "openid_007"},
@@ -234,7 +231,6 @@ func TestNormalizeOpenID_Trim(t *testing.T) {
 		}
 	}
 }
-
 
 func TestNormalize_AllFields(t *testing.T) {
 	in := Identifiers{
@@ -282,7 +278,6 @@ func TestNormalize_PartialFields(t *testing.T) {
 	}
 }
 
-
 func TestHasAny(t *testing.T) {
 	cases := []struct {
 		in   Identifiers
@@ -306,7 +301,6 @@ func TestHasAny(t *testing.T) {
 	}
 }
 
-
 func TestPhoneHash_Deterministic(t *testing.T) {
 	h1 := PhoneHash("13800138000")
 	h2 := PhoneHash("13800138000")
@@ -316,7 +310,7 @@ func TestPhoneHash_Deterministic(t *testing.T) {
 	if h1 != h2 {
 		t.Errorf("PhoneHash not deterministic: %s vs %s", h1, h2)
 	}
-	if len(h1) != 64 { 
+	if len(h1) != 64 {
 		t.Errorf("PhoneHash length = %d, want 64", len(h1))
 	}
 }
@@ -401,7 +395,6 @@ func TestEmailHash_Empty(t *testing.T) {
 	}
 }
 
-
 func TestNormalizePhone_BatchEquivalent(t *testing.T) {
 	base := "13800138000"
 	variants := []string{
@@ -444,7 +437,6 @@ func TestNormalizeEmail_BatchEquivalent(t *testing.T) {
 	}
 }
 
-
 func TestNormalizePhone_Idempotent(t *testing.T) {
 	inputs := []string{
 		"+86 138-0013-8000",
@@ -476,7 +468,6 @@ func TestNormalizeEmail_Idempotent(t *testing.T) {
 	}
 }
 
-
 func TestNormalizePhone_OnlySeparators(t *testing.T) {
 	got := NormalizePhone("+ - . _")
 	if got != "" {
@@ -506,7 +497,6 @@ func TestEmailHash_NeverContainsRawEmail(t *testing.T) {
 		t.Errorf("EmailHash should not contain raw email local part")
 	}
 }
-
 
 func TestNormalizePhone_TableDriven_Batch(t *testing.T) {
 	equivalenceGroups := [][]string{
@@ -592,7 +582,6 @@ func TestNormalizeEmail_TableDriven_Batch(t *testing.T) {
 	}
 }
 
-
 func TestNormalizeOpenID_TableDriven_Batch(t *testing.T) {
 	cases := []struct {
 		in   string
@@ -621,4 +610,3 @@ func TestNormalizeOpenID_TableDriven_Batch(t *testing.T) {
 		}
 	}
 }
-

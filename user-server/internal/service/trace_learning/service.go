@@ -17,11 +17,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// adjustMu 跨 trace 并发评估时，串行化「权重调整」这一段快路径，避免两个不同 trace 召回同一
-// chunk 时的丢失更新。LLM 打分（慢路径）仍并发，吞吐不受损。
 var adjustMu sync.Mutex
 
-// traceLockKey 把 trace_id 映射为 int64 咨询锁 key（FNV-32，碰撞仅导致偶发串行化，不影响正确性）。
 func traceLockKey(traceID string) int64 {
 	h := fnv.New32a()
 	_, _ = h.Write([]byte(traceID))
@@ -59,10 +56,6 @@ func (s *Service) EvaluateTrace(ctx context.Context, traceID string, dryRun bool
 	return s.evaluateTraceOn(ctx, s.db, traceID, dryRun)
 }
 
-// evaluateTraceOn 在指定 db 句柄上评估单条 trace。
-// db 可传入 RunBatch 持有的专用连接，使全局咨询锁的获取与释放在同一物理连接上完成，
-// 避免连接池把「获取锁」与「释放锁」落到不同连接导致锁泄漏（会话级咨询锁需同连接释放）。
-// dryRun=true 时仅计算「计划调整」且只读，不调权、不写审计（用于安全预览/评估自学习质量）。
 func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID string, dryRun bool) (*model.TraceEvalLog, error) {
 	ctx = ensureCtx(ctx)
 	agg, err := AggregateTrace(ctx, db, traceID)
@@ -98,7 +91,7 @@ func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID stri
 	dimJSON, _ := json.Marshal(res.Dimensions)
 
 	if dryRun {
-		// 预览模式：只读计算「计划调整」，不调权、不写审计。
+
 		var adjusted []AdjustedChunk
 		if len(agg.RecalledChunkIDs) > 0 {
 			adjusted, _ = PreviewAdjustments(ctx, db, agg.RecalledChunkIDs, *res, s.cfg)
@@ -121,7 +114,7 @@ func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID stri
 		if e := tx.Exec("SELECT pg_advisory_xact_lock(?)", traceLockKey(traceID)).Error; e != nil {
 			return e
 		}
-		// 幂等：若已评估过，仅刷新审计分数，不再重复调权（权重是乘算，重复评估会叠加漂移）。
+
 		var existing model.TraceEvalLog
 		if e := tx.Where("trace_id = ?", traceID).First(&existing).Error; e != nil && !errors.Is(e, gorm.ErrRecordNotFound) {
 			return e
@@ -130,9 +123,7 @@ func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID stri
 
 		var adjusted []AdjustedChunk
 		if len(agg.RecalledChunkIDs) > 0 && !alreadyEvaluated && !skipAdjust {
-			// 注意：必须用 `=` 赋值给外层 adjusted，不能用 `:=` 否则会遮蔽外层变量，
-			// 导致下面写入审计日志的 adjusted_chunks 恒为 null（权重其实已调，但审计丢失）。
-			// 跨 trace 并发时不同 trace 可能召回同一 chunk，故用全局 adjustMu 串行化调权，避免丢失更新。
+
 			var e error
 			adjustMu.Lock()
 			adjusted, e = AdjustWeights(ctx, tx, agg.RecalledChunkIDs, *res, s.cfg)
@@ -161,13 +152,11 @@ func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID stri
 	if txErr != nil {
 		return nil, txErr
 	}
-	// L-2 经验沉淀：差评样本提取错误模式落库（失败仅告警，不影响评估结果）
+
 	s.distillInsightForTrace(ctx, agg, res)
 	return resultLog, nil
 }
 
-// persistAttemptedLog 写入一条「已尝试但出错」的评估记录，使 RunBatch 的 listUnevaluated
-// 不再重复选中该 trace（避免批量失败时无限重选死循环）。不调权重；运维可清理 trace_eval_log 后手动重评。
 func (s *Service) persistAttemptedLog(ctx context.Context, db *gorm.DB, traceID string, agg *AggregatedTrace, reason string) error {
 	log := model.TraceEvalLog{
 		TraceID:        traceID,
@@ -182,7 +171,6 @@ func (s *Service) persistAttemptedLog(ctx context.Context, db *gorm.DB, traceID 
 	return db.WithContext(ctx).Where("trace_id = ?", traceID).Assign(log).FirstOrCreate(&log).Error
 }
 
-// runBatchLockKey 全局咨询锁 key：防止 cron 与手动触发并发跑 RunBatch 造成重复评估。
 const runBatchLockKey int64 = 9173001
 
 // RunBatch 扫描所有「尚未评估」的 ai_dispatch trace 并批量打分+调权。
@@ -338,5 +326,4 @@ func (s *Service) TopWeights(ctx context.Context, limit int) ([]map[string]any, 
 	return rows, nil
 }
 
-// marshalJSON 供外部复用（保持与 adjuster 同名函数一致）
 var _ = marshalJSON

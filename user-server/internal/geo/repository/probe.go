@@ -71,7 +71,7 @@ func (r *geoProbeRunRepo) ListRecent(ctx context.Context, limit int) ([]*model.G
 }
 
 func (r *geoProbeRunRepo) ListByIntent(ctx context.Context, intent string, since time.Time) ([]*model.GeoProbeRun, error) {
-	// ProbeRun 本身无 intent 字段，降级为 ListRecent + 后续 service 层解析
+
 	var list []*model.GeoProbeRun
 	q := r.db.WithContext(ctx)
 	if !since.IsZero() {
@@ -90,8 +90,6 @@ func (r *geoProbeRunRepo) DistinctEngines(ctx context.Context) ([]string, error)
 	return engines, err
 }
 
-// ListSince 返回 since 之后的探针记录，按 created_at 升序（聚合用）
-// limit<=0 表示不限制
 func (r *geoProbeRunRepo) ListSince(ctx context.Context, since time.Time, limit int) ([]*model.GeoProbeRun, error) {
 	q := r.db.WithContext(ctx).Where("created_at >= ?", since).Order("created_at ASC")
 	if limit > 0 {

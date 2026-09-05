@@ -95,7 +95,6 @@ func (c *FeedbackCollector) Stop() {
 	<-c.done
 }
 
-// worker 后台 worker（批量写入 + 信号聚合）
 func (c *FeedbackCollector) worker() {
 	defer close(c.done)
 
@@ -144,7 +143,6 @@ func (c *FeedbackCollector) worker() {
 	}
 }
 
-// flushBatch 批量持久化 + 聚合
 func (c *FeedbackCollector) flushBatch(ctx context.Context, batch []*dto.CollectRequest) {
 	for _, req := range batch {
 		if err := c.persist(ctx, req); err != nil {
@@ -153,11 +151,6 @@ func (c *FeedbackCollector) flushBatch(ctx context.Context, batch []*dto.Collect
 	}
 }
 
-// persist 持久化单条事件 + upsert feedback_signals
-//
-// 事务（由 repository 封装）：
-//  1. 写 feedback_events（事件流水）
-//  2. upsert feedback_signals（按 session_id 聚合）
 func (c *FeedbackCollector) persist(ctx context.Context, req *dto.CollectRequest) error {
 	if c.repo == nil {
 		return fmt.Errorf("repo is nil")
@@ -203,7 +196,6 @@ func (c *FeedbackCollector) persist(ctx context.Context, req *dto.CollectRequest
 	return c.repo.PersistFeedback(ctx, event, sig)
 }
 
-// lookupWeight 查找信号权重（未配置则返回 0）
 func (c *FeedbackCollector) lookupWeight(key dto.FeedbackSignalKey) float64 {
 	if w, ok := c.config.Weights[key]; ok {
 		return w
@@ -211,15 +203,6 @@ func (c *FeedbackCollector) lookupWeight(key dto.FeedbackSignalKey) float64 {
 	return 0
 }
 
-// computeReward 计算奖励值
-//
-// 信号类型归一化规则：
-//   - rating（评分 1-5）：reward = weight * (v / 5.0)
-//   - reply_rate（回复率 0-1）：reward = weight * v
-//   - duration（会话时长秒）：reward = weight * min(v/300, 1)
-//   - tool_call（bool 1.0/0.0）：成功 +weight，失败 -weight*1.5（惩罚更重）
-//   - intent_match（bool）：匹配 +weight，不匹配 -weight*1.6
-//   - 其他（bool/string）：reward = weight * 1.0
 func (c *FeedbackCollector) computeReward(key dto.FeedbackSignalKey, value any, weight float64) float64 {
 	switch key {
 	case dto.FBSignalRating:
@@ -239,12 +222,12 @@ func (c *FeedbackCollector) computeReward(key dto.FeedbackSignalKey, value any, 
 			return weight * normalized
 		}
 	case dto.FBSignalToolCall:
-		// R58: tool_call 的 value 是 1.0 (成功) / 0.0 (失败)
+
 		if v, ok := toFloat64(value); ok {
 			if v > 0 {
 				return weight
 			}
-			// 失败惩罚 = -|weight| * 1.5（失败信号更重，防止静默坏 tool 积累）
+
 			penalty := -weight * 1.5
 			if weight < 0 {
 				penalty = weight * 1.5
@@ -252,7 +235,7 @@ func (c *FeedbackCollector) computeReward(key dto.FeedbackSignalKey, value any, 
 			return penalty
 		}
 	case dto.FBSignalIntentMatch:
-		// R58: intent_match 的 value 是 1.0 (匹配) / 0.0 (不匹配)
+
 		if v, ok := toFloat64(value); ok {
 			if v > 0 {
 				return weight
@@ -263,7 +246,6 @@ func (c *FeedbackCollector) computeReward(key dto.FeedbackSignalKey, value any, 
 	return weight
 }
 
-// toFloat64 安全转换为 float64（支持 int/int64/float32/float64）
 func toFloat64(v any) (float64, bool) {
 	switch x := v.(type) {
 	case float64:
@@ -285,13 +267,6 @@ func toFloat64(v any) (float64, bool) {
 	return 0, false
 }
 
-// genEventID 生成事件唯一 ID（防重复）
-//
-// 组成：session_id|signal_key|customer_msg|unix_nano|random_nonce 的 sha256 前 32 字符
-//
-// 注意：仅依赖 time.Now().UnixNano() 无法保证唯一性——
-// 现代系统时钟分辨率可能仅到微秒，紧凑循环中多次调用会得到相同纳秒值。
-// 因此追加 8 字节 crypto/rand 随机 nonce，确保跨调用唯一。
 func (c *FeedbackCollector) genEventID(req *dto.CollectRequest) string {
 	now := time.Now().UnixNano()
 	h := sha256.New()

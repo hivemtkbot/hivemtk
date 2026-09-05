@@ -94,4 +94,3 @@ func TestGetRequest_ComplexResponse(t *testing.T) {
 		t.Errorf("Expected bool to be true, got %v", result["bool"])
 	}
 }
-

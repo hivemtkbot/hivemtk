@@ -192,19 +192,16 @@ func (s *CustomerSessionService) UnlockHumanSession(ctx context.Context, session
 	return s.unlockHumanSession(ctx, sessionID)
 }
 
-// lockHumanSession 内部：写 Redis 人工接管锁
 func (s *CustomerSessionService) lockHumanSession(ctx context.Context, sessionID, reason string) error {
 	svc := NewInboxIngressServiceWithDB(nil, nil)
 	return svc.LockSessionForHuman(ctx, sessionID, reason)
 }
 
-// unlockHumanSession 内部：解 Redis 人工接管锁
 func (s *CustomerSessionService) unlockHumanSession(ctx context.Context, sessionID string) error {
 	svc := NewInboxIngressServiceWithDB(nil, nil)
 	return svc.UnlockSessionForHuman(ctx, sessionID)
 }
 
-// notifySessionUpdate 内部：推送会话状态变更给前端
 func (s *CustomerSessionService) notifySessionUpdate(ctx context.Context, session *model.CustomerSession, event, handler string) error {
 	agentID := strconv.FormatUint(uint64(session.AgentID), 10)
 	return websocket.NotifySessionUpdate(agentID, map[string]any{

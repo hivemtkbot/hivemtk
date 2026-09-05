@@ -36,7 +36,7 @@ func TestSafeGo_NilFunc(t *testing.T) {
 }
 
 func TestSafeGo_NilCtx(t *testing.T) {
-	// nil ctx 应回退到 Background
+
 	var executed atomic.Bool
 	SafeGo(nil, "test.nilctx", func(ctx context.Context) {
 		if ctx == nil {
@@ -122,7 +122,7 @@ func TestSafeGoWithRetry_SucceedsEventually(t *testing.T) {
 		}
 		return nil
 	})
-	// 等待最终成功
+
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		if attempts.Load() >= 3 {

@@ -27,7 +27,6 @@ type TikTokCardRepository interface {
 	ListRecentActivities(ctx context.Context, limit int) ([]model.TikTokCardActivity, error)
 }
 
-// tiktokCardRepository TikTok 卡片仓储实现
 type tiktokCardRepository struct {
 	db *gorm.DB
 }
@@ -37,7 +36,6 @@ func NewTikTokCardRepository(db *gorm.DB) TikTokCardRepository {
 	return &tiktokCardRepository{db: db}
 }
 
-// Create 创建 TikTok 卡片
 func (r *tiktokCardRepository) Create(ctx context.Context, card *model.TikTokCard) (*model.TikTokCard, error) {
 	if err := r.db.Create(card).Error; err != nil {
 		return nil, err
@@ -45,7 +43,6 @@ func (r *tiktokCardRepository) Create(ctx context.Context, card *model.TikTokCar
 	return card, nil
 }
 
-// Update 更新 TikTok 卡片
 func (r *tiktokCardRepository) Update(ctx context.Context, card *model.TikTokCard) (*model.TikTokCard, error) {
 	if err := r.db.Save(card).Error; err != nil {
 		return nil, err
@@ -53,12 +50,10 @@ func (r *tiktokCardRepository) Update(ctx context.Context, card *model.TikTokCar
 	return card, nil
 }
 
-// Delete 删除 TikTok 卡片
 func (r *tiktokCardRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.Where("id = ?", id).Delete(&model.TikTokCard{}).Error
 }
 
-// GetByID 根据 ID 获取 TikTok 卡片
 func (r *tiktokCardRepository) GetByID(ctx context.Context, id uint) (*model.TikTokCard, error) {
 	var card model.TikTokCard
 	if err := r.db.Where("id = ?", id).First(&card).Error; err != nil {
@@ -67,7 +62,6 @@ func (r *tiktokCardRepository) GetByID(ctx context.Context, id uint) (*model.Tik
 	return &card, nil
 }
 
-// GetList 获取 TikTok 卡片列表
 func (r *tiktokCardRepository) GetList(ctx context.Context, req CardListFilter) ([]model.TikTokCard, int64, error) {
 	var cards []model.TikTokCard
 	var total int64
@@ -102,33 +96,28 @@ func (r *tiktokCardRepository) GetList(ctx context.Context, req CardListFilter) 
 	return cards, total, nil
 }
 
-// IncrementViewCount 增加浏览数
 func (r *tiktokCardRepository) IncrementViewCount(ctx context.Context, id uint) error {
 	return r.db.Model(&model.TikTokCard{}).
 		Where("id = ?", id).
 		UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
 }
 
-// IncrementLikeCount 增加点赞数
 func (r *tiktokCardRepository) IncrementLikeCount(ctx context.Context, id uint) error {
 	return r.db.Model(&model.TikTokCard{}).
 		Where("id = ?", id).
 		UpdateColumn("like_count", gorm.Expr("like_count + 1")).Error
 }
 
-// IncrementShareCount 增加分享数
 func (r *tiktokCardRepository) IncrementShareCount(ctx context.Context, id uint) error {
 	return r.db.Model(&model.TikTokCard{}).
 		Where("id = ?", id).
 		UpdateColumn("share_count", gorm.Expr("share_count + 1")).Error
 }
 
-// CreateActivity 创建活动记录
 func (r *tiktokCardRepository) CreateActivity(ctx context.Context, activity *model.TikTokCardActivity) error {
 	return r.db.Create(activity).Error
 }
 
-// GetOverallStats 获取总体统计（独立部署：单租户）
 func (r *tiktokCardRepository) GetOverallStats(ctx context.Context) (int64, int64, int64, []model.TikTokCard, error) {
 	var totalCards, activeCards, totalViews int64
 
@@ -150,7 +139,6 @@ func (r *tiktokCardRepository) GetOverallStats(ctx context.Context) (int64, int6
 	return totalCards, activeCards, totalViews, popular, nil
 }
 
-// GetCardStats 获取单个卡片统计（独立部署：单租户）
 func (r *tiktokCardRepository) GetCardStats(ctx context.Context, id uint, days int) (*model.TikTokCard, []model.TikTokCardActivity, error) {
 	var card model.TikTokCard
 	if err := r.db.Where("id = ?", id).First(&card).Error; err != nil {
@@ -166,7 +154,6 @@ func (r *tiktokCardRepository) GetCardStats(ctx context.Context, id uint, days i
 	return &card, activities, nil
 }
 
-// ListAll 列出所有卡片（独立部署：单租户）
 func (r *tiktokCardRepository) ListAll(ctx context.Context) ([]model.TikTokCard, error) {
 	var cards []model.TikTokCard
 	if err := r.db.Find(&cards).Error; err != nil {
@@ -175,7 +162,6 @@ func (r *tiktokCardRepository) ListAll(ctx context.Context) ([]model.TikTokCard,
 	return cards, nil
 }
 
-// CountDailyView 统计某天所有卡片的浏览数
 func (r *tiktokCardRepository) CountDailyView(ctx context.Context, day string) (int64, error) {
 	var n int64
 	if err := r.db.Model(&model.TikTokCardActivity{}).
@@ -186,7 +172,6 @@ func (r *tiktokCardRepository) CountDailyView(ctx context.Context, day string) (
 	return n, nil
 }
 
-// CountCardDailyView 统计某卡片某天的浏览数
 func (r *tiktokCardRepository) CountCardDailyView(ctx context.Context, cardID uint, day string) (int64, error) {
 	var n int64
 	if err := r.db.Model(&model.TikTokCardActivity{}).
@@ -197,7 +182,6 @@ func (r *tiktokCardRepository) CountCardDailyView(ctx context.Context, cardID ui
 	return n, nil
 }
 
-// ListRecentActivities 列最近 N 条活动
 func (r *tiktokCardRepository) ListRecentActivities(ctx context.Context, limit int) ([]model.TikTokCardActivity, error) {
 	var list []model.TikTokCardActivity
 	if err := r.db.Order("created_at DESC").Limit(limit).Find(&list).Error; err != nil {

@@ -112,4 +112,3 @@ func TestSessionStatus_Values(t *testing.T) {
 		t.Error("SessionExpired should be 'expired'")
 	}
 }
-

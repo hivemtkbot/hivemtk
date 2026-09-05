@@ -19,7 +19,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupFeishuTestDB 准备飞书服务测试库（按需迁移，与 e2e 测试一致）
 func setupFeishuTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	database := testutil.NewTestDB(t,
@@ -33,7 +32,6 @@ func setupFeishuTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// feishuMockTransport 拦截飞书开放平台 HTTP 请求，返回成功响应
 type feishuMockTransport struct {
 	code int
 }
@@ -93,7 +91,6 @@ func TestFeishuIntegrationService_SendMessage(t *testing.T) {
 		t.Fatalf("SendMessage 失败: %v", err)
 	}
 
-	// 断言：飞书消息落库且拿到平台 MsgID
 	var fm model.FeishuMessage
 	if err := database.Where("account_id = ?", acc.ID).First(&fm).Error; err != nil {
 		t.Fatalf("未找到飞书出站消息: %v", err)
@@ -102,7 +99,6 @@ func TestFeishuIntegrationService_SendMessage(t *testing.T) {
 		t.Errorf("期望 MsgID 以 feishu-out- 开头, 实际=%q", fm.MsgID)
 	}
 
-	// 断言：消息中台出站记录落库（主动发）
 	var hub model.MessageHub
 	if err := database.Where("account_id = ? AND direction = ?", uintToStr(acc.ID), "outbound").First(&hub).Error; err != nil {
 		t.Fatalf("未找到消息中台出站记录: %v", err)
@@ -127,7 +123,6 @@ func TestFeishuIntegrationService_SendMessage_APIError(t *testing.T) {
 		t.Fatal("期望 SendMessage 返回错误，实际为 nil")
 	}
 
-	// 断言：账号记录最后错误
 	var updated model.FeishuAccount
 	if err := database.First(&updated, acc.ID).Error; err != nil {
 		t.Fatalf("读取账号失败: %v", err)

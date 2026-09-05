@@ -39,10 +39,10 @@ type AgentPerformance struct {
 	TotalSessions      int64     `json:"total_sessions"`
 	AIResolvedCount    int64     `json:"ai_resolved_count"`
 	HumanTakeoverCount int64     `json:"human_takeover_count"`
-	AutoResolveRate    float64   `json:"auto_resolve_rate"`   // AI 解决 / 总会话
-	HumanTakeoverRate  float64   `json:"human_takeover_rate"` // 人工接手 / 总会话
-	AvgResolveSeconds  float64   `json:"avg_resolve_seconds"` // 平均解决耗时
-	AvgCSAT            float64   `json:"avg_csat"`            // 平均 CSAT (1-5)
+	AutoResolveRate    float64   `json:"auto_resolve_rate"`
+	HumanTakeoverRate  float64   `json:"human_takeover_rate"`
+	AvgResolveSeconds  float64   `json:"avg_resolve_seconds"`
+	AvgCSAT            float64   `json:"avg_csat"`
 	CSATRespondedCount int64     `json:"csat_responded_count"`
 	PeriodStart        time.Time `json:"period_start"`
 	PeriodEnd          time.Time `json:"period_end"`
@@ -50,10 +50,10 @@ type AgentPerformance struct {
 
 // PerformanceQuery 查询参数
 type PerformanceQuery struct {
-	AgentID    uint       `form:"agent_id"`    // 0 = 全部 agent
-	PeriodDays int        `form:"period_days"` // 默认 7
-	StartTime  *time.Time `form:"start_time"`  // 可选覆盖
-	EndTime    *time.Time `form:"end_time"`    // 可选覆盖
+	AgentID    uint       `form:"agent_id"`
+	PeriodDays int        `form:"period_days"`
+	StartTime  *time.Time `form:"start_time"`
+	EndTime    *time.Time `form:"end_time"`
 }
 
 // GetPerformance 获取指定时间窗口内的 Agent 绩效
@@ -74,7 +74,6 @@ func (s *AgentAttributionService) GetPerformance(ctx context.Context, q *Perform
 		endTime = *q.EndTime
 	}
 
-	// 查询 customer_sessions 按 agent 聚合
 	type aggRow struct {
 		AgentID       uint    `gorm:"column:agent_id"`
 		AgentName     string  `gorm:"column:agent_name"`
@@ -106,7 +105,6 @@ func (s *AgentAttributionService) GetPerformance(ctx context.Context, q *Perform
 		return nil, fmt.Errorf("ATTRIB_001: 会话聚合查询失败: %w", err)
 	}
 
-	// 查询 CSAT 按 agent 关联 session 的平均分
 	type csatRow struct {
 		AgentID   uint    `gorm:"column:agent_id"`
 		AvgScore  float64 `gorm:"column:avg_score"`
@@ -124,7 +122,7 @@ func (s *AgentAttributionService) GetPerformance(ctx context.Context, q *Perform
 		Where("cs.status = 'responded' AND cs.score > 0 AND sess.created_at BETWEEN ? AND ?", startTime, endTime).
 		Group("cs.agent_id")
 	if err := csatQuery.Scan(&csatRows).Error; err != nil {
-		// CSAT 查询失败不阻塞主结果，CSAT 字段留 0
+
 		csatRows = nil
 	}
 
@@ -133,7 +131,6 @@ func (s *AgentAttributionService) GetPerformance(ctx context.Context, q *Perform
 		csatMap[r.AgentID] = r
 	}
 
-	// 组装结果
 	result := make([]*AgentPerformance, 0, len(rows))
 	for _, row := range rows {
 		perf := &AgentPerformance{

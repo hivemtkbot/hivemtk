@@ -46,7 +46,6 @@ func (s *KuaishouCardStatsService) GetCardStats(ctx context.Context, req *dto.Ku
 		return nil, fmt.Errorf("查询统计数据失败: %w", err)
 	}
 
-	// 将查询结果转换为DailyStat格式
 	var dailyStats []dto.DailyStat
 	dateMap := make(map[string]*dto.DailyStat)
 	for _, result := range results {
@@ -120,7 +119,6 @@ func (s *KuaishouCardStatsService) GetOverallStats(ctx context.Context, req *dto
 		return nil, err
 	}
 
-	// 转换为DTO格式
 	var popularCardDTOs []dto.PopularCard
 	for _, card := range popularCards {
 		popularCardDTOs = append(popularCardDTOs, dto.PopularCard{
@@ -136,7 +134,6 @@ func (s *KuaishouCardStatsService) GetOverallStats(ctx context.Context, req *dto
 		return nil, fmt.Errorf("查询统计数据失败: %w", err)
 	}
 
-	// 将查询结果转换为DailyStat格式
 	var dailyStats []dto.DailyStat
 	dateMap := make(map[string]*dto.DailyStat)
 	for _, result := range results {

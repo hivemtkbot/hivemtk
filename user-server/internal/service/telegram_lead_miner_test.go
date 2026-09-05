@@ -303,7 +303,6 @@ func TestTgLeadOutreachAllowed(t *testing.T) {
 	}
 }
 
-// countClues 统计指定账号的 TG 线索条数（验证去重）
 func countClues(t *testing.T, db *gorm.DB, account string) int {
 	var list []model.Clue
 	if err := db.Where("type = ? AND account = ?", ClueTypeTelegram, account).Find(&list).Error; err != nil {

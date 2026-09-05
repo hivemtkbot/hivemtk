@@ -498,7 +498,7 @@ func extractKeywords(text string) []string {
 	if len(runes) < 2 {
 		return []string{text}
 	}
-	// 取 2-3 字滑窗
+
 	var keywords []string
 	seen := make(map[string]bool)
 	for size := 2; size <= 3; size++ {
@@ -746,5 +746,4 @@ func MarkLowQualitySampleHandled(db *gorm.DB, id uint64, handler, note string) e
 	}).Error
 }
 
-// touchUnusedRegex 避免 regexp 包未被引用（保留以备后续复杂规则扩展）
 var _ = regexp.MustCompile

@@ -207,9 +207,6 @@ func (c *ABExperimentController) GetConversionEvents(ctx *gin.Context) {
 	}, "获取成功")
 }
 
-
-// ---------- K5 高级统计端点（GrowthBook 轻量版） ----------
-
 // GetAdvancedStats GET /api/ab-experiments/:id/stats?method=frequentist|bayesian
 func (c *ABExperimentController) GetAdvancedStats(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
@@ -305,26 +302,25 @@ func (c *ABExperimentController) GetResultsWithReach(ctx *gin.Context) {
 	response.Success(ctx, out, "ok")
 }
 
-
 // PostReachMetrics POST /api/ab-experiments/reach-metrics
 // 批量上报触达指标（前端把 reach pipeline 的发送结果回灌到 AB 实验）
 func (c *ABExperimentController) PostReachMetrics(ctx *gin.Context) {
 	var req struct {
-		ExperimentID    uint    `json:"experiment_id"`
-		Channel         string  `json:"channel"`
-		SentCount       int     `json:"sent_count"`
-		DeliveredCount  int     `json:"delivered_count"`
-		OpenCount       int     `json:"open_count"`
-		ClickCount      int     `json:"click_count"`
-		ConversionCount int     `json:"conversion_count"`
+		ExperimentID    uint   `json:"experiment_id"`
+		Channel         string `json:"channel"`
+		SentCount       int    `json:"sent_count"`
+		DeliveredCount  int    `json:"delivered_count"`
+		OpenCount       int    `json:"open_count"`
+		ClickCount      int    `json:"click_count"`
+		ConversionCount int    `json:"conversion_count"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.Error(ctx, http.StatusBadRequest, "参数错误: "+err.Error())
 		return
 	}
-	// 聚合结果直接返回（service 层可后续扩展为持久化）
+
 	out := gin.H{
-		"experiment_id":    req.ExperimentID,
+		"experiment_id":   req.ExperimentID,
 		"channel":         req.Channel,
 		"sent":            req.SentCount,
 		"delivered":       req.DeliveredCount,
@@ -342,4 +338,3 @@ func safeDiv(num, den int) float64 {
 	}
 	return float64(num) / float64(den)
 }
-

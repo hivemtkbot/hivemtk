@@ -1,6 +1,5 @@
 package model
 
-
 // SystemRoleCode 系统角色 code（与 model.SystemUser.Role 的合法值保持一致）
 //
 // 注意：变更时需同步检查 model.IsValidSystemUserRole 与 service/system_user.go 的 oneof 约束。
@@ -12,11 +11,11 @@ const (
 
 // SystemRole 系统角色定义（只读展示用）
 type SystemRole struct {
-	Code        string `json:"code"`        
-	Name        string `json:"name"`        
-	TagType     string `json:"tag_type"`    
-	Description string `json:"description"` 
-	IsSystem    bool   `json:"is_system"`   
+	Code        string `json:"code"`
+	Name        string `json:"name"`
+	TagType     string `json:"tag_type"`
+	Description string `json:"description"`
+	IsSystem    bool   `json:"is_system"`
 }
 
 // SystemRoles 系统角色列表（按 v3.1 收口为 3 档）
@@ -92,4 +91,3 @@ func NormalizeRole(code string) string {
 		return ""
 	}
 }
-

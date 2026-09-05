@@ -55,7 +55,6 @@ func (ctrl *KnowledgeMerchantController) RegisterRoutes(router *gin.RouterGroup)
 	}
 }
 
-
 // BatchImport JSON 体导入
 func (ctrl *KnowledgeMerchantController) BatchImport(c *gin.Context) {
 	var req service.BatchImportRequest
@@ -102,7 +101,6 @@ func (ctrl *KnowledgeMerchantController) BatchUpload(c *gin.Context) {
 	response.Success(c, result, "批量导入完成")
 }
 
-
 func (ctrl *KnowledgeMerchantController) Playground(c *gin.Context) {
 	var req service.PlaygroundRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -116,7 +114,6 @@ func (ctrl *KnowledgeMerchantController) Playground(c *gin.Context) {
 	}
 	response.Success(c, result, "")
 }
-
 
 func (ctrl *KnowledgeMerchantController) ListDocumentChunks(c *gin.Context) {
 	idStr := c.Param("id")
@@ -190,7 +187,6 @@ func (ctrl *KnowledgeMerchantController) SplitChunk(c *gin.Context) {
 	response.Success(c, nil, "拆分成功")
 }
 
-
 func (ctrl *KnowledgeMerchantController) SubmitFeedback(c *gin.Context) {
 	var req service.SubmitFeedbackRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -228,7 +224,6 @@ func (ctrl *KnowledgeMerchantController) ListFeedbacks(c *gin.Context) {
 	}
 	response.Success(c, gin.H{"items": list, "total": total, "page": page, "page_size": pageSize}, "")
 }
-
 
 func (ctrl *KnowledgeMerchantController) CreateToken(c *gin.Context) {
 	var req service.CreateTokenRequest
@@ -271,7 +266,6 @@ func (ctrl *KnowledgeMerchantController) RevokeToken(c *gin.Context) {
 	response.Success(c, nil, "已吊销")
 }
 
-
 func (ctrl *KnowledgeMerchantController) ExternalImport(c *gin.Context) {
 	var req service.ExternalImportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -312,4 +306,3 @@ func (ctrl *KnowledgeMerchantController) ListExternalJobs(c *gin.Context) {
 	}
 	response.Success(c, gin.H{"items": list, "total": total, "page": page, "page_size": pageSize}, "")
 }
-

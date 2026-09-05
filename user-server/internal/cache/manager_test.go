@@ -225,7 +225,6 @@ func TestCacheManager_GetJSON(t *testing.T) {
 		t.Fatalf("SetJSON() 返回错误：%v", err)
 	}
 
-	// 获取 JSON 缓存
 	var result map[string]any
 	err = manager.GetJSON(ctx, "json_key", &result)
 	if err != nil {
@@ -266,7 +265,6 @@ func TestCacheManager_SetJSON(t *testing.T) {
 		t.Fatalf("SetJSON() 返回错误：%v", err)
 	}
 
-	// 获取并反序列化
 	var result TestStruct
 	err = manager.GetJSON(ctx, "struct_key", &result)
 	if err != nil {
@@ -428,35 +426,29 @@ func TestCacheManager_Stats_HitRate(t *testing.T) {
 
 	ctx := context.Background()
 
-	// 初始状态：命中率应为 0
 	stats := manager.GetStats()
 	if stats.HitRate() != 0 {
 		t.Errorf("初始命中率应为 0，得到：%f", stats.HitRate())
 	}
 
-	// 设置缓存
 	manager.Set(ctx, "key1", "value1", time.Minute)
 
-	// 命中
 	manager.Get(ctx, "key1")
 	stats = manager.GetStats()
 	if stats.Hits != 1 {
 		t.Errorf("命中次数应为 1，得到：%d", stats.Hits)
 	}
 
-	// 未命中
 	manager.Get(ctx, "nonexistent")
 	stats = manager.GetStats()
 	if stats.Misses != 1 {
 		t.Errorf("未命中次数应为 1，得到：%d", stats.Misses)
 	}
 
-	// 验证命中率
 	if stats.HitRate() != 50.0 {
 		t.Errorf("命中率应为 50%%，得到：%f", stats.HitRate())
 	}
 
-	// 验证总次数
 	if stats.Total() != 2 {
 		t.Errorf("总查询次数应为 2，得到：%d", stats.Total())
 	}
@@ -473,21 +465,17 @@ func TestCacheManager_Stats_ResetStats(t *testing.T) {
 
 	ctx := context.Background()
 
-	// 产生一些统计
 	manager.Set(ctx, "key1", "value1", time.Minute)
 	manager.Get(ctx, "key1")
 	manager.Get(ctx, "nonexistent")
 
-	// 重置前验证
 	stats := manager.GetStats()
 	if stats.Total() != 2 {
 		t.Errorf("重置前总次数应为 2，得到：%d", stats.Total())
 	}
 
-	// 重置
 	manager.ResetStats()
 
-	// 重置后验证
 	stats = manager.GetStats()
 	if stats.Hits != 0 || stats.Misses != 0 {
 		t.Errorf("重置后统计应为 0，得到：Hits=%d, Misses=%d", stats.Hits, stats.Misses)
@@ -509,10 +497,8 @@ func TestCacheManager_Stats_GetJSON(t *testing.T) {
 		Name string `json:"name"`
 	}
 
-	// 设置 JSON 缓存
 	manager.SetJSON(ctx, "json_key", TestStruct{Name: "test"}, time.Minute)
 
-	// 命中
 	var result TestStruct
 	manager.GetJSON(ctx, "json_key", &result)
 	stats := manager.GetStats()
@@ -520,7 +506,6 @@ func TestCacheManager_Stats_GetJSON(t *testing.T) {
 		t.Errorf("GetJSON 命中次数应为 1，得到：%d", stats.Hits)
 	}
 
-	// 未命中
 	var result2 TestStruct
 	manager.GetJSON(ctx, "nonexistent", &result2)
 	stats = manager.GetStats()

@@ -80,7 +80,6 @@ func DetectCarrierFromPhone(phone string) model.SmsCarrier {
 	return model.SmsCarrierUnknown
 }
 
-// hasPrefix 判断 prefix 是否匹配任一前缀列表
 func hasPrefix(prefix string, candidates []string) bool {
 	for _, c := range candidates {
 		if len(c) <= len(prefix) && prefix[:len(c)] == c {
@@ -102,7 +101,6 @@ func (s *SmsDeliveryTrackerService) DetectAndRecordPortability(ctx context.Conte
 		return errors.New("phone 不能为空")
 	}
 
-	// 1) 优先使用 webhook 推送的 carrier
 	var newCarrier model.SmsCarrier
 	switch strings.ToLower(strings.TrimSpace(webhookCarrier)) {
 	case "mobile", "中国移动", "cmcc", "yidong":
@@ -150,7 +148,6 @@ func (s *SmsDeliveryTrackerService) DetectAndRecordPortability(ctx context.Conte
 	return s.deliveryRepo.CreatePortability(ctx, rec)
 }
 
-// loadCarrierCache 加载最近一次运营商快照
 func (s *SmsDeliveryTrackerService) loadCarrierCache(ctx context.Context) {
 	if s.carrierLoaded || s.deliveryRepo == nil {
 		return

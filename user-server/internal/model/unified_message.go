@@ -15,7 +15,7 @@ const (
 	PlatformTiktok      Platform = "tiktok"
 	PlatformWeChat      Platform = "wechat"
 	PlatformWeb         Platform = "web"
-	PlatformWebEmbed Platform = "web_embed"
+	PlatformWebEmbed    Platform = "web_embed"
 )
 
 // MessageType 消息类型
@@ -66,7 +66,7 @@ type UnifiedMessage struct {
 	MediaURL     string        `gorm:"type:varchar(500)" json:"media_url"`
 	ReplyToID    string        `gorm:"type:varchar(50)" json:"reply_to_id"`
 	Status       MessageStatus `gorm:"type:varchar(20);default:'pending'" json:"status"`
-	RawData      string        `gorm:"type:text" json:"-"` 
+	RawData      string        `gorm:"type:text" json:"-"`
 	ReceivedAt   time.Time     `gorm:"autoCreateTime" json:"received_at"`
 	CreatedAt    time.Time     `gorm:"autoCreateTime" json:"created_at"`
 }
@@ -87,14 +87,14 @@ type UnifiedReply struct {
 	Content       string      `gorm:"type:text" json:"content"`
 	ContentType   MessageType `gorm:"type:varchar(20)" json:"content_type"`
 	MediaURL      string      `gorm:"type:varchar(500)" json:"media_url"`
-	ReplyType     string      `gorm:"type:varchar(20)" json:"reply_type"` 
+	ReplyType     string      `gorm:"type:varchar(20)" json:"reply_type"`
 	Confidence    float64     `gorm:"type:decimal(5,2)" json:"confidence"`
 	RuleID        uint        `json:"rule_id"`
 	KnowledgeID   uint        `json:"knowledge_id"`
 	AgentID       uint        `json:"agent_id"`
 	Status        ReplyStatus `gorm:"type:varchar(20)" json:"status"`
 	ErrorMessage  string      `gorm:"type:text" json:"error_message"`
-	PlatformMsgID string      `gorm:"type:varchar(50)" json:"platform_msg_id"` 
+	PlatformMsgID string      `gorm:"type:varchar(50)" json:"platform_msg_id"`
 	SentAt        *time.Time  `json:"sent_at"`
 	CreatedAt     time.Time   `gorm:"autoCreateTime" json:"created_at"`
 }
@@ -121,10 +121,10 @@ type PlatformAccount struct {
 	AccountID     string     `gorm:"type:varchar(50)" json:"account_id"`
 	AccountName   string     `gorm:"type:varchar(100)" json:"account_name"`
 	AccountAvatar string     `gorm:"type:varchar(500)" json:"account_avatar"`
-	Config        string     `gorm:"type:text" json:"config"` 
-	Cookie        string     `gorm:"type:text" json:"-"`      
-	Token         string     `gorm:"type:text" json:"-"`      
-	Status        int        `gorm:"default:1" json:"status"` 
+	Config        string     `gorm:"type:text" json:"config"`
+	Cookie        string     `gorm:"type:text" json:"-"`
+	Token         string     `gorm:"type:text" json:"-"`
+	Status        int        `gorm:"default:1" json:"status"`
 	LastSyncAt    *time.Time `json:"last_sync_at"`
 	ExpiresAt     *time.Time `json:"expires_at"`
 	CreatedAt     time.Time  `gorm:"autoCreateTime" json:"created_at"`
@@ -139,7 +139,7 @@ func (PlatformAccount) TableName() string {
 // ReplyDecision 回复决策
 type ReplyDecision struct {
 	ShouldReply  bool              `json:"should_reply"`
-	ReplyType    string            `json:"reply_type"` 
+	ReplyType    string            `json:"reply_type"`
 	Content      string            `json:"content"`
 	Confidence   float64           `json:"confidence"`
 	Reason       string            `json:"reason"`
@@ -213,4 +213,3 @@ type ChatInfo struct {
 	MemberCount int       `json:"member_count"`
 	CreatedAt   time.Time `json:"created_at"`
 }
-

@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupEmailDraftTestDB 设置邮件草稿测试数据库
 func setupEmailDraftTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.EmailDraft{},
@@ -22,7 +21,6 @@ func setupEmailDraftTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupEmailDraftRepository 创建测试用的邮件草稿仓库实例
 func setupEmailDraftRepository(t *testing.T) EmailDraftRepository {
 	setupEmailDraftTestDB(t)
 	return NewEmailDraftRepository()

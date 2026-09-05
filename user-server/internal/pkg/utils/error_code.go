@@ -53,7 +53,6 @@ type ErrorCodeConfig struct {
 	Message  string    `json:"message"`
 }
 
-// errorCodeRegistry 错误码注册表
 var errorCodeRegistry = map[ErrorCode]ErrorCodeConfig{
 	ErrorCodeSuccess: {Code: ErrorCodeSuccess, HTTPCode: 200, Message: "成功"},
 
@@ -122,4 +121,3 @@ func GetUserMessage(code ErrorCode) string {
 func GetUserMessageLoc(code ErrorCode, loc i18n.Locale) string {
 	return GetErrorCodeConfig(code).LocalizedMessage(loc)
 }
-

@@ -16,7 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupCustomerEventTestDB 设置测试数据库
 func setupCustomerEventTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.Customer{},
@@ -26,7 +25,6 @@ func setupCustomerEventTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupCustomerEventRouter 设置测试路由
 func setupCustomerEventRouter(t *testing.T) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 
@@ -210,8 +208,8 @@ func TestCustomerEventController_GetEventStats(t *testing.T) {
 			expectSuccess:  true,
 		},
 		{
-			name: "missing_user_id",
-			url:  "/api/events/stats",
+			name:           "missing_user_id",
+			url:            "/api/events/stats",
 			expectedStatus: 200,
 			expectSuccess:  true,
 		},
@@ -528,4 +526,3 @@ func TestCustomerEventController_TrackAddToCart(t *testing.T) {
 		})
 	}
 }
-

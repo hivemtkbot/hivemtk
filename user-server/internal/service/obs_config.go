@@ -225,7 +225,7 @@ func (s *obsConfigService) TestConnection(ctx context.Context, config *dto.ObsCo
 		logger.Infof("[OBS] Testing connection for AWS: bucket=%s (配置格式OK)", config.Bucket)
 		return nil
 	case model.ObsProviderLocal:
-		// 解析 baseDir（优先 config.Endpoint，回退 env，回退 ./uploads）
+
 		baseDir := config.Endpoint
 		if baseDir == "" {
 			baseDir = os.Getenv("STORAGE_LOCAL_BASE_DIR")
@@ -233,7 +233,7 @@ func (s *obsConfigService) TestConnection(ctx context.Context, config *dto.ObsCo
 		if baseDir == "" {
 			baseDir = "./uploads"
 		}
-		// 1. 目录是否存在
+
 		info, err := os.Stat(baseDir)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -244,12 +244,12 @@ func (s *obsConfigService) TestConnection(ctx context.Context, config *dto.ObsCo
 		if !info.IsDir() {
 			return fmt.Errorf("local 存储路径不是目录: %s", baseDir)
 		}
-		// 2. 是否可写：写一个临时文件再删掉
+
 		testFile := filepath.Join(baseDir, ".obs_test_write")
 		if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
 			return fmt.Errorf("local 存储目录不可写: %w", err)
 		}
-		os.Remove(testFile) // 清理
+		os.Remove(testFile)
 		logger.Infof("[OBS] Testing connection for local storage: OK (baseDir=%s, writable=true)", baseDir)
 		return nil
 	default:
@@ -257,9 +257,6 @@ func (s *obsConfigService) TestConnection(ctx context.Context, config *dto.ObsCo
 	}
 }
 
-// UploadFile 重写：查默认 ObsConfig → 构造 storage.Driver → 调用 Driver.UploadMultipart
-//
-// 返回公开访问 URL（local 为 /files/...，云存储为完整 CDN URL）
 func (s *obsConfigService) UploadFile(ctx context.Context, file multipart.File, header *multipart.FileHeader, folder string) (string, error) {
 	config, err := s.repo.GetDefault(ctx)
 	if err != nil {
@@ -283,7 +280,6 @@ func (s *obsConfigService) UploadFile(ctx context.Context, file multipart.File, 
 	logger.Infof("[OBS] file uploaded: provider=%s folder=%s path=%s url=%s",
 		config.Provider, folder, storagePath, publicURL)
 
-	// 更新统计
 	config.FileCount++
 	config.TotalSize += header.Size
 	if err := s.repo.Update(ctx, config); err != nil {
@@ -301,10 +297,6 @@ func (s *obsConfigService) GetDefaultConfig(ctx context.Context) (*dto.ObsConfig
 	return s.convertToDTO(ctx, config), nil
 }
 
-// validateCreateRequest 按 provider 分支化校验
-//
-// local：只要求 Name
-// 云厂商：要求 Name + AccessKey + SecretKey + Bucket + Region
 func (s *obsConfigService) validateCreateRequest(ctx context.Context, req *dto.CreateObsConfigRequest) error {
 	_ = ctx
 	if req.Name == "" {
@@ -313,7 +305,7 @@ func (s *obsConfigService) validateCreateRequest(ctx context.Context, req *dto.C
 	provider := model.ObsProvider(req.Provider)
 	switch provider {
 	case model.ObsProviderLocal:
-		// local 不需要 AK/SK/Bucket/Region，但自动填充默认 Endpoint/Domain
+
 		if req.Endpoint == "" {
 			if v := os.Getenv("STORAGE_LOCAL_BASE_DIR"); v != "" {
 				req.Endpoint = v
@@ -372,7 +364,6 @@ func (s *obsConfigService) convertToDTO(ctx context.Context, config *model.ObsCo
 	}
 }
 
-// obsConfigProviderName 获取提供商名称（从 model.ObsConfig 迁出，五层架构合规）
 func obsConfigProviderName(c *model.ObsConfig) string {
 	switch c.Provider {
 	case model.ObsProviderAliyun:
@@ -390,18 +381,14 @@ func obsConfigProviderName(c *model.ObsConfig) string {
 	}
 }
 
-// obsConfigIsFileSizeAllowed 检查文件大小限制
 func obsConfigIsFileSizeAllowed(c *model.ObsConfig, size int64) bool {
 	return size <= c.MaxSize
 }
 
-// obsConfigIsFileCountAllowed 检查是否达到文件数量限制
 func obsConfigIsFileCountAllowed(c *model.ObsConfig) bool {
 	return c.FileCount < c.MaxCount
 }
 
-// obsConfigResponseToModel 将 DTO 转回 model.ObsConfig（用于 TestConnection 内部
-// 调用 storage.Factory 验证驱动能否正常构造）。
 func obsConfigResponseToModel(d *dto.ObsConfigResponse) *model.ObsConfig {
 	if d == nil {
 		return nil

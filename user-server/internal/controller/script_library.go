@@ -18,7 +18,7 @@ type ScriptLibraryController struct {
 
 // NewScriptLibraryController 创建控制器
 func NewScriptLibraryController() *ScriptLibraryController {
-	// 装配下沉 service.NewScriptABServiceFromGlobal：controller 不直连 repository
+
 	return &ScriptLibraryController{abSvc: service.NewScriptABServiceFromGlobal()}
 }
 

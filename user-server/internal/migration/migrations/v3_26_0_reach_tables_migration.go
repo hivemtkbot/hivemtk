@@ -42,7 +42,7 @@ func (m *ReachTablesMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 	stmts := []string{
-		// R-8 合规提醒审计日志（model: service.ReachComplianceLog）
+
 		`CREATE TABLE IF NOT EXISTS reach_compliance_log (
 			id BIGSERIAL PRIMARY KEY,
 			channel VARCHAR(30) DEFAULT '',
@@ -51,7 +51,7 @@ func (m *ReachTablesMigration) Up(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_reach_compliance_log_channel ON reach_compliance_log(channel)`,
 		`CREATE INDEX IF NOT EXISTS idx_reach_compliance_log_created ON reach_compliance_log(created_at)`,
-		// H-3 AI 会话回复延迟出站记录（model: service.DelayedOutboundReply）
+
 		`CREATE TABLE IF NOT EXISTS reach_delayed_outbound (
 			id BIGSERIAL PRIMARY KEY,
 			platform VARCHAR(30) DEFAULT '',
@@ -95,5 +95,4 @@ func (m *ReachTablesMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// compile-time 接口断言
 var _ migration.Migration = (*ReachTablesMigration)(nil)

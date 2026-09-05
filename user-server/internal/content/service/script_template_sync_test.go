@@ -7,8 +7,6 @@ import (
 	mainmodel "hivemtk-user/internal/model"
 )
 
-// --- T-5 template → library 映射 ---
-
 func TestTemplateToLibrary_Mapping(t *testing.T) {
 	tpl := &contentmodel.ScriptTemplate{
 		Category:     "objection",
@@ -33,7 +31,7 @@ func TestTemplateToLibrary_Mapping(t *testing.T) {
 			t.Errorf("Tags[%d] = %v, want %v", i, got.Tags[i], wantTags[i])
 		}
 	}
-	// 运行时统计字段必须为零值（同步不覆盖 library 侧统计）
+
 	if got.UsageCount != 0 || got.SuccessCount != 0 || got.ConversionRate != 0 {
 		t.Errorf("映射不应携带运行时统计: %+v", got)
 	}
@@ -66,7 +64,7 @@ func TestParseTagsToJSONArray_PositiveAndNegative(t *testing.T) {
 }
 
 func TestSyncStats_SkipsEmptyTitleOrContent(t *testing.T) {
-	// 空字段跳过规则在 SyncToLibrary 中执行；此处验证判定条件本身
+
 	cases := []struct{ title, content string }{
 		{"", "有内容"},
 		{"有标题", ""},

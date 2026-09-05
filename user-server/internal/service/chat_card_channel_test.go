@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// 预期的 4 平台品牌元数据（与 cardChannelMetas 保持一致）
 var expectedCardMetas = map[string]struct {
 	ChannelID   string
 	ChannelName string
@@ -108,7 +107,7 @@ func TestGetOrCreateCardChannel_Idempotent(t *testing.T) {
 	if ch1.ID != ch2.ID {
 		t.Errorf("幂等性失败：首次 id=%d，二次 id=%d", ch1.ID, ch2.ID)
 	}
-	// 验证库中只有一条 douyin_card 记录
+
 	var count int64
 	database.Model(&model.ChatChannel{}).Where("channel_id = ?", "douyin_card").Count(&count)
 	if count != 1 {
@@ -264,7 +263,7 @@ func TestVisitorChatService_OpenSessionWithVisitorMeta(t *testing.T) {
 			if open == nil || open.Session == nil {
 				t.Fatal("OpenSession 返回空会话")
 			}
-			// 解析 session.Tags 并验证
+
 			var gotTags []string
 			if open.Session.Tags != "" {
 				if err := json.Unmarshal([]byte(open.Session.Tags), &gotTags); err != nil {

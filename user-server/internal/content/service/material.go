@@ -22,7 +22,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// strVal 将 *string 安全解引用为 string（nil 返回空串）
 func strVal(p *string) string {
 	if p == nil {
 		return ""
@@ -79,10 +78,6 @@ func NewMaterialServiceWithDB(db *gorm.DB) MaterialService {
 	}
 }
 
-// obsConfigServiceAdapter 桥接本域 ObsService → storage.Driver
-//
-// 不再依赖外部 SetInner 注入（之前永远不会被调用导致所有上传必挂）。
-// 构造时直接拿 userrepo.ObsConfigRepository → 查默认 ObsConfig → storage.Factory 构造 Driver。
 type obsConfigServiceAdapter struct {
 	cfgRepo userrepo.ObsConfigRepository
 }
@@ -95,7 +90,7 @@ func NewObsConfigServiceAdapter() *obsConfigServiceAdapter {
 }
 
 func (a *obsConfigServiceAdapter) UploadFile(file multipart.File, header *multipart.FileHeader, licenseID string, folder string) (string, error) {
-	_ = licenseID // 单租户：全局唯一默认配置
+	_ = licenseID
 
 	cfg, err := a.cfgRepo.GetDefault(context.Background())
 	if err != nil {
@@ -123,7 +118,6 @@ func (a *obsConfigServiceAdapter) GetDefaultConfig(licenseID string) (*dto.ObsCo
 	return obsModelToDTO(cfg), nil
 }
 
-// obsModelToDTO model.ObsConfig → dto.ObsConfigResponse（本地 helper，避免依赖 service 包循环）
 func obsModelToDTO(c *usermodel.ObsConfig) *dto.ObsConfigResponse {
 	return &dto.ObsConfigResponse{
 		ID:         c.ID,
@@ -186,7 +180,7 @@ func (s *materialService) GetCategory(id string) (*contentdto.MaterialCategoryRe
 }
 
 func (s *materialService) CreateCategory(req *contentdto.CreateMaterialCategoryRequest) (*contentdto.MaterialCategoryResponse, error) {
-	// 根分类（parent_id 为空或 "0"）置为 NULL，避免触发自引用外键冲突
+
 	var pid *string
 	if req.ParentID != "" && req.ParentID != "0" {
 		s := req.ParentID
@@ -530,7 +524,6 @@ func getMaterialTypeByMimeType(mimeType string) string {
 	return "file"
 }
 
-// UpdateMaterialUsage 更新素材使用次数
 func (s *materialService) UpdateMaterialUsage(id string) error {
 	material, err := s.materialRepo.GetByID(id)
 	if err != nil {
@@ -544,7 +537,6 @@ func (s *materialService) UpdateMaterialUsage(id string) error {
 	return s.materialRepo.Update(material)
 }
 
-// GetMaterialStats 获取素材统计信息
 func (s *materialService) GetMaterialStats(licenseID string) (*contentdto.MaterialStatsResponse, error) {
 	materials, _, err := s.materialRepo.GetList(licenseID, "", "", "", 1, 1000)
 	if err != nil {
@@ -580,4 +572,3 @@ func (s *materialService) GetMaterialStats(licenseID string) (*contentdto.Materi
 
 	return stats, nil
 }
-

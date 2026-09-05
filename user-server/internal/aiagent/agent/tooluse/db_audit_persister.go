@@ -10,8 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
-
 // ToolCallAuditRecord 工具调用审计记录（DB 模型）
 //
 // 表名：tool_call_audits
@@ -38,7 +36,6 @@ type ToolCallAuditRecord struct {
 func (ToolCallAuditRecord) TableName() string {
 	return "tool_call_audits"
 }
-
 
 // DBAuditLogger DB 持久化 AuditLogger
 //
@@ -88,12 +85,6 @@ func (l *DBAuditLogger) Log(ctx context.Context, entry AuditEntry) {
 	}
 }
 
-// consume 后台消费 goroutine
-//
-// 批量从队列读取 entry，写入 DB（每 100 条或 1 秒刷新一次）
-// 退出时（Close 触发 stopCh）确保：
-//  1. flush 当前 batch
-//  2. drain 队列剩余 entry 并 flush（避免丢日志）
 func (l *DBAuditLogger) consume() {
 	defer l.wg.Done()
 
@@ -144,10 +135,6 @@ func (l *DBAuditLogger) consume() {
 	}
 }
 
-// flushBatch 批量写入 DB
-//
-// 当 db == nil 时（DB 未启用），降级到 fallback logger
-// 当 DB 写入失败时，也降级到 fallback
 func (l *DBAuditLogger) flushBatch(batch []AuditEntry) {
 	if len(batch) == 0 {
 		return
@@ -183,7 +170,6 @@ func (l *DBAuditLogger) Close() {
 	})
 }
 
-// auditEntryToRecord 将 AuditEntry 转为 DB 模型
 func auditEntryToRecord(e AuditEntry) ToolCallAuditRecord {
 	return ToolCallAuditRecord{
 		TraceID:       e.TraceID,
@@ -211,25 +197,24 @@ func AutoMigrateAuditTable(db *gorm.DB) error {
 	return db.AutoMigrate(&ToolCallAuditRecord{})
 }
 
-
 // AlertLevel 告警级别
 type AlertLevel string
 
 const (
-	AlertInfo AlertLevel = "info"
-	AlertWarning AlertLevel = "warning"
+	AlertInfo     AlertLevel = "info"
+	AlertWarning  AlertLevel = "warning"
 	AlertCritical AlertLevel = "critical"
 )
 
 // AlertEvent 告警事件
 type AlertEvent struct {
-	Level     AlertLevel `json:"level"`
-	Title     string     `json:"title"`
-	Message   string     `json:"message"`
-	ToolName  string     `json:"tool_name,omitempty"`
-	TraceID   string     `json:"trace_id,omitempty"`
-	Timestamp time.Time  `json:"timestamp"`
-	Extra map[string]any `json:"extra,omitempty"`
+	Level     AlertLevel     `json:"level"`
+	Title     string         `json:"title"`
+	Message   string         `json:"message"`
+	ToolName  string         `json:"tool_name,omitempty"`
+	TraceID   string         `json:"trace_id,omitempty"`
+	Timestamp time.Time      `json:"timestamp"`
+	Extra     map[string]any `json:"extra,omitempty"`
 }
 
 // AlertHandler 告警处理回调
@@ -258,10 +243,9 @@ func (f AlertHandlerFunc) OnAlert(event AlertEvent) { f(event) }
 type ToolAlertManager struct {
 	mu             sync.Mutex
 	handlers       []AlertHandler
-	failureRateMap map[string]*failureRateTracker 
+	failureRateMap map[string]*failureRateTracker
 }
 
-// failureRateTracker 失败率追踪器
 type failureRateTracker struct {
 	total       int
 	failed      int
@@ -376,7 +360,6 @@ func (a *ToolAlertManager) AlertDeadLetterBacklog(toolName string, backlogCount 
 	})
 }
 
-// emitAlert 内部触发告警（异步通知所有 handler）
 func (a *ToolAlertManager) emitAlert(event AlertEvent) {
 	event.Timestamp = time.Now()
 	for _, handler := range a.handlers {
@@ -408,7 +391,6 @@ func (a *ToolAlertManager) Stats() map[string]map[string]any {
 	}
 	return out
 }
-
 
 // CompositeAuditLogger 复合 AuditLogger
 //
@@ -448,4 +430,3 @@ func (e AlertEvent) MarshalJSON() ([]byte, error) {
 	type alias AlertEvent
 	return json.Marshal(alias(e))
 }
-

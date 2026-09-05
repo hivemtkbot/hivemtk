@@ -178,4 +178,3 @@ func TestWhatsappController_CreateJob_InvalidJSON(t *testing.T) {
 		t.Errorf("Expected 400, got %d", w.Code)
 	}
 }
-

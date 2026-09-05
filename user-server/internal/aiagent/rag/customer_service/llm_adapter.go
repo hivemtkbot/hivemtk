@@ -43,4 +43,3 @@ func (a *LLMServiceAdapter) ValidateConfig(config any) error {
 func (a *LLMServiceAdapter) GetDefaultConfig() any {
 	return &llm.LLMConfig{}
 }
-

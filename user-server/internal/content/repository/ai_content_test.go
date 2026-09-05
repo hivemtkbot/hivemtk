@@ -9,7 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupAIContentTestDB 设置 AI 内容测试数据库
 func setupAIContentTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.AIGenerationRecord{},
@@ -17,7 +16,6 @@ func setupAIContentTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// setupAIContentRepositories 创建测试用的仓库实例
 func setupAIContentRepositories(t *testing.T) (AIGenerationRecordRepository, PromptTemplateRepository) {
 	database := setupAIContentTestDB(t)
 
@@ -614,4 +612,3 @@ func TestPromptTemplateRepository_IncrementUseCount(t *testing.T) {
 		t.Errorf("Expected UseCount 3, got %d", updated.UseCount)
 	}
 }
-

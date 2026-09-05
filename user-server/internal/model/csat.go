@@ -5,12 +5,12 @@ import "time"
 // CSATSurvey 客户满意度调查（对标 libredesk CSAT：会话关闭→触发→评分→回流统计）
 type CSATSurvey struct {
 	ID          uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	SessionID   string     `gorm:"type:varchar(120);uniqueIndex;not null" json:"session_id"` // 一会话一调查
+	SessionID   string     `gorm:"type:varchar(120);uniqueIndex;not null" json:"session_id"`
 	OneID       string     `gorm:"type:varchar(64);index" json:"one_id"`
-	Score       int        `gorm:"default:0" json:"score"` // 1-5；0=未评分
+	Score       int        `gorm:"default:0" json:"score"`
 	Comment     string     `gorm:"type:text" json:"comment"`
-	Status      string     `gorm:"type:varchar(20);default:'pending';index" json:"status"` // pending/sent/responded
-	TriggeredBy string     `gorm:"type:varchar(20);default:'manual'" json:"triggered_by"`  // manual/auto
+	Status      string     `gorm:"type:varchar(20);default:'pending';index" json:"status"`
+	TriggeredBy string     `gorm:"type:varchar(20);default:'manual'" json:"triggered_by"`
 	SentAt      *time.Time `json:"sent_at,omitempty"`
 	RespondedAt *time.Time `json:"responded_at,omitempty"`
 	CreatedAt   time.Time  `gorm:"autoCreateTime;index" json:"created_at"`

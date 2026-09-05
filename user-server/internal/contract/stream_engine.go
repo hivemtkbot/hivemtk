@@ -27,7 +27,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-
 // StreamEngineInterface 流式销售引擎接口（：从 controller 包提到此处）
 //
 // 实现方: *service.SalesEngine（通过 Go 鸭子类型自动满足）
@@ -44,4 +43,3 @@ import (
 type StreamEngineInterface interface {
 	HandleStream(ctx context.Context, req *dto.SalesRequest, onChunk func(chunk *dto.StreamChunk) bool) error
 }
-

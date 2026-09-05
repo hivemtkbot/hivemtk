@@ -4,7 +4,6 @@ import (
 	"sync"
 )
 
-
 var (
 	globalRuntime     AgentRuntime
 	globalRuntimeOnce sync.Once
@@ -35,4 +34,3 @@ func MustGetGlobalRuntime() AgentRuntime {
 	}
 	return rt
 }
-

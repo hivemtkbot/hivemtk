@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -66,10 +65,6 @@ func (m *ComplianceDEMigration) Up(ctx context.Context) error {
 	return nil
 }
 
-// createEmailUnsubscribes 创建 email_unsubscribes 表
-//
-// 合规依据：《互联网电子邮件服务管理办法》第十三条
-// email 唯一索引：保证同一邮箱仅一条退订记录；重新订阅时 DELETE 该行
 func (m *ComplianceDEMigration) createEmailUnsubscribes(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS email_unsubscribes (
@@ -92,11 +87,6 @@ func (m *ComplianceDEMigration) createEmailUnsubscribes(ctx context.Context) err
 	return execAllComplianceDE(ctx, m.db, stmts)
 }
 
-// createEmailTrackingEvents 创建 email_tracking_events 表
-//
-// 每条事件记录邮件打开/点击/退订/退信行为
-// event_id 唯一索引：保证 webhook 重放幂等
-// (email + job_id) 联合索引：支持按任务和邮箱查询
 func (m *ComplianceDEMigration) createEmailTrackingEvents(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS email_tracking_events (
@@ -122,11 +112,6 @@ func (m *ComplianceDEMigration) createEmailTrackingEvents(ctx context.Context) e
 	return execAllComplianceDE(ctx, m.db, stmts)
 }
 
-// createEmailJobMetrics 创建 email_job_metrics 表
-//
-// 每 job_id 一条聚合指标
-// open_rate  = total_opened / total_sent * 100
-// click_rate = total_clicked / total_sent * 100
 func (m *ComplianceDEMigration) createEmailJobMetrics(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS email_job_metrics (
@@ -150,10 +135,6 @@ func (m *ComplianceDEMigration) createEmailJobMetrics(ctx context.Context) error
 	return execAllComplianceDE(ctx, m.db, stmts)
 }
 
-// createSmsUnsubscribes 创建 sms_unsubscribes 表
-//
-// 合规依据：《通信短消息服务管理规定》第十八条
-// phone 唯一索引：保证同一手机号仅一条退订记录
 func (m *ComplianceDEMigration) createSmsUnsubscribes(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS sms_unsubscribes (
@@ -174,11 +155,6 @@ func (m *ComplianceDEMigration) createSmsUnsubscribes(ctx context.Context) error
 	return execAllComplianceDE(ctx, m.db, stmts)
 }
 
-// createSmsDeliveryStatuses 创建 sms_delivery_statuses 表
-//
-// 每条记录对应一次短信发送的送达状态
-// message_id 唯一索引：webhook 多次推送同一消息时更新而非新建
-// is_retryable + retry_count + max_retry + status 联合查询：定时重试任务使用
 func (m *ComplianceDEMigration) createSmsDeliveryStatuses(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS sms_delivery_statuses (
@@ -211,11 +187,6 @@ func (m *ComplianceDEMigration) createSmsDeliveryStatuses(ctx context.Context) e
 	return execAllComplianceDE(ctx, m.db, stmts)
 }
 
-// createSmsJobMetrics 创建 sms_job_metrics 表
-//
-// 每 job_id 一条聚合指标
-// delivery_rate = total_delivered / total_sent * 100
-// failure_rate  = total_failed   / total_sent * 100
 func (m *ComplianceDEMigration) createSmsJobMetrics(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS sms_job_metrics (
@@ -251,7 +222,6 @@ func (m *ComplianceDEMigration) Down(ctx context.Context) error {
 	return execAllComplianceDE(ctx, m.db, stmts)
 }
 
-// execAllComplianceDE 批量执行 SQL（出错即返回）
 func execAllComplianceDE(ctx context.Context, db *gorm.DB, stmts []string) error {
 	if db == nil {
 		return fmt.Errorf("db is nil")
@@ -264,6 +234,4 @@ func execAllComplianceDE(ctx context.Context, db *gorm.DB, stmts []string) error
 	return nil
 }
 
-// compile-time 接口断言
 var _ migration.Migration = (*ComplianceDEMigration)(nil)
-

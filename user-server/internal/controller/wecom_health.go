@@ -94,7 +94,7 @@ func (c *WeComHealthController) GetRiskAccounts(ctx *gin.Context) {
 func (c *WeComHealthController) SelectHealthyAccount(ctx *gin.Context) {
 	acc, err := c.svc.SelectHealthyAccount(ctx.Request.Context())
 	if err != nil {
-		// 降级：无可用账号是正常状态，不是业务错误
+
 		response.Success(ctx, nil, "无可用账号，请先在系统中配置企业微信账号")
 		return
 	}
@@ -205,4 +205,3 @@ func (c *WeComHealthController) UpdateAccountStatus(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"id": accID, "login_state": req.LoginState}, "更新成功")
 }
-

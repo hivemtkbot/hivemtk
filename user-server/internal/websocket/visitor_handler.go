@@ -1,9 +1,9 @@
 package websocket
 
 import (
-	"errors"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -65,26 +65,19 @@ func (h *VisitorWSHandler) SetLangResolver(r *translation.LangConfigResolver) {
 	h.langResolver = r
 }
 
-// upgraderVisitor 访客连接升级器
-//
-// 安全修复（2026-08-18）：CheckOrigin 不再全放行。
-// 策略：
-//   1. 优先使用共享 isAllowedOrigin（配置白名单）
-//   2. 私域部署兼容：允许 localhost + 内网 IP 段
-//   3. 非浏览器请求（无 Origin 头）放行
 var upgraderVisitor = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
 		if origin == "" {
-			return true // 非浏览器请求放行
+			return true
 		}
-		// 1. 先走配置白名单
+
 		if isAllowedOrigin(origin) {
 			return true
 		}
-		// 2. 私域部署兼容：允许内网/本地开发
+
 		privatePatterns := []string{
 			"http://localhost",
 			"http://127.0.0.1",
@@ -103,14 +96,10 @@ var upgraderVisitor = websocket.Upgrader{
 	},
 }
 
-// getAllowedWSOrigins 从环境变量读取允许的 WebSocket Origin 列表
-// 设置 HIVE_MTK_ALLOWED_ORIGINS=origin1,origin2 以允许生产域名
 func getAllowedWSOrigins() []string {
 	return allowedWSOrigins
 }
 
-// allowedWSOrigins 允许的 WebSocket Origin 列表
-// 可通过 init() 或配置加载
 var allowedWSOrigins = []string{}
 
 // SetAllowedWSOrigins 动态设置允许的 WebSocket Origin 列表（供启动时配置调用）
@@ -140,15 +129,13 @@ func (h *VisitorWSHandler) HandleVisitorWebSocket(c *gin.Context) {
 	ctx := logger.WithTraceID(c.Request.Context(), c.GetHeader("X-Trace-Id"))
 	ctx = logger.WithModule(ctx, "websocket")
 
-	// 安全修复：验证 visitor_token（IDOR 防护）
 	visitorToken := strings.TrimSpace(c.Query("visitor_token"))
 	if visitorToken == "" {
-		// 兼容旧前端：也支持 token query param
+
 		visitorToken = strings.TrimSpace(c.Query("token"))
 	}
 	if visitorToken == "" && sessionID != "" && visitorID != "" {
-		// v3 审计 P1-4 fail-closed：无 token 连接可冒充任意 session_id 接收会话消息，
-		// 渐进迁移期结束，一律拒绝（前端 embed 页已随 ChatSocket 统一带 token）
+
 		logger.Ctx(ctx).Warn().Str("session_id", sessionID).Str("visitor_id", visitorID).Msg("WebSocket 连接无 visitor_token，已拒绝")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "visitor_token required"})
 		return
@@ -207,26 +194,6 @@ func (h *VisitorWSHandler) HandleVisitorWebSocket(c *gin.Context) {
 	go h.onConnect(client, sinceSeq, ctx)
 }
 
-// onConnect 访客连接建立后的处理
-// 1. 推送 welcome 消息
-// 2. 拉取离线期间未投递的坐席/AI 回复，批量推送
-// 3. 标记已投递
-//
-// 鲁棒性加固（方向B）：
-//   - 接受 sinceSeq 参数（query `since_seq` 或上行 `resume` 消息）
-//   - 拉取逻辑：
-//   - 若 sinceSeq > 0：尝试按 seq 范围拉取（基于 GlobalPendingAck）
-//   - 否则：走原有 delivered_at IS NULL 兜底路径
-//   - 双轨制：seq 路径精确但有窗口期（seq 重启后归零）；delivered_at 兜底
-//
-// onConnect 推送建立连接后（或 resume 时）的离线/历史消息，统一处理注册与离线消息
-// 推送逻辑，避免 HandleVisitorWebSocket 与 resume 分支重复。采用单条 SQL 批量标记已送达，
-// 配合 delivered_at 避免重复推送同一批离线消息。如果会话从未离线（无离线消息），直接返回。
-//
-// 并发守卫：初始连接（HandleVisitorWebSocket）与多次 resume 可能并发触发 onConnect，
-// 若不拦截，多个 goroutine 会在彼此标记 delivered_at 之前读到同一批未送达消息，导致离线
-// 消息被重复推送给访客。onConnectInflight 保证同一 client 同一时刻仅有一个 onConnect 在跑，
-// 已在跑的调用会覆盖全部未送达消息，后续调用跳过即可（新消息由实时广播路径覆盖）。
 func (h *VisitorWSHandler) onConnect(client *Client, sinceSeq uint64, ctx context.Context) {
 	if !client.onConnectInflight.CompareAndSwap(false, true) {
 		return
@@ -248,7 +215,6 @@ func (h *VisitorWSHandler) onConnect(client *Client, sinceSeq uint64, ctx contex
 		sendToClient(client, bytes)
 	}
 
-	// 2. 拉取离线消息（双轨：seq 优先 + delivered_at 兜底）
 	type offlineRow struct {
 		ID           uint      `gorm:"primaryKey"`
 		SessionID    string    `gorm:"column:session_id"`
@@ -298,7 +264,7 @@ func (h *VisitorWSHandler) onConnect(client *Client, sinceSeq uint64, ctx contex
 			"ai_source":   r.AISource,
 			"confidence":  r.AIConfidence,
 			"created_at":  r.CreatedAt,
-			"offline":     true, 
+			"offline":     true,
 		})
 		if bytes, err := env.MarshalBytes(); err == nil {
 			sendToClient(client, bytes)
@@ -314,7 +280,6 @@ func (h *VisitorWSHandler) onConnect(client *Client, sinceSeq uint64, ctx contex
 	}
 }
 
-// sendToClient 安全发送（带超时与重试）
 func sendToClient(client *Client, payload []byte) {
 	defer func() {
 		_ = recover()
@@ -325,13 +290,6 @@ func sendToClient(client *Client, payload []byte) {
 	}
 }
 
-// writePump 写入协程
-//
-// 修复：
-//   - 每次写操作前 SetWriteDeadline，防止对端 TCP 窗口关闭时本协程永久阻塞。
-//   - 启动 pingPeriod 周期 ticker，主动发 PingMessage；
-//     对端回 Pong 后会触发 readPump 中已注册的 SetPongHandler，
-//     从而刷新 ReadDeadline，避免 60s 后误判超时断开。
 func (h *VisitorWSHandler) writePump(client *Client, conn *websocket.Conn) {
 	defer func() {
 		conn.Close()
@@ -361,16 +319,6 @@ func (h *VisitorWSHandler) writePump(client *Client, conn *websocket.Conn) {
 	}
 }
 
-// readPump 读取协程
-//
-// 鲁棒性加固（方向B）：
-//   - `ack` 消息：客户端确认已收到的 seq 列表，清理待 ACK 队列
-//   - `resume` 消息：客户端重连后增量补发请求（since_seq）
-//   - `delivered` 消息：旧协议兼容（仅日志记录）
-//   - `ping` 消息：JSON 文本 ping（保留兼容；推荐使用 WebSocket PingMessage）
-//
-// 安全修复（2026-08-18）：
-//   - 添加 per-connection 消息速率限制（10条/秒突发 20条），防止恶意客户端洪泛
 func (h *VisitorWSHandler) readPump(client *Client, conn *websocket.Conn, ctx context.Context) {
 	defer func() {
 		GlobalPendingAck().Drop(client.sessionID)
@@ -386,7 +334,6 @@ func (h *VisitorWSHandler) readPump(client *Client, conn *websocket.Conn, ctx co
 		return nil
 	})
 
-	// 安全：每连接消息速率限制（10条/秒，突发20条）
 	msgLimiter := newMessageRateLimiter(10, 20)
 
 	for {
@@ -398,14 +345,12 @@ func (h *VisitorWSHandler) readPump(client *Client, conn *websocket.Conn, ctx co
 			break
 		}
 
-		// 安全：速率限制检查
 		if !msgLimiter.Allow() {
 			logger.Ctx(ctx).Warn().Str("session_id", client.sessionID).Msg("ws message rate limit exceeded")
 			sendVisitorError(client, "消息过于频繁，请稍后再试")
 			continue
 		}
 
-		// 解析消息
 		var msg map[string]any
 		if err := json.Unmarshal(message, &msg); err != nil {
 			sendVisitorError(client, "消息格式错误")
@@ -437,13 +382,6 @@ func (h *VisitorWSHandler) readPump(client *Client, conn *websocket.Conn, ctx co
 	}
 }
 
-// handleAckMessage 解析 ack 消息并清理 GlobalPendingAck
-//
-// 支持两种协议：
-//   - {"seq": 100}              单个 seq
-//   - {"seq": [100, 101, 102]}  批量 seq
-//
-// 返回被清理的 seq 数量。
 func handleAckMessage(client *Client, msg map[string]any) int {
 	raw, ok := msg["seq"]
 	if !ok {
@@ -465,7 +403,6 @@ func handleAckMessage(client *Client, msg map[string]any) int {
 	return GlobalPendingAck().Ack(client.sessionID, seqs...)
 }
 
-// parseSinceSeq 从上行消息解析 since_seq
 func parseSinceSeq(msg map[string]any) uint64 {
 	if v, ok := msg["since_seq"].(float64); ok {
 		return uint64(v)
@@ -483,20 +420,14 @@ func sendVisitorError(client *Client, msg string) {
 	sendToClient(client, errBytes)
 }
 
-// messageRateLimiter 简单的令牌桶速率限制器（per-connection）
-//
-// 用于防止恶意客户端在 WebSocket 连接上洪泛消息。
-// 使用标准库实现，避免额外依赖。
 type messageRateLimiter struct {
-	rate   float64   // 每秒允许的消息数
-	cap    float64   // 令牌桶容量
-	tokens float64   // 当前令牌数
-	last   time.Time // 上次补充时间
+	rate   float64
+	cap    float64
+	tokens float64
+	last   time.Time
 	mu     sync.Mutex
 }
 
-// newMessageRateLimiter 创建消息速率限制器
-// rate: 每秒允许的消息数, cap: 突发容量
 func newMessageRateLimiter(rate, cap float64) *messageRateLimiter {
 	return &messageRateLimiter{
 		rate:   rate,
@@ -506,7 +437,6 @@ func newMessageRateLimiter(rate, cap float64) *messageRateLimiter {
 	}
 }
 
-// Allow 检查是否允许发送消息
 func (rl *messageRateLimiter) Allow() bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -526,13 +456,10 @@ func (rl *messageRateLimiter) Allow() bool {
 	return false
 }
 
-// getVisitorTokenSecret 获取 visitor token HMAC 密钥
-// 从 config 读取，未配置时使用默认值
 func getVisitorTokenSecret() (string, error) {
 	if cfg := config.GetAppConfig(); cfg.Security.VisitorTokenSecret != "" {
 		return cfg.Security.VisitorTokenSecret, nil
 	}
-	// v3 审计 P1-4：密钥未配置时不得回退硬编码默认值（token 可被任意伪造），拒绝服务
+
 	return "", errors.New("VISITOR_TOKEN_SECRET 未配置")
 }
-

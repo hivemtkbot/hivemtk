@@ -1,25 +1,24 @@
 package model
 
-
 import "time"
 
 // HumanizeEvaluatorType 评估器类型
 type HumanizeEvaluatorType string
 
 const (
-	HumanizeEvaluatorRule   HumanizeEvaluatorType = "rule"   
-	HumanizeEvaluatorLLM    HumanizeEvaluatorType = "llm"    
-	HumanizeEvaluatorHybrid HumanizeEvaluatorType = "hybrid" 
+	HumanizeEvaluatorRule   HumanizeEvaluatorType = "rule"
+	HumanizeEvaluatorLLM    HumanizeEvaluatorType = "llm"
+	HumanizeEvaluatorHybrid HumanizeEvaluatorType = "hybrid"
 )
 
 // HumanizeSampleStrategy 采样策略
 type HumanizeSampleStrategy string
 
 const (
-	HumanizeSampleFull           HumanizeSampleStrategy = "full"            
-	HumanizeSampleBoundary       HumanizeSampleStrategy = "boundary"        
-	HumanizeSampleSampled        HumanizeSampleStrategy = "sampled"         
-	HumanizeSampleSampledMonitor HumanizeSampleStrategy = "sampled_monitor" 
+	HumanizeSampleFull           HumanizeSampleStrategy = "full"
+	HumanizeSampleBoundary       HumanizeSampleStrategy = "boundary"
+	HumanizeSampleSampled        HumanizeSampleStrategy = "sampled"
+	HumanizeSampleSampledMonitor HumanizeSampleStrategy = "sampled_monitor"
 )
 
 // HumanizeScore 拟人度评估主表（对应 humanize_scores 表）
@@ -127,7 +126,7 @@ func (ChampionPhrase) TableName() string { return "champion_phrases" }
 type ABTestStat struct {
 	ID              uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
 	ExperimentID    string    `gorm:"column:experiment_id;size:64;not null;index:idx_abstat_exp,priority:1" json:"experiment_id"`
-	GroupName       string    `gorm:"column:group_name;size:16;not null;index:idx_abstat_exp,priority:2" json:"group_name"` 
+	GroupName       string    `gorm:"column:group_name;size:16;not null;index:idx_abstat_exp,priority:2" json:"group_name"`
 	SampleSize      int       `gorm:"column:sample_size;not null" json:"sample_size"`
 	MeanScore       float64   `gorm:"column:mean_score;type:decimal(8,4)" json:"mean_score"`
 	MedianScore     float64   `gorm:"column:median_score;type:decimal(8,4)" json:"median_score"`
@@ -150,9 +149,8 @@ func (ABTestStat) TableName() string { return "ab_test_stats" }
 //
 // 复用 low_quality_samples 表的 sample_type 字段，仅追加枚举值，不修改表结构
 const (
-	LowQualitySampleNaturalnessLow    LowQualitySampleType = "naturalness_low"    
-	LowQualitySamplePersuasivenessLow LowQualitySampleType = "persuasiveness_low" 
-	LowQualitySampleChampionDistance  LowQualitySampleType = "champion_distance"  
-	LowQualitySampleABTestLoser       LowQualitySampleType = "ab_test_loser"      
+	LowQualitySampleNaturalnessLow    LowQualitySampleType = "naturalness_low"
+	LowQualitySamplePersuasivenessLow LowQualitySampleType = "persuasiveness_low"
+	LowQualitySampleChampionDistance  LowQualitySampleType = "champion_distance"
+	LowQualitySampleABTestLoser       LowQualitySampleType = "ab_test_loser"
 )
-

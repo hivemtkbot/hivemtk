@@ -12,7 +12,6 @@ import (
 	"strings"
 )
 
-// firstNonEmpty 返回第一个非空字符串
 func firstNonEmpty(values ...string) string {
 	for _, v := range values {
 		if v != "" {
@@ -22,7 +21,6 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-// evaluateCondition 评估条件
 func (s *MarketingFlowService) evaluateCondition(node model.FlowNode, data map[string]any) (map[string]any, error) {
 	result := make(map[string]any)
 	for k, v := range data {
@@ -78,7 +76,6 @@ func (s *MarketingFlowService) evaluateCondition(node model.FlowNode, data map[s
 	return result, nil
 }
 
-// parseCondition 解析条件表达式 "field operator value"
 func parseCondition(condition string) (field, operator, value string, err error) {
 	condition = strings.TrimSpace(condition)
 
@@ -102,7 +99,6 @@ func ParseCondition(condition string) (field, operator, value string, err error)
 	return parseCondition(condition)
 }
 
-// evalEq 等于比较
 func evalEq(fieldValue any, value string) (bool, error) {
 	switch fv := fieldValue.(type) {
 	case string:
@@ -118,7 +114,6 @@ func evalEq(fieldValue any, value string) (bool, error) {
 	}
 }
 
-// evalNe 不等于比较
 func evalNe(fieldValue any, value string) (bool, error) {
 	result, err := evalEq(fieldValue, value)
 	if err != nil {
@@ -127,7 +122,6 @@ func evalNe(fieldValue any, value string) (bool, error) {
 	return !result, nil
 }
 
-// evalGt 大于比较
 func evalGt(fieldValue any, value string) (bool, error) {
 	switch fv := fieldValue.(type) {
 	case float64:
@@ -147,7 +141,6 @@ func evalGt(fieldValue any, value string) (bool, error) {
 	}
 }
 
-// evalLt 小于比较
 func evalLt(fieldValue any, value string) (bool, error) {
 	switch fv := fieldValue.(type) {
 	case float64:
@@ -167,7 +160,6 @@ func evalLt(fieldValue any, value string) (bool, error) {
 	}
 }
 
-// evalGte 大于等于比较
 func evalGte(fieldValue any, value string) (bool, error) {
 	result, err := evalGt(fieldValue, value)
 	if err != nil {
@@ -180,7 +172,6 @@ func evalGte(fieldValue any, value string) (bool, error) {
 	return evalEq(fieldValue, value)
 }
 
-// evalLte 小于等于比较
 func evalLte(fieldValue any, value string) (bool, error) {
 	result, err := evalLt(fieldValue, value)
 	if err != nil {
@@ -197,4 +188,3 @@ func evalLte(fieldValue any, value string) (bool, error) {
 func (s *MarketingFlowService) EvaluateCondition(node model.FlowNode, data map[string]any) (map[string]any, error) {
 	return s.evaluateCondition(node, data)
 }
-

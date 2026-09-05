@@ -33,11 +33,11 @@ const (
 type Message struct {
 	ID         string         `json:"id"`
 	SessionID  string         `json:"session_id"`
-	Role       MessageRole    `json:"role"` 
+	Role       MessageRole    `json:"role"`
 	Content    string         `json:"content"`
 	Timestamp  time.Time      `json:"timestamp"`
 	Metadata   map[string]any `json:"metadata"`
-	References []string       `json:"references"` 
+	References []string       `json:"references"`
 }
 
 // MessageRole 消息角色
@@ -60,7 +60,7 @@ type Response struct {
 	Metadata       map[string]any `json:"metadata"`
 	Timestamp      time.Time      `json:"timestamp"`
 	ProcessingTime time.Duration  `json:"processing_time"`
-	Source         string         `json:"source"` 
+	Source         string         `json:"source"`
 }
 
 // Reference 引用信息
@@ -76,7 +76,7 @@ type Reference struct {
 type Feedback struct {
 	SessionID  string         `json:"session_id"`
 	ResponseID string         `json:"response_id"`
-	Rating     int            `json:"rating"` 
+	Rating     int            `json:"rating"`
 	IsHelpful  bool           `json:"is_helpful"`
 	Comment    string         `json:"comment"`
 	Metadata   map[string]any `json:"metadata"`
@@ -84,14 +84,14 @@ type Feedback struct {
 
 // SessionConfig 会话配置
 type SessionConfig struct {
-	MaxHistoryLength int     `json:"max_history_length"` 
-	Timeout          int     `json:"timeout"`            
-	Temperature      float64 `json:"temperature"`        
-	MaxTokens        int     `json:"max_tokens"`         
-	SystemPrompt     string  `json:"system_prompt"`      
-	EnableContextual bool    `json:"enable_contextual"`  
-	EnableLearning   bool    `json:"enable_learning"`    
-	EnableFallback   bool    `json:"enable_fallback"`    
+	MaxHistoryLength int     `json:"max_history_length"`
+	Timeout          int     `json:"timeout"`
+	Temperature      float64 `json:"temperature"`
+	MaxTokens        int     `json:"max_tokens"`
+	SystemPrompt     string  `json:"system_prompt"`
+	EnableContextual bool    `json:"enable_contextual"`
+	EnableLearning   bool    `json:"enable_learning"`
+	EnableFallback   bool    `json:"enable_fallback"`
 }
 
 // Conversation 对话结构
@@ -103,14 +103,14 @@ type Conversation struct {
 
 // Context 对话上下文
 type Context struct {
-	Topic           string              `json:"topic"`            
-	Intent          string              `json:"intent"`           
-	Entities        map[string][]string `json:"entities"`         
-	Sentiment       Sentiment           `json:"sentiment"`        
-	PreviousTopics  []string            `json:"previous_topics"`  
-	UserPreferences map[string]any      `json:"user_preferences"` 
-	SessionContext  map[string]any      `json:"session_context"`  
-	LastInteraction time.Time           `json:"last_interaction"` 
+	Topic           string              `json:"topic"`
+	Intent          string              `json:"intent"`
+	Entities        map[string][]string `json:"entities"`
+	Sentiment       Sentiment           `json:"sentiment"`
+	PreviousTopics  []string            `json:"previous_topics"`
+	UserPreferences map[string]any      `json:"user_preferences"`
+	SessionContext  map[string]any      `json:"session_context"`
+	LastInteraction time.Time           `json:"last_interaction"`
 }
 
 // IntentAnalysis 意图分析结果
@@ -124,14 +124,14 @@ type IntentAnalysis struct {
 
 // Sentiment 情感分析
 type Sentiment struct {
-	Score    float64   `json:"score"` 
-	Label    string    `json:"label"` 
+	Score    float64   `json:"score"`
+	Label    string    `json:"label"`
 	Emotions []Emotion `json:"emotions"`
 }
 
 // Emotion 情感
 type Emotion struct {
-	Type  string  `json:"type"` 
+	Type  string  `json:"type"`
 	Score float64 `json:"score"`
 }
 
@@ -141,9 +141,9 @@ type SessionMetrics struct {
 	StartTime        time.Time `json:"start_time"`
 	EndTime          time.Time `json:"end_time"`
 	MessageCount     int       `json:"message_count"`
-	AvgResponseTime  float64   `json:"avg_response_time"` 
-	ResolutionRate   float64   `json:"resolution_rate"`   
-	UserSatisfaction float64   `json:"user_satisfaction"` 
+	AvgResponseTime  float64   `json:"avg_response_time"`
+	ResolutionRate   float64   `json:"resolution_rate"`
+	UserSatisfaction float64   `json:"user_satisfaction"`
 	FeedbackCount    int       `json:"feedback_count"`
 }
 
@@ -255,11 +255,10 @@ type FeedbackLearningInterface interface {
 
 // LearningInsight 学习洞察
 type LearningInsight struct {
-	Type           string    `json:"type"`           
-	Description    string    `json:"description"`    
-	Confidence     float64   `json:"confidence"`     
-	Recommendation string    `json:"recommendation"` 
-	Source         string    `json:"source"`         
+	Type           string    `json:"type"`
+	Description    string    `json:"description"`
+	Confidence     float64   `json:"confidence"`
+	Recommendation string    `json:"recommendation"`
+	Source         string    `json:"source"`
 	CreatedAt      time.Time `json:"created_at"`
 }
-

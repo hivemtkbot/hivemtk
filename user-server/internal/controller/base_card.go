@@ -34,11 +34,6 @@ type CardServiceInterface[CreateReq any, UpdateReq any, ListReq any, Response an
 	GetList(ctx *gin.Context, req *ListReq) (any, error)
 }
 
-// Create 通用创建方法
-// 参数：
-//   - ctx: Gin 上下文
-//   - parseReq: 解析请求体到具体类型的函数
-//   - serviceName: 服务名称 (用于错误消息)
 func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) Create(
 	ctx *gin.Context,
 	parseReq func() (*CreateReq, error),
@@ -67,8 +62,6 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) C
 	response.Success(ctx, card, response.ErrCreateSuccess)
 }
 
-// Update 通用更新方法
-// 支持从 URL 路径或请求体获取 ID
 func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) Update(
 	ctx *gin.Context,
 	parseReq func() (*UpdateReq, error),
@@ -97,7 +90,6 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) U
 	response.Success(ctx, card, response.ErrUpdateSuccess)
 }
 
-// Delete 通用删除方法
 func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) Delete(
 	ctx *gin.Context,
 	serviceName string,
@@ -124,7 +116,6 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) D
 	response.Success(ctx, nil, response.ErrDeleteSuccess)
 }
 
-// GetByID 通用根据 ID 获取方法
 func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) GetByID(
 	ctx *gin.Context,
 	serviceName string,
@@ -152,7 +143,6 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) G
 	response.Success(ctx, card, response.ErrGetSuccess)
 }
 
-// GetList 通用列表获取方法
 func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) GetList(
 	ctx *gin.Context,
 	parseReq func() (*ListReq, error),
@@ -196,7 +186,6 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) G
 	response.Success(ctx, list, response.ErrGetSuccess)
 }
 
-// parseIDParam 从 URL 路径解析 ID 参数
 func parseIDParam(ctx *gin.Context) (uint, error) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -221,4 +210,3 @@ func ParseIDWithValidation(ctx *gin.Context, reqID uint) (uint, bool, error) {
 
 	return uint(idFromURI), reqID == uint(idFromURI), nil
 }
-

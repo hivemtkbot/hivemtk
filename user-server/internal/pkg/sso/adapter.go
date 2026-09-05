@@ -27,7 +27,6 @@ type NormalizedUser struct {
 	Groups   []string
 }
 
-// baseAdapter 通用适配器骨架（各 IdP 复用 OIDCProvider 通用映射逻辑）
 type baseAdapter struct {
 	name        string
 	displayName string
@@ -38,7 +37,6 @@ func (a *baseAdapter) Name() string        { return a.name }
 func (a *baseAdapter) DisplayName() string { return a.displayName }
 func (a *baseAdapter) OIDC() *OIDCProvider { return a.provider }
 
-// normalize 用 OIDCProvider 的通用映射规则生成归一化用户
 func (a *baseAdapter) normalize(c *IDTokenClaims) *NormalizedUser {
 	prov := a.provider
 	return &NormalizedUser{
@@ -80,4 +78,3 @@ func NewAdapter(name string, cfg OIDCConfig) (Adapter, error) {
 		return &GenericAdapter{base}, nil
 	}
 }
-

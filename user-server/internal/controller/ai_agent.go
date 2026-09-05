@@ -14,7 +14,7 @@ import (
 
 type AIAgentController struct {
 	svc    *service.AIAgentService
-	engine *service.SalesEngine 
+	engine *service.SalesEngine
 }
 
 func NewAIAgentController() *AIAgentController {
@@ -117,18 +117,18 @@ func (ctrl *AIAgentController) Get(c *gin.Context) {
 }
 
 type aiAgentCreateReq struct {
-	AgentCode     string   `json:"agent_code" binding:"required"`
-	Name          string   `json:"name" binding:"required"`
-	Description   string   `json:"description"`
-	Avatar        string   `json:"avatar"`
-	AgentType     string   `json:"agent_type"`
-	Persona       string   `json:"persona" binding:"required"`
-	SystemPrompt  string   `json:"system_prompt"`
-	Greeting      string   `json:"greeting"`
-	RagProductIDs []string `json:"rag_product_ids"`
+	AgentCode            string                  `json:"agent_code" binding:"required"`
+	Name                 string                  `json:"name" binding:"required"`
+	Description          string                  `json:"description"`
+	Avatar               string                  `json:"avatar"`
+	AgentType            string                  `json:"agent_type"`
+	Persona              string                  `json:"persona" binding:"required"`
+	SystemPrompt         string                  `json:"system_prompt"`
+	Greeting             string                  `json:"greeting"`
+	RagProductIDs        []string                `json:"rag_product_ids"`
 	FAQEntryIDs          []string                `json:"faq_entry_ids"`
 	SOPTemplateIDs       []string                `json:"sop_template_ids"`
-	SOPIDs               []string                `json:"sop_ids"` 
+	SOPIDs               []string                `json:"sop_ids"`
 	ScriptLibraryIDs     []string                `json:"script_library_ids"`
 	LLMModel             string                  `json:"llm_model"`
 	LLMProviderConfig    model.LLMProviderConfig `json:"llm_provider_config"`
@@ -146,8 +146,8 @@ type aiAgentCreateReq struct {
 	ConfidenceThreshold  float64                 `json:"confidence_threshold"`
 	MaxAIConsecutive     int                     `json:"max_ai_consecutive"`
 	Status               int                     `json:"status"`
-	InternalLanguage string `json:"internal_language"` 
-	TargetLanguage   string `json:"target_language"`   
+	InternalLanguage     string                  `json:"internal_language"`
+	TargetLanguage       string                  `json:"target_language"`
 }
 
 func (ctrl *AIAgentController) Create(c *gin.Context) {
@@ -638,7 +638,6 @@ type csAgentMountReq struct {
 	Enabled       bool `json:"enabled"`
 }
 
-
 func (ctrl *CustomerServiceAgentController) Create(c *gin.Context) {
 	var req csAgentMountReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -746,4 +745,3 @@ func (ctrl *CustomerServiceAgentController) CreateByUser(c *gin.Context) {
 	}
 	response.Success(c, m, "创建成功")
 }
-

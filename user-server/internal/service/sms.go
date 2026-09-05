@@ -53,7 +53,6 @@ type SmsService interface {
 	GetJobRecords(ctx context.Context, id uint, page, limit int) ([]*model.SmsJobDetail, int64, error)
 }
 
-// smsService 短信服务实现
 type smsService struct {
 	repo repository.SmsRepository
 }
@@ -63,10 +62,8 @@ func NewSmsService(repo repository.SmsRepository) SmsService {
 	return &smsService{repo: repo}
 }
 
-// smsPhoneRe E.164 宽松口径（v3 审计 P1）：可选 + 前缀，7-15 位数字
 var smsPhoneRe = regexp.MustCompile(`^\+?[1-9]\d{6,14}$`)
 
-// validateSMSPhone 校验手机号格式
 func validateSMSPhone(phone string) error {
 	if !smsPhoneRe.MatchString(strings.TrimSpace(phone)) {
 		return fmt.Errorf("手机号格式无效: %q", phone)
@@ -74,7 +71,6 @@ func validateSMSPhone(phone string) error {
 	return nil
 }
 
-// smsUnsubSvc 懒初始化的短信退订服务（v3 审计 P0：发送前必须过滤退订名单）
 var (
 	smsUnsubOnce sync.Once
 	smsUnsubSvc  *SmsUnsubscribeService
@@ -87,7 +83,6 @@ func (s *smsService) unsub() *SmsUnsubscribeService {
 	return smsUnsubSvc
 }
 
-// GetConfig 获取短信配置
 func (s *smsService) GetConfig(ctx context.Context) (*dto.SmsConfigResponse, error) {
 	config, err := s.repo.GetConfig(context.Background())
 	if err != nil {
@@ -134,7 +129,6 @@ func (s *smsService) GetConfig(ctx context.Context) (*dto.SmsConfigResponse, err
 	}, nil
 }
 
-// SaveConfig 保存短信配置
 func (s *smsService) SaveConfig(ctx context.Context, req *dto.SmsConfigRequest) error {
 	config := &model.SmsConfig{
 		DefaultProvider: req.DefaultProvider,
@@ -174,7 +168,6 @@ func (s *smsService) SaveConfig(ctx context.Context, req *dto.SmsConfigRequest) 
 	return s.repo.SaveHuaweiConfig(context.Background(), huaweiConfig)
 }
 
-// IsProviderConfigured 检查指定提供商的凭证是否已配置（非空）
 func (s *smsService) IsProviderConfigured(ctx context.Context, provider string) (bool, error) {
 	switch provider {
 	case "aliyun":
@@ -200,24 +193,18 @@ func (s *smsService) IsProviderConfigured(ctx context.Context, provider string) 
 	}
 }
 
-// GetSmsList 获取短信列表
 func (s *smsService) GetSmsList(ctx context.Context, req *dto.SmsListRequest) ([]*model.SmsRecord, int64, error) {
 	return s.repo.GetSmsList(context.Background(), req.Page, req.Limit, req.Phone, req.Status, req.StartDate, req.EndDate)
 }
 
-// GetSmsByID 根据ID获取短信
 func (s *smsService) GetSmsByID(ctx context.Context, id uint) (*model.SmsRecord, error) {
 	return s.repo.GetSmsByID(context.Background(), id)
 }
 
-// SendSms 发送短信
-// smsNightRestrictedFn 可替换时钟判定（测试注入用），生产指向 isSMSNightRestricted
 var smsNightRestrictedFn = isSMSNightRestricted
 
-// isSMSNightRestricted 铁律#22: 短信夜间禁发窗口 22:00-8:00（北京时间）。
-// 窗口内所有主动发送（含重发/草稿发送，任务类发送经 SendSms 同样受控）一律拒绝。
 func isSMSNightRestricted(t time.Time) bool {
-	// 显式逃生开关：压测/演练场景可 SMS_ALLOW_NIGHT_SEND=true 越过窗口
+
 	if os.Getenv("SMS_ALLOW_NIGHT_SEND") == "true" {
 		return false
 	}
@@ -227,15 +214,15 @@ func isSMSNightRestricted(t time.Time) bool {
 }
 
 func (s *smsService) SendSms(ctx context.Context, req *dto.SmsSendRequest) error {
-	// 铁律#22 夜间禁发守卫
+
 	if smsNightRestrictedFn(time.Now()) {
 		return errors.New("当前处于夜间禁发时段(22:00-8:00)，短信已拦截")
 	}
-	// v3 审计 P1：号码格式校验（原仅 len=11 且批量零校验）
+
 	if err := validateSMSPhone(req.Phone); err != nil {
 		return err
 	}
-	// v3 审计 P0：退订名单强制过滤（命中则静默跳过，返回成功语义避免上层重试）
+
 	if s.unsub().IsUnsubscribed(ctx, req.Phone) {
 		return nil
 	}
@@ -271,7 +258,6 @@ func (s *smsService) SendSms(ctx context.Context, req *dto.SmsSendRequest) error
 	return s.repo.UpdateSmsRecord(context.Background(), record)
 }
 
-// dispatchToProvider 调度到具体 SMS 提供商
 func (s *smsService) dispatchToProvider(ctx context.Context, phone, content, provider string) (time.Time, string, string, error) {
 	switch provider {
 	case "aliyun":
@@ -285,7 +271,6 @@ func (s *smsService) dispatchToProvider(ctx context.Context, phone, content, pro
 	}
 }
 
-// sendAliyun 通过阿里云发送短信
 func (s *smsService) sendAliyun(ctx context.Context, phone, content string) (time.Time, string, string, error) {
 	cfg, err := s.repo.GetAliyunConfig(ctx)
 	if err != nil {
@@ -357,7 +342,6 @@ func (s *smsService) sendAliyun(ctx context.Context, phone, content string) (tim
 	return time.Now(), result.Code, result.Message, nil
 }
 
-// sendTencent 通过腾讯云发送短信
 func (s *smsService) sendTencent(ctx context.Context, phone, content string) (time.Time, string, string, error) {
 	cfg, err := s.repo.GetTencentConfig(ctx)
 	if err != nil {
@@ -441,7 +425,6 @@ func (s *smsService) sendTencent(ctx context.Context, phone, content string) (ti
 	return time.Now(), "OK", "OK", nil
 }
 
-// sendHuawei 通过华为云发送短信
 func (s *smsService) sendHuawei(ctx context.Context, phone, content string) (time.Time, string, string, error) {
 	cfg, err := s.repo.GetHuaweiConfig(ctx)
 	if err != nil {
@@ -492,9 +475,8 @@ func (s *smsService) sendHuawei(ctx context.Context, phone, content string) (tim
 	return time.Now(), "OK", "OK", nil
 }
 
-// ResendSms 重发短信
 func (s *smsService) ResendSms(ctx context.Context, id uint) error {
-	// 铁律#22 夜间禁发守卫
+
 	if smsNightRestrictedFn(time.Now()) {
 		return errors.New("当前处于夜间禁发时段(22:00-8:00)，短信已拦截")
 	}
@@ -538,17 +520,14 @@ func (s *smsService) ResendSms(ctx context.Context, id uint) error {
 	return s.repo.UpdateSmsRecord(context.Background(), record)
 }
 
-// GetDraftList 获取草稿列表
 func (s *smsService) GetDraftList(ctx context.Context, req *dto.SmsDraftListRequest) ([]*model.SmsDraft, int64, error) {
 	return s.repo.GetDraftList(context.Background(), req.Page, req.Limit, req.Title)
 }
 
-// GetDraftByID 根据ID获取草稿
 func (s *smsService) GetDraftByID(ctx context.Context, id uint) (*model.SmsDraft, error) {
 	return s.repo.GetDraftByID(context.Background(), id)
 }
 
-// CreateDraft 创建草稿
 func (s *smsService) CreateDraft(ctx context.Context, req *dto.SmsDraftCreateRequest) error {
 	draft := &model.SmsDraft{
 		Title:   req.Title,
@@ -557,7 +536,6 @@ func (s *smsService) CreateDraft(ctx context.Context, req *dto.SmsDraftCreateReq
 	return s.repo.CreateDraft(context.Background(), draft)
 }
 
-// UpdateDraft 更新草稿
 func (s *smsService) UpdateDraft(ctx context.Context, id uint, req *dto.SmsDraftUpdateRequest) error {
 	draft, err := s.repo.GetDraftByID(context.Background(), id)
 	if err != nil {
@@ -569,12 +547,10 @@ func (s *smsService) UpdateDraft(ctx context.Context, id uint, req *dto.SmsDraft
 	return s.repo.UpdateDraft(context.Background(), draft)
 }
 
-// DeleteDraft 删除草稿
 func (s *smsService) DeleteDraft(ctx context.Context, id uint) error {
 	return s.repo.DeleteDraft(context.Background(), id)
 }
 
-// SendDraft 发送草稿
 func (s *smsService) SendDraft(ctx context.Context, id uint, phone string) error {
 	draft, err := s.repo.GetDraftByID(context.Background(), id)
 	if err != nil {
@@ -588,17 +564,14 @@ func (s *smsService) SendDraft(ctx context.Context, id uint, phone string) error
 	return s.SendSms(context.Background(), req)
 }
 
-// GetJobList 获取任务列表
 func (s *smsService) GetJobList(ctx context.Context, req *dto.SmsJobListRequest) ([]*model.SmsJob, int64, error) {
 	return s.repo.GetJobList(context.Background(), req.Page, req.Limit, req.Status, req.Name)
 }
 
-// GetJobByID 根据ID获取任务
 func (s *smsService) GetJobByID(ctx context.Context, id uint) (*model.SmsJob, error) {
 	return s.repo.GetJobByID(context.Background(), id)
 }
 
-// CreateJob 创建任务
 func (s *smsService) CreateJob(ctx context.Context, req *dto.SmsJobCreateRequest) error {
 	job := &model.SmsJob{
 		Name:         req.Name,
@@ -609,8 +582,6 @@ func (s *smsService) CreateJob(ctx context.Context, req *dto.SmsJobCreateRequest
 		ScheduleTime: req.ScheduleTime,
 	}
 
-	// v3 审计 P1：任务类发送同样受铁律#22 与号码校验约束——
-	// 预约时间落在夜间窗口直接拒绝；批量号码逐一格式校验
 	if req.ScheduleTime != nil && smsNightRestrictedFn(*req.ScheduleTime) {
 		return errors.New("预约时间处于夜间禁发时段(22:00-8:00)，短信已拦截")
 	}
@@ -647,7 +618,6 @@ func (s *smsService) CreateJob(ctx context.Context, req *dto.SmsJobCreateRequest
 	return nil
 }
 
-// PauseJob 暂停任务
 func (s *smsService) PauseJob(ctx context.Context, id uint) error {
 	job, err := s.repo.GetJobByID(context.Background(), id)
 	if err != nil {
@@ -662,7 +632,6 @@ func (s *smsService) PauseJob(ctx context.Context, id uint) error {
 	return s.repo.UpdateJob(context.Background(), job)
 }
 
-// ResumeJob 继续任务
 func (s *smsService) ResumeJob(ctx context.Context, id uint) error {
 	job, err := s.repo.GetJobByID(context.Background(), id)
 	if err != nil {
@@ -677,7 +646,6 @@ func (s *smsService) ResumeJob(ctx context.Context, id uint) error {
 	return s.repo.UpdateJob(context.Background(), job)
 }
 
-// StopJob 停止任务
 func (s *smsService) StopJob(ctx context.Context, id uint) error {
 	job, err := s.repo.GetJobByID(context.Background(), id)
 	if err != nil {
@@ -692,7 +660,6 @@ func (s *smsService) StopJob(ctx context.Context, id uint) error {
 	return s.repo.UpdateJob(context.Background(), job)
 }
 
-// DeleteJob 删除任务
 func (s *smsService) DeleteJob(ctx context.Context, id uint) error {
 	job, err := s.repo.GetJobByID(context.Background(), id)
 	if err != nil {
@@ -710,7 +677,6 @@ func (s *smsService) DeleteJob(ctx context.Context, id uint) error {
 	return s.repo.DeleteJob(context.Background(), id)
 }
 
-// GetJobRecords 获取任务发送记录
 func (s *smsService) GetJobRecords(ctx context.Context, id uint, page, limit int) ([]*model.SmsJobDetail, int64, error) {
 	_, err := s.repo.GetJobByID(context.Background(), id)
 	if err != nil {

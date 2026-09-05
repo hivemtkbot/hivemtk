@@ -9,13 +9,13 @@ type CustomReport struct {
 	ID          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name        string    `gorm:"type:varchar(100);not null" json:"name"`
 	Description string    `gorm:"type:varchar(500)" json:"description"`
-	DataSource  string    `gorm:"type:varchar(50);not null" json:"data_source"` 
-	Dimensions  string    `gorm:"type:text" json:"dimensions"`                  
-	Metrics     string    `gorm:"type:text" json:"metrics"`                     
-	Filters     string    `gorm:"type:text" json:"filters"`                     
-	ChartType   string    `gorm:"type:varchar(20)" json:"chart_type"`           
-	ChartConfig string    `gorm:"type:text" json:"chart_config"`                
-	IsPublic    bool      `gorm:"default:false" json:"is_public"`               
+	DataSource  string    `gorm:"type:varchar(50);not null" json:"data_source"`
+	Dimensions  string    `gorm:"type:text" json:"dimensions"`
+	Metrics     string    `gorm:"type:text" json:"metrics"`
+	Filters     string    `gorm:"type:text" json:"filters"`
+	ChartType   string    `gorm:"type:varchar(20)" json:"chart_type"`
+	ChartConfig string    `gorm:"type:text" json:"chart_config"`
+	IsPublic    bool      `gorm:"default:false" json:"is_public"`
 	CreatedBy   uint      `json:"created_by"`
 	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt   time.Time `gorm:"autoUpdateTime" json:"updated_at"`
@@ -30,32 +30,32 @@ func (CustomReport) TableName() string {
 type ReportDataSource string
 
 const (
-	DataSourceSessions ReportDataSource = "sessions" 
-	DataSourceMessages ReportDataSource = "messages" 
-	DataSourceOrders   ReportDataSource = "orders"   
-	DataSourceClues    ReportDataSource = "clues"    
-	DataSourceUsers    ReportDataSource = "users"    
-	DataSourceRFM      ReportDataSource = "rfm"      
-	DataSourceAgents   ReportDataSource = "agents"   
+	DataSourceSessions ReportDataSource = "sessions"
+	DataSourceMessages ReportDataSource = "messages"
+	DataSourceOrders   ReportDataSource = "orders"
+	DataSourceClues    ReportDataSource = "clues"
+	DataSourceUsers    ReportDataSource = "users"
+	DataSourceRFM      ReportDataSource = "rfm"
+	DataSourceAgents   ReportDataSource = "agents"
 )
 
 // ChartType 图表类型
 type ChartType string
 
 const (
-	ChartTypeTable ChartType = "table" 
-	ChartTypeLine  ChartType = "line"  
-	ChartTypeBar   ChartType = "bar"   
-	ChartTypePie   ChartType = "pie"   
-	ChartTypeArea  ChartType = "area"  
-	ChartTypeCard  ChartType = "card"  
+	ChartTypeTable ChartType = "table"
+	ChartTypeLine  ChartType = "line"
+	ChartTypeBar   ChartType = "bar"
+	ChartTypePie   ChartType = "pie"
+	ChartTypeArea  ChartType = "area"
+	ChartTypeCard  ChartType = "card"
 )
 
 // ReportDimension 报表维度
 type ReportDimension struct {
 	Field    string `json:"field"`
 	Label    string `json:"label"`
-	DataType string `json:"data_type"` 
+	DataType string `json:"data_type"`
 	GroupBy  bool   `json:"group_by"`
 }
 
@@ -63,14 +63,14 @@ type ReportDimension struct {
 type ReportMetric struct {
 	Field    string `json:"field"`
 	Label    string `json:"label"`
-	AggFunc  string `json:"agg_func"`  
-	DataType string `json:"data_type"` 
+	AggFunc  string `json:"agg_func"`
+	DataType string `json:"data_type"`
 }
 
 // ReportFilter 报表筛选条件
 type ReportFilter struct {
 	Field    string `json:"field"`
-	Operator string `json:"operator"` 
+	Operator string `json:"operator"`
 	Value    any    `json:"value"`
 }
 
@@ -108,4 +108,3 @@ func GetChartTypeDescription(chartType ChartType) string {
 	}
 	return descriptions[chartType]
 }
-

@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 // CoreDataFlowOrchestrator 核心数据流编排器
 type CoreDataFlowOrchestrator struct {
 	cycle    *InferenceCycle
@@ -48,10 +47,10 @@ type AssetLoader interface {
 
 // AssetContext 资产上下文
 type AssetContext struct {
-	L1ShortTerm map[string]string 
-	L2Profile   map[string]string 
-	PromptText  string            
-	SystemTools []string          
+	L1ShortTerm map[string]string
+	L2Profile   map[string]string
+	PromptText  string
+	SystemTools []string
 }
 
 // ToolRouterExecutor 工具路由执行器（解耦方向5 的 ToolRouter）
@@ -211,7 +210,7 @@ func (o *CoreDataFlowOrchestrator) Process(ctx context.Context, payload Customer
 		}
 	}
 
-	result.Stages = nil 
+	result.Stages = nil
 	if decision.Plan != nil {
 		result.ToolCallCount = len(decision.Plan.ToolCalls)
 		if result.ToolCallCount > 0 {
@@ -273,7 +272,6 @@ func (o *CoreDataFlowOrchestrator) recordError() {
 	o.mu.Unlock()
 }
 
-
 type noopAssetLoader struct{}
 
 func (noopAssetLoader) LoadContext(_ context.Context, _ CustomerMessagePayload, _ *AgentContext) (*AssetContext, error) {
@@ -297,15 +295,8 @@ func (noopPublisher) Publish(_ context.Context, _, _, _ string) error {
 	return nil
 }
 
-// defaultTrimmer 默认裁剪器：裁掉末尾 ```json {...}``` 块和 ```intent: {...}```
 type defaultTrimmer struct{}
 
-// Trim 裁剪末尾 JSON / 调试块
-//
-// 处理顺序：
-//  1. 找最后一个 ```json 开头，看是否有匹配的 ``` 结束
-//     若是 → 裁掉整段代码块
-//  2. 找最后一个 {"intent" 开头，匹配大括号深度，切掉 JSON 段
 func (defaultTrimmer) Trim(reply string) string {
 	if reply == "" {
 		return reply
@@ -359,7 +350,6 @@ func (defaultTrimmer) Trim(reply string) string {
 	return reply
 }
 
-
 // EscalationAdapter 把 HumanEscalationManager 适配成 EscalationTrigger
 type EscalationAdapter struct {
 	Fn func(ctx context.Context, sessionID, reason string) error
@@ -373,7 +363,6 @@ func (a EscalationAdapter) Trigger(ctx context.Context, sessionID, reason string
 	return a.Fn(ctx, sessionID, reason)
 }
 
-// toolCallsSummary 把计划工具调用列表压缩成可读摘要（最多展示前 5 个工具名）。
 func toolCallsSummary(calls []PlannedToolCall) string {
 	if len(calls) == 0 {
 		return "0 tool calls"
@@ -388,4 +377,3 @@ func toolCallsSummary(calls []PlannedToolCall) string {
 	}
 	return strconv.Itoa(len(calls)) + " tool call(s): " + strings.Join(names, ", ")
 }
-

@@ -6,7 +6,6 @@ import (
 	"testing"
 )
 
-
 func TestChrF_IdenticalStrings(t *testing.T) {
 	e := NewChrFEvaluator()
 	score := e.Score("hello world", "hello world")
@@ -93,8 +92,6 @@ func TestChrF_InvalidParamsFallback(t *testing.T) {
 	}
 }
 
-
-// mockLLMService 模拟 LLM 服务，返回预设响应。
 type mockLLMService struct {
 	resp string
 	err  error
@@ -224,7 +221,6 @@ func TestExtractJSON_NoBrace(t *testing.T) {
 	}
 }
 
-
 func TestEvaluator_EvaluateBatch(t *testing.T) {
 	e := NewEvaluator(nil, nil)
 	result, err := e.EvaluateBatch(
@@ -299,4 +295,3 @@ func TestNewEvaluator_DefaultChrF(t *testing.T) {
 		t.Errorf("default ChrF should work, got %f", score)
 	}
 }
-

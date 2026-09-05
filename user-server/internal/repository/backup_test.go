@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupBackupTestDB 设置备份测试数据库
 func setupBackupTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.Backup{},
@@ -22,7 +21,6 @@ func setupBackupTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupBackupRepositories 创建测试用的仓库实例
 func setupBackupRepositories(t *testing.T) (*BackupRepository, *RestoreRecordRepository) {
 	setupBackupTestDB(t)
 	database := db.GetDB()
@@ -368,7 +366,6 @@ func TestBackupRepository_CleanupOldBackups(t *testing.T) {
 		t.Errorf("CleanupOldBackups() error = %v", err)
 	}
 
-	// 验证：旧备份应该被删除，新备份保留
 	var remainingBackups []model.Backup
 	db.GetDB().Find(&remainingBackups)
 

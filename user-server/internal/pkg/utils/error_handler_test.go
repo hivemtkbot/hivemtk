@@ -138,4 +138,3 @@ func TestAppError_JSONSerialization(t *testing.T) {
 		t.Error("Code should be set for JSON serialization")
 	}
 }
-

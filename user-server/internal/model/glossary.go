@@ -30,19 +30,19 @@ import (
 type GlossaryCategory string
 
 const (
-	GlossaryCategoryBrand    GlossaryCategory = "brand"    
-	GlossaryCategorySKU      GlossaryCategory = "sku"      
-	GlossaryCategoryLogistic GlossaryCategory = "logistic" 
-	GlossaryCategoryPolicy   GlossaryCategory = "policy"   
-	GlossaryCategoryOther    GlossaryCategory = "other"    
+	GlossaryCategoryBrand    GlossaryCategory = "brand"
+	GlossaryCategorySKU      GlossaryCategory = "sku"
+	GlossaryCategoryLogistic GlossaryCategory = "logistic"
+	GlossaryCategoryPolicy   GlossaryCategory = "policy"
+	GlossaryCategoryOther    GlossaryCategory = "other"
 )
 
 // GlossaryStatus 术语状态
 type GlossaryStatus string
 
 const (
-	GlossaryStatusActive   GlossaryStatus = "active"   
-	GlossaryStatusInactive GlossaryStatus = "inactive" 
+	GlossaryStatusActive   GlossaryStatus = "active"
+	GlossaryStatusInactive GlossaryStatus = "inactive"
 )
 
 // Glossary 多语言术语表（保护 SKU/价格/品牌名不被 LLM 翻译）
@@ -51,12 +51,12 @@ const (
 // 五层架构：仅定义数据结构，业务逻辑在 Service 层
 type Glossary struct {
 	ID           int64          `gorm:"primaryKey;autoIncrement" json:"id"`
-	TermID       string         `gorm:"type:varchar(64);uniqueIndex:idx_term_id;not null" json:"term_id"` 
-	Category     string         `gorm:"type:varchar(32);index" json:"category"`                           
-	Preserve     bool           `gorm:"default:false" json:"preserve"`                                    
-	Translations JSONMap        `gorm:"type:jsonb;column:translations;default:'{}'" json:"translations"`  
-	Pattern      string         `gorm:"type:varchar(256)" json:"pattern"`                                 
-	Status       string         `gorm:"type:varchar(16);default:'active'" json:"status"`                  
+	TermID       string         `gorm:"type:varchar(64);uniqueIndex:idx_term_id;not null" json:"term_id"`
+	Category     string         `gorm:"type:varchar(32);index" json:"category"`
+	Preserve     bool           `gorm:"default:false" json:"preserve"`
+	Translations JSONMap        `gorm:"type:jsonb;column:translations;default:'{}'" json:"translations"`
+	Pattern      string         `gorm:"type:varchar(256)" json:"pattern"`
+	Status       string         `gorm:"type:varchar(16);default:'active'" json:"status"`
 	CreatedAt    time.Time      `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt    time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
 	DeletedAt    gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
@@ -64,4 +64,3 @@ type Glossary struct {
 
 // TableName 表名
 func (Glossary) TableName() string { return "glossaries" }
-

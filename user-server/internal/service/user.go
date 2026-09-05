@@ -253,7 +253,7 @@ func (s *userService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Lo
 	}
 
 	jwtUtils := utils.NewJWTUtils(utils.DefaultJWTConfig)
-	// user.ID 是 string（uuid），转换为 uint（JWT 内部用 uint 表示 user_id）
+
 	var userIDUint uint
 	if v, err := strconv.ParseUint(user.ID, 10, 64); err == nil {
 		userIDUint = uint(v)

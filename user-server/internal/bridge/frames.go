@@ -1,6 +1,5 @@
 package bridge
 
-
 import gw "hivemtk-user/internal/channelgw"
 
 // 协议版本（别名引用 channelgw 权威定义）：
@@ -15,14 +14,14 @@ const (
 
 // 帧类型常量（扩展 <-> 服务器 双向）
 const (
-	FrameRegister      = gw.FrameRegister      
-	FrameInbound       = gw.FrameInbound       
-	FrameHistory       = gw.FrameHistory       
-	FramePong          = gw.FramePong          
-	FrameAck           = gw.FrameAck           
-	FramePing          = gw.FramePing          
-	FrameOutboundReply = gw.FrameOutboundReply 
-	FrameConfigPush    = gw.FrameConfigPush    
+	FrameRegister      = gw.FrameRegister
+	FrameInbound       = gw.FrameInbound
+	FrameHistory       = gw.FrameHistory
+	FramePong          = gw.FramePong
+	FrameAck           = gw.FrameAck
+	FramePing          = gw.FramePing
+	FrameOutboundReply = gw.FrameOutboundReply
+	FrameConfigPush    = gw.FrameConfigPush
 )
 
 // HistoryItem 会话级 history 帧中的单轮消息（别名 channelgw.HistoryItem）。
@@ -38,4 +37,3 @@ type UnifiedReply = gw.OutboundReply
 
 // Frame 通用帧（别名 channelgw.Frame；MessageEventID/ProtocolVersion 方法随类型迁移）。
 type Frame = gw.Frame
-

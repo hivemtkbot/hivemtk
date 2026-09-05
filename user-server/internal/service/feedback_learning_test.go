@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupFeedbackLearningDB 初始化测试 DB
 func setupFeedbackLearningDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.SessionMessage{},
@@ -24,7 +23,6 @@ func setupFeedbackLearningDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// seedAIMessages 种子数据：AI 回复消息
 func seedAIMessages(db *gorm.DB, sessionID string, contents []string, baseTime time.Time) {
 	for i, c := range contents {
 		msg := model.SessionMessage{
@@ -40,7 +38,6 @@ func seedAIMessages(db *gorm.DB, sessionID string, contents []string, baseTime t
 	}
 }
 
-// seedCustomerMessages 种子数据：客户消息
 func seedCustomerMessages(db *gorm.DB, sessionID string, contents []string, baseTime time.Time) {
 	for i, c := range contents {
 		msg := model.SessionMessage{
@@ -228,14 +225,12 @@ func TestExtractProfile_PersistSnapshot(t *testing.T) {
 		t.Fatalf("extract: %v", err)
 	}
 
-	// 验证快照已持久化
 	var count int64
 	db.Model(&model.SalesChampionProfileSnapshot{}).Where("staff_id = ?", 42).Count(&count)
 	if count != int64(len(model.AllSalesChampionDimensions)) {
 		t.Errorf("expected %d snapshots, got %d", len(model.AllSalesChampionDimensions), count)
 	}
 
-	// 验证维度字段正确
 	var snapshots []model.SalesChampionProfileSnapshot
 	db.Where("staff_id = ?", 42).Find(&snapshots)
 	dimSet := map[string]bool{}
@@ -294,7 +289,6 @@ func TestExtractProfile_OverallScore(t *testing.T) {
 	}
 }
 
-// seedSOPAgent 创建测试 SOP
 func seedSOPAgent(db *gorm.DB, name string) uint {
 	agent := model.SOPAgent{
 		Name:     name,
@@ -309,7 +303,6 @@ func seedSOPAgent(db *gorm.DB, name string) uint {
 	return agent.ID
 }
 
-// seedNodeTransition 创建节点流转记录
 func seedNodeTransition(db *gorm.DB, sopID, execID uint, toNode, nodeType, outcome string, durationMs int) {
 	t := model.SOPNodeTransition{
 		SOPID:       sopID,
@@ -487,7 +480,7 @@ func TestGenerateOptimizationSuggestions_LLMNode(t *testing.T) {
 	if sug.SuggestionText == "" {
 		t.Errorf("suggestion text should not be empty")
 	}
-	// 验证持久化
+
 	var dbCount int64
 	db.Model(&model.OptimizationSuggestion{}).Where("sop_id = ?", sopID).Count(&dbCount)
 	if dbCount == 0 {
@@ -1114,7 +1107,6 @@ func TestPRD_Acceptance_LowConversionSuggestion(t *testing.T) {
 	}
 }
 
-// findDimension 在报告中查找指定维度
 func findDimension(report *ChampionProfileReport, dim model.SalesChampionDimension) ChampionDimensionScore {
 	for _, d := range report.Dimensions {
 		if d.Dimension == dim {

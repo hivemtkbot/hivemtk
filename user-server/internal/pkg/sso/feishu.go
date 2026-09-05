@@ -35,4 +35,3 @@ func (a *FeishuAdapter) MapClaims(c *IDTokenClaims) *NormalizedUser {
 	}
 	return nu
 }
-

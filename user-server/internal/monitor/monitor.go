@@ -16,7 +16,6 @@ import (
 // ErrNoDB 表示未初始化数据库句柄（测试/未连接场景）。
 var ErrNoDB = errors.New("database not initialized")
 
-// nodeHealthWindow 节点健康聚合的时间窗口（避免大表全扫）。
 const nodeHealthWindow = 24 * time.Hour
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -24,19 +23,19 @@ const nodeHealthWindow = 24 * time.Hour
 // ───────────────────────────────────────────────────────────────────────────
 type HealthOverviewData struct {
 	GeneratedAt        time.Time `json:"generated_at"`
-	InboundRatePerMin  float64   `json:"inbound_rate_per_min"`  
-	OutboundRatePerMin float64   `json:"outbound_rate_per_min"` 
-	PendingCount       int64     `json:"pending_count"`         
-	OldestPendingMin   int64     `json:"oldest_pending_min"`    
-	DeliveredCount     int64     `json:"delivered_count"`       
-	FailedCount        int64     `json:"failed_count"`          
-	SyncGapCount       int64     `json:"sync_gap_count"`        
-	StuckReachable     int64     `json:"stuck_reachable"`       
-	StuckUnreachable   int64     `json:"stuck_unreachable"`     
-	TotalTraces        int64     `json:"total_traces"`          
-	AbnormalCount      int64     `json:"abnormal_count"`        
-	TracePublished     int64     `json:"trace_published"`       
-	TraceDropped       int64     `json:"trace_dropped"`         
+	InboundRatePerMin  float64   `json:"inbound_rate_per_min"`
+	OutboundRatePerMin float64   `json:"outbound_rate_per_min"`
+	PendingCount       int64     `json:"pending_count"`
+	OldestPendingMin   int64     `json:"oldest_pending_min"`
+	DeliveredCount     int64     `json:"delivered_count"`
+	FailedCount        int64     `json:"failed_count"`
+	SyncGapCount       int64     `json:"sync_gap_count"`
+	StuckReachable     int64     `json:"stuck_reachable"`
+	StuckUnreachable   int64     `json:"stuck_unreachable"`
+	TotalTraces        int64     `json:"total_traces"`
+	AbnormalCount      int64     `json:"abnormal_count"`
+	TracePublished     int64     `json:"trace_published"`
+	TraceDropped       int64     `json:"trace_dropped"`
 }
 
 // HealthOverview 汇总核心业务链路健康指标。
@@ -138,11 +137,11 @@ type NodeAbnormalRow struct {
 
 // AnomalyGroups 按异常类别分组，前端对应 5 个折叠区块。
 type AnomalyGroups struct {
-	SyncGap          []SyncGapRow      `json:"sync_gap"`          
-	StuckReachable   []StuckRow        `json:"stuck_reachable"`   
-	StuckUnreachable []StuckRow        `json:"stuck_unreachable"` 
-	Unreachable      []StuckRow        `json:"unreachable"`       
-	NodeAbnormal     []NodeAbnormalRow `json:"node_abnormal"`     
+	SyncGap          []SyncGapRow      `json:"sync_gap"`
+	StuckReachable   []StuckRow        `json:"stuck_reachable"`
+	StuckUnreachable []StuckRow        `json:"stuck_unreachable"`
+	Unreachable      []StuckRow        `json:"unreachable"`
+	NodeAbnormal     []NodeAbnormalRow `json:"node_abnormal"`
 }
 
 // Anomalies 返回当前业务链路异常分组清单。
@@ -155,9 +154,6 @@ func Anomalies(ctx context.Context) (*AnomalyGroups, error) {
 	threshold := now.Add(-15 * time.Minute)
 	g := &AnomalyGroups{}
 
-	// 同步缺口：近 7d 有 message_hub 但 inbox_conversations 无记录（按会话聚合）。
-	// 以 (platform, account_id, customer_id) 是否存在收件箱行判定真实缺口，排除“多会话共享同一客户”
-	// 导致的 false positive（inbox_conversations 按该三元组去重，仅保留一个 conversation_id）。
 	type gapRow struct {
 		ConversationID string
 		Channel        string
@@ -190,7 +186,6 @@ func Anomalies(ctx context.Context) (*AnomalyGroups, error) {
 		})
 	}
 
-	// 卡住-可达 / 卡住-不可达：pending 超 15 分，按是否存在激活会话区分
 	type stuckRow struct {
 		ConversationID string
 		Channel        string
@@ -229,7 +224,6 @@ func Anomalies(ctx context.Context) (*AnomalyGroups, error) {
 		})
 	}
 
-	// 不可达：出站 failed（目标不可达，近 7d）
 	var failed []stuckRow
 	if err := d.Raw(`
 		SELECT h.conversation_id,
@@ -360,7 +354,7 @@ type LifecycleNode struct {
 	Abnormal       string    `json:"abnormal"`
 	Error          string    `json:"error"`
 	CreatedAt      time.Time `json:"created_at"`
-	GapMs          *int64    `json:"gap_ms_from_prev"` 
+	GapMs          *int64    `json:"gap_ms_from_prev"`
 }
 
 type LifecycleData struct {
@@ -368,7 +362,7 @@ type LifecycleData struct {
 	ConversationID string          `json:"conversation_id"`
 	Channel        string          `json:"channel"`
 	Nodes          []LifecycleNode `json:"nodes"`
-	EndToEndMs     *int64          `json:"end_to_end_ms"` 
+	EndToEndMs     *int64          `json:"end_to_end_ms"`
 	HasAbnormal    bool            `json:"has_abnormal"`
 	AbnormalDetail string          `json:"abnormal_detail,omitempty"`
 }
@@ -393,7 +387,7 @@ func Lifecycle(ctx context.Context, conversationID, traceID string, limit int) (
 	}
 	var traces []model.MessageTrace
 	if err := q.Order("trace_id, node_order, id").
-		Limit(limit * 12). 
+		Limit(limit * 12).
 		Find(&traces).Error; err != nil {
 		return nil, err
 	}
@@ -491,7 +485,7 @@ func Traces(ctx context.Context, limit int) ([]TraceSummary, error) {
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
-	// 取最近的 trace_id 集合（按最大 id 倒序，规避 SELECT DISTINCT ORDER BY 限制）
+
 	var recent []string
 	if err := d.Model(&model.MessageTrace{}).
 		Select("trace_id").
@@ -504,7 +498,7 @@ func Traces(ctx context.Context, limit int) ([]TraceSummary, error) {
 	if len(recent) == 0 {
 		return []TraceSummary{}, nil
 	}
-	// 单次查询取全部节点，避免按 trace_id 逐条查询的 N+1
+
 	var rows []model.MessageTrace
 	if err := d.Where("trace_id IN ?", recent).
 		Order("trace_id, node_order, id").
@@ -539,14 +533,13 @@ func Traces(ctx context.Context, limit int) ([]TraceSummary, error) {
 	return out, nil
 }
 
-
 // TraceTreeData 单条消息 / 单轮对话的完整链路（层级 span 已排序）。
 type TraceTreeData struct {
 	TraceID        string               `json:"trace_id"`
 	ConversationID string               `json:"conversation_id"`
 	Channel        string               `json:"channel"`
 	AccountID      string               `json:"account_id"`
-	Spans          []model.MessageTrace `json:"spans"` 
+	Spans          []model.MessageTrace `json:"spans"`
 }
 
 // TraceTree 取一条消息 / 单轮对话的完整链路明细。
@@ -619,7 +612,7 @@ func LifecycleLatencyByChannel(ctx context.Context) ([]LifecycleLatency, error) 
 	if d == nil {
 		return nil, ErrNoDB
 	}
-	// 取每个 trace 的 ingest 与 delivered_ack 时间，join 计算时延
+
 	type pair struct {
 		Channel  string
 		IngestAt time.Time
@@ -672,7 +665,6 @@ func PurgeOld(ctx context.Context, olderThan time.Duration) (int64, error) {
 	return res.RowsAffected, res.Error
 }
 
-
 func percentile(sorted []int64, p int) int64 {
 	if len(sorted) == 0 {
 		return 0
@@ -683,4 +675,3 @@ func percentile(sorted []int64, p int) int64 {
 	}
 	return sorted[idx]
 }
-

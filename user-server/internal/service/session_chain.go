@@ -34,9 +34,9 @@ type SessionChainService struct {
 func NewSessionChainService(gdb *gorm.DB) *SessionChainService { return &SessionChainService{db: gdb} }
 
 // NewSessionChainServiceFromGlobal 便捷构造
-func NewSessionChainServiceFromGlobal() *SessionChainService { return NewSessionChainService(db.GetDB()) }
-
-// ---------- A1: resolved/closed 自动触发 CSAT ----------
+func NewSessionChainServiceFromGlobal() *SessionChainService {
+	return NewSessionChainService(db.GetDB())
+}
 
 // TriggerCSATOnClose 会话关闭时自动下发 CSAT（csat_survey_listener 语义）。
 // 由 UpdateSessionStatus 在 resolved/closed 迁移点调用；fire-and-forget 不阻塞。
@@ -54,13 +54,11 @@ func (s *SessionChainService) TriggerCSATOnClose(session *model.CustomerSession)
 		defer cancel()
 		csat := NewCSATService()
 		if _, err := csat.Trigger(ctx, session.SessionID, "auto"); err != nil {
-			// 已有调查（幂等）或会话缺失均静默
+
 			return
 		}
 	}()
 }
-
-// ---------- A2: 自动解决 SLA ----------
 
 // AutoResolveConfigKey KV 键
 const AutoResolveConfigKey = "session.auto_resolve"
@@ -68,9 +66,9 @@ const AutoResolveConfigKey = "session.auto_resolve"
 // AutoResolveConfig SLA 配置
 type AutoResolveConfig struct {
 	Enabled       bool   `json:"enabled"`
-	Hours         int    `json:"hours"`          // 无活动超过 N 小时自动解决
-	OnlyClosedOff bool   `json:"only_open_like"` // 仅 open 类状态（pending/ai_handling/waiting）
-	AddTag        string `json:"add_tag"`        // 自动关闭时打的标签（如 auto_resolved）
+	Hours         int    `json:"hours"`
+	OnlyClosedOff bool   `json:"only_open_like"`
+	AddTag        string `json:"add_tag"`
 }
 
 // DefaultAutoResolveConfig 默认关闭
@@ -128,7 +126,7 @@ func (s *SessionChainService) RunAutoResolve(ctx context.Context) (int, error) {
 	}
 	closed := 0
 	for _, sess := range sessions {
-		// 打标
+
 		if cfg.AddTag != "" {
 			var tags []string
 			_ = json.Unmarshal([]byte(sess.Tags), &tags)
@@ -154,13 +152,10 @@ func (s *SessionChainService) RunAutoResolve(ctx context.Context) (int, error) {
 	return closed, nil
 }
 
-// closeByPK 直接按主键关单（复用 UpdateStatus 需要再查一次，这里省一轮）
 func (s *SessionChainService) closeByPK(ctx context.Context, id uint) error {
 	return s.db.WithContext(ctx).Model(&model.CustomerSession{}).
 		Where("id = ?", id).Update("status", model.SessionStatusClosed).Error
 }
-
-// ---------- A3: 访客消息 → resolved/closed 自动 reopen ----------
 
 // ReopenOnInboundMessage 访客消息落库后调用：resolved/closed 会话自动回 waiting（toggle_status 语义）。
 // 返回 true=发生了 reopen。
@@ -184,8 +179,6 @@ func (s *SessionChainService) GetSession(ctx context.Context, sessionID string) 
 	return repo.GetBySessionID(ctx, sessionID)
 }
 
-// ---------- B: 轻量自动化规则引擎 ----------
-
 // 支持的事件
 const (
 	RuleEventConversationCreated = "conversation_created"
@@ -206,8 +199,8 @@ const (
 
 // RuleCondition 条件
 type RuleCondition struct {
-	Field string `json:"field"` // platform/status/one_id/priority/tags/content
-	Op    string `json:"op"`    // eq/contains/gt/lt
+	Field string `json:"field"`
+	Op    string `json:"op"`
 	Value string `json:"value"`
 }
 
@@ -332,11 +325,10 @@ func (s *RuleEngineService) DispatchWithText(ctx context.Context, event, session
 	}
 }
 
-// matchConditions 全条件满足判定
 func (s *RuleEngineService) matchConditions(rule *model.AutomationRule, sess *model.CustomerSession, inboundText string) bool {
 	var conds []RuleCondition
 	if json.Unmarshal([]byte(rule.Conditions), &conds) != nil {
-		return true // 条件非法视为无条件（宽松匹配）
+		return true
 	}
 	for _, c := range conds {
 		var actual string
@@ -422,7 +414,6 @@ func (s *RuleEngineService) matchConditions(rule *model.AutomationRule, sess *mo
 	return true
 }
 
-// executeRule 执行动作序列
 func (s *RuleEngineService) executeRule(ctx context.Context, rule *model.AutomationRule, sessionID string, sess *model.CustomerSession) {
 	var acts []RuleAction
 	if json.Unmarshal([]byte(rule.Actions), &acts) != nil {

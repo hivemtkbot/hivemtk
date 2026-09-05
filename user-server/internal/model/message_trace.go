@@ -34,37 +34,37 @@ import "time"
 //
 // 写入策略：best-effort，任何失败仅告警不阻断主业务。
 type MessageTrace struct {
-	ID             uint   `gorm:"primaryKey;autoIncrement" json:"id"`
-	TraceID        string `gorm:"type:varchar(64);index:idx_mt_trace" json:"trace_id"`
-	ConversationID string `gorm:"type:varchar(100);index:idx_mt_conv" json:"conversation_id"`
-	AccountID      string `gorm:"type:varchar(100);index" json:"account_id"`
-	Channel        string `gorm:"type:varchar(30);index:idx_mt_channel" json:"channel"`
-	Node           string `gorm:"type:varchar(40);index:idx_mt_node" json:"node"`
-	NodeOrder      int    `gorm:"index" json:"node_order"`
-	Direction      string `gorm:"type:varchar(10)" json:"direction"`
-	MsgID          string `gorm:"type:varchar(100);index" json:"msg_id"`
-	Input          string `gorm:"type:text" json:"input"`
-	Output         string `gorm:"type:text" json:"output"`
-	DurationMs     int64  `gorm:"index:idx_mt_dur" json:"duration_ms"`
-	Expected       string `gorm:"type:text" json:"expected"`
-	Status         string `gorm:"type:varchar(20);index" json:"status"`
-	Abnormal       string `gorm:"type:text" json:"abnormal"`
-	Error          string `gorm:"type:text" json:"error"`
-	ParentNode string    `gorm:"type:varchar(40);index:idx_mt_parent;default:''" json:"parent_node"`
-	SpanKind   string    `gorm:"type:varchar(20);index:idx_mt_kind;default:'lifecycle'" json:"span_kind"`
-	TurnIndex  int       `gorm:"index:idx_mt_turn;default:0" json:"turn_index"`
-	ToolName   string    `gorm:"type:varchar(96);default:''" json:"tool_name"`
-	AgentID    string    `gorm:"type:varchar(64);default:''" json:"agent_id"`
-	CreatedAt  time.Time `gorm:"autoCreateTime;index:idx_mt_created" json:"created_at"`
+	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	TraceID        string    `gorm:"type:varchar(64);index:idx_mt_trace" json:"trace_id"`
+	ConversationID string    `gorm:"type:varchar(100);index:idx_mt_conv" json:"conversation_id"`
+	AccountID      string    `gorm:"type:varchar(100);index" json:"account_id"`
+	Channel        string    `gorm:"type:varchar(30);index:idx_mt_channel" json:"channel"`
+	Node           string    `gorm:"type:varchar(40);index:idx_mt_node" json:"node"`
+	NodeOrder      int       `gorm:"index" json:"node_order"`
+	Direction      string    `gorm:"type:varchar(10)" json:"direction"`
+	MsgID          string    `gorm:"type:varchar(100);index" json:"msg_id"`
+	Input          string    `gorm:"type:text" json:"input"`
+	Output         string    `gorm:"type:text" json:"output"`
+	DurationMs     int64     `gorm:"index:idx_mt_dur" json:"duration_ms"`
+	Expected       string    `gorm:"type:text" json:"expected"`
+	Status         string    `gorm:"type:varchar(20);index" json:"status"`
+	Abnormal       string    `gorm:"type:text" json:"abnormal"`
+	Error          string    `gorm:"type:text" json:"error"`
+	ParentNode     string    `gorm:"type:varchar(40);index:idx_mt_parent;default:''" json:"parent_node"`
+	SpanKind       string    `gorm:"type:varchar(20);index:idx_mt_kind;default:'lifecycle'" json:"span_kind"`
+	TurnIndex      int       `gorm:"index:idx_mt_turn;default:0" json:"turn_index"`
+	ToolName       string    `gorm:"type:varchar(96);default:''" json:"tool_name"`
+	AgentID        string    `gorm:"type:varchar(64);default:''" json:"agent_id"`
+	CreatedAt      time.Time `gorm:"autoCreateTime;index:idx_mt_created" json:"created_at"`
 }
 
 func (MessageTrace) TableName() string { return "message_trace" }
 
 // 层级 span 种类常量
 const (
-	SpanKindLifecycle = "lifecycle"  
-	SpanKindAgentTurn = "agent_turn" 
-	SpanKindToolCall  = "tool_call"  
+	SpanKindLifecycle = "lifecycle"
+	SpanKindAgentTurn = "agent_turn"
+	SpanKindToolCall  = "tool_call"
 )
 
 // 层级 span 节点名（挂在 ai_dispatch 之下）
@@ -72,4 +72,3 @@ const (
 	NodeAgentTurn = "agent_turn"
 	NodeToolCall  = "tool_call"
 )
-

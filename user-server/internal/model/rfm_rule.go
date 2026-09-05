@@ -8,21 +8,21 @@ import (
 type RFMRule struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name      string    `gorm:"type:varchar(100)" json:"name"`
-	RDays1    int       `gorm:"default:7" json:"r_days_1"`                     
-	RDays2    int       `gorm:"default:14" json:"r_days_2"`                    
-	RDays3    int       `gorm:"default:30" json:"r_days_3"`                    
-	RDays4    int       `gorm:"default:60" json:"r_days_4"`                    
-	RDays5    int       `gorm:"default:90" json:"r_days_5"`                    
-	FCount1   int       `gorm:"default:1" json:"f_count_1"`                    
-	FCount2   int       `gorm:"default:3" json:"f_count_2"`                    
-	FCount3   int       `gorm:"default:5" json:"f_count_3"`                    
-	FCount4   int       `gorm:"default:10" json:"f_count_4"`                   
-	FCount5   int       `gorm:"default:20" json:"f_count_5"`                   
-	MAmount1  int64     `gorm:"type:bigint;default:10000" json:"m_amount_1"`   
-	MAmount2  int64     `gorm:"type:bigint;default:50000" json:"m_amount_2"`   
-	MAmount3  int64     `gorm:"type:bigint;default:100000" json:"m_amount_3"`  
-	MAmount4  int64     `gorm:"type:bigint;default:500000" json:"m_amount_4"`  
-	MAmount5  int64     `gorm:"type:bigint;default:1000000" json:"m_amount_5"` 
+	RDays1    int       `gorm:"default:7" json:"r_days_1"`
+	RDays2    int       `gorm:"default:14" json:"r_days_2"`
+	RDays3    int       `gorm:"default:30" json:"r_days_3"`
+	RDays4    int       `gorm:"default:60" json:"r_days_4"`
+	RDays5    int       `gorm:"default:90" json:"r_days_5"`
+	FCount1   int       `gorm:"default:1" json:"f_count_1"`
+	FCount2   int       `gorm:"default:3" json:"f_count_2"`
+	FCount3   int       `gorm:"default:5" json:"f_count_3"`
+	FCount4   int       `gorm:"default:10" json:"f_count_4"`
+	FCount5   int       `gorm:"default:20" json:"f_count_5"`
+	MAmount1  int64     `gorm:"type:bigint;default:10000" json:"m_amount_1"`
+	MAmount2  int64     `gorm:"type:bigint;default:50000" json:"m_amount_2"`
+	MAmount3  int64     `gorm:"type:bigint;default:100000" json:"m_amount_3"`
+	MAmount4  int64     `gorm:"type:bigint;default:500000" json:"m_amount_4"`
+	MAmount5  int64     `gorm:"type:bigint;default:1000000" json:"m_amount_5"`
 	IsActive  bool      `gorm:"default:true" json:"is_active"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
@@ -37,15 +37,15 @@ func (RFMRule) TableName() string {
 type UserRFM struct {
 	ID                uint       `gorm:"primaryKey;autoIncrement" json:"id"`
 	UserID            uint       `gorm:"index;not null" json:"user_id"`
-	RScore            int        `gorm:"default:0" json:"r_score"`                  
-	FScore            int        `gorm:"default:0" json:"f_score"`                  
-	MScore            int        `gorm:"default:0" json:"m_score"`                  
-	TotalScore        int        `gorm:"default:0" json:"total_score"`              
-	Layer             string     `gorm:"type:varchar(20)" json:"layer"`             
-	LastTransactionAt *time.Time `json:"last_transaction_at"`                       
-	TransactionCount  int        `gorm:"default:0" json:"transaction_count"`        
-	TotalAmount       int64      `gorm:"type:bigint;default:0" json:"total_amount"` 
-	AvgAmount         int64      `gorm:"type:bigint;default:0" json:"avg_amount"`   
+	RScore            int        `gorm:"default:0" json:"r_score"`
+	FScore            int        `gorm:"default:0" json:"f_score"`
+	MScore            int        `gorm:"default:0" json:"m_score"`
+	TotalScore        int        `gorm:"default:0" json:"total_score"`
+	Layer             string     `gorm:"type:varchar(20)" json:"layer"`
+	LastTransactionAt *time.Time `json:"last_transaction_at"`
+	TransactionCount  int        `gorm:"default:0" json:"transaction_count"`
+	TotalAmount       int64      `gorm:"type:bigint;default:0" json:"total_amount"`
+	AvgAmount         int64      `gorm:"type:bigint;default:0" json:"avg_amount"`
 	UpdatedAt         time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
@@ -58,17 +58,17 @@ func (UserRFM) TableName() string {
 type RFMLayer string
 
 const (
-	RFMLayerImportantValue   RFMLayer = "important_value"   
-	RFMLayerImportantKeep    RFMLayer = "important_keep"    
-	RFMLayerImportantDevelop RFMLayer = "important_develop" 
-	RFMLayerImportantStay    RFMLayer = "important_stay"    
-	RFMLayerGeneralValue     RFMLayer = "general_value"     
-	RFMLayerGeneralKeep      RFMLayer = "general_keep"      
-	RFMLayerGeneralDevelop   RFMLayer = "general_develop"   
-	RFMLayerGeneralStay      RFMLayer = "general_stay"      
-	RFMLayerNew              RFMLayer = "new"               
-	RFMLayerSleep            RFMLayer = "sleep"             
-	RFMLayerLost             RFMLayer = "lost"              
+	RFMLayerImportantValue   RFMLayer = "important_value"
+	RFMLayerImportantKeep    RFMLayer = "important_keep"
+	RFMLayerImportantDevelop RFMLayer = "important_develop"
+	RFMLayerImportantStay    RFMLayer = "important_stay"
+	RFMLayerGeneralValue     RFMLayer = "general_value"
+	RFMLayerGeneralKeep      RFMLayer = "general_keep"
+	RFMLayerGeneralDevelop   RFMLayer = "general_develop"
+	RFMLayerGeneralStay      RFMLayer = "general_stay"
+	RFMLayerNew              RFMLayer = "new"
+	RFMLayerSleep            RFMLayer = "sleep"
+	RFMLayerLost             RFMLayer = "lost"
 )
 
 // GetLayerDescription 获取分层描述
@@ -88,4 +88,3 @@ func GetLayerDescription(layer RFMLayer) string {
 	}
 	return descriptions[layer]
 }
-

@@ -24,10 +24,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ============================================================
-// 辅助：多表一次性 AutoMigrate 测试库
-// ============================================================
-
 func setupHubFullTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := testutil.NewTestDB(t,
@@ -37,7 +33,7 @@ func setupHubFullTestDB(t *testing.T) *gorm.DB {
 		&model.MessageTrace{},
 		&model.AgentStatus{},
 	)
-	// 清空保证幂等（注意顺序：assignment 依赖 conversation，先清子表）
+
 	for _, tbl := range []string{
 		"message_trace",
 		"inbox_assignments",
@@ -98,17 +94,13 @@ func newConv(platform, accountID, customer, status string, now time.Time) *model
 	}
 }
 
-// ============================================================
-// 1. message_hub_inbox_ctx.go — 11 个全 0% 方法
-// ============================================================
-
 func TestMessageHubRepository_GetLastByPlatformAccount(t *testing.T) {
 	db := setupHubFullTestDB(t)
 	repo := &MessageHubRepository{db: db}
 	ctx := context.Background()
 
 	now := time.Now()
-	// 种 3 条不同时间，验证取最新
+
 	for i := 1; i <= 3; i++ {
 		h := newHubWithConv("wechat", "acc_gpa", "c1", fmt.Sprintf("m_gpa_%d", i), "inbound", "received", now.Add(-time.Duration(4-i)*time.Minute))
 		if err := db.Create(h).Error; err != nil {
@@ -166,7 +158,6 @@ func TestMessageHubRepository_HasUnrepliedCustomerMessage(t *testing.T) {
 		t.Error("50s 前应在 2min 窗口内")
 	}
 
-	// 过期边界（50s 前 vs 10s 窗口，稳定落窗口外）
 	unreplied, within, _ = repo.HasUnrepliedCustomerMessage(ctx, convID, 10*time.Second)
 	if within {
 		t.Error("50s 前应在 10s 窗口外")
@@ -206,7 +197,6 @@ func TestMessageHubRepository_GetLastOutboundByConversation(t *testing.T) {
 	convID := "conv:gl1"
 	now := time.Now()
 
-	// 最近 3 分钟内的 outbound
 	rec := newHubWithConv("wechat", "acc", "gl1", "m_gl1_1", "outbound", "delivered", now.Add(-2*time.Minute))
 	rec.ConversationID = convID
 	if err := db.Create(rec).Error; err != nil {
@@ -221,13 +211,12 @@ func TestMessageHubRepository_GetLastOutboundByConversation(t *testing.T) {
 		t.Errorf("期望 m_gl1_1, 得 %s", got.MsgID)
 	}
 
-	// 5 分钟前的应被 cutoff 过滤
 	old := newHubWithConv("wechat", "acc", "gl1", "m_gl1_old", "outbound", "delivered", now.Add(-6*time.Minute))
 	old.ConversationID = convID
 	if err := db.Create(old).Error; err != nil {
 		t.Fatal(err)
 	}
-	// 还是拿到 m_gl1_1，因为它更新
+
 	got2, _ := repo.GetLastOutboundByConversation(ctx, convID)
 	if got2.MsgID != "m_gl1_1" {
 		t.Errorf("cutoff 5min 内仍应取到新的, 得 %s", got2.MsgID)
@@ -245,7 +234,7 @@ func TestMessageHubRepository_GetLastInboundByConversation(t *testing.T) {
 	h1.ConversationID = convID
 	h2 := newHubWithConv("wechat", "acc", "gi1", "m_gi_2", "inbound", "received", now.Add(-time.Minute))
 	h2.ConversationID = convID
-	// 还加一条 outbound 确保方向过滤生效
+
 	out := newHubWithConv("wechat", "acc", "gi1", "m_gi_out", "outbound", "delivered", now.Add(-30*time.Second))
 	out.ConversationID = convID
 
@@ -269,11 +258,10 @@ func TestMessageHubRepository_ListByConversationContext(t *testing.T) {
 	repo := &MessageHubRepository{db: db}
 	now := time.Now()
 
-	// 3 条消息：1 条 sender 是 customer c1, 2 条 receiver 是 c1
 	s1 := newHubWithConv("wechat", "acc_ctx", "c1", "m_ctx_1", "inbound", "received", now)
 	r1 := newHubWithConv("wechat", "acc_ctx", "c1", "m_ctx_2", "outbound", "delivered", now)
 	r2 := newHubWithConv("wechat", "acc_ctx", "c1", "m_ctx_3", "outbound", "delivered", now)
-	r2.ReceiverID = "other-c" // 不同 receiver 应该被 OR 条件过滤掉
+	r2.ReceiverID = "other-c"
 
 	for _, h := range []*model.MessageHub{s1, r1, r2} {
 		if err := db.Create(h).Error; err != nil {
@@ -347,7 +335,6 @@ func TestMessageHubRepository_FindConversationIDsMissingInbox(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
 
-	// conv_a 有 inbox, conv_b 无 inbox
 	for _, c := range []string{"conv_a", "conv_b"} {
 		h := newHubWithConv("wechat", "acc", c, "m_"+c, "inbound", "received", now)
 		h.ConversationID = c
@@ -377,7 +364,6 @@ func TestMessageHubRepository_FindLatestByConversation(t *testing.T) {
 	convID := "conv:fl1"
 	now := time.Now()
 
-	// 2 条同 conv, 验证取最后插入(ID 大)
 	for i := 1; i <= 2; i++ {
 		h := newHubWithConv("wechat", "acc", "fl1", fmt.Sprintf("m_fl_%d", i), "inbound", "received", now)
 		h.ConversationID = convID
@@ -394,7 +380,6 @@ func TestMessageHubRepository_FindLatestByConversation(t *testing.T) {
 		t.Errorf("期望最后插入 m_fl_2, 得 %s", got.MsgID)
 	}
 
-	// 空 convID 返回 ErrRecordNotFound
 	_, err = repo.FindLatestByConversation(ctx, "")
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Errorf("空 convID 应 ErrRecordNotFound, 得 %v", err)
@@ -406,8 +391,6 @@ func TestMessageHubRepository_NormalizePollutedConversationIDs(t *testing.T) {
 	repo := &MessageHubRepository{db: db}
 	now := time.Now()
 
-	// conversation_id 被污染 "conv:np1 今天 14:30"，sender_id 干净 "conv:np1"
-	// 这样 conversation_id LIKE (sender_id || ' %') 成立
 	polluted := newHubWithConv("wechat", "acc_np", "np1", "m_np1", "inbound", "received", now)
 	polluted.ConversationID = "conv:np1 今天 14:30"
 	polluted.SenderID = "conv:np1"
@@ -428,7 +411,7 @@ func TestMessageHubRepository_NormalizePollutedConversationIDs(t *testing.T) {
 	if err := db.First(&got, polluted.ID).Error; err != nil {
 		t.Fatal(err)
 	}
-	// regexp_replace 应剥离后缀时间戳
+
 	if strings.Contains(got.ConversationID, "今天") || strings.Contains(got.ConversationID, "14:30") {
 		t.Errorf("时间戳后缀未清洗: %s", got.ConversationID)
 	}
@@ -438,7 +421,6 @@ func TestMessageHubRepository_NormalizePollutedTraceConversationIDs(t *testing.T
 	db := setupHubFullTestDB(t)
 	repo := &MessageHubRepository{db: db}
 
-	// 种 message_trace.conversation_id 带时间戳后缀
 	trace := model.MessageTrace{
 		TraceID:        "t1",
 		ConversationID: "conv:np2 昨天 09:15",
@@ -471,24 +453,20 @@ func TestMessageHubRepository_NormalizePollutedTraceConversationIDs(t *testing.T
 	}
 }
 
-// ============================================================
-// 2. message_hub_inbox_stats.go — GetHubStats
-// ============================================================
-
 func TestMessageHubRepository_GetHubStats(t *testing.T) {
 	db := setupHubFullTestDB(t)
 	repo := &MessageHubRepository{db: db}
 	ctx := context.Background()
 
 	now := time.Now()
-	// 显式给每条设 IsRead：2 条已读，3 条未读
+
 	for i := 1; i <= 5; i++ {
 		dir := "inbound"
 		if i%2 == 0 {
 			dir = "outbound"
 		}
 		h := newHubWithConv("wechat", "acc_stats", "c1", fmt.Sprintf("m_stats_%d", i), dir, "received", now.Add(-time.Duration(i)*time.Minute))
-		// i=2,4 已读，其余未读
+
 		h.IsRead = (i == 2 || i == 4)
 		if err := db.Create(h).Error; err != nil {
 			t.Fatal(err)
@@ -518,7 +496,6 @@ func TestMessageHubRepository_GetHubStats(t *testing.T) {
 		t.Errorf("Recent24h 期望 5 (全部在 24h 内), 得 %d", stats.Recent24h)
 	}
 
-	// 时间窗口过滤：end 必须 >= start（m_stats_2 at -2min, m_stats_3 at -3min, m_stats_4 at -4min → 3 条）
 	start := now.Add(-4 * time.Minute)
 	end := now.Add(-2 * time.Minute)
 	statsWin, err := repo.GetHubStats(ctx, &start, &end)
@@ -530,18 +507,12 @@ func TestMessageHubRepository_GetHubStats(t *testing.T) {
 	}
 }
 
-// ============================================================
-// 3. message_hub_inbox_syncgap.go — FindSyncGapConversations
-// ============================================================
-
 func TestMessageHubRepository_FindSyncGapConversations(t *testing.T) {
 	db := setupHubFullTestDB(t)
 	repo := &MessageHubRepository{db: db}
 
 	now := time.Now()
-	// conv_ok: message_hub + inbox_conversation 都有
-	// conv_gap: 只有 message_hub 没有 inbox_conversation
-	// conv_old: 只有 message_hub 但 created_at 早于 since（不在窗口内）
+
 	for _, pair := range []struct {
 		customer string
 		since    time.Time
@@ -558,7 +529,6 @@ func TestMessageHubRepository_FindSyncGapConversations(t *testing.T) {
 		}
 	}
 
-	// 只给 conv_ok 写 inbox
 	conv := newConv("wechat", "acc_sgap", "ok", "unread", now)
 	conv.ConversationID = "conv:ok"
 	if err := db.Create(conv).Error; err != nil {
@@ -569,15 +539,11 @@ func TestMessageHubRepository_FindSyncGapConversations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 期望 conv_gap（无 inbox 且 created_at >= since 在窗口内）
+
 	if len(rows) != 1 || rows[0].CustomerID != "gap" {
 		t.Errorf("期望 gap customer, 得 %v", rows)
 	}
 }
-
-// ============================================================
-// 4. InboxConversationRepository — 8 个 0% 方法
-// ============================================================
 
 func TestInboxConversationRepository_CreateAndGet(t *testing.T) {
 	db := setupHubFullTestDB(t)
@@ -598,7 +564,6 @@ func TestInboxConversationRepository_CreateAndGet(t *testing.T) {
 		t.Errorf("期望 c1_ir, 得 %s", got.CustomerID)
 	}
 
-	// nil repo
 	var nilr *InboxConversationRepository
 	if err := nilr.Create(ctx, conv); err != nil {
 		t.Error("nil repo Create 应返回 nil")
@@ -635,7 +600,7 @@ func TestInboxConversationRepository_UpdateLastMessage(t *testing.T) {
 	}
 
 	newAt := now.Add(-30 * time.Second)
-	newPreview := "新消息预览-" + strings.Repeat("a", 550) // 超过 500 触发截断
+	newPreview := "新消息预览-" + strings.Repeat("a", 550)
 	err := r.UpdateLastMessage(context.Background(), conv.ID, newPreview, newAt, 2)
 	if err != nil {
 		t.Fatal(err)
@@ -676,7 +641,6 @@ func TestInboxConversationRepository_ListByAccount(t *testing.T) {
 		t.Errorf("pageSize=3 期望 3 条, 得 %d", len(items))
 	}
 
-	// 默认 page=1, pageSize=20
 	items, _, _ = r.ListByAccount(context.Background(), "wechat", "acc_lba", 0, 0)
 	if len(items) != 5 {
 		t.Errorf("默认分页期望 5 条, 得 %d", len(items))
@@ -756,7 +720,6 @@ func TestInboxConversationRepository_UpsertFromMessage_UpdateExisting(t *testing
 		t.Errorf("期望 total_count=2, 得 %d", got.TotalCount)
 	}
 
-	// 再来一条 agent 消息 → unread 清零 + open
 	in.LastMessageFrom = "agent"
 	in.LastMessagePreview = "agent 回复"
 	if err := r.UpsertFromMessage(ctx, in); err != nil {
@@ -785,10 +748,9 @@ func TestInboxConversationRepository_DeletePollutedInboxRows(t *testing.T) {
 	r := NewInboxConversationRepositoryWithDB(db)
 	now := time.Now()
 
-	// 1 条带时间戳污染 conv_id, 1 条正常
 	poll := newConv("wechat", "acc_dpr", "poll-c", "unread", now)
 	poll.ConversationID = "conv:poll 今天 14:30"
-	poll.CustomerID = "conv:poll 今天 14:30" // 同时污染 customer_id
+	poll.CustomerID = "conv:poll 今天 14:30"
 	good := newConv("wechat", "acc_dpr", "good-c", "unread", now)
 	good.ConversationID = "conv:good"
 
@@ -820,7 +782,6 @@ func TestInboxConversationRepository_DeleteOrphanConvInboxRows(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
 
-	// conv_live 有 message_hub, conv_dead 没有
 	convLive := newConv("wechat", "acc_doci", "c_live", "unread", now)
 	convLive.ConversationID = "conv:live"
 	convDead := newConv("wechat", "acc_doci", "c_dead", "unread", now)
@@ -831,7 +792,7 @@ func TestInboxConversationRepository_DeleteOrphanConvInboxRows(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// 只给 conv_live 写 message_hub
+
 	h := newHubWithConv("wechat", "acc_doci", "c_live", "m_live", "inbound", "received", now)
 	h.ConversationID = "conv:live"
 	if err := db.Create(h).Error; err != nil {
@@ -853,7 +814,6 @@ func TestInboxConversationRepository_DeleteOrphanInboxByConversation(t *testing.
 	ctx := context.Background()
 	now := time.Now()
 
-	// 同一 conv 下两条 customer_id 不同, 保留 keepCustomerID, 删除其余
 	c1 := newConv("wechat", "acc_dobi", "keep-c", "unread", now)
 	c1.ConversationID = "conv:dobi"
 	c2 := newConv("wechat", "acc_dobi", "orphan-c", "unread", now)
@@ -874,18 +834,12 @@ func TestInboxConversationRepository_DeleteOrphanInboxByConversation(t *testing.
 	}
 }
 
-// ============================================================
-// 5. InboxConversationRepository 其它队列管理方法
-// ============================================================
-
 func TestInboxConversationRepository_ReconcileUnread(t *testing.T) {
 	db := setupHubFullTestDB(t)
 	r := NewInboxConversationRepositoryWithDB(db)
 	ctx := context.Background()
 	now := time.Now()
 
-	// 会话 A: 最后 inbound → unread_count >= 1, status=unread
-	// 会话 B: 最后 outbound → unread_count=0, unread→open
 	convA := newConv("wechat", "acc_ru", "cA", "open", now)
 	convA.ConversationID = "conv:ru_A"
 	convB := newConv("wechat", "acc_ru", "cB", "unread", now)
@@ -896,10 +850,10 @@ func TestInboxConversationRepository_ReconcileUnread(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// A: 最后 inbound
+
 	inA := newHubWithConv("wechat", "acc_ru", "cA", "m_A_in", "inbound", "received", now)
 	inA.ConversationID = "conv:ru_A"
-	// B: 最后 outbound (时间更晚)
+
 	outB := newHubWithConv("wechat", "acc_ru", "cB", "m_B_out", "outbound", "delivered", now.Add(2*time.Second))
 	outB.ConversationID = "conv:ru_B"
 	for _, h := range []*model.MessageHub{inA, outB} {
@@ -941,9 +895,6 @@ func TestInboxConversationRepository_FindOverdueConversations(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
 
-	// conv_old: last_message_from=customer, last_message_at=20 分钟前 → overdue
-	// conv_recent: last_message_from=customer, 30s 前 → 不 overdue
-	// conv_agent: last_message_from=agent, 20min 前 → 不 overdue
 	thresh := now.Add(-10 * time.Minute)
 	for _, pair := range []struct {
 		customer, from string
@@ -976,7 +927,6 @@ func TestInboxConversationRepository_FindOverdueConversations(t *testing.T) {
 		}())
 	}
 
-	// limit=0 返回全部
 	list2, _ := r.FindOverdueConversations(ctx, thresh, 0)
 	if len(list2) != 1 {
 		t.Errorf("limit=0 期望 1 条, 得 %d", len(list2))
@@ -1078,7 +1028,6 @@ func TestInboxConversationRepository_AssignTx_AllActions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// assign → 分配给 human
 	out, err := r.AssignTx(ctx, AssignTxInput{
 		ConversationID: conv.ID, Action: "assign",
 		ToType: "human", ToUserID: "agent-01", OperatorID: "op1", Remark: "assign test",
@@ -1100,7 +1049,6 @@ func TestInboxConversationRepository_AssignTx_AllActions(t *testing.T) {
 		t.Errorf("history.action 期望 assign, 得 %s", out.History.Action)
 	}
 
-	// release → 释放
 	_, err = r.AssignTx(ctx, AssignTxInput{
 		ConversationID: conv.ID, Action: "release", OperatorID: "op2",
 	})
@@ -1113,7 +1061,6 @@ func TestInboxConversationRepository_AssignTx_AllActions(t *testing.T) {
 		t.Errorf("release 后 status=%s assigned_to=%q", gotRelease.Status, gotRelease.AssignedTo)
 	}
 
-	// close
 	r.AssignTx(ctx, AssignTxInput{ConversationID: conv.ID, Action: "close", OperatorID: "op3"})
 	var gotClose model.InboxConversation
 	db.First(&gotClose, conv.ID)
@@ -1124,7 +1071,6 @@ func TestInboxConversationRepository_AssignTx_AllActions(t *testing.T) {
 		t.Error("close 后 closed_at 应非空")
 	}
 
-	// reopen
 	r.AssignTx(ctx, AssignTxInput{ConversationID: conv.ID, Action: "reopen", OperatorID: "op4"})
 	var gotReopen model.InboxConversation
 	db.First(&gotReopen, conv.ID)
@@ -1132,7 +1078,6 @@ func TestInboxConversationRepository_AssignTx_AllActions(t *testing.T) {
 		t.Errorf("reopen 后 status=%s closed_at=%v", gotReopen.Status, gotReopen.ClosedAt)
 	}
 
-	// conversation not found
 	_, err = r.AssignTx(ctx, AssignTxInput{ConversationID: 99999, Action: "assign"})
 	if err == nil || !strings.Contains(err.Error(), "conversation not found") {
 		t.Errorf("不存在的 conv 应返回 conversation not found, 得 %v", err)
@@ -1146,7 +1091,6 @@ func TestInboxConversationRepository_GetStats(t *testing.T) {
 	now := time.Now()
 	thresh := now.Add(-10 * time.Minute)
 
-	// 3 条 unread, 2 条 open, 1 条 assigned, 1 条 closed
 	for _, pair := range []struct {
 		customer, status string
 		at               time.Time
@@ -1154,7 +1098,7 @@ func TestInboxConversationRepository_GetStats(t *testing.T) {
 	}{
 		{"cu1", "unread", now.Add(-20 * time.Minute), ""},
 		{"cu2", "unread", now.Add(-20 * time.Minute), ""},
-		{"cu3", "unread", now.Add(-30 * time.Second), ""}, // 不 overdue
+		{"cu3", "unread", now.Add(-30 * time.Second), ""},
 		{"co1", "open", now.Add(-20 * time.Minute), ""},
 		{"co2", "open", now.Add(-20 * time.Minute), ""},
 		{"ca1", "assigned", now.Add(-20 * time.Minute), "agent-X"},
@@ -1188,10 +1132,6 @@ func TestInboxConversationRepository_GetStats(t *testing.T) {
 	}
 }
 
-// ============================================================
-// 6. InboxAssignmentRepository — 2 个 0% 方法
-// ============================================================
-
 func TestInboxAssignmentRepository_ListAndGroup(t *testing.T) {
 	db := setupHubFullTestDB(t)
 	cr := NewInboxConversationRepositoryWithDB(db)
@@ -1204,7 +1144,6 @@ func TestInboxAssignmentRepository_ListAndGroup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 通过 AssignTx 写入 3 条 history
 	for i := 1; i <= 3; i++ {
 		cr.AssignTx(ctx, AssignTxInput{
 			ConversationID: conv.ID, Action: "assign",
@@ -1220,7 +1159,6 @@ func TestInboxAssignmentRepository_ListAndGroup(t *testing.T) {
 		t.Errorf("期望 total=3 items=3, 得 total=%d items=%d", total, len(items))
 	}
 
-	// GroupCountByToUserID
 	counts, err := ar.GroupCountByToUserID(ctx, []string{"agent-1", "agent-2"}, "assign")
 	if err != nil {
 		t.Fatal(err)
@@ -1229,17 +1167,12 @@ func TestInboxAssignmentRepository_ListAndGroup(t *testing.T) {
 		t.Errorf("期望 2 个 agent, 得 %v", counts)
 	}
 
-	// nil repo
 	var nilar *InboxAssignmentRepository
 	items, total, _ = nilar.ListByConversationID(ctx, 0, 1, 10)
 	if total != 0 || len(items) != 0 {
 		t.Errorf("nil repo 应返回空, 得 total=%d items=%d", total, len(items))
 	}
 }
-
-// ============================================================
-// 7. message_hub_inbox_outbound.go — 剩余 3 个 0% 方法补漏
-// ============================================================
 
 func TestMessageHubRepository_GetByMsgIDsInScopeWithConv(t *testing.T) {
 	db := setupHubFullTestDB(t)
@@ -1248,7 +1181,7 @@ func TestMessageHubRepository_GetByMsgIDsInScopeWithConv(t *testing.T) {
 
 	for i := 1; i <= 3; i++ {
 		h := newHubWithConv("wechat", "acc_gmiisc", "c1", fmt.Sprintf("m_gmiisc_%d", i), "outbound", "pending", now)
-		h.MsgID = fmt.Sprintf("m_gmiisc_%d", i) // outbound repo 用 MsgID 做 IN 查询
+		h.MsgID = fmt.Sprintf("m_gmiisc_%d", i)
 		if err := db.Create(h).Error; err != nil {
 			t.Fatal(err)
 		}
@@ -1285,7 +1218,7 @@ func TestMessageHubRepository_ListRecentOutboundInConv(t *testing.T) {
 	if len(list) != 2 {
 		t.Errorf("limit=2 期望 2 条, 得 %d", len(list))
 	}
-	// 第一条应为最新 m_lroic_4
+
 	if len(list) > 0 && list[0].MsgID != "m_lroic_4" {
 		t.Errorf("按 sent_at DESC 第一条应 m_lroic_4, 得 %s", list[0].MsgID)
 	}

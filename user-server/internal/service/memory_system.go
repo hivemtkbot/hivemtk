@@ -47,12 +47,12 @@ const (
 	longTermMemoryMaxFetch         = 50
 	longTermMemoryDecayDuration    = 30 * 24 * time.Hour
 
-	longTermDedupThreshold    = 0.92 // M-2：L2 fact 去重合并阈值（cosine）
-	longTermDedupFallbackJacc = 0.72 // M-2：关键词 fallback 判重阈值（无向量老数据）
-	longTermDedupScanLimit    = 50   // M-2：去重扫描同类型旧记忆条数上限
-	l4EvictLowImp             = 3    // M-4：低重要性边界（importance<=3 最先淘汰）
-	l4EvictProtectedImp       = 8    // M-4：受保护边界（importance>=8 永不淘汰）
-	l4EvictScanLimit          = 1000 // M-4：淘汰候选扫描上限（> L4MaxPerCust，保证全量可见）
+	longTermDedupThreshold    = 0.92
+	longTermDedupFallbackJacc = 0.72
+	longTermDedupScanLimit    = 50
+	l4EvictLowImp             = 3
+	l4EvictProtectedImp       = 8
+	l4EvictScanLimit          = 1000
 )
 
 var (
@@ -144,7 +144,6 @@ func (m *MemorySystem) L1Clear(ctx context.Context, sessionID string) error {
 	return m.memoryRepo.DeleteShortTermMemoryBySession(ctx, sessionID)
 }
 
-// l1Trim 裁剪到 L1WindowSize
 func (m *MemorySystem) l1Trim(ctx context.Context, sessionID string) {
 	if m.memoryRepo == nil {
 		return
@@ -189,7 +188,7 @@ func (m *MemorySystem) L2SaveFactAt(ctx context.Context, customerID, key, value 
 		eventAt = time.Now()
 	}
 	now := time.Now()
-	// 同键旧事实：矛盾软失效、重复幂等
+
 	var staleIDs []uint
 	if old, err := m.memoryRepo.ListFactsByKey(ctx, customerID, key, 50); err != nil {
 		logger.Warnf("[MemorySystem] 同键事实扫描失败，降级追加式写入 customer=%s key=%s err=%v", customerID, key, err)
@@ -357,7 +356,6 @@ func (m *MemorySystem) L4ListByCustomer(ctx context.Context, customerID string, 
 	return m.memoryRepo.ListBusinessMemories(ctx, customerID, memoryType, limit)
 }
 
-// l4EvictPriority M-4 淘汰优先级：低重要性(<=3)=0 最先删，其余=1
 func l4EvictPriority(it model.BusinessMemory) int {
 	if it.Importance <= l4EvictLowImp {
 		return 0
@@ -365,10 +363,6 @@ func l4EvictPriority(it model.BusinessMemory) int {
 	return 1
 }
 
-// l4EvictImportanceAware M-4：importance 感知淘汰（替代 FIFO 删最旧）
-//   - 第一优先：importance<=3 中最旧的（降权记忆先淘汰）
-//   - 第二优先：importance 4-7 中最旧的
-//   - importance>=8 永不淘汰；若删除后仍超限（剩余全为高重要性），输出告警日志
 func (m *MemorySystem) l4EvictImportanceAware(ctx context.Context, customerID string, n int) {
 	if n <= 0 {
 		return
@@ -537,7 +531,6 @@ func (m *MemorySystem) Remember(ctx context.Context, customerID string, memType 
 		return nil, fmt.Errorf("embedding failed: %w", err)
 	}
 
-	// M-2：写入前与同 customer 同 memType 的旧记忆做语义去重（cosine>=0.92）
 	dupItem, dedupErr := m.dedupLongTermMemory(ctx, customerID, memType, content, importance, vec)
 	if dedupErr != nil {
 		return nil, dedupErr
@@ -555,7 +548,7 @@ func (m *MemorySystem) Remember(ctx context.Context, customerID string, memType 
 		Embedding:  embeddingToString(vec),
 		Metadata:   model.JSONMap{},
 	}
-	// M-6：调用方未传事件时间，ValidFrom 兜底为写入时刻（去重合并保 ID 路径不动 ValidFrom）
+
 	vf := time.Now()
 	item.ValidFrom = &vf
 	if err := m.memoryRepo.CreateLongTermMemory(ctx, item); err != nil {
@@ -564,15 +557,6 @@ func (m *MemorySystem) Remember(ctx context.Context, customerID string, memType 
 	return item, nil
 }
 
-// dedupLongTermMemory M-2：L2 fact 去重合并（吸收 mem0 dedup+merge 模式）
-// 新记忆与同 customer 同 memType 的旧记忆做语义比对：
-//   - 有向量的旧记忆 → cosine >= 0.92 视为重复
-//   - 无向量老数据 → 关键词 Jaccard >= 0.72 视为重复（fallback，避免重算 embedding）
-//   - 重复且内容/重要性均一致 → 跳过写入（返回旧记忆）
-//   - 重复但内容有更新 → UPDATE 原地替换文本/向量/重要性，保留旧 ID
-//     （对应决策 M-5：保 ID 即保留 append-only 演变链）
-//
-// 旧记忆扫描失败时降级为追加式写入，不阻塞主流程。
 func (m *MemorySystem) dedupLongTermMemory(ctx context.Context, customerID string, memType model.LongTermMemoryType, content string, importance int, vec []float32) (*model.CustomerLongTermMemory, error) {
 	existing, err := m.memoryRepo.ListLongTermMemories(ctx, customerID, string(memType), longTermDedupScanLimit)
 	if err != nil {
@@ -669,9 +653,6 @@ func (m *MemorySystem) Recall(ctx context.Context, customerID, query string, lim
 	return m.recallFallback(ctx, customerID, queryVec, limit)
 }
 
-// recallPostgres 使用 pgvector 检索（生产路径）
-//   - 粗召回：top-K * 3（避免重排序后错过重要记忆）
-//   - 重排序：similarity * 0.6 + importance_score * 0.3 + recency_score * 0.1
 func (m *MemorySystem) recallPostgres(ctx context.Context, customerID string, queryVec []float32, limit int) ([]LongTermMemoryRecallResult, error) {
 	fetchN := limit * longTermMemoryRecallMultiplier
 	if fetchN > longTermMemoryMaxFetch {
@@ -685,8 +666,6 @@ func (m *MemorySystem) recallPostgres(ctx context.Context, customerID string, qu
 	return m.rerank(ctx, rows, limit), nil
 }
 
-// recallFallback pgvector 缺失降级路径：内存计算余弦相似度
-// 不依赖 pgvector，仅在 embedding 服务未初始化或 pgvector 扩展不可用时使用
 func (m *MemorySystem) recallFallback(ctx context.Context, customerID string, queryVec []float32, limit int) ([]LongTermMemoryRecallResult, error) {
 	items, err := m.memoryRepo.ListLongTermMemoriesForFallback(ctx, customerID, time.Now())
 	if err != nil {
@@ -719,9 +698,6 @@ func (m *MemorySystem) recallFallback(ctx context.Context, customerID string, qu
 	return m.rerank(ctx, rows, limit), nil
 }
 
-// rerank 重排序：综合得分 = similarity * 0.6 + importance_score * 0.3 + recency_score * 0.1
-//   - importance_score = importance / 10
-//   - recency_score = 1 - (now - created_at) / 30d（30 天衰减为 0，clamp 到 [0,1]）
 func (m *MemorySystem) rerank(ctx context.Context, rows []repository.LongTermMemoryVectorRow, limit int) []LongTermMemoryRecallResult {
 	now := time.Now()
 	results := make([]LongTermMemoryRecallResult, 0, len(rows))
@@ -792,14 +768,11 @@ func (m *MemorySystem) DeleteLongTermMemory(ctx context.Context, id uint64) erro
 	return m.memoryRepo.DeleteLongTermMemoryByID(ctx, id)
 }
 
-// float32SliceToBytes 将 float32 切片序列化为 []byte（JSON 格式，pgvector 兼容）
-// 与 rag_retrieval 包中同名函数保持一致行为：pgvector 接受 JSON 数组格式向量
 func float32SliceToBytes(vec []float32) []byte {
 	data, _ := json.Marshal(vec)
 	return data
 }
 
-// bytesToFloat32Slice 反序列化 float32 切片
 func bytesToFloat32Slice(data []byte) []float32 {
 	if len(data) == 0 {
 		return nil
@@ -809,11 +782,6 @@ func bytesToFloat32Slice(data []byte) []float32 {
 	return vec
 }
 
-// embeddingToString 将 float32 切片序列化为 pgvector 文本格式 '[v1,v2,...]'
-// 用于 model.CustomerLongTermMemory.Embedding（string 字段），GORM 通过 text 通道
-// 传给 PostgreSQL 时 pgvector 可直接解析为 vector(1024)。
-// 与 float32SliceToBytes 的区别：后者输出 JSON 字符串的 []byte 表示（用于 bytea 通道），
-// 此处输出纯字符串供 SQL 参数绑定使用。
 func embeddingToString(vec []float32) string {
 	if len(vec) == 0 {
 		return ""
@@ -821,8 +789,6 @@ func embeddingToString(vec []float32) string {
 	return string(float32SliceToBytes(vec))
 }
 
-// cosineSimilarity 计算两个向量的余弦相似度（pgvector 降级路径用）
-// 返回值范围 [-1, 1]，相同方向为 1，正交为 0，相反为 -1
 func cosineSimilarity(a, b []float32) float64 {
 	if len(a) == 0 || len(a) != len(b) {
 		return 0
@@ -841,7 +807,6 @@ func cosineSimilarity(a, b []float32) float64 {
 	return dot / (math.Sqrt(na) * math.Sqrt(nb))
 }
 
-// timePtrValue 安全取 *time.Time 值（nil 返回零值 time.Time，便于纯函数判定）
 func timePtrValue(t *time.Time) time.Time {
 	if t == nil {
 		return time.Time{}
@@ -849,7 +814,6 @@ func timePtrValue(t *time.Time) time.Time {
 	return *t
 }
 
-// effectiveValidFrom M-6 读取层兜底：ValidFrom 为零值/NULL 时视为 CreatedAt
 func effectiveValidFrom(validFrom, createdAt time.Time) time.Time {
 	if validFrom.IsZero() {
 		return createdAt
@@ -857,9 +821,6 @@ func effectiveValidFrom(validFrom, createdAt time.Time) time.Time {
 	return validFrom
 }
 
-// validAtAsOf M-6 双时间轴判定纯函数（AsOf 过滤）：asOf 时刻事实是否有效
-// 事件时间 t_valid（兜底 created_at）<= asOf 且 (t_invalid 零值 或 t_invalid > asOf)
-// 与 repository.ListFactsAsOf 的 SQL 语义保持一致
 func validAtAsOf(validFrom, createdAt, invalidAt, asOf time.Time) bool {
 	if effectiveValidFrom(validFrom, createdAt).After(asOf) {
 		return false

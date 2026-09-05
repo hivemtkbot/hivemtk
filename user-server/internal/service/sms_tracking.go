@@ -11,19 +11,10 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// smsMaxRetryCount 最大重试次数（合规要求：避免无限重试骚扰用户）
 const smsMaxRetryCount = 3
 
-// smsRetryableErrorPrefixes 可重试错误码前缀
-//
-// 判定规则：
-//   - ERR_6xxx（网关超时 / 运营商临时故障）→ 可重试
-//   - ERR_5xxx（运营商限流 / 内部错误）→ 可重试（需延时）
-//   - ERR_4xxx（号码无效 / 黑名单 / 内容违规）→ 不重试
-//   - 其他未知错误码 → 不重试（保守策略）
 var smsRetryableErrorPrefixes = []string{"ERR_6", "ERR_5"}
 
-// smsNonRetryableErrorPrefixes 不可重试错误码前缀
 var smsNonRetryableErrorPrefixes = []string{"ERR_4"}
 
 // DeliveryReportRequest 运营商状态报告 webhook 请求体
@@ -318,13 +309,6 @@ func (s *SmsTrackingService) ListPhoneStatuses(ctx context.Context, phone string
 	return s.repo.ListStatusesByPhone(ctx, phone, page, limit)
 }
 
-// normalizeSmsStatus 规范化状态字符串
-//
-// 兼容主流运营商状态：
-//   - DELIV / DELIVERED / SUCCESS / OK → delivered
-//   - FAIL / FAILED / ERROR → failed
-//   - PENDING / WAITING / SENDING → pending
-//   - SENT / ACCEPTD → sent
 func normalizeSmsStatus(status string) string {
 	status = strings.ToUpper(strings.TrimSpace(status))
 	switch status {
@@ -341,7 +325,6 @@ func normalizeSmsStatus(status string) string {
 	}
 }
 
-// - Unix 时间戳（秒）
 func parseSmsTime(s string) (*time.Time, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {

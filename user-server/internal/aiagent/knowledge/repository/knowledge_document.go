@@ -289,7 +289,6 @@ func (r *KnowledgeDocumentRepository) CountTodayImports(ctx context.Context) (in
 	return count, nil
 }
 
-
 // CategoryStat 分类统计（repository 层结构体，供 docRepo.CategoryStats 返回）
 type CategoryStat struct {
 	Category string `gorm:"column:category" json:"category"`
@@ -363,4 +362,3 @@ func (r *KnowledgeDocumentRepository) TopHitDocuments(ctx context.Context, produ
 	}
 	return results, nil
 }
-

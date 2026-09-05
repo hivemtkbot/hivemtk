@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -78,6 +77,4 @@ func execAllShortLink(ctx context.Context, db *gorm.DB, stmts []string) error {
 	return nil
 }
 
-// compile-time 接口断言
 var _ migration.Migration = (*ShortLinkColumnsMigration)(nil)
-

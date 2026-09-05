@@ -143,9 +143,7 @@ func (s *IntegrationTemplateService) Import(ctx context.Context, data []byte) (i
 	if len(data) == 0 {
 		return 0, errors.New("导入数据为空")
 	}
-	// 支持两种格式：
-	//  1) 单个模板对象
-	//  2) {"templates": [...]}  集合
+
 	var single model.IntegrationTemplate
 	if err := json.Unmarshal(data, &single); err == nil && single.Code != "" {
 		single.ID = 0
@@ -154,7 +152,7 @@ func (s *IntegrationTemplateService) Import(ctx context.Context, data []byte) (i
 		}
 		return 1, s.repo.Create(ctx, &single)
 	}
-	// 集合
+
 	var bundle struct {
 		Version   string                      `json:"version"`
 		Templates []model.IntegrationTemplate `json:"templates"`

@@ -7,7 +7,6 @@ import (
 	"sync"
 )
 
-
 // ErrToolNotFound 工具未找到
 var ErrToolNotFound = errors.New("tool not found")
 
@@ -237,7 +236,6 @@ func (r *ToolRegistry) ListNames() []string {
 	return names
 }
 
-
 var (
 	globalRegistry     *ToolRegistry
 	globalRegistryOnce sync.Once
@@ -260,4 +258,3 @@ func RegisterGlobal(t Tool) error {
 func MustRegisterGlobal(t Tool) {
 	GetGlobalRegistry().MustRegister(t)
 }
-

@@ -43,8 +43,6 @@ func GetAssetResolver() *AssetResolver {
 	return assetResolverInstance
 }
 
-// activeAssetID 返回某类型下「生效中」资产的 asset_id（按最近同步时间取第一条）。
-// 不存在时返回 ("", false)。
 func (r *AssetResolver) activeAssetID(ctx context.Context, assetType string) (string, bool) {
 	if r == nil || r.assetRepo == nil {
 		return "", false

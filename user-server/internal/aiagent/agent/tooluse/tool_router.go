@@ -7,13 +7,12 @@ import (
 	"time"
 )
 
-
 // ToolRouter 工具路由中心
 type ToolRouter struct {
 	executor *ToolExecutor
 
 	rateLimiter RateLimiter
-	keyBuilder func(toolName string, tc *ToolContext) string
+	keyBuilder  func(toolName string, tc *ToolContext) string
 
 	failThreshold    int
 	cooldownDuration time.Duration
@@ -34,10 +33,9 @@ type RouterStats struct {
 	RateLimitedCalls int64
 	CircuitOpenCalls int64
 	TotalCost        float64
-	DefaultToolCost float64
+	DefaultToolCost  float64
 }
 
-// circuitState 熔断状态
 type circuitState struct {
 	mu          sync.Mutex
 	failCount   int
@@ -47,9 +45,9 @@ type circuitState struct {
 
 // RouterConfig 路由配置
 type RouterConfig struct {
-	FailThreshold int
+	FailThreshold    int
 	CooldownDuration time.Duration
-	DefaultToolCost float64
+	DefaultToolCost  float64
 }
 
 // NewToolRouter 创建路由中心
@@ -192,7 +190,6 @@ func (r *ToolRouter) ResetCircuit(toolName string) {
 	delete(r.circuit, toolName)
 }
 
-
 func (r *ToolRouter) isCircuitOpen(toolName string) bool {
 	r.mu.RLock()
 	c, ok := r.circuit[toolName]
@@ -256,7 +253,5 @@ func defaultKeyBuilder(toolName string, tc *ToolContext) string {
 	return toolName
 }
 
-
 // ErrRouterUnavailable 路由不可用
 var ErrRouterUnavailable = errors.New("tool router unavailable")
-

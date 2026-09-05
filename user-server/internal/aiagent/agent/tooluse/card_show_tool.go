@@ -157,4 +157,3 @@ func RegisterCardTools(registry *ToolRegistry) {
 		registry.Register(tool)
 	}
 }
-

@@ -2,40 +2,40 @@ package dto
 
 // XianyuCardStatsRequest 闲鱼卡片统计请求
 type XianyuCardStatsRequest struct {
-	CardID    uint   `json:"cardId" form:"cardId"`       
-	StartDate string `json:"startDate" form:"startDate"` 
-	EndDate   string `json:"endDate" form:"endDate"`     
-	GroupBy   string `json:"groupBy" form:"groupBy"`     
+	CardID    uint   `json:"cardId" form:"cardId"`
+	StartDate string `json:"startDate" form:"startDate"`
+	EndDate   string `json:"endDate" form:"endDate"`
+	GroupBy   string `json:"groupBy" form:"groupBy"`
 }
 
 // XianyuCardStatsResponse 闲鱼卡片统计响应
 type XianyuCardStatsResponse struct {
-	CardID         uint        `json:"cardId"`         
-	Title          string      `json:"title"`          
-	ViewCount      int         `json:"viewCount"`      
-	ClickCount     int         `json:"clickCount"`     
-	ShareCount     int         `json:"shareCount"`     
-	DailyStats     []DailyStat `json:"dailyStats"`     
-	RecentActivity []Activity  `json:"recentActivity"` 
+	CardID         uint        `json:"cardId"`
+	Title          string      `json:"title"`
+	ViewCount      int         `json:"viewCount"`
+	ClickCount     int         `json:"clickCount"`
+	ShareCount     int         `json:"shareCount"`
+	DailyStats     []DailyStat `json:"dailyStats"`
+	RecentActivity []Activity  `json:"recentActivity"`
 }
 
 // XianyuCardOverallStatsRequest 闲鱼卡片总体统计请求
 type XianyuCardOverallStatsRequest struct {
-	GroupBy   string `json:"groupBy" form:"groupBy"` 
+	GroupBy   string `json:"groupBy" form:"groupBy"`
 	StartDate string `json:"startDate" form:"startDate"`
 	EndDate   string `json:"endDate" form:"endDate"`
 }
 
 // XianyuCardOverallStatsResponse 闲鱼卡片总体统计响应
 type XianyuCardOverallStatsResponse struct {
-	TotalCards     int           `json:"totalCards"`     
-	ActiveCards    int           `json:"activeCards"`    
-	TotalViews     int           `json:"totalViews"`     
-	TotalClicks    int           `json:"totalClicks"`    
-	TotalShares    int           `json:"totalShares"`    
-	PopularCards   []PopularCard `json:"popularCards"`   
-	DailyStats     []DailyStat   `json:"dailyStats"`     
-	RecentActivity []Activity    `json:"recentActivity"` 
+	TotalCards     int           `json:"totalCards"`
+	ActiveCards    int           `json:"activeCards"`
+	TotalViews     int           `json:"totalViews"`
+	TotalClicks    int           `json:"totalClicks"`
+	TotalShares    int           `json:"totalShares"`
+	PopularCards   []PopularCard `json:"popularCards"`
+	DailyStats     []DailyStat   `json:"dailyStats"`
+	RecentActivity []Activity    `json:"recentActivity"`
 }
 
 // CardStatsData 卡片统计数据
@@ -75,4 +75,3 @@ type TopCard struct {
 	ViewCount int    `json:"viewCount"`
 	CreatedAt string `json:"createdAt"`
 }
-

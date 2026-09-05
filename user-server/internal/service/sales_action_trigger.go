@@ -240,15 +240,6 @@ func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, 
 	return rec
 }
 
-// advanceJourneyByIntent 基于意图自动推进客户旅程
-// 商业产品级业务流：
-//
-//	陌生 → 留资：客户表示愿意加微
-//	留资 → 初步接触：客户已回复 AI 多轮
-//	初步接触 → 意向：客户咨询产品/价格
-//	意向 → 报价：AI 提供了价格方案
-//	报价 → 成交：客户明确购买（IntentPurchase）
-//	任意 → 流失：客户投诉/明确流失
 func (t *SalesActionTrigger) advanceJourneyByIntent(ctx context.Context, customerID string, resp *SalesResponse) JourneyStage {
 	if resp == nil {
 		return ""
@@ -263,7 +254,6 @@ func (t *SalesActionTrigger) advanceJourneyByIntent(ctx context.Context, custome
 		intent = resp.Intent.IntentType
 	}
 
-	// 计算目标阶段
 	var target JourneyStage
 	switch intent {
 	case IntentPurchase:
@@ -398,7 +388,6 @@ func (t *SalesActionTrigger) TriggerAfterFollowUp(ctx context.Context, reminderI
 	return rec
 }
 
-// advanceJourneyByFollowUpResult 基于跟进结果推进旅程
 func (t *SalesActionTrigger) advanceJourneyByFollowUpResult(ctx context.Context, customerID, result string) JourneyStage {
 	state := t.journey.GetState(ctx, customerID)
 	current := state.CurrentStage
@@ -509,8 +498,6 @@ func (t *SalesActionTrigger) GetHistory(ctx context.Context, customerID string, 
 	return hist
 }
 
-// inferOrderFromJourney 从客户旅程上下文推断订单金额与产品
-// 关键：销售跟进时只知道"客户说想买"，但没说金额/产品。
 func (t *SalesActionTrigger) inferOrderFromJourney(ctx context.Context, customerID string) (float64, string) {
 	if t.journey == nil {
 		return 0, ""

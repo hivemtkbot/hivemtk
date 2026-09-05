@@ -162,4 +162,3 @@ func (r *ScriptRecommendRepository) MarkAsUsed(id uint) error {
 	now["used_at"] = time.Now()
 	return r.db.Model(&model.ScriptRecommend{}).Where("id = ?", id).Updates(now).Error
 }
-

@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -60,7 +59,6 @@ func (m *AuthSecurityMigration) Up(ctx context.Context) error {
 	return nil
 }
 
-// createUserMFATable 创建 user_mfa 表
 func (m *AuthSecurityMigration) createUserMFATable(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS user_mfa (
@@ -83,7 +81,6 @@ func (m *AuthSecurityMigration) createUserMFATable(ctx context.Context) error {
 	return execAll(ctx, m.db, stmts)
 }
 
-// createLoginEventsTable 创建 login_events 表
 func (m *AuthSecurityMigration) createLoginEventsTable(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS login_events (
@@ -111,7 +108,6 @@ func (m *AuthSecurityMigration) createLoginEventsTable(ctx context.Context) erro
 	return execAll(ctx, m.db, stmts)
 }
 
-// createSecurityAlertsTable 创建 security_alerts 表
 func (m *AuthSecurityMigration) createSecurityAlertsTable(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS security_alerts (
@@ -145,7 +141,6 @@ func (m *AuthSecurityMigration) createSecurityAlertsTable(ctx context.Context) e
 	return execAll(ctx, m.db, stmts)
 }
 
-// createPasswordHistoryTable 创建 password_history 表
 func (m *AuthSecurityMigration) createPasswordHistoryTable(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS password_history (
@@ -163,8 +158,6 @@ func (m *AuthSecurityMigration) createPasswordHistoryTable(ctx context.Context) 
 	return execAll(ctx, m.db, stmts)
 }
 
-// createSystemConfigKVTable 创建 system_config_kv 表
-// 用于存储密码策略等键值对配置（独立于 SystemConfig 模型，避免 schema 冲突）
 func (m *AuthSecurityMigration) createSystemConfigKVTable(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS system_config_kv (
@@ -183,6 +176,4 @@ func (m *AuthSecurityMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// compile-time 接口断言
 var _ migration.Migration = (*AuthSecurityMigration)(nil)
-

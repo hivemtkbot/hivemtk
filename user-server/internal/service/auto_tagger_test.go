@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupAutoTaggerTestDB 设置测试数据库
 func setupAutoTaggerTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.CustomerTag{},
@@ -26,7 +25,6 @@ func setupAutoTaggerTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupAutoTagger 设置测试 AutoTagger
 func setupAutoTagger(t *testing.T) *AutoTagger {
 	setupAutoTaggerTestDB(t)
 	return NewAutoTagger()
@@ -297,7 +295,6 @@ func TestAutoTagger_buildCustomerDataSnapshot(t *testing.T) {
 	}
 }
 
-// getTimeDaysAgo 获取 N 天前的时间
 func (a *AutoTagger) getTimeDaysAgo(ctx context.Context, days int) time.Time {
 	return time.Now().AddDate(0, 0, -days)
 }
@@ -444,7 +441,6 @@ func TestAutoTagger_EvaluateAndTag(t *testing.T) {
 	}
 }
 
-// setupCustomerWithTags 创建测试客户并写入指定标签
 func setupCustomerWithTags(t *testing.T, tagger *AutoTagger, phone string, tags []string) *model.Customer {
 	customerService := NewCustomerService()
 	customer, err := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{Phone: phone})
@@ -462,7 +458,6 @@ func setupCustomerWithTags(t *testing.T, tagger *AutoTagger, phone string, tags 
 	return customer
 }
 
-// createRuleWithRemoveCondition 创建带 remove_condition 的自动标签规则
 func createRuleWithRemoveCondition(t *testing.T, tagger *AutoTagger, name string, removeCond map[string]any) {
 	rule := map[string]any{
 		"type":             "simple",
@@ -476,7 +471,6 @@ func createRuleWithRemoveCondition(t *testing.T, tagger *AutoTagger, name string
 	}
 }
 
-// seedAssignment 写入一条指定添加时间的标签归属记录
 func seedAssignment(t *testing.T, customerID, tagName string, addedAt time.Time) {
 	repo := repository.NewCustomerTagAssignmentRepository()
 	err := repo.Create(context.Background(), &model.CustomerTagAssignment{
@@ -491,7 +485,6 @@ func seedAssignment(t *testing.T, customerID, tagName string, addedAt time.Time)
 	}
 }
 
-// getCustomerTags 查询客户当前标签集合
 func getCustomerTags(t *testing.T, tagger *AutoTagger, customerID string) map[string]bool {
 	customer, err := tagger.custRepo.GetByID(context.Background(), customerID)
 	if err != nil || customer == nil {
@@ -546,7 +539,6 @@ func TestAutoTagger_RemoveCondition_EventAbsent(t *testing.T) {
 	customer := setupCustomerWithTags(t, tagger, "13900000003", []string{"RecentBuyer"})
 	createRuleWithRemoveCondition(t, tagger, "RecentBuyer", map[string]any{"type": "event_absent", "event": string(model.EventTypePurchase), "days": 60})
 
-	// 场景1：近 60 天无购买事件（仅有 90 天前的旧购买）→ 移除
 	oldPurchase := &model.CustomerEvent{
 		CustomerID:  customer.ID,
 		EventType:   model.EventTypePurchase,
@@ -566,7 +558,6 @@ func TestAutoTagger_RemoveCondition_EventAbsent(t *testing.T) {
 		t.Error("Expected RecentBuyer to be removed (no purchase in last 60 days)")
 	}
 
-	// 场景2：补充一笔近期购买 → 不满足 event_absent，标签保留
 	recentPurchase := &model.CustomerEvent{
 		CustomerID:  customer.ID,
 		EventType:   model.EventTypePurchase,
@@ -620,7 +611,7 @@ func TestAutoTagger_RemoveCondition_BackwardCompatibleJSON(t *testing.T) {
 	ctx := context.Background()
 
 	customer := setupCustomerWithTags(t, tagger, "13900000005", []string{"OldTag"})
-	// 规则 JSON 中 remove_condition 类型异常 → 应忽略移除条件，保留标签
+
 	rule := map[string]any{
 		"type": "simple", "field": "rfm_score", "operator": "gte", "value": 9999,
 		"remove_condition": "not-an-object",
@@ -637,7 +628,6 @@ func TestAutoTagger_RemoveCondition_BackwardCompatibleJSON(t *testing.T) {
 		t.Error("Expected OldTag to be kept when remove_condition is malformed")
 	}
 
-	// days_since 无归属记录（存量数据）→ 保守不移除
 	tagger2 := setupAutoTagger(t)
 	customer2 := setupCustomerWithTags(t, tagger2, "13900000006", []string{"LegacyNoRecord"})
 	createRuleWithRemoveCondition(t, tagger2, "LegacyNoRecord", map[string]any{"type": "days_since", "days": 30})

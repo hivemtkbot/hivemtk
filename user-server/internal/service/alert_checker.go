@@ -83,7 +83,7 @@ func (c *AlertChecker) loop() {
 	defer c.wg.Done()
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
-	// 启动立即执行一次
+
 	c.checkOnce(context.Background())
 	for {
 		select {
@@ -125,13 +125,13 @@ func (c *AlertChecker) checkOnce(ctx context.Context) (int, error) {
 	fired := 0
 	now := time.Now()
 	for _, r := range rules {
-		// 冷却期内跳过
+
 		if r.LastTriggeredAt != nil && now.Sub(*r.LastTriggeredAt) < time.Duration(r.CooldownSeconds)*time.Second {
 			continue
 		}
 		val, ok := snapMap[r.Source]
 		if !ok {
-			// 指标未上报，跳过；同时尝试恢复 firing 历史
+
 			_ = c.tryResolve(ctx, r.ID)
 			continue
 		}
@@ -148,7 +148,6 @@ func (c *AlertChecker) checkOnce(ctx context.Context) (int, error) {
 	return fired, nil
 }
 
-// fire 触发一次告警：写历史 + 通知 + 更新 last_triggered_at
 func (c *AlertChecker) fire(ctx context.Context, rule *model.AlertRule, val float64, at time.Time) error {
 	msg := fmt.Sprintf("[%s] %s: %s 当前值 %.4f %s 阈值 %.4f（窗口 %ds）",
 		strings.ToUpper(string(rule.Severity)), rule.Source, rule.Name, val, rule.Operator, rule.Threshold, rule.WindowSeconds)
@@ -177,7 +176,7 @@ func (c *AlertChecker) fire(ctx context.Context, rule *model.AlertRule, val floa
 			}
 			_ = updateNotifyResult(ctx, c.histRepo, h)
 		}
-		// D-6 挂接：全局分发器已装配时，通知并发去抖执行；未装配保持同步路径（向后兼容）
+
 		if d := GetAlertDispatcher(); d != nil {
 			d.Dispatch("alertrule:"+rule.Name, notifyFn)
 		} else {
@@ -191,12 +190,10 @@ func (c *AlertChecker) fire(ctx context.Context, rule *model.AlertRule, val floa
 	return nil
 }
 
-// tryResolve 当规则不再触发时，将 firing 历史置为 resolved
 func (c *AlertChecker) tryResolve(ctx context.Context, ruleID uint) error {
 	return c.histRepo.ResolveFiring(ctx, ruleID, time.Now())
 }
 
-// evaluateOperator 比较运算
 func evaluateOperator(op string, val, threshold float64) bool {
 	switch strings.ToLower(op) {
 	case "gt":
@@ -215,7 +212,6 @@ func evaluateOperator(op string, val, threshold float64) bool {
 	return false
 }
 
-// updateNotifyResult 尝试回写通知结果；底层历史仓储无 Update 接口时静默忽略
 func updateNotifyResult(ctx context.Context, repo repository.AlertHistoryRepository, h *model.AlertHistory) error {
 	type updater interface {
 		UpdateNotify(context.Context, uint, string) error
@@ -226,9 +222,6 @@ func updateNotifyResult(ctx context.Context, repo repository.AlertHistoryReposit
 	return nil
 }
 
-// --- 默认实现：metrics 包摇身一变成为 MetricProvider & 简单邮件钉钉通知器 ---
-
-// metricsProvider 从 internal/pkg/metrics.GlobalRegistry 拉取当前指标
 type metricsProvider struct{}
 
 // NewMetricsAlertProvider 构造基于 metrics 包的 Provider
@@ -244,7 +237,6 @@ func (p *metricsProvider) Snapshot(ctx context.Context) ([]MetricSnapshot, error
 	return out, nil
 }
 
-// logNotifier 仅写日志的通知器（默认 fallback，避免强依赖邮件/钉钉配置）
 type logNotifier struct{}
 
 // NewLogAlertNotifier 构造
@@ -257,8 +249,6 @@ func (n *logNotifier) Notify(ctx context.Context, rule *model.AlertRule, h *mode
 	logger.Warnf("[AlertNotify] rule=%s severity=%s channels=%v msg=%s", rule.Name, rule.Severity, chans, h.Message)
 	return nil
 }
-
-// --- 多 Notifier 组合 ---
 
 // MultiNotifier 遍历调用所有子 Notifier，单个失败不中断，返回首个 error
 type MultiNotifier struct {
@@ -287,8 +277,6 @@ func (m *MultiNotifier) Notify(ctx context.Context, rule *model.AlertRule, h *mo
 	}
 	return firstErr
 }
-
-// --- EmailAlertNotifier ---
 
 // EmailSender 抽象 EmailService 避免循环依赖，语义与 EmailService.Send 对齐
 type EmailSender interface {
@@ -326,8 +314,6 @@ func (n *EmailAlertNotifier) Notify(ctx context.Context, rule *model.AlertRule, 
 	return firstErr
 }
 
-// --- WebhookAlertNotifier ---
-
 type WebhookAlertNotifier struct {
 	url string
 }
@@ -341,15 +327,15 @@ func (n *WebhookAlertNotifier) Notify(ctx context.Context, rule *model.AlertRule
 		return nil
 	}
 	payload := map[string]any{
-		"rule_name":     rule.Name,
-		"severity":      rule.Severity,
-		"source":        rule.Source,
-		"message":       h.Message,
-		"value":         h.Value,
-		"threshold":     h.Threshold,
-		"status":        h.Status,
-		"triggered_at":  h.TriggeredAt.Format(time.RFC3339),
-		"channels":      rule.Channels,
+		"rule_name":    rule.Name,
+		"severity":     rule.Severity,
+		"source":       rule.Source,
+		"message":      h.Message,
+		"value":        h.Value,
+		"threshold":    h.Threshold,
+		"status":       h.Status,
+		"triggered_at": h.TriggeredAt.Format(time.RFC3339),
+		"channels":     rule.Channels,
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {

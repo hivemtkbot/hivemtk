@@ -20,9 +20,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// v3 审计 P1-47 修复：token 击穿保护
-// 同 account_id 并发请求时只允许一个真正去 WeChat 拉 token，其余等待
-var wecomTokenLocks sync.Map // accountID(uint) -> *sync.Mutex
+var wecomTokenLocks sync.Map
 
 func wecomTokenLock(accountID uint) *sync.Mutex {
 	v, _ := wecomTokenLocks.LoadOrStore(accountID, &sync.Mutex{})
@@ -70,17 +68,14 @@ func (s *WeComService) GetAccessToken(ctx context.Context, account *model.WeComA
 		return "", errors.New("账户不能为空")
 	}
 
-	// 1. 快速路径：未过期直接返回
 	if account.AccessToken != "" && time.Now().Before(account.TokenExpires) {
 		return account.AccessToken, nil
 	}
 
-	// 2. 慢路径：加锁防同 account 击穿
 	lock := wecomTokenLock(account.ID)
 	lock.Lock()
 	defer lock.Unlock()
 
-	// 3. 双重检查：锁内再次确认
 	if account.AccessToken != "" && time.Now().Before(account.TokenExpires) {
 		return account.AccessToken, nil
 	}
@@ -244,7 +239,6 @@ func (s *WeComService) SyncCustomers(ctx context.Context, account *model.WeComAc
 	return count, nil
 }
 
-// getCustomerDetail 获取客户详情
 func (s *WeComService) getCustomerDetail(ctx context.Context, token, userID string) (*model.WeComCustomer, error) {
 	url := fmt.Sprintf("https://qyapi.weixin.qq.com/cgi-bin/externalcontact/get?access_token=%s&external_userid=%s", token, userID)
 	resp, err := httpclient.Client.Get(url)
@@ -364,7 +358,6 @@ func (s *WeComService) SyncGroups(ctx context.Context, account *model.WeComAccou
 	return count, nil
 }
 
-// getGroupDetail 获取群详情
 func (s *WeComService) getGroupDetail(ctx context.Context, token, chatID string) (*model.WeComGroup, error) {
 	url := fmt.Sprintf("https://qyapi.weixin.qq.com/cgi-bin/externalcontact/groupchat/get?access_token=%s", token)
 

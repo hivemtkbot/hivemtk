@@ -33,4 +33,3 @@ func (a *DingTalkAdapter) MapClaims(c *IDTokenClaims) *NormalizedUser {
 	}
 	return nu
 }
-

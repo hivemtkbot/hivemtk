@@ -6,8 +6,6 @@ import (
 	"hivemtk-user/internal/service/humanize/behavioral"
 )
 
-// --- H-2 短回复分条豁免 ---
-
 func TestBuildWithScene_ShortReplyNoSplit(t *testing.T) {
 	b := NewBehavioralPlanBuilder()
 	b.SetEnabled(true)
@@ -33,8 +31,6 @@ func TestBuildWithScene_LongReplySplits(t *testing.T) {
 		t.Error("超过 40 字符的长文本应分条")
 	}
 }
-
-// --- H-2 动态延迟公式 ---
 
 func TestDynamicTotalDelay_Formula(t *testing.T) {
 	cfg := behavioral.DefaultBehaviorConfig()
@@ -93,7 +89,7 @@ func TestSetScene_DefaultSupportAndEmptyFallback(t *testing.T) {
 	if nb.sceneOrDefault() != SceneSupport {
 		t.Error("nil builder 场景应为 support")
 	}
-	nb.SetScene(SceneSales) // 不应 panic
+	nb.SetScene(SceneSales)
 }
 
 func TestBuild_DisabledUnchangedByH2(t *testing.T) {

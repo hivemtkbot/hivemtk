@@ -40,7 +40,6 @@ func DefaultConfig() Config {
 	}
 }
 
-// getMeanReversion 取回归强度，未配置时回退默认 0.1
 func (c Config) getMeanReversion() float64 {
 	if c.MeanReversion > 0 {
 		return c.MeanReversion
@@ -68,7 +67,6 @@ type AggregatedTrace struct {
 	HasAbnormal      bool
 }
 
-// global 包级单例（由 main 装配时 SetGlobal，供 router/controller 使用）
 var global *Service
 
 // SetGlobal 设置包级单例
@@ -77,7 +75,6 @@ func SetGlobal(s *Service) { global = s }
 // Global 获取包级单例（可能为 nil，调用方需判空）
 func Global() *Service { return global }
 
-// ensureCtx 兜底 ctx
 func ensureCtx(ctx context.Context) context.Context {
 	if ctx == nil {
 		return context.Background()

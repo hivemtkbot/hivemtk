@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupEmailJobsTestDB 设置邮件任务测试数据库
 func setupEmailJobsTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.EmailJobs{},
@@ -21,7 +20,6 @@ func setupEmailJobsTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupEmailJobsRepository 创建测试用的邮件任务仓库实例
 func setupEmailJobsRepository(t *testing.T) EmailJobsRepository {
 	setupEmailJobsTestDB(t)
 	return NewEmailJobsRepository()

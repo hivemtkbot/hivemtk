@@ -94,8 +94,6 @@ func TestSetup_CardRoutes(t *testing.T) {
 	}
 }
 
-
-
 func TestSetup_SystemRoutes(t *testing.T) {
 	database := testutil.NewTestDB(t)
 	dbutil.SetTestDB(database)
@@ -200,4 +198,3 @@ func TestSetup_UploadRoute(t *testing.T) {
 		t.Error("Expected /api/upload route to be registered")
 	}
 }
-

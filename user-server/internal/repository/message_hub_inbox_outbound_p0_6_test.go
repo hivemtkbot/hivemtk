@@ -127,7 +127,6 @@ func TestAnyExistsByMsgIDs_EmptyAndNil_P0_6(t *testing.T) {
 		t.Errorf("空 msgIDs 应返回空 map，实际 %d", len(out))
 	}
 
-	// nil repo → 空 map
 	var nilRepo *MessageHubRepository
 	out2, err := nilRepo.AnyExistsByMsgIDs(ctx, "douyin_web", []string{"x"})
 	if err != nil {

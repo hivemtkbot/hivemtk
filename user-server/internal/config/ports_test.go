@@ -170,4 +170,3 @@ func TestPortsConstants_AlignWithBridge(t *testing.T) {
 		}
 	})
 }
-

@@ -37,8 +37,8 @@ func (c *ManageDataExportController) Export(ctx *gin.Context) {
 		"message": "ok",
 		"data":    json.RawMessage(data),
 		"_meta": gin.H{
-			"customer_id": customerID,
-			"size_bytes":  len(data),
+			"customer_id":  customerID,
+			"size_bytes":   len(data),
 			"generated_at": fmt.Sprintf("data_export:%s", customerID),
 		},
 	})

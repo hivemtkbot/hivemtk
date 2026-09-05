@@ -71,7 +71,6 @@ func TestGetAccount_Concurrent(t *testing.T) {
 	}
 	globalAccounts[token] = data
 
-	// 并发读取
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
@@ -86,7 +85,6 @@ func TestGetAccount_Concurrent(t *testing.T) {
 func TestSetAccount_Concurrent(t *testing.T) {
 	globalAccounts = make(map[string]accountData)
 
-	// 并发写入
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
@@ -107,7 +105,7 @@ func TestSetAccount_Concurrent(t *testing.T) {
 func TestFormateAccountDictData_InvalidPrice(t *testing.T) {
 	account := &model.Account{
 		TgBotToken: "test_token",
-		Price:      "invalid_price", 
+		Price:      "invalid_price",
 		ID:         "acc_123",
 		GroupID:    12345678,
 		TgName:     "TestBot",
@@ -164,4 +162,3 @@ func TestAccountDataStruct(t *testing.T) {
 		t.Error("accountData.BotToken not set correctly")
 	}
 }
-

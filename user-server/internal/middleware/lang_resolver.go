@@ -10,7 +10,6 @@ import (
 	"hivemtk-user/internal/service/translation"
 )
 
-
 // LangResolverMiddleware 语言解析中间件（gin 版本）。
 //
 // 用法：
@@ -92,12 +91,9 @@ func InjectLangToCtx(ctx context.Context, resolver *translation.LangConfigResolv
 	return ctx
 }
 
-// injectDefaultLang 注入默认语言（zh + 非跨语言）。
-// 用于 resolver 缺失 / 解析失败的兜底场景。
 func injectDefaultLang(ctx context.Context) context.Context {
 	ctx = i18n.WithInternalLang(ctx, "zh")
 	ctx = i18n.WithTargetLang(ctx, "zh")
 	ctx = i18n.WithCrossLingual(ctx, false)
 	return ctx
 }
-

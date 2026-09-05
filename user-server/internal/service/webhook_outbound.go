@@ -37,17 +37,6 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// ===== H-3 AI 会话回复时段感知（23:00-7:00 CST 延迟队列）=====
-//
-// 决策依据 MASTER_COMPETITIVE_DECISIONS.md M5 表 H-3：
-// 会话 AI 回复在 23:00-7:00 (CST) 进入延迟队列，次日窗口结束（07:00 CST）首发。
-//
-// 延迟方案选型：独立延迟表 reach_delayed_outbound（最小方案）。
-// 不复用 sop_timers：其 execution_id/node_id 强绑定 SOP 执行语义，
-// 且触发回路（outbox dispatcher/wait executor）需改动只读文件；
-// 独立表 + 惰性 EnsureTable（参照 systemConfigKVRepo 先例）+ 本文件内自带
-// 抢占式派发循环，改动面收敛在 webhook_outbound.go 一个文件内。
-
 const (
 	aiReplyQuietStartHour = 23
 	aiReplyQuietEndHour   = 7
@@ -74,7 +63,6 @@ type DelayedOutboundReply struct {
 // TableName 指定表名
 func (DelayedOutboundReply) TableName() string { return "reach_delayed_outbound" }
 
-// isAIReplyQuietHours H-3：AI 会话回复静默窗口 23:00-7:00 (CST) 判定
 func isAIReplyQuietHours(t time.Time) bool {
 	if os.Getenv("DISABLE_AI_QUIET_HOURS") != "" {
 		return false
@@ -82,10 +70,8 @@ func isAIReplyQuietHours(t time.Time) bool {
 	return inQuietHoursWindow(t, aiReplyQuietStartHour, aiReplyQuietEndHour)
 }
 
-// aiReplyQuietHoursFn 可替换时钟判定（测试注入用），生产指向 isAIReplyQuietHours（参照 smsNightRestrictedFn 先例）
 var aiReplyQuietHoursFn = isAIReplyQuietHours
 
-// delayedReplayCtxKey 标记本次 sendOutbound 为延迟重放（跳过再次入队，防循环）
 type delayedReplayCtxKey struct{}
 
 // DelayedReplayToContext 标记 ctx 为延迟队列重放路径
@@ -125,7 +111,6 @@ func ensureDelayedOutboundTable(ctx context.Context, db *gorm.DB) {
 	delayedOutboundTableMu.Unlock()
 }
 
-// enqueueDelayedOutbound 将 AI 回复写入延迟队列表，次日 07:00 CST 首发
 func (s *WebhookService) enqueueDelayedOutbound(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, content string, hubMsg *model.MessageHub, cards []model.RichCard) bool {
 	if s.db == nil {
 		logger.Ctx(ctx).Warn().Str("channel", string(channel)).Msg("[H-3] db 未初始化，quiet hours 延迟入队失败，按原路径直接发送")
@@ -167,11 +152,10 @@ func (s *WebhookService) enqueueDelayedOutbound(ctx context.Context, channel Web
 
 var delayedDispatchStop chan struct{}
 
-// startDelayedOutboundDispatch 惰性启动派发循环（每服务实例一次）
 func (s *WebhookService) startDelayedOutboundDispatch() {
 	dispatchOnce.Do(func() {
 		delayedDispatchStop = make(chan struct{})
-		// 最高标准审计 P1-3 修复：延迟出站派发循环改走 SafeGo
+
 		utils.SafeGo(nil, "webhook_outbound.delayed_dispatch", func(ctx context.Context) {
 			ticker := time.NewTicker(delayedOutboundPollInterval)
 			defer ticker.Stop()
@@ -189,8 +173,6 @@ func (s *WebhookService) startDelayedOutboundDispatch() {
 
 var dispatchOnce sync.Once
 
-// dispatchDueDelayedOutbound 抢占式领取到期记录并重放出站
-// （FOR UPDATE SKIP LOCKED，多实例并发安全，与 sop_timer 同模式）
 func (s *WebhookService) dispatchDueDelayedOutbound(ctx context.Context) {
 	if s.db == nil {
 		return
@@ -214,7 +196,7 @@ func (s *WebhookService) dispatchDueDelayedOutbound(ctx context.Context) {
 			Update("status", "sending").Error
 	})
 	if err != nil {
-		// sqlite 等本地测试库不支持 SKIP LOCKED 时降级为乐观两步抢占
+
 		picked = nil
 		var ids []uint
 		if err2 := s.db.WithContext(ctx).Model(&DelayedOutboundReply{}).
@@ -239,7 +221,6 @@ func (s *WebhookService) dispatchDueDelayedOutbound(ctx context.Context) {
 	}
 }
 
-// replayDelayedOutbound 重放单条延迟 AI 回复
 func (s *WebhookService) replayDelayedOutbound(ctx context.Context, rec *DelayedOutboundReply) {
 	channel := WebhookChannel(rec.Platform)
 	hubMsg := &model.MessageHub{
@@ -269,8 +250,6 @@ func (s *WebhookService) replayDelayedOutbound(ctx context.Context, rec *Delayed
 
 func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, content string, hubMsg *model.MessageHub, cards []model.RichCard) {
 
-	// H-3：AI 会话回复时段感知——23:00-7:00 (CST) 进入延迟队列，次日 07:00 首发。
-	// 延迟重放路径（isDelayedReplay）与入队失败降级路径不受影响。
 	if !isDelayedReplay(ctx) && aiReplyQuietHoursFn(time.Now()) {
 		if s.enqueueDelayedOutbound(ctx, channel, accountID, p, content, hubMsg, cards) {
 			return
@@ -345,7 +324,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 		if err != nil || accID == 0 {
 			return
 		}
-		// 解析 chat_id
+
 		var chatID int64
 		if hubMsg != nil && hubMsg.ConversationID != "" {
 			chatID, _ = strconv.ParseInt(hubMsg.ConversationID, 10, 64)
@@ -375,11 +354,6 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 			return
 		}
 
-		// 2026-08-25 修复：WhatsApp Cloud API 24 小时客服窗口预检。
-		// 官方文档：仅当用户最近一次消息在 24h 内才允许发自由文本；窗口外只能发模板消息。
-		// 注意：不能用 hubMsg.SentAt 作锚点——AI 路径的 hubMsg 由 TriggerInboundAI 以 time.Now()
-		// 现场构造（恒为"刚刚"→ 检查成死代码）。必须回查 message_hub 该会话最后一条真实入站行。
-		// （查不到/零值视为未知，放行尝试，避免误杀）
 		s.ensureReposFromDB(ctx)
 		if s.messageHubRepo != nil && hubMsg != nil && hubMsg.ConversationID != "" {
 			if last, qerr := s.messageHubRepo.GetLastInboundByConversation(ctx, hubMsg.ConversationID); qerr == nil && last != nil && !last.SentAt.IsZero() {
@@ -400,9 +374,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 			sent = true
 		}
 	case ChannelDingTalk:
-		// 钉钉企业内部应用机器人回复（2026-08-25 补齐）。
-		// 官方文档《机器人回复/发送消息》：回调消息体携带临时 sessionWebhook，
-		// 回复即 POST {"msgtype":"text","text":{"content":"..."}}；过期后无法补发（无替代 DM 通道）。
+
 		webhookURL := ""
 		var expiredAt int64
 		if hubMsg != nil && hubMsg.Extra != nil {
@@ -422,8 +394,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 				Msg("[DingTalk] 缺少 sessionWebhook（回调未携带或非机器人消息），AI 回复无法送达")
 			return
 		}
-		// 过期时间归一到秒：官方 sessionWebhookExpiredTime 为毫秒时间戳；
-		// >1e12 视为毫秒（防新旧协议混用），<=1e12 视为秒。
+
 		if expiredAt > 1_000_000_000_000 {
 			expiredAt /= 1000
 		}
@@ -433,7 +404,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 				Msg("[DingTalk] sessionWebhook 已过期，AI 回复无法送达（用户重新发言可恢复）")
 			return
 		}
-		// 防御性校验：仅允许钉钉官方域名，防止 Extra 被非可信来源写入后变成 SSRF 出口
+
 		u, perr := url.Parse(webhookURL)
 		if perr != nil || !dingtalkWebhookHostAllowed(u) {
 			logger.Ctx(ctx).Error().Str("channel", "dingtalk").Str("account_id", accountID).
@@ -470,10 +441,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 		}
 		sent = true
 	case ChannelWechat:
-		// 微信公众号客服消息出站（2026-08-25 修复）：
-		// 原先无此分支，AI 回复落入 default 被 "unsupported outbound channel" 静默丢弃。
-		// accountID 解析失败时传 0，由 SendCustomMessage 自动回退第一个 active 公众号账号
-		// （与 WechatService.SendCustomMessage 的 accountID=0 语义一致）。
+
 		if s.wechatIntegration == nil {
 			s.wechatIntegration = NewWechatService(s.db)
 		}
@@ -591,8 +559,6 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 				}
 			}
 
-			// Phase 1: SSE 事件驱动通知（异步，不阻塞主路径）
-			// 注意：状态可能在创建后立即被轮询改为 inflight，故 pending/inflight 都触发
 			if GlobalSSEPublisher != nil && persisted != nil && persisted.ID != 0 &&
 				(persisted.Status == "pending" || persisted.Status == "inflight") {
 				logger.Ctx(ctx).Debug().
@@ -669,18 +635,12 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 	}
 }
 
-// isBridgeChannelUndeliverableLocal AI 回复路径占位账号拦截（与 bridge_outbound.go 共享同一规则）。
-//
-// 历史：service/bridge_outbound.go 统一实现 `bridgeOutboundUndeliverable(accountID, conversationID) (bool, string)`。
-// 本地包装（is*Local）保持调用方语义清晰：本路径只关心"占位账号"这一类拦截，AI reply 不复用
-// 通用 bridge outbound 的其他可能扩展（如未来新增的会话级过滤）。
 func isBridgeChannelUndeliverableLocal(accountID, conversationID string) (bool, string) {
 	return bridgeOutboundUndeliverable(accountID, conversationID)
 }
 
 type handleResultCtxKey struct{}
 
-// convIDOrEmpty nil 安全取会话 ID（日志用）
 func convIDOrEmpty(h *model.MessageHub) string {
 	if h == nil {
 		return ""
@@ -688,8 +648,6 @@ func convIDOrEmpty(h *model.MessageHub) string {
 	return h.ConversationID
 }
 
-// dingtalkWebhookHostAllowed sessionWebhook 域名允许列表（包级变量便于测试注入）。
-// 生产仅放行钉钉官方域名。
 var dingtalkWebhookHostAllowed = func(u *url.URL) bool {
 	return u != nil && (u.Host == "oapi.dingtalk.com" || strings.HasSuffix(u.Host, ".dingtalk.com"))
 }
@@ -723,8 +681,6 @@ func AgentIDToContext(ctx context.Context, agentID string) context.Context {
 	return context.WithValue(ctx, agentIDCtxKey{}, agentID)
 }
 
-// extractAgentIDFromCtx 从 ctx 取出 agentID；未注入时返回 "unknown"（不允许空串，
-// 私域部署要求所有 Outbound.Extra 字段都有稳定 key，否则 trace_learning/监控聚合 group by 时 key 漂移）。
 func extractAgentIDFromCtx(ctx context.Context) string {
 	if ctx == nil {
 		return "unknown"

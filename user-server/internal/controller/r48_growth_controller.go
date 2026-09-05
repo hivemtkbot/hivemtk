@@ -13,21 +13,19 @@ import (
 
 // GrowthController R48 综合控制器
 type GrowthController struct {
-	csPlus   *service.CustomerServicePlusService
-	webhook  *service.WebhookSubService
+	csPlus    *service.CustomerServicePlusService
+	webhook   *service.WebhookSubService
 	analytics *service.EmailGapService
 }
 
 // NewGrowthController 构造
 func NewGrowthController() *GrowthController {
 	return &GrowthController{
-		csPlus:   service.NewCustomerServicePlusServiceFromGlobal(),
-		webhook:  service.NewWebhookSubServiceFromGlobal(),
+		csPlus:    service.NewCustomerServicePlusServiceFromGlobal(),
+		webhook:   service.NewWebhookSubServiceFromGlobal(),
 		analytics: service.NewEmailGapServiceFromGlobal(),
 	}
 }
-
-// ---------- T6 Webhook Out ----------
 
 // ListWebhookSubs GET /api/webhook-subscriptions
 func (c *GrowthController) ListWebhookSubs(ctx *gin.Context) {
@@ -67,8 +65,6 @@ func (c *GrowthController) DeleteWebhookSub(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"deleted": true}, "已删除")
 }
 
-// ---------- T7 自定义属性 ----------
-
 // SetCustomAttributes PUT /api/customers/:id/custom-attributes {attrs}
 func (c *GrowthController) SetCustomAttributes(ctx *gin.Context) {
 	var req struct {
@@ -84,8 +80,6 @@ func (c *GrowthController) SetCustomAttributes(ctx *gin.Context) {
 	}
 	response.Success(ctx, merged, "自定义属性已更新")
 }
-
-// ---------- T8 保存视图 ----------
 
 // CreateSavedView POST /api/saved-views {name, route, filter}
 func (c *GrowthController) CreateSavedView(ctx *gin.Context) {
@@ -145,8 +139,6 @@ func (c *GrowthController) DeleteSavedView(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"deleted": true}, "视图已删除")
 }
 
-// ---------- T9 报表订阅 ----------
-
 // CreateReportSub POST /api/report-subscriptions {email, schedule}
 func (c *GrowthController) CreateReportSub(ctx *gin.Context) {
 	var req struct {
@@ -194,8 +186,6 @@ func (c *GrowthController) SendReportsNow(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"sent": sent}, "报表已发送")
 }
 
-// ---------- T10 转录导出 ----------
-
 // Transcript GET /api/customer-sessions/:id/transcript?format=txt|csv
 func (c *GrowthController) Transcript(ctx *gin.Context) {
 	format := ctx.DefaultQuery("format", "txt")
@@ -210,8 +200,6 @@ func (c *GrowthController) Transcript(ctx *gin.Context) {
 	}
 	ctx.Data(http.StatusOK, contentType+"; charset=utf-8", []byte(body))
 }
-
-// ---------- T12 AI 绩效 ----------
 
 // AIPerformance GET /api/analytics/ai-performance?days=7
 func (c *GrowthController) AIPerformance(ctx *gin.Context) {

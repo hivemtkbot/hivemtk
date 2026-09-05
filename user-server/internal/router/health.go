@@ -22,12 +22,6 @@ type Pinger interface {
 	Ping(ctx context.Context) error
 }
 
-// inferenceStatus 返回推理栈（LLM 供应商）健康状态。
-// 通过全局 ProviderFailover 的健康快照判断；未配置 failover 或无可用的供应商时返回 not_configured，
-// 避免在没有推理能力的部署上误报不健康。
-//
-// P1 修复：此前健康检查完全不探测推理栈，LLM 挂掉时容器仍 healthy，
-// 网关继续投流量导致全部 AI 回复失败。
 func inferenceStatus() string {
 	f := app.GetGlobalProviderFailover()
 	if f == nil {
@@ -45,13 +39,6 @@ func inferenceStatus() string {
 	return "down"
 }
 
-// embeddingStatus 返回 embedding 服务可达性（TCP 层探测）。
-//
-// P1-6 新增：此前健康检查不探测 embedding 栈，RAG 向量化失败时无感知。
-// 采用轻量 TCP dial（2s 超时）探测 BaseURL 的 host:port，不触发真实 embedding 计算，
-// 避免每次健康探针产生昂贵的向量推理。
-//
-// 返回 "up" / "down" / "not_configured"。
 func embeddingStatus() (string, string) {
 	svc := llm.NewEmbeddingService()
 	if svc == nil {
@@ -154,11 +141,6 @@ func LivenessCheck() gin.HandlerFunc {
 	}
 }
 
-// notReadyResponse 就绪探针失败响应：HTTP 503 + 业务码。
-//
-// 必须返回真实 HTTP 503（而非 200 包业务码）：K8s readinessProbe / 负载均衡
-// 健康检查只依据 HTTP 状态码决定摘除流量，200 会导致 DB 挂掉后实例仍收流量。
-// reason 为技术诊断串（面向运维日志），无需本地化。
 func notReadyResponse(c *gin.Context, code int, reason string) {
 	c.JSON(http.StatusServiceUnavailable, gin.H{
 		"code":    code,
@@ -204,4 +186,3 @@ func ReadinessCheck(redisClient Pinger, gormDB *gorm.DB) gin.HandlerFunc {
 		}, "ok")
 	}
 }
-

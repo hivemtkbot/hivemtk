@@ -5,11 +5,10 @@ import (
 	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/service"
 
-	"gorm.io/gorm"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
-// setupSelfServiceRoutes 用户自助服务路由（无需认证）
 func setupSelfServiceRoutes(public *gin.RouterGroup, db *gorm.DB) {
 	selfSvcCtrl := controller.NewSelfServiceController(service.NewPasswordResetService(db))
 	authCtrl := controller.NewAuthController()

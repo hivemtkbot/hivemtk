@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	llmpkg "hivemtk-user/internal/aiagent/llm"
 	knowledgesvc "hivemtk-user/internal/aiagent/knowledge/service"
+	llmpkg "hivemtk-user/internal/aiagent/llm"
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/platform"
@@ -17,7 +17,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// paramEntry 缓存条目
 type paramEntry struct {
 	value string
 }
@@ -28,16 +27,16 @@ type paramEntry struct {
 // 启动时 Seed 一次，运行期读操作走内存缓存（sync.RWMutex），写操作后失效缓存。
 //
 // 设计约束：
-//  - 不允许 nil DB（启动必须 Migrate + Seed）
-//  - 缓存 key = "group.key"
-//  - 读操作在缓存 miss 时拉一次 group 全量（同组一次性加载，减少 DB 往返）
+//   - 不允许 nil DB（启动必须 Migrate + Seed）
+//   - 缓存 key = "group.key"
+//   - 读操作在缓存 miss 时拉一次 group 全量（同组一次性加载，减少 DB 往返）
 type ConfigParamService struct {
 	repo *repository.ConfigParamRepository
 	db   *gorm.DB
 
 	mu     sync.RWMutex
-	cache  map[string]paramEntry // group.key → entry
-	loaded map[string]bool        // group 是否已完整加载
+	cache  map[string]paramEntry
+	loaded map[string]bool
 }
 
 var globalConfigParam *ConfigParamService
@@ -66,14 +65,12 @@ func GlobalConfigParam() *ConfigParamService {
 	if globalConfigParam != nil {
 		return globalConfigParam
 	}
-	// 返回一个空实例，所有读取返回 fallback 默认值（测试/离线场景安全）
+
 	return &ConfigParamService{
 		cache:  make(map[string]paramEntry),
 		loaded: make(map[string]bool),
 	}
 }
-
-// -------- 种子数据 --------
 
 // SeedConfigParams 启动时调用：AutoMigrate + Upsert 默认参数。
 // 首次启动会写入全部 60+ 参数；后续启动只补齐缺失项，不覆盖用户已改值。
@@ -85,10 +82,8 @@ func SeedConfigParams(ctx context.Context, db *gorm.DB) error {
 	svc := NewConfigParamService(db)
 	SetGlobal(svc)
 
-	// 注入知识库子域的 ConfigReader（避免 knowledge/service 反向依赖 internal/service 循环）
 	knowledgesvc.SetConfigReader(svc)
 
-	// 注入跨包模块的 DB 驱动 getter（llm / platform 无法 import internal/service 避免循环）
 	ctxBG := context.Background()
 	llmpkg.SetEmbeddingMaxBatchGetter(func() int {
 		return svc.GetInt(ctxBG, "knowledge", "embedding_max_batch", 64)
@@ -104,7 +99,7 @@ func SeedConfigParams(ctx context.Context, db *gorm.DB) error {
 			existing++
 			continue
 		}
-		// Upsert：缺失则按默认值插入
+
 		if err := db.WithContext(ctx).Create(&model.ConfigParam{
 			Group:        def.Group,
 			Key:          def.Key,
@@ -129,8 +124,6 @@ func SeedConfigParams(ctx context.Context, db *gorm.DB) error {
 		created, existing, len(DefaultParamDefs()))
 	return nil
 }
-
-// -------- 类型化读取 --------
 
 func (s *ConfigParamService) GetInt(ctx context.Context, group, key string, fallback int) int {
 	v, ok := s.getString(ctx, group, key)
@@ -174,11 +167,11 @@ func (s *ConfigParamService) GetDuration(ctx context.Context, group, key string,
 	if !ok {
 		return fallback
 	}
-	// 优先尝试解析 time.Duration 格式（15s/5m/1h）
+
 	if d, err := time.ParseDuration(v); err == nil {
 		return d
 	}
-	// fallback 按秒解析
+
 	f, err := strconv.ParseFloat(v, 64)
 	if err != nil {
 		return fallback
@@ -194,11 +187,9 @@ func (s *ConfigParamService) GetString(ctx context.Context, group, key, fallback
 	return v
 }
 
-// getString 核心读取 + 缓存加载
 func (s *ConfigParamService) getString(ctx context.Context, group, key string) (string, bool) {
 	cacheKey := group + "." + key
 
-	// 快速路径：缓存命中
 	s.mu.RLock()
 	if e, ok := s.cache[cacheKey]; ok {
 		s.mu.RUnlock()
@@ -206,15 +197,13 @@ func (s *ConfigParamService) getString(ctx context.Context, group, key string) (
 	}
 	s.mu.RUnlock()
 
-	// DB 未接入（nil DB）→ 返回 false，由上层使用 fallback
 	if s.db == nil {
 		return "", false
 	}
 
-	// 首次 miss：加载整组
 	s.mu.Lock()
 	if s.loaded[group] {
-		// 已有并发 goroutine 加载过，再查一次
+
 		e, ok := s.cache[cacheKey]
 		s.mu.Unlock()
 		if ok {
@@ -222,7 +211,7 @@ func (s *ConfigParamService) getString(ctx context.Context, group, key string) (
 		}
 		return "", false
 	}
-	// 标记已加载（防止其他 goroutine 重复加载）
+
 	s.loaded[group] = true
 	s.mu.Unlock()
 
@@ -247,8 +236,6 @@ func (s *ConfigParamService) getString(ctx context.Context, group, key string) (
 	return "", false
 }
 
-// -------- 写操作（管理端用） --------
-
 // List 返回全部参数（管理端 CRUD）
 func (s *ConfigParamService) List(ctx context.Context) ([]model.ConfigParam, error) {
 	return s.repo.List(ctx)
@@ -264,7 +251,7 @@ func (s *ConfigParamService) UpdateValue(ctx context.Context, group, key, newVal
 	if s.repo == nil {
 		return fmt.Errorf("config_param repo not initialized")
 	}
-	// 范围校验
+
 	p, err := s.repo.GetByGroupKey(ctx, group, key)
 	if err != nil {
 		return err
@@ -275,7 +262,7 @@ func (s *ConfigParamService) UpdateValue(ctx context.Context, group, key, newVal
 	if err := s.repo.UpdateValue(ctx, group, key, newValue, actorID); err != nil {
 		return err
 	}
-	// 失效缓存
+
 	s.invalidate(group, key)
 	return nil
 }
@@ -303,12 +290,10 @@ func (s *ConfigParamService) AuditLogs(ctx context.Context, limit int) ([]model.
 	return s.repo.AuditLogs(ctx, limit)
 }
 
-// -------- 缓存失效 --------
-
 func (s *ConfigParamService) invalidate(group, key string) {
 	s.mu.Lock()
 	delete(s.cache, group+"."+key)
-	s.loaded[group] = false // 必须重置，否则下次 getString 以为组已加载过直接返回 miss
+	s.loaded[group] = false
 	s.mu.Unlock()
 }
 
@@ -322,8 +307,6 @@ func (s *ConfigParamService) invalidateGroup(group string) {
 	s.loaded[group] = false
 	s.mu.Unlock()
 }
-
-// -------- 范围校验 --------
 
 func validateValue(valueType, value string, min, max *string) error {
 	if min == nil && max == nil {
@@ -365,10 +348,10 @@ func validateValue(valueType, value string, min, max *string) error {
 			}
 		}
 	case "duration":
-		// duration 也按秒 float 校验
+
 		v, err := strconv.ParseFloat(value, 64)
 		if err != nil {
-			// 可能是 "15s"/"5m" 这种格式，跳过校验
+
 			return nil
 		}
 		if min != nil {

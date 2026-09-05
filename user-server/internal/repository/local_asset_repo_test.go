@@ -12,20 +12,17 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupLocalAssetTestDB 初始化 LocalAsset 测试库（PostgreSQL 进程级隔离）
 func setupLocalAssetTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t, &model.LocalAsset{})
 	db.SetTestDB(database)
 	return database
 }
 
-// setupLocalAssetRepo 构造注入测试 DB 的 repo
 func setupLocalAssetRepo(t *testing.T) *localAssetRepo {
 	setupLocalAssetTestDB(t)
 	return &localAssetRepo{db: db.GetDB()}
 }
 
-// seedLocalAsset 写入一条购买资产，返回其主键
 func seedLocalAsset(t *testing.T, r *localAssetRepo, assetID string, useCount, reportedCount int64) int64 {
 	t.Helper()
 	pid := int64(1001)
@@ -203,6 +200,5 @@ func TestIncrementUseCount_Concurrent(t *testing.T) {
 	}
 }
 
-// 辅助函数，提升测试可读性
 func useCount(v int64) int64      { return v }
 func reportedCount(v int64) int64 { return v }

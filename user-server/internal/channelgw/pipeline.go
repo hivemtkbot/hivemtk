@@ -27,7 +27,6 @@ type IngressPipeline interface {
 	AckOutbound(ctx context.Context, channel, accountID string, msgIDs []string) (int, error)
 }
 
-// ingressPipeline 默认实现：包装 *service.InboxIngressService。
 type ingressPipeline struct {
 	ingress *service.InboxIngressService
 }
@@ -66,4 +65,3 @@ func (p *ingressPipeline) AckOutbound(ctx context.Context, channel, accountID st
 	}
 	return p.ingress.AckOutboundDelivered(ctx, channel, accountID, msgIDs)
 }
-

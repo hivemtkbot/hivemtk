@@ -12,7 +12,7 @@ import (
 
 // ReportController GEO 报表控制器。
 type ReportController struct {
-	svc         *service.ReportService
+	svc          *service.ReportService
 	analyticsSvc *service.GeoDecisionAnalyticsService
 }
 

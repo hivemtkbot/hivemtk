@@ -21,26 +21,17 @@ import (
 const (
 	MaxUploadSize = 10 * 1024 * 1024
 	// P1-2 修复：白名单移除 image/svg+xml（SVG 可携带 script，构成存储型 XSS 面）
-	AllowedImageTypes = "image/jpeg,image/jpg,image/png,image/gif,image/webp"
-	AllowedVideoTypes = "video/mp4,video/quicktime,video/x-msvideo"
-	AllowedDocTypes = "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+	AllowedImageTypes   = "image/jpeg,image/jpg,image/png,image/gif,image/webp"
+	AllowedVideoTypes   = "video/mp4,video/quicktime,video/x-msvideo"
+	AllowedDocTypes     = "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
 	AllowedArchiveTypes = "application/zip,application/x-zip-compressed,application/x-rar-compressed,application/x-7z-compressed"
 )
 
-// 文件扩展名白名单
-//
-// P0-26 收紧（2026-08-31 六轮加固）：只允许图片 + PDF + Word 文档。
-// 移除 video/archive/xls/xlsx/ppt/pptx/rar/7z 等扩展——可执行内容、ZIP 炸弹、
-// Office 宏均构成安全面。Excel/PPT 若后续需要上传，建议单独端点 + 专用处理。
-//
-// M9 治理：移除 .svg 扩展白名单。原因：SVG 可内嵌 <script>/事件处理器，若反代
-//同源直出且无 CSP 即构成存储型 XSS。下方 (P1-2 修复段) 已对 .svg 显式拒绝。
 var allowedExtensions = map[string][]string{
 	"image": {".jpg", ".jpeg", ".png", ".gif", ".webp"},
 	"doc":   {".pdf", ".doc", ".docx"},
 }
 
-// 危险文件扩展名黑名单
 var dangerousExtensions = map[string]bool{
 	".exe": true, ".bat": true, ".cmd": true, ".sh": true,
 	".php": true, ".jsp": true, ".asp": true, ".aspx": true,
@@ -51,7 +42,6 @@ var dangerousExtensions = map[string]bool{
 	".drv": true, ".sys": true, ".lnk": true, ".inf": true,
 }
 
-// 文件魔术数字签名（用于验证真实文件类型）
 var fileMagicNumbers = map[string][][]byte{
 	".jpg":  {{0xFF, 0xD8, 0xFF}},
 	".jpeg": {{0xFF, 0xD8, 0xFF}},
@@ -151,19 +141,13 @@ func UploadFile(ctx *gin.Context) {
 		}
 	}
 
-	// 最高标准审计 P1-2 修复：拒绝 SVG 上传（存储型 XSS 面）。
-	// SVG 可内嵌 <script>/事件处理器，若反代同源直出且无 CSP 即构成存储型 XSS。
-	// 此前仅靠 MIME 探测回退 octet-stream 间接拦截（脆弱、依赖实现细节），
-	// 现按扩展名显式拒绝，并在白名单中移除 image/svg+xml，杜绝未来误放开。
 	if originalExt == ".svg" {
 		response.Error(ctx, http.StatusBadRequest, "不支持上传 SVG 文件（存储型 XSS 风险），请转换为 PNG/JPG 后重试")
 		return
 	}
 
 	detectedMime := detectMimeType(fileBytes)
-	// KNOWN BUG 1 修复：Office Open XML 文档（.docx/.xlsx/.pptx）本质是 ZIP 容器，
-	// detectMimeType 只看字节会返回 application/zip。如果扩展名是 Office 文档，
-	// 则用扩展名 → MIME 映射覆盖，让 MIME 与扩展名保持一致。
+
 	if detectedMime == "application/zip" && isOfficeDocument(originalExt) {
 		detectedMime = extToMIME(originalExt)
 	}
@@ -182,15 +166,13 @@ func UploadFile(ctx *gin.Context) {
 		}
 	}
 
-	// 通过统一存储层写入：Driver.UploadReader 内部自动原子写（tmp+rename）
-	// 和按 folder/YYYY/MM/uuid.ext 生成路径，publicURL 格式 /files/{folder}/YYYY/MM/uuid.ext
 	uploadFolder := os.Getenv("UPLOAD_FOLDER")
 	if uploadFolder == "" {
 		uploadFolder = "attachments"
 	}
 	baseDir := os.Getenv("STORAGE_LOCAL_BASE_DIR")
 	if baseDir == "" {
-		// 兼容历史 UPLOAD_DIR 约定（测试与部署脚本使用），统一存储层迁移时遗漏
+
 		baseDir = os.Getenv("UPLOAD_DIR")
 	}
 	publicURLPrefix := os.Getenv("STORAGE_LOCAL_PUBLIC_URL")
@@ -216,7 +198,6 @@ func UploadFile(ctx *gin.Context) {
 	}, "上传成功")
 }
 
-// isValidExtension 检查扩展名是否在白名单中
 func isValidExtension(ext string) bool {
 	ext = strings.ToLower(ext)
 	for _, extensions := range allowedExtensions {
@@ -229,7 +210,6 @@ func isValidExtension(ext string) bool {
 	return false
 }
 
-// detectFileTypeByMagicNumber 通过魔术数字检测文件类型
 func detectFileTypeByMagicNumber(data []byte) string {
 	if len(data) == 0 {
 		return ""
@@ -254,7 +234,6 @@ func detectFileTypeByMagicNumber(data []byte) string {
 	return ""
 }
 
-// detectMimeType 检测 MIME 类型
 func detectMimeType(data []byte) string {
 	if len(data) == 0 {
 		return "application/octet-stream"
@@ -282,7 +261,6 @@ func detectMimeType(data []byte) string {
 	return "application/octet-stream"
 }
 
-// isAllowedMimeType 检查 MIME 类型是否被允许
 func isAllowedMimeType(mimeType, allowedTypes string) bool {
 	if allowedTypes == "" {
 		return true
@@ -297,7 +275,6 @@ func isAllowedMimeType(mimeType, allowedTypes string) bool {
 	return false
 }
 
-// isOfficeDocument 检查是否是 Office Open XML 文档（ZIP 容器）
 func isOfficeDocument(ext string) bool {
 	officeExts := map[string]bool{
 		".docx": true, ".xlsx": true, ".pptx": true,
@@ -305,9 +282,6 @@ func isOfficeDocument(ext string) bool {
 	return officeExts[strings.ToLower(ext)]
 }
 
-// extToMIME 将文件扩展名映射到规范 MIME 类型。
-// 主要用于 ZIP-based Office 文档场景：detectMimeType 仅看字节会返回
-// "application/zip"，此处根据扩展名还原正确的 MIME。
 func extToMIME(ext string) string {
 	ext = strings.ToLower(ext)
 	switch ext {
@@ -334,7 +308,6 @@ func extToMIME(ext string) string {
 	}
 }
 
-// extensionsMatch 检查两个扩展名是否等价（处理 jpg/jpeg、zip/docx 等同义扩展名）
 func extensionsMatch(a, b string) bool {
 	a = strings.ToLower(a)
 	b = strings.ToLower(b)
@@ -347,7 +320,6 @@ func extensionsMatch(a, b string) bool {
 	return false
 }
 
-// isZipBasedFormat 检测到的ZIP魔术数字是否对应已知的ZIP-based格式（Office文档等）
 func isZipBasedFormat(detectedExt, originalExt string) bool {
 	if detectedExt == ".zip" && isOfficeDocument(originalExt) {
 		return true
@@ -355,7 +327,6 @@ func isZipBasedFormat(detectedExt, originalExt string) bool {
 	return false
 }
 
-// getFileType 获取文件类型分类
 func getFileType(ext string) string {
 	ext = strings.ToLower(ext)
 	for fileType, extensions := range allowedExtensions {
@@ -368,7 +339,6 @@ func getFileType(ext string) string {
 	return "other"
 }
 
-// scanFileForVirus 病毒扫描（可选功能）
 func scanFileForVirus(fileData []byte, scanURL string) (scanned bool, clean bool) {
 	req, err := http.NewRequest("POST", scanURL, bytes.NewReader(fileData))
 	if err != nil {
@@ -398,7 +368,6 @@ func scanFileForVirus(fileData []byte, scanURL string) (scanned bool, clean bool
 	return true, false
 }
 
-// parseInt64 解析字符串为 int64
 func parseInt64(s string) int64 {
 	var result int64
 	fmt.Sscanf(s, "%d", &result)
@@ -441,4 +410,3 @@ func ScanFileContent(filePath string) (bool, error) {
 
 	return true, nil
 }
-

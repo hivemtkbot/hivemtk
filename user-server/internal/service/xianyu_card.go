@@ -27,7 +27,6 @@ type XianyuCardService interface {
 	GenerateShortLink(ctx context.Context, card *model.XianyuCard) error
 }
 
-// xianyuCardService 闲鱼卡片服务实现
 type xianyuCardService struct {
 	repo              repository.XianyuCardRepository
 	statsService      XianyuCardStatsService
@@ -48,7 +47,6 @@ func NewXianyuCardService(db any) XianyuCardService {
 	}
 }
 
-// Create 创建闲鱼卡片
 func (s *xianyuCardService) Create(ctx context.Context, req *dto.XianyuCardCreateRequest) (*dto.XianyuCardResponse, error) {
 	card := &model.XianyuCard{
 		Title:        req.Title,
@@ -71,7 +69,6 @@ func (s *xianyuCardService) Create(ctx context.Context, req *dto.XianyuCardCreat
 	return s.convertToResponse(ctx, card), nil
 }
 
-// Update 更新闲鱼卡片
 func (s *xianyuCardService) Update(ctx context.Context, req *dto.XianyuCardUpdateRequest) (*dto.XianyuCardResponse, error) {
 	card, err := s.repo.GetByID(ctx, req.ID)
 	if err != nil {
@@ -96,12 +93,10 @@ func (s *xianyuCardService) Update(ctx context.Context, req *dto.XianyuCardUpdat
 	return s.convertToResponse(ctx, card), nil
 }
 
-// Delete 删除闲鱼卡片
 func (s *xianyuCardService) Delete(ctx context.Context, id uint) error {
 	return s.repo.Delete(ctx, id)
 }
 
-// GetByID 根据ID获取闲鱼卡片
 func (s *xianyuCardService) GetByID(ctx context.Context, id uint) (*dto.XianyuCardResponse, error) {
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -110,7 +105,6 @@ func (s *xianyuCardService) GetByID(ctx context.Context, id uint) (*dto.XianyuCa
 	return s.convertToResponse(ctx, card), nil
 }
 
-// GetByIDWithRefresh 根据ID获取闲鱼卡片（带刷新）
 func (s *xianyuCardService) GetByIDWithRefresh(ctx context.Context, id uint) (*dto.XianyuCardResponse, error) {
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -124,12 +118,10 @@ func (s *xianyuCardService) GetByIDWithRefresh(ctx context.Context, id uint) (*d
 	return s.convertToResponse(ctx, card), nil
 }
 
-// GetCardModelByID 根据ID获取闲鱼卡片模型
 func (s *xianyuCardService) GetCardModelByID(ctx context.Context, id uint) (*model.XianyuCard, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
-// GetList 获取闲鱼卡片列表
 func (s *xianyuCardService) GetList(ctx context.Context, req *dto.XianyuCardListRequest) (*dto.XianyuCardListResponse, error) {
 	filter := repository.CardListFilter{Page: req.Page, PageSize: req.PageSize, Keyword: req.Keyword, IsActive: req.IsActive}
 	cards, total, err := s.repo.GetList(ctx, filter)
@@ -156,7 +148,6 @@ func (s *xianyuCardService) GetList(ctx context.Context, req *dto.XianyuCardList
 	}, nil
 }
 
-// ShareCard 分享闲鱼卡片
 func (s *xianyuCardService) ShareCard(ctx context.Context, id uint, platform string) error {
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -177,7 +168,6 @@ func (s *xianyuCardService) ShareCard(ctx context.Context, id uint, platform str
 	return s.repo.Update(ctx, card)
 }
 
-// GenerateHTMLPage 生成HTML页面
 func (s *xianyuCardService) GenerateHTMLPage(ctx context.Context, id uint) (string, error) {
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -192,7 +182,6 @@ func (s *xianyuCardService) GenerateHTMLPage(ctx context.Context, id uint) (stri
 	return htmlContent, nil
 }
 
-// GenerateCardChatPage 生成闲鱼卡片聊天页（统一模板，含联系客服按钮）
 func (s *xianyuCardService) GenerateCardChatPage(ctx context.Context, id uint, baseURL string) (string, error) {
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -201,7 +190,6 @@ func (s *xianyuCardService) GenerateCardChatPage(ctx context.Context, id uint, b
 	return s.templateService.RenderCardChatPage("xianyu", card.ID, card.Title, card.Description, card.ImageURL, card.Tags, baseURL)
 }
 
-// GenerateShortLink 生成短链
 func (s *xianyuCardService) GenerateShortLink(ctx context.Context, card *model.XianyuCard) error {
 	if card.ShortLinkID > 0 {
 		if err := s.shortLinkService.Delete(context.Background(), card.ShortLinkID); err != nil {
@@ -217,13 +205,11 @@ func (s *xianyuCardService) GenerateShortLink(ctx context.Context, card *model.X
 		return fmt.Errorf("生成短码失败：%w", err)
 	}
 
-	// 获取域名池域名
 	var domainID uint = 0
 	if card.DomainPoolID != 0 {
 		domainID = card.DomainPoolID
 	}
 
-	// v3 审计修复：铁律#24 要求绝对 https 目标；未配置跳转目标时跳过
 	if card.RedirectURL == "" {
 		return nil
 	}
@@ -242,7 +228,6 @@ func (s *xianyuCardService) GenerateShortLink(ctx context.Context, card *model.X
 	return s.repo.Update(ctx, card)
 }
 
-// convertToResponse 转换模型到响应
 func (s *xianyuCardService) convertToResponse(ctx context.Context, card *model.XianyuCard) *dto.XianyuCardResponse {
 	shortLinkURL := ""
 	shortCode := ""

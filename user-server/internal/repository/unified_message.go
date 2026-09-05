@@ -95,7 +95,6 @@ func (r *unifiedMessageRepo) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&model.UnifiedMessage{}, id).Error
 }
 
-// GetMessages 统一消息视图：按平台分页查询（映射到 GetByMerchant，total 由 int64 转 int）
 func (r *unifiedMessageRepo) GetMessages(ctx context.Context, platform string, page, pageSize int) ([]*model.UnifiedMessage, int, error) {
 	msgs, total, err := r.GetByMerchant(ctx, model.Platform(platform), page, pageSize)
 	if err != nil {
@@ -104,7 +103,6 @@ func (r *unifiedMessageRepo) GetMessages(ctx context.Context, platform string, p
 	return msgs, int(total), nil
 }
 
-// GetMessageByID 按主键查询消息详情（映射到 GetByID）
 func (r *unifiedMessageRepo) GetMessageByID(ctx context.Context, id uint) (*model.UnifiedMessage, error) {
 	return r.GetByID(ctx, id)
 }

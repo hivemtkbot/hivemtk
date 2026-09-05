@@ -2,7 +2,6 @@ package websocket
 
 import "sync"
 
-// visitorClients 跟踪访客客户端（sessionID -> Client）
 var (
 	visitorClientsMu sync.RWMutex
 	visitorClients   = make(map[string]*Client)
@@ -13,7 +12,6 @@ func RegisterVisitorClient(c *Client) {
 	registerVisitorClient(c)
 }
 
-// registerVisitorClient 注册访客客户端
 func registerVisitorClient(c *Client) {
 	visitorClientsMu.Lock()
 	defer visitorClientsMu.Unlock()
@@ -25,7 +23,6 @@ func UnregisterVisitorClient(c *Client) {
 	unregisterVisitorClient(c)
 }
 
-// unregisterVisitorClient 注销访客客户端
 func unregisterVisitorClient(c *Client) {
 	visitorClientsMu.Lock()
 	defer visitorClientsMu.Unlock()
@@ -34,7 +31,6 @@ func unregisterVisitorClient(c *Client) {
 	}
 }
 
-// getVisitorClient 获取访客客户端
 func getVisitorClient(sessionID string) *Client {
 	visitorClientsMu.RLock()
 	defer visitorClientsMu.RUnlock()
@@ -46,4 +42,3 @@ func getVisitorClient(sessionID string) *Client {
 func IsVisitorOnline(sessionID string) bool {
 	return getVisitorClient(sessionID) != nil
 }
-

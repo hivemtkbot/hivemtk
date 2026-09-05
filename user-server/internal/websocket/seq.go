@@ -2,8 +2,6 @@ package websocket
 
 import "sync/atomic"
 
-
-// globalSeq 全局消息序号计数器（atomic uint64）
 var globalSeq uint64
 
 // NextSeq 原子获取下一个消息序号（从 1 开始）
@@ -19,4 +17,3 @@ func NextSeq() uint64 {
 func PeekSeq() uint64 {
 	return atomic.LoadUint64(&globalSeq)
 }
-

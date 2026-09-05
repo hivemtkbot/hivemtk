@@ -74,16 +74,14 @@ func (s *KnowledgeUpdateService) UpdateDocumentDelta(ctx context.Context, docume
 	startedAt := time.Now()
 	result := &UpdateDeltaResult{DocumentID: documentID, StartedAt: startedAt}
 
-	// 新内容切片
 	newChunks := splitIntoChunks(newContent, 500)
 	result.TotalChunks = len(newChunks)
-	newHashes := make(map[string]int, len(newChunks)) // hash -> 新 chunk index
+	newHashes := make(map[string]int, len(newChunks))
 	for i, c := range newChunks {
 		h := contentHash(c)
 		newHashes[h] = i
 	}
 
-	// 查旧 chunks
 	var oldChunks []KBDocumentChunk
 	if err := s.db.WithContext(ctx).
 		Where("document_id = ? AND status = ?", documentID, "active").
@@ -92,7 +90,6 @@ func (s *KnowledgeUpdateService) UpdateDocumentDelta(ctx context.Context, docume
 		return nil, fmt.Errorf("查询旧 chunks: %w", err)
 	}
 
-	// 退化策略：无旧数据 → 全量新建
 	if len(oldChunks) == 0 {
 		for i, c := range newChunks {
 			chunk := KBDocumentChunk{
@@ -111,13 +108,11 @@ func (s *KnowledgeUpdateService) UpdateDocumentDelta(ctx context.Context, docume
 		return result, nil
 	}
 
-	// 构建旧 hash 集合 + 旧 index 映射
 	oldHashSet := make(map[string]*KBDocumentChunk, len(oldChunks))
 	for i := range oldChunks {
 		oldHashSet[oldChunks[i].ContentHash] = &oldChunks[i]
 	}
 
-	// 标记要删除（旧有但新没有）的旧 chunks
 	toDelete := make([]uint64, 0)
 	for _, oc := range oldChunks {
 		if _, ok := newHashes[oc.ContentHash]; !ok {
@@ -132,7 +127,6 @@ func (s *KnowledgeUpdateService) UpdateDocumentDelta(ctx context.Context, docume
 		result.Removed = len(toDelete)
 	}
 
-	// 新增（新有但旧没有）的 chunks
 	newIdx := 0
 	for _, c := range newChunks {
 		h := contentHash(c)
@@ -161,13 +155,11 @@ func (s *KnowledgeUpdateService) UpdateDocumentDelta(ctx context.Context, docume
 	return result, nil
 }
 
-// contentHash 计算 chunk 内容 SHA256
 func contentHash(s string) string {
 	sum := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(sum[:])
 }
 
-// splitIntoChunks 简单窗口切片（按字数，每 500 字）
 func splitIntoChunks(content string, windowSize int) []string {
 	if windowSize <= 0 {
 		windowSize = 500

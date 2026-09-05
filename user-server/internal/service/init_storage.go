@@ -41,18 +41,18 @@ func InitDefaultStorageIfEmpty(gdb *gorm.DB) {
 	}
 
 	cfg := &model.ObsConfig{
-		ID:         uuid.New().String(),
-		Name:       "默认本地存储",
-		Provider:   model.ObsProviderLocal,
-		Endpoint:   baseDir,   // local: 本地目录
-		Domain:     publicURL, // local: 公开 URL 前缀
-		IsDefault:  true,
-		Status:     model.ObsStatusActive,
-		MaxSize:    100 * 1024 * 1024, // 100MB
-		MaxCount:   10000,
-		AccessKey:  "", // local 不需要
-		SecretKey:  "",
-		Bucket:     "",
+		ID:        uuid.New().String(),
+		Name:      "默认本地存储",
+		Provider:  model.ObsProviderLocal,
+		Endpoint:  baseDir,
+		Domain:    publicURL,
+		IsDefault: true,
+		Status:    model.ObsStatusActive,
+		MaxSize:   100 * 1024 * 1024,
+		MaxCount:  10000,
+		AccessKey: "",
+		SecretKey: "",
+		Bucket:    "",
 	}
 
 	if err := gdb.WithContext(context.Background()).Create(cfg).Error; err != nil {
@@ -60,7 +60,6 @@ func InitDefaultStorageIfEmpty(gdb *gorm.DB) {
 		return
 	}
 
-	// 确保目录存在
 	if err := os.MkdirAll(baseDir, 0o750); err != nil {
 		logger.Warnf("[OBS] InitDefaultStorageIfEmpty: mkdir %s failed: %v", baseDir, err)
 	}

@@ -32,4 +32,3 @@ func NewReachWebSendTool(deps ReachToolDeps) *ReachWebSendTool {
 		deps: deps,
 	}
 }
-

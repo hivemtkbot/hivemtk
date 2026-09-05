@@ -17,7 +17,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupCustomer360TestDB 设置测试数据库
 func setupCustomer360TestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.CustomerSession{},
@@ -32,7 +31,6 @@ func setupCustomer360TestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupCustomer360Router 设置测试路由
 func setupCustomer360Router(t *testing.T, db *gorm.DB) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 
@@ -78,7 +76,7 @@ func TestCustomer360Controller_GetCustomer360(t *testing.T) {
 		{
 			name:           "success",
 			url:            "/api/customer/360?user_id=user-test",
-			expectedStatus: 404, 
+			expectedStatus: 404,
 			expectSuccess:  false,
 		},
 		{
@@ -177,7 +175,7 @@ func TestCustomer360Controller_GetCustomerBasicInfo(t *testing.T) {
 		{
 			name:           "success",
 			url:            "/api/customer/basic?user_id=user-test",
-			expectedStatus: 404, 
+			expectedStatus: 404,
 			expectSuccess:  false,
 		},
 		{
@@ -223,7 +221,7 @@ func TestCustomer360Controller_GetCustomerStats(t *testing.T) {
 		{
 			name:           "success",
 			url:            "/api/customer/stats?user_id=user-test",
-			expectedStatus: 404, 
+			expectedStatus: 404,
 			expectSuccess:  false,
 		},
 		{
@@ -269,7 +267,7 @@ func TestCustomer360Controller_GetCustomerSessions(t *testing.T) {
 		{
 			name:           "success",
 			url:            "/api/customer/sessions?user_id=user-test",
-			expectedStatus: 404, 
+			expectedStatus: 404,
 			expectSuccess:  false,
 		},
 		{
@@ -315,7 +313,7 @@ func TestCustomer360Controller_GetCustomerMessages(t *testing.T) {
 		{
 			name:           "success",
 			url:            "/api/customer/messages?user_id=user-test",
-			expectedStatus: 404, 
+			expectedStatus: 404,
 			expectSuccess:  false,
 		},
 		{
@@ -438,7 +436,7 @@ func TestCustomer360Controller_GetCustomerTags(t *testing.T) {
 		{
 			name:           "success",
 			url:            "/api/customer/tags?user_id=user-test",
-			expectedStatus: 200, 
+			expectedStatus: 200,
 			expectSuccess:  true,
 		},
 		{
@@ -469,4 +467,3 @@ func TestCustomer360Controller_GetCustomerTags(t *testing.T) {
 		})
 	}
 }
-

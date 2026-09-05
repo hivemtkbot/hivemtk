@@ -78,7 +78,6 @@ func (s *AfterSaleService) Create(ctx context.Context, req *portcontract.AfterSa
 	return afterSaleToView(as), nil
 }
 
-// resolveClient 解析回写电商客户端：注入的 client 优先，否则按数据库配置按需构造。
 func (s *AfterSaleService) resolveClient(ctx context.Context) AfterSaleExternalClient {
 	if s.client != nil && s.client.Configured() {
 		return s.client

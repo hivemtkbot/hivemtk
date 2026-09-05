@@ -103,13 +103,6 @@ func (s *Customer360Service) ListCustomerProfiles(ctx context.Context, page, pag
 	return items, total, nil
 }
 
-// customerSessionKeys 返回该客户可用于匹配会话的候选键。
-//
-// 真实数据形态（生产库实测）：customer_sessions.one_id 绝大多数为空，且已填的值存的是平台
-// openid（如 5e4f75e3...），并不等于 customers.unified_id（如 lm:xiaohongshu:5e4f75e3...）。
-// 真正稳定成立的关联是：unified_id 的最后一段 == customer_sessions.user_id
-// （visitor:default:sim_xxx ↔ sim_xxx、lm:xiaohongshu:<openid> ↔ <openid>）。
-// 因此同时按 one_id 与 user_id 两条路径解析，任一命中即算该客户的会话。
 func customerSessionKeys(c *model.Customer) (userIDs []string, oneIDs []string) {
 	if c == nil {
 		return nil, nil
@@ -131,7 +124,6 @@ func customerSessionKeys(c *model.Customer) (userIDs []string, oneIDs []string) 
 	return userIDs, oneIDs
 }
 
-// batchResolveSessions 批量解析客户 → 会话，返回 map[customerID][]session（已去重）
 func (s *Customer360Service) batchResolveSessions(ctx context.Context, customers []*model.Customer) map[string][]*model.CustomerSession {
 	result := make(map[string][]*model.CustomerSession, len(customers))
 	if len(customers) == 0 {
@@ -189,7 +181,6 @@ func (s *Customer360Service) batchResolveSessions(ctx context.Context, customers
 	return result
 }
 
-// parseCustomerTags 解析 customers.tags（JSON 数组字符串），非法内容按逗号分隔兜底
 func parseCustomerTags(raw string) []string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -214,7 +205,6 @@ func parseCustomerTags(raw string) []string {
 	return out
 }
 
-// fallbackCustomerName 无会话昵称时的展示名：手机号 > 邮箱 > OneID > 主键
 func fallbackCustomerName(c *model.Customer) string {
 	switch {
 	case c.Phone != "":

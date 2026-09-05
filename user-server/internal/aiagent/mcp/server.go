@@ -75,10 +75,10 @@ const (
 	ErrCodeInvalidParams  = -32602
 	ErrCodeInternal       = -32603
 	// MCP 自定义错误码
-	ErrCodeToolNotFound     = -32000
-	ErrCodeToolExecFailed   = -32001
-	ErrCodeNotInitialized   = -32002
-	ErrCodeAlreadyInit      = -32003
+	ErrCodeToolNotFound   = -32000
+	ErrCodeToolExecFailed = -32001
+	ErrCodeNotInitialized = -32002
+	ErrCodeAlreadyInit    = -32003
 )
 
 // JSONRPCRequest JSON-RPC 2.0 请求
@@ -106,9 +106,9 @@ type JSONRPCError struct {
 
 // InitializeParams initialize 方法参数
 type InitializeParams struct {
-	ProtocolVersion string                 `json:"protocolVersion"`
-	Capabilities    ClientCapabilities     `json:"capabilities"`
-	ClientInfo      Implementation         `json:"clientInfo"`
+	ProtocolVersion string             `json:"protocolVersion"`
+	Capabilities    ClientCapabilities `json:"capabilities"`
+	ClientInfo      Implementation     `json:"clientInfo"`
 }
 
 // ClientCapabilities 客户端能力
@@ -170,8 +170,8 @@ type MCPTool struct {
 
 // ListToolsResult tools/list 方法结果
 type ListToolsResult struct {
-	Tools []MCPTool `json:"tools"`
-	NextCursor string  `json:"nextCursor,omitempty"`
+	Tools      []MCPTool `json:"tools"`
+	NextCursor string    `json:"nextCursor,omitempty"`
 }
 
 // CallToolParams tools/call 方法参数
@@ -188,10 +188,10 @@ type CallToolResult struct {
 
 // ContentBlock 内容块
 type ContentBlock struct {
-	Type     string         `json:"type"`
-	Text     string         `json:"text,omitempty"`
-	Data     any            `json:"data,omitempty"`
-	MimeType string         `json:"mimeType,omitempty"`
+	Type     string `json:"type"`
+	Text     string `json:"text,omitempty"`
+	Data     any    `json:"data,omitempty"`
+	MimeType string `json:"mimeType,omitempty"`
 }
 
 // Server MCP 服务端
@@ -200,14 +200,11 @@ type Server struct {
 	initialized bool
 	mu          sync.RWMutex
 
-	// TL-2：initialize 成功后生成的会话标识（可见 ASCII），
-	// 由 HTTP 层写入 Mcp-Session-Id 响应头并在后续请求中校验
-	sessionID       string
+	sessionID string
 
-	// 内部：会话信息（用于多客户端）
-	clientInfo      Implementation
-	clientCaps      ClientCapabilities
-	initStartedAt   time.Time
+	clientInfo    Implementation
+	clientCaps    ClientCapabilities
+	initStartedAt time.Time
 }
 
 // NewServer 构造 MCP 服务端
@@ -238,7 +235,7 @@ func (s *Server) HandleRequest(ctx context.Context, rawReq []byte) ([]byte, erro
 	case "initialize":
 		return s.handleInitialize(ctx, req)
 	case "notifications/initialized":
-		// 客户端确认初始化（无 response）
+
 		return nil, nil
 	case "ping":
 		return s.successResponse(req.ID, map[string]any{}), nil
@@ -260,7 +257,6 @@ func (s *Server) HandleRequest(ctx context.Context, rawReq []byte) ([]byte, erro
 	}
 }
 
-// handleInitialize 处理 initialize
 func (s *Server) handleInitialize(_ context.Context, req JSONRPCRequest) ([]byte, error) {
 	var params InitializeParams
 	if len(req.Params) > 0 {
@@ -296,7 +292,6 @@ func (s *Server) handleInitialize(_ context.Context, req JSONRPCRequest) ([]byte
 	return s.successResponse(req.ID, result), nil
 }
 
-// handleToolsList 处理 tools/list
 func (s *Server) handleToolsList(_ context.Context, req JSONRPCRequest) ([]byte, error) {
 	if errResp, ok := s.checkInitialized(req); !ok {
 		return errResp, nil
@@ -305,7 +300,6 @@ func (s *Server) handleToolsList(_ context.Context, req JSONRPCRequest) ([]byte,
 	return s.successResponse(req.ID, ListToolsResult{Tools: tools}), nil
 }
 
-// handleToolsCall 处理 tools/call
 func (s *Server) handleToolsCall(ctx context.Context, req JSONRPCRequest) ([]byte, error) {
 	if errResp, ok := s.checkInitialized(req); !ok {
 		return errResp, nil
@@ -322,7 +316,7 @@ func (s *Server) handleToolsCall(ctx context.Context, req JSONRPCRequest) ([]byt
 
 	result, err := s.callTool(ctx, params)
 	if err != nil {
-		// 工具未找到或执行失败：返回 isError=true（spec 推荐）
+
 		return s.successResponse(req.ID, CallToolResult{
 			Content: []ContentBlock{{Type: "text", Text: err.Error()}},
 			IsError: true,
@@ -331,7 +325,6 @@ func (s *Server) handleToolsCall(ctx context.Context, req JSONRPCRequest) ([]byt
 	return s.successResponse(req.ID, result), nil
 }
 
-// listTools 列出所有工具（与 tooluse.Registry 桥接）
 func (s *Server) listTools() []MCPTool {
 	if s.registry == nil {
 		return []MCPTool{}
@@ -349,7 +342,6 @@ func (s *Server) listTools() []MCPTool {
 	return out
 }
 
-// callTool 调用单个工具
 func (s *Server) callTool(ctx context.Context, params CallToolParams) (*CallToolResult, error) {
 	if s.registry == nil {
 		return nil, fmt.Errorf("tool registry not configured")
@@ -359,14 +351,12 @@ func (s *Server) callTool(ctx context.Context, params CallToolParams) (*CallTool
 		return nil, fmt.Errorf("tool not found: %s", params.Name)
 	}
 
-	// 构造最小 tooluse.ToolHandler 上下文（业界做法：ctx 注入 tool name）
 	toolCtx := context.WithValue(ctx, toolNameKey{}, params.Name)
 	toolResult, err := tool.Execute(toolCtx, params.Arguments)
 	if err != nil {
 		return nil, fmt.Errorf("tool execution failed: %w", err)
 	}
 
-	// 序列化工具结果
 	text := toolResultToText(toolResult)
 	return &CallToolResult{
 		Content: []ContentBlock{{Type: "text", Text: text}},
@@ -374,9 +364,6 @@ func (s *Server) callTool(ctx context.Context, params CallToolParams) (*CallTool
 	}, nil
 }
 
-// checkInitialized 检查是否已初始化，返回 (响应, ok)
-//
-// 设计：未初始化时直接构造错误响应（无需依赖 checkInitialized 的布尔返回值）
 func (s *Server) checkInitialized(req JSONRPCRequest) ([]byte, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -402,17 +389,15 @@ func (s *Server) SessionID() string {
 	return s.sessionID
 }
 
-// newSessionID 生成 32 字符 hex 会话 ID（可见 ASCII 子集，无外部依赖）
 func newSessionID() string {
 	buf := make([]byte, 16)
 	if _, err := rand.Read(buf); err != nil {
-		// crypto/rand 失败极罕见；退化为时间戳熵源
+
 		return fmt.Sprintf("%x", time.Now().UnixNano())
 	}
 	return fmt.Sprintf("%x", buf)
 }
 
-// successResponse 构造成功响应
 func (s *Server) successResponse(id json.RawMessage, result any) []byte {
 	resp := JSONRPCResponse{
 		JSONRPC: "2.0",
@@ -423,7 +408,6 @@ func (s *Server) successResponse(id json.RawMessage, result any) []byte {
 	return data
 }
 
-// errorResponse 构造错误响应
 func (s *Server) errorResponse(id json.RawMessage, code int, message string, data any) []byte {
 	resp := JSONRPCResponse{
 		JSONRPC: "2.0",
@@ -438,10 +422,8 @@ func (s *Server) errorResponse(id json.RawMessage, code int, message string, dat
 	return out
 }
 
-// toolNameKey 工具名 ctx key（用于在 Tool.Execute 中获取 tool 名称）
 type toolNameKey struct{}
 
-// toolResultToText 将 tooluse.ToolResult 序列化为文本
 func toolResultToText(r tooluse.ToolResult) string {
 	if r.Data == nil {
 		return r.Error
@@ -453,9 +435,6 @@ func toolResultToText(r tooluse.ToolResult) string {
 	return string(data)
 }
 
-// convertParameters 将 tooluse.ToolParameters 转为 MCP InputSchema
-//
-// MCP inputSchema 是 JSON Schema 草案；与 tooluse.ToolParameters 字段结构兼容
 func convertParameters(p tooluse.ToolParameters) map[string]any {
 	out := map[string]any{
 		"type": "object",

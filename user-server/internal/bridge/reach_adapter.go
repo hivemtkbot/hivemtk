@@ -57,14 +57,6 @@ func (a *BridgeReachAdapter) EnqueueManualReply(ctx context.Context, channel, ac
 	return service.DeliverBridgeOutbound(ctx, channel, accountID, conversationID, "text", content, "")
 }
 
-// ---- 网页桥接渠道（直接走 service.DeliverBridgeOutbound → message_hub）----
-//
-// 2026-08-18 二次审核重构：旧实现推入 in-memory httpReplyBuffer（Pull 无人调用 → 静默丢消息）。
-// 修复后统一经 service.DeliverBridgeOutbound 落库，由桥接扩展 GET /api/bridge/outbox 拉取。
-//
-// AI Agent reach.*.send 工具经 ProductionReachAdapter 调到这里；主动外联经
-// service/proactive_reach.sendBridge 也调到这里；所有网页渠道出站共一条路径。
-
 func (a *BridgeReachAdapter) SendDouyin(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
 	return a.deliverToOutbox(ctx, "douyin", accountID, openID, msgType, content)
 }
@@ -85,15 +77,12 @@ func (a *BridgeReachAdapter) SendXianyu(ctx context.Context, accountID, openID, 
 	return a.deliverToOutbox(ctx, "xianyu", accountID, openID, msgType, content)
 }
 
-// deliverToOutbox 网页渠道出站统一入口：调 service.DeliverBridgeOutbound 落库 message_hub。
 func (a *BridgeReachAdapter) deliverToOutbox(ctx context.Context, channel, accountID, openID, msgType, content string) (string, error) {
 	if err := service.DeliverBridgeOutbound(ctx, channel, accountID, openID, msgType, content, ""); err != nil {
 		return "", err
 	}
 	return "bridge:" + channel + ":" + accountID + ":" + openID, nil
 }
-
-// ---- ReachAdapter 透传（非网页渠道全部委托 inner）----
 
 func (a *BridgeReachAdapter) SendSMS(ctx context.Context, phone, content, templateID string, params map[string]string) (string, error) {
 	return a.inner.SendSMS(ctx, phone, content, templateID, params)

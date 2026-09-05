@@ -1,13 +1,11 @@
 package controller
 
-
 import (
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
-
 )
 
 // TestHub_Stop_WaitForGoroutine 验证 Stop 阻塞等待 Run 退出
@@ -67,8 +65,7 @@ func TestHub_Stop_BeforeRun(t *testing.T) {
 // 使用 goleak.VerifyNone 验证 Stop 后无 ChatWSHub 相关 goroutine 残留。
 // 注意: goleak 默认会忽略 testing 主 goroutine。
 func TestHub_NoGoroutineLeak(t *testing.T) {
-	// 全量套件并发负载下，固定 sleep 无法保证 hub/pump goroutine 在 goleak
-	// 快照前退出（历史 flaky 根因）。改为记录基线 + 轮询等待回落。
+
 	baseline := runtime.NumGoroutine()
 
 	hub := NewChatWSHub()
@@ -88,7 +85,6 @@ func TestHub_NoGoroutineLeak(t *testing.T) {
 	}
 	hub.Stop()
 
-	// 等待 goroutine 数回落到基线附近（容忍 ±1 的运行时噪声），最长 5s
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		if n := runtime.NumGoroutine(); n <= baseline+1 {
@@ -99,7 +95,6 @@ func TestHub_NoGoroutineLeak(t *testing.T) {
 	t.Errorf("goroutine 未回落: baseline=%d now=%d（疑似泄漏）", baseline, runtime.NumGoroutine())
 }
 
-// waitFor 条件轮询（最长 2s）
 func waitFor(t *testing.T, cond func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
@@ -160,4 +155,3 @@ func TestHub_Stop_ConcurrentCalls(t *testing.T) {
 		t.Errorf("expected all %d Stop() calls to complete, got %d", N, counter)
 	}
 }
-

@@ -78,7 +78,6 @@ func (s *SystemInitService) CreateInitAdmin(ctx context.Context, p *CreateInitAd
 	return nil
 }
 
-// validateUsername 校验用户名：3-20 字符，字母数字下划线
 var usernameRegex = regexp.MustCompile(`^[A-Za-z0-9_]{3,20}$`)
 
 func validateUsername(u string) error {
@@ -91,7 +90,6 @@ func validateUsername(u string) error {
 	return nil
 }
 
-// validatePassword 校验密码强度：至少 8 位，含大小写字母 + 数字
 var (
 	hasLower = regexp.MustCompile(`[a-z]`)
 	hasUpper = regexp.MustCompile(`[A-Z]`)
@@ -114,7 +112,6 @@ func validatePassword(p string) error {
 	return nil
 }
 
-// validateEmail 简单邮箱格式校验
 var emailRegex = regexp.MustCompile(`^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$`)
 
 func validateEmail(e string) error {

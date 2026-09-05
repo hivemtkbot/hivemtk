@@ -29,7 +29,6 @@ func NewLeadMiningConfigRepositoryWithDB(db *gorm.DB) LeadMiningConfigRepository
 	return &leadMiningConfigRepo{db: db}
 }
 
-// GetSingleton 读取单例配置；不存在返回带默认值的配置（不写库）
 func (r *leadMiningConfigRepo) GetSingleton(ctx context.Context) (*model.LeadMiningConfig, error) {
 	var c model.LeadMiningConfig
 	err := r.db.WithContext(ctx).First(&c, "id = ?", 1).Error
@@ -42,7 +41,6 @@ func (r *leadMiningConfigRepo) GetSingleton(ctx context.Context) (*model.LeadMin
 	return &c, nil
 }
 
-// Save 写入单例配置（upsert，ID 固定为 1）
 func (r *leadMiningConfigRepo) Save(ctx context.Context, cfg *model.LeadMiningConfig) error {
 	if cfg == nil {
 		return errors.New("配置为空")

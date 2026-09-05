@@ -99,8 +99,8 @@ func TestRateLimitMiddleware_RateLimitExceeded(t *testing.T) {
 	}()
 
 	DefaultRateLimitConfig = RateLimitConfig{
-		RPS:        0.5, 
-		BucketSize: 1,   
+		RPS:        0.5,
+		BucketSize: 1,
 		Enabled:    true,
 	}
 
@@ -271,4 +271,3 @@ func TestInitRateLimiter_DefaultConfig(t *testing.T) {
 
 	globalRateLimiter.Stop()
 }
-

@@ -15,22 +15,21 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 // LocalLLMClient 本地 LLM 客户端（OpenAI /v1/chat/completions 兼容）
 //
 // 实现 portcontract.LLMChatPort 接口
 type LocalLLMClient struct {
-	baseURL string 
-	apiKey  string 
-	model   string 
+	baseURL string
+	apiKey  string
+	model   string
 	httpCli *http.Client
 }
 
 // LocalLLMConfig 本地 LLM 客户端配置
 type LocalLLMConfig struct {
-	BaseURL        string 
-	APIKey         string 
-	DefaultModel   string 
+	BaseURL        string
+	APIKey         string
+	DefaultModel   string
 	RequestTimeout time.Duration
 }
 
@@ -135,7 +134,6 @@ func (c *LocalLLMClient) Chat(ctx context.Context, messages []model.AssetBundleM
 	return content, nil
 }
 
-
 type openaiChatMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
@@ -166,4 +164,3 @@ type openaiUsage struct {
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
 }
-

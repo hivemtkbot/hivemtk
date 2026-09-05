@@ -22,7 +22,6 @@ func NewLLMProviderController(failoverSvc *service.LLMFailoverService) *LLMProvi
 	return &LLMProviderController{failoverSvc: failoverSvc}
 }
 
-// guardFailover 检查 failover 是否就绪，未就绪返回 503
 func (c *LLMProviderController) guardFailover(ctx *gin.Context) bool {
 	if !c.failoverSvc.Ready() {
 		ctx.JSON(http.StatusServiceUnavailable, gin.H{
@@ -76,7 +75,7 @@ func (c *LLMProviderController) ResetCircuit(ctx *gin.Context) {
 	var body struct {
 		Name string `json:"name"`
 	}
-	_ = ctx.ShouldBindJSON(&body) 
+	_ = ctx.ShouldBindJSON(&body)
 	if body.Name == "" {
 		all := c.failoverSvc.GetAllHealth()
 		reset := 0
@@ -161,4 +160,3 @@ func (c *LLMProviderController) ResolveRoute(ctx *gin.Context) {
 	}
 	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": resp})
 }
-

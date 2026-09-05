@@ -19,12 +19,12 @@ import (
 //  5. TokenService          外部 API Token 管理              → knowledge_merchant_token.go
 //  6. ExternalImportService 外部系统接入（飞书/Notion/通用 JSON） → knowledge_merchant_external.go
 type KnowledgeMerchantService struct {
-	db        *gorm.DB 
-	kbService *KnowledgeService
-	ragSearch *RagSearcher
-	docRepo   *repository.KnowledgeDocumentRepository
-	chunkRepo *repository.KnowledgeChunkRepository
-	prodRepo  *repository.RagConfigRepository
+	db            *gorm.DB
+	kbService     *KnowledgeService
+	ragSearch     *RagSearcher
+	docRepo       *repository.KnowledgeDocumentRepository
+	chunkRepo     *repository.KnowledgeChunkRepository
+	prodRepo      *repository.RagConfigRepository
 	searchLogRepo *repository.KnowledgeSearchLogRepository
 	feedbackRepo  *repository.KnowledgeFeedbackRepository
 	tokenRepo     *repository.KnowledgeAPITokenRepository
@@ -69,8 +69,6 @@ func NewKnowledgeMerchantServiceWithDB(gdb *gorm.DB) *KnowledgeMerchantService {
 	}
 }
 
-// ensureReposFromDB 在 struct 直接构造（如测试中 &KnowledgeMerchantService{db: db}）时，
-// 按需从 s.db 派生新的仓库实例，保持与原 s.db 直用等价语义。
 func (s *KnowledgeMerchantService) ensureReposFromDB() {
 	if s.db == nil {
 		return
@@ -88,4 +86,3 @@ func (s *KnowledgeMerchantService) ensureReposFromDB() {
 		s.externalRepo = repository.NewExternalImportJobRepository(s.db)
 	}
 }
-

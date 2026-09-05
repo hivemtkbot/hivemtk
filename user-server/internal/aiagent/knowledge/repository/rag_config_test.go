@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupRagConfigTestDB 设置 RAG 配置测试数据库
 func setupRagConfigTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.RagProduct{},
@@ -21,7 +20,6 @@ func setupRagConfigTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupRagConfigRepository 创建测试用的 RAG 配置仓库实例
 func setupRagConfigRepository(t *testing.T) (*RagConfigRepository, *gorm.DB) {
 	database := setupRagConfigTestDB(t)
 	return NewRagConfigRepository(database), database
@@ -120,7 +118,7 @@ func TestRagConfigRepository_GetRagProductByID(t *testing.T) {
 		Category:    "sales",
 		VectorTable: "vec_inactive_product_getbyid",
 		LLMModel:    "gpt-4",
-		IsActive:    true, 
+		IsActive:    true,
 	}
 	repo.CreateRagProduct(ctx, inactiveProduct)
 	inactiveProduct.IsActive = false
@@ -289,7 +287,7 @@ func TestRagConfigRepository_ListRagProducts(t *testing.T) {
 		Category:    "sales",
 		VectorTable: "vec_listtest_inactive_product",
 		LLMModel:    "gpt-4",
-		IsActive:    true, 
+		IsActive:    true,
 	}
 	repo.CreateRagProduct(ctx, inactiveProduct)
 	inactiveProduct.IsActive = false
@@ -373,4 +371,3 @@ func TestRagConfigRepository_GetRagProductByID_NotFound(t *testing.T) {
 		t.Error("Expected error when getting non-existing product")
 	}
 }
-

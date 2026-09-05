@@ -45,7 +45,7 @@ func (s *RoleService) ListRoles(ctx context.Context) ([]*RoleWithCount, error) {
 	for _, r := range model.SystemRoleList {
 		count, err := s.userRepo.CountByRole(ctx, r.Code)
 		if err != nil {
-			// v3 审计 P2-14：记 0 掩盖真实错误
+
 			logger.Warnf("[RoleService] 统计角色 %s 成员数失败，记 0: %v", r.Code, err)
 			count = 0
 		}

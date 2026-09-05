@@ -22,18 +22,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
 // HTTP 端点参数（DB 驱动，以下为 fallback 默认值）
 // 实际运行时通过 service.GlobalConfigParam() 按 group=bridge 读取 DB 参数：
-//   bridge.polling_max_timeout → HTTPPollingMaxTimeout (fallback)
-//   bridge.polling_default_timeout → HTTPPollingDefaultTimeout (fallback)
-//   bridge.ingest_max_body_bytes → HTTPIngestMaxBodySize (fallback)
-//   bridge.ingest_max_messages → HTTPIngestMaxMessages (fallback)
+//
+//	bridge.polling_max_timeout → HTTPPollingMaxTimeout (fallback)
+//	bridge.polling_default_timeout → HTTPPollingDefaultTimeout (fallback)
+//	bridge.ingest_max_body_bytes → HTTPIngestMaxBodySize (fallback)
+//	bridge.ingest_max_messages → HTTPIngestMaxMessages (fallback)
 const (
-	HTTPPollingMaxTimeout = 500 * time.Second
+	HTTPPollingMaxTimeout     = 500 * time.Second
 	HTTPPollingDefaultTimeout = 30 * time.Second
-	HTTPIngestMaxBodySize = 4 << 20
-	HTTPIngestMaxMessages = 200
+	HTTPIngestMaxBodySize     = 4 << 20
+	HTTPIngestMaxMessages     = 200
 )
 
 func runtimePollingMaxTimeout(ctx context.Context) time.Duration {
@@ -76,10 +76,6 @@ type HTTPIngestResult = channelgw.IngestResult
 type HTTPIngestPending struct {
 }
 
-// collectHTTPRequestInfo 收集 HTTP 请求的"完整 URL + 全部 query + headers + body"快照。
-// 2026-08-05 重构：与 WS 端 collectBridgeWSRequestInfo 同源设计，
-// 5 个日志点（收到请求 / 参数缺失 / 渠道拒绝 / ingest 处理 / 响应回写）共用同一结构，
-// 便于日志检索串联（按 full_url 或 channel+account_id 聚合时一次抓全）。
 type httpRequestInfo struct {
 	Method         string
 	Path           string
@@ -95,17 +91,10 @@ type httpRequestInfo struct {
 	Origin         string
 	UserAgent      string
 	ParsedQuery    map[string]string
-	BodyPreview    string 
+	BodyPreview    string
 	BodySize       int
 }
 
-// collectHTTPRequestInfo 从 gin.Context 提取 HTTP ingest 请求快照。
-// 不修改 c、不做业务校验，纯粹是字段收集 + token 脱敏。
-//
-// 行为说明：
-//   - 读取完整 body 用于下游 BindJSON；同时截取前 4KB 作为日志预览
-//   - body 读取后必须写回 c.Request.Body，否则下游 BindJSON 读不到
-//   - 解析失败不返回错误（让 gin BindJSON 报更明确的错）
 func collectHTTPRequestInfo(c *gin.Context) httpRequestInfo {
 	token := c.Query("token")
 	origContentLength := c.Request.ContentLength
@@ -134,12 +123,6 @@ func collectHTTPRequestInfo(c *gin.Context) httpRequestInfo {
 	}
 }
 
-// readBodyForLog 读取 body 全部内容。
-// 返回 (fullBody, totalSize, preview, truncated)：
-//   - fullBody: 完整 body 字符串（写回 c.Request.Body 供下游 BindJSON 使用）
-//   - totalSize: 完整 body 字节数
-//   - preview: 前 N 字节预览（用于日志，超出截断并追加提示）
-//   - truncated: body 是否超过 previewBytes
 func readBodyForLog(rc io.ReadCloser, previewBytes int) (string, int, string, bool) {
 	if rc == nil {
 		return "", 0, "", false
@@ -166,14 +149,15 @@ func readBodyForLog(rc io.ReadCloser, previewBytes int) (string, int, string, bo
 //     不依赖 DB / Redis / AI 引擎。生产环境（NewBridgeIngestHandler）保持 nil，handler 走真实 ingress。
 //   - 测试中通过 NewBridgeIngestHandlerWithMock 注入 fake，让 HandleIngressMessage / PersistBridgeHistory
 //     走测试桩函数，验证 5min 去重、长轮询 reply 拉取、OutboundReplies 序列化等。
+//
 // v3 审计：新增 sseHandler 提供 SSE 流式响应（替换长轮询）
 // Phase 1：新增 outboxFetcher 引用，支持后期注入 OutboxQuerier
 type BridgeIngestHandler struct {
-	ingress      *service.InboxIngressService
-	mockHandle   func(ctx context.Context, ev *model.MessageEvent) (*service.InboxIngressResult, error)
-	mockPersist  func(ctx context.Context, ev *model.MessageEvent, direction string) error
-	leadMiner    func(ctx context.Context, ev *model.MessageEvent)
-	sseHandler   *SSEHandler
+	ingress       *service.InboxIngressService
+	mockHandle    func(ctx context.Context, ev *model.MessageEvent) (*service.InboxIngressResult, error)
+	mockPersist   func(ctx context.Context, ev *model.MessageEvent, direction string) error
+	leadMiner     func(ctx context.Context, ev *model.MessageEvent)
+	sseHandler    *SSEHandler
 	outboxFetcher *outboxDBFetcher
 }
 
@@ -219,20 +203,14 @@ type OutboxQuerier interface {
 	FetchOutboundSince(ctx context.Context, channel, accountID string, sinceID uint64, limit int) ([]model.MessageHub, error)
 }
 
-// outboxDBFetcher 基于 message_hub.outbound 表的 fetcher
-//
-// Phase 1 实现：通过 OutboxQuerier 接口查询 DB，拉取 outbound 消息转换为 SSEEvent。
-// querier 为 nil 时返回空列表（服务未初始化时的安全降级）。
 type outboxDBFetcher struct {
 	querier OutboxQuerier
 }
 
-// SetQuerier 后期注入 OutboxQuerier（避免装配阶段循环依赖；服务启动时由 router 调用一次）
 func (f *outboxDBFetcher) SetQuerier(q OutboxQuerier) {
 	f.querier = q
 }
 
-// FetchOutboxSince 查询 message_hub 表中 id > lastEventID 的 outbound 消息
 func (f *outboxDBFetcher) FetchOutboxSince(ctx context.Context, channel, accountID, lastEventID string) ([]SSEEvent, string, error) {
 	if f.querier == nil {
 		return nil, "", nil
@@ -293,9 +271,6 @@ func NewBridgeIngestHandlerWithMock(
 	return &BridgeIngestHandler{mockHandle: mockHandle, mockPersist: mockPersist}
 }
 
-
-
-// callPersistHistory 走 mock 优先，否则真实 ingress
 func (h *BridgeIngestHandler) callPersistHistory(ctx context.Context, ev *model.MessageEvent, direction string) error {
 	if h.mockPersist != nil {
 		return h.mockPersist(ctx, ev, direction)
@@ -553,13 +528,8 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 		ServerTime: time.Now().UnixMilli(),
 	}
 
-	// 2026-08-05 重构（用户科学方案）：
-	//   - 逐条消息预处理：self/agent 走历史通道，customer + history 先持久化上下文
-	//   - 收集所有需走 ingress 的 customer 消息，统一调用 HandleIngressBatch
-	//   - batch 内按 conversation 分组 + 逐条 msg_id 去重入库 + 时序锚点判断
-	//   - batch 末尾合并 inbound 消息一次 AI 回复（不无限制给用户发消息）
 	var batchEvents []*model.MessageEvent
-	batchIdxMap := make(map[int]int) 
+	batchIdxMap := make(map[int]int)
 
 	for i, m := range req.Messages {
 		if m == nil {
@@ -681,7 +651,6 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-
 // BridgeOutboxMessage 下发队列中的一条待发消息（别名 channelgw.OutboxMessage，HTTP/WS 共用序列化）。
 type BridgeOutboxMessage = channelgw.OutboxMessage
 
@@ -709,14 +678,6 @@ type BridgeOutboxAckRequest struct {
 	Items  []BridgeOutboxAckItem `json:"items"`
 }
 
-// GetBridgeOutbox 桥接下发队列查询（通道C·下发轮询）。
-// 扩展独立轮询此端点，拉取本渠道/账号下 status='pending' 的出站消息（AI 回复），
-// 转发到对应网页会话，成功后通过 AckBridgeOutbox 确认。
-//
-// writeOutboxJSON 把 message_hub 列表序列化应答（通道C·下发）。
-//
-// 2026-08-14 修复：补 Extra 字段
-//   协议新增 Extra 后，必须从 hub.Extra 透传，否则前端 downlink.js 主动私信路由永远拿不到数据。
 func writeOutboxJSON(c *gin.Context, hubs []*model.MessageHub) {
 	msgs := make([]BridgeOutboxMessage, 0, len(hubs))
 	for _, hub := range hubs {
@@ -736,24 +697,10 @@ func writeOutboxJSON(c *gin.Context, hubs []*model.MessageHub) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok", "messages": msgs})
 }
 
-// GET /api/bridge/outbox?channel=<ch>&account_id=<acc>
-// isIngestDuplicate 委托 channelgw.IsDuplicateReason（HTTP/WS 传输共用同一判定）。
 func isIngestDuplicate(reason string) bool {
 	return channelgw.IsDuplicateReason(reason)
 }
 
-// 2026-08-16 重大修正：白名单只保留有真实 Chrome 扩展/桥接客户端支撑的渠道
-//
-//	真实 Bridge 渠道：douyin / tiktok / kuaishou / xiaohongshu / xianyu
-//	（有 Chrome 扩展 + Bridge 协议对齐 + channelgw 注册）
-//
-//	未实现渠道（移除出白名单）：
-//	  weibo / bilibili / taobao / pdd / jd / 1688
-//	  — 这些是上次论证书面"支持"但实际并无适配代码、Chrome 扩展、channelgw 注册，
-//	    仍将其放进 leadMiningChannels 只会让线索挖掘把假渠道当真渠道去解析。
-//	如需新增渠道：必须先实现 Chrome 扩展 manifest / content script / 与 Bridge 协议对齐，
-//	并在 channelgw.Default 注册 ChannelSpec（含 Label/Transports），
-//	再调 AddLeadMiningChannel 加回白名单。
 var leadMiningChannels = map[string]bool{
 	"douyin":      true,
 	"tiktok":      true,
@@ -775,8 +722,6 @@ func AddLeadMiningChannel(channel string) {
 	leadMiningChannels[strings.ToLower(channel)] = true
 }
 
-// _bridgeOutboxHubsForLog 把 hubs 转成日志友好的可序列化结构。
-// 2026-08-14 用户诉求：下发响应完整打 log（content 不截断），便于对照前端 getOutbox 排查"拉到了什么下发"。
 func _bridgeOutboxHubsForLog(hubs []*model.MessageHub) []map[string]any {
 	out := make([]map[string]any, 0, len(hubs))
 	for _, h := range hubs {
@@ -808,7 +753,7 @@ func (h *BridgeIngestHandler) GetBridgeOutbox(c *gin.Context) {
 	accountID := c.Query("account_id")
 	start := time.Now()
 	bm := metrics.GetBridge()
-	// bridgeOutboxError 记录 outbox 校验错误指标（复用 ingest_errors 分类）。
+
 	bridgeOutboxError := func(errCode string) {
 		bm.IngestErrors.WithLabel(channel, errCode).Inc()
 	}
@@ -843,7 +788,7 @@ func (h *BridgeIngestHandler) GetBridgeOutbox(c *gin.Context) {
 		Str("remote_addr", c.Request.RemoteAddr).
 		Interface("parsed_query", describeUpstreamQuery(c.Request.URL.Query())).
 		Msg("[Bridge HTTP] 收到 outbox 请求（完整 URL + 全部参数）")
-	// 解析 limit：默认 50，上限 200。一次性解析避免与 fetch/log/serialize 路径重复。
+
 	limit := 50
 	if q := c.Query("limit"); q != "" {
 		if n, err := strconv.Atoi(q); err == nil && n > 0 {
@@ -890,13 +835,13 @@ func (h *BridgeIngestHandler) GetBridgeOutbox(c *gin.Context) {
 //   - items[].status = "not_found"    本 (channel, account_id) 下不存在，停止重发
 type BridgeOutboxAckResponse struct {
 	Status           string                    `json:"status"`
-	AffectedCount    int                       `json:"affected_count"`     
-	AckedItemsCount  int                       `json:"acked_items_count"`  
+	AffectedCount    int                       `json:"affected_count"`
+	AckedItemsCount  int                       `json:"acked_items_count"`
 	FailedItemsCount int                       `json:"failed_items_count"`
 	DuplicateCount   int                       `json:"duplicate_count"`
 	NotFoundCount    int                       `json:"not_found_count"`
 	NotInScopeCount  int                       `json:"not_in_scope_count"`
-	Items            []service.AckOutboundItem `json:"items"` 
+	Items            []service.AckOutboundItem `json:"items"`
 }
 
 // AckBridgeOutbox 桥接下发状态确认（通道B·状态上报）。
@@ -938,7 +883,7 @@ func (h *BridgeIngestHandler) AckBridgeOutbox(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "invalid body"})
 		return
 	}
-	// v2 协议（P0-1）：items[].conversation_id 必填。
+
 	if len(req.Items) > 0 {
 		for _, it := range req.Items {
 			if it.MsgID == "" || it.ConversationID == "" {
@@ -950,7 +895,7 @@ func (h *BridgeIngestHandler) AckBridgeOutbox(c *gin.Context) {
 			}
 		}
 	}
-	// 2026-08-15 P3-D：单次 ack 上限（防止前端误传超长列表）
+
 	maxAckMsgIDs := runtimeMaxAckMsgIDs(c.Request.Context())
 	if len(req.MsgIDs) > maxAckMsgIDs || len(req.Items) > maxAckMsgIDs {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -975,13 +920,12 @@ func (h *BridgeIngestHandler) AckBridgeOutbox(c *gin.Context) {
 		Int("body_msg_ids_count", len(req.MsgIDs)).
 		Interface("body_msg_ids", req.MsgIDs).
 		Msg("[Bridge HTTP] 收到 outbox ack 请求（完整 URL + 全部参数 + 完整 msg_ids 列表）")
-	// 2026-08-15 P3-D：terminalStatus 透传（默认 delivered；前端可上报 failed），
-	// conversationID 留空走 v1 兼容范围（按 channel+account_id ack），perItem 无（旧协议无 items[]）。
+
 	terminalStatus := req.Status
 	if terminalStatus == "" {
 		terminalStatus = model.BridgeAckStatusDelivered
 	}
-	// P0-3：非法终态在入口即 400（service 层同样兜底校验）。
+
 	if terminalStatus != model.BridgeAckStatusDelivered && terminalStatus != model.BridgeAckStatusFailed {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "error",
@@ -989,7 +933,7 @@ func (h *BridgeIngestHandler) AckBridgeOutbox(c *gin.Context) {
 		})
 		return
 	}
-	// v2 协议：按 (conversation_id, 终态) 分组逐组 ack；v1：conversationID 留空走兼容范围。
+
 	var ackResult *service.AckOutboundResult
 	if len(req.Items) > 0 {
 		type groupKey struct {
@@ -1061,18 +1005,17 @@ func (h *BridgeIngestHandler) AckBridgeOutbox(c *gin.Context) {
 	}
 	bm.AckDuration.WithLabel(channel).Observe(float64(time.Since(start).Milliseconds()))
 	c.JSON(http.StatusOK, BridgeOutboxAckResponse{
-		Status:          "ok",
-		AffectedCount:   ackResult.AffectedCount,
-		AckedItemsCount: ackResult.AckedItemsCount,
+		Status:           "ok",
+		AffectedCount:    ackResult.AffectedCount,
+		AckedItemsCount:  ackResult.AckedItemsCount,
 		FailedItemsCount: ackResult.FailedItemsCount,
-		DuplicateCount:  ackResult.DuplicateCount,
-		NotFoundCount:   ackResult.NotFoundCount,
-		NotInScopeCount: ackResult.NotInScopeCount,
-		Items:           ackResult.Items,
+		DuplicateCount:   ackResult.DuplicateCount,
+		NotFoundCount:    ackResult.NotFoundCount,
+		NotInScopeCount:  ackResult.NotInScopeCount,
+		Items:            ackResult.Items,
 	})
 }
 
-// callHandleIngressBatch 走 mock 优先，否则真实 ingress 的 HandleIngressBatch
 func (h *BridgeIngestHandler) callHandleIngressBatch(ctx context.Context, events []*model.MessageEvent) (*service.InboxIngressBatchResult, error) {
 	if h.mockHandle != nil {
 		results := make([]*service.InboxIngressResult, len(events))
@@ -1095,8 +1038,6 @@ func (h *BridgeIngestHandler) callHandleIngressBatch(ctx context.Context, events
 	return h.ingress.HandleIngressBatch(ctx, events)
 }
 
-// httpMessageToEvent 将 HTTP 单条消息转 model.MessageEvent（委托 channelgw 规范化转换器，
-// 与 WS 传输同源；transport 标记 "http" 写入 Extra 供可观测）。
 func httpMessageToEvent(m *HTTPIngestMessage) *model.MessageEvent {
 	if m == nil {
 		return nil
@@ -1105,7 +1046,6 @@ func httpMessageToEvent(m *HTTPIngestMessage) *model.MessageEvent {
 	return m.ToEvent("http")
 }
 
-// httpMessageToUnified HTTP 单条消息 → UnifiedMessage（仅用于 historyItemToEvent 提取 channel/account/conversation）。
 func httpMessageToUnified(m *HTTPIngestMessage) *UnifiedMessage {
 	return &UnifiedMessage{
 		Channel:        m.Channel,
@@ -1119,7 +1059,6 @@ func httpMessageToUnified(m *HTTPIngestMessage) *UnifiedMessage {
 	}
 }
 
-// boolToInt 辅助：false→0, true→1（zap zerolog Field 不接受 bool）
 func boolToInt(b bool) int {
 	if b {
 		return 1
@@ -1127,7 +1066,5 @@ func boolToInt(b bool) int {
 	return 0
 }
 
-// 编译期断言（防止 import 被优化掉）
 var _ = url.Values{}
 var _ = bytes.NewBuffer
-

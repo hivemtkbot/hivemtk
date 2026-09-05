@@ -16,7 +16,6 @@ import (
 	"hivemtk-user/internal/pkg/httpclient"
 )
 
-// dingtalkRobotBase 钉钉群机器人发送基础地址；测试可临时覆盖以指向 mock server。
 var dingtalkRobotBase = "https://oapi.dingtalk.com/robot/send"
 
 // DingTalkService 钉钉群机器人出站服务
@@ -112,7 +111,6 @@ func (s *DingTalkService) SendRobot(ctx context.Context, webhookOrToken, secret,
 	return fmt.Sprintf("dingtalk-%d", time.Now().UnixNano()), nil
 }
 
-// dingtalkSign 计算钉钉机器人加签：HMAC-SHA256(secret, "{timestamp}\n{secret}") 后 base64
 func dingtalkSign(secret string, timestamp int64) string {
 	stringToSign := fmt.Sprintf("%d\n%s", timestamp, secret)
 	mac := hmac.New(sha256.New, []byte(secret))

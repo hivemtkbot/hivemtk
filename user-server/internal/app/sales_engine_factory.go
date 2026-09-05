@@ -18,7 +18,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 // buildSalesEngine 构建智能体销冠引擎（真实依赖注入）
 // 调用方：router.Setup()
 //
@@ -63,7 +62,7 @@ func BuildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 	if confidenceAgg == nil {
 		confidenceAgg = service.InitConfidenceAggregator(gormDB, dispatcher, nil)
 	}
-	_ = confidenceAgg 
+	_ = confidenceAgg
 
 	humanizeSvc := service.GetHumanizeEvalService()
 	if humanizeSvc == nil {
@@ -110,9 +109,6 @@ func BuildSmartOrchestrator(engine *service.SalesEngine, kbRepo *repository.Know
 	o := service.NewSmartCSOrchestrator(engine, cfg, kbRepo)
 	o.SetIdentityService(service.NewCustomerIdentityService())
 
-	// CS-P0-1: 注入 DNC（Do-Not-Contact）全局退订检查器
-	// 修复前 dncChecker 恒为 nil → Bridge/WebSocket/AI 回复等所有入站链路的
-	// checkDNCBlocked 都直接返回 false，DNC 黑名单形同虚设。
 	if gormDB != nil {
 		dncRepo := repository.NewCustomerDoNotContactRepository(gormDB)
 		dncSvc := service.NewDoNotContactService(dncRepo)
@@ -156,4 +152,3 @@ func RegisterAgentPrivateMessageTools(gormDB *gorm.DB) {
 	}
 	logger.Info("[agent] ✅ 私信工具（pm.session.open/read/message.send）已接入全局注册中心")
 }
-

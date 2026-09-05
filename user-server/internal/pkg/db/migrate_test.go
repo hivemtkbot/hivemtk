@@ -164,4 +164,3 @@ func TestAutoMigrate_VeryLargeNumberOfModels(t *testing.T) {
 		t.Errorf("migrate: %v", err)
 	}
 }
-

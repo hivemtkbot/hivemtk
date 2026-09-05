@@ -49,7 +49,6 @@ type AssetBundleRepository interface {
 	ExistsByAssetID(ctx context.Context, assetID string) (bool, error)
 }
 
-// assetBundleRepo GORM 实现
 type assetBundleRepo struct {
 	db *gorm.DB
 }
@@ -59,7 +58,6 @@ func NewAssetBundleRepository(db *gorm.DB) AssetBundleRepository {
 	return &assetBundleRepo{db: db}
 }
 
-// Create 新建资产包
 func (r *assetBundleRepo) Create(ctx context.Context, m *model.AssetBundle) error {
 	if m == nil {
 		return errors.New("asset bundle is nil")
@@ -67,7 +65,6 @@ func (r *assetBundleRepo) Create(ctx context.Context, m *model.AssetBundle) erro
 	return r.db.WithContext(ctx).Create(m).Error
 }
 
-// Update 更新资产包（全字段 save）
 func (r *assetBundleRepo) Update(ctx context.Context, m *model.AssetBundle) error {
 	if m == nil {
 		return errors.New("asset bundle is nil")
@@ -75,22 +72,18 @@ func (r *assetBundleRepo) Update(ctx context.Context, m *model.AssetBundle) erro
 	return r.db.WithContext(ctx).Save(m).Error
 }
 
-// Save 等价 Update（语义别名）
 func (r *assetBundleRepo) Save(ctx context.Context, m *model.AssetBundle) error {
 	return r.Update(ctx, m)
 }
 
-// SoftDelete 软删除
 func (r *assetBundleRepo) SoftDelete(ctx context.Context, id int64) error {
 	return r.db.WithContext(ctx).Delete(&model.AssetBundle{}, id).Error
 }
 
-// HardDelete 硬删除
 func (r *assetBundleRepo) HardDelete(ctx context.Context, id int64) error {
 	return r.db.WithContext(ctx).Unscoped().Delete(&model.AssetBundle{}, id).Error
 }
 
-// FindByID 按主键查
 func (r *assetBundleRepo) FindByID(ctx context.Context, id int64) (*model.AssetBundle, error) {
 	var m model.AssetBundle
 	if err := r.db.WithContext(ctx).First(&m, id).Error; err != nil {
@@ -99,7 +92,6 @@ func (r *assetBundleRepo) FindByID(ctx context.Context, id int64) (*model.AssetB
 	return &m, nil
 }
 
-// FindByAssetID 按业务键查
 func (r *assetBundleRepo) FindByAssetID(ctx context.Context, assetID string) (*model.AssetBundle, error) {
 	var m model.AssetBundle
 	if err := r.db.WithContext(ctx).Where("asset_id = ?", assetID).First(&m).Error; err != nil {
@@ -108,7 +100,6 @@ func (r *assetBundleRepo) FindByAssetID(ctx context.Context, assetID string) (*m
 	return &m, nil
 }
 
-// List 多条件分页查询
 func (r *assetBundleRepo) List(ctx context.Context, f AssetBundleFilter) ([]*model.AssetBundle, int64, error) {
 	var list []*model.AssetBundle
 	var total int64
@@ -149,7 +140,6 @@ func (r *assetBundleRepo) List(ctx context.Context, f AssetBundleFilter) ([]*mod
 	return list, total, err
 }
 
-// ListByAuthor 列出某作者的所有资产包
 func (r *assetBundleRepo) ListByAuthor(ctx context.Context, author string, limit int) ([]*model.AssetBundle, error) {
 	var list []*model.AssetBundle
 	q := r.db.WithContext(ctx).Where("author = ?", author).Order("updated_at DESC")
@@ -160,7 +150,6 @@ func (r *assetBundleRepo) ListByAuthor(ctx context.Context, author string, limit
 	return list, err
 }
 
-// ListActive 列出启用的资产包
 func (r *assetBundleRepo) ListActive(ctx context.Context, limit int) ([]*model.AssetBundle, error) {
 	var list []*model.AssetBundle
 	q := r.db.WithContext(ctx).Where("status = ?", model.AssetBundleStatusActive).Order("use_count DESC, updated_at DESC")
@@ -171,14 +160,12 @@ func (r *assetBundleRepo) ListActive(ctx context.Context, limit int) ([]*model.A
 	return list, err
 }
 
-// IncrementUseCount 累加使用次数
 func (r *assetBundleRepo) IncrementUseCount(ctx context.Context, assetID string) error {
 	return r.db.WithContext(ctx).Model(&model.AssetBundle{}).
 		Where("asset_id = ?", assetID).
 		UpdateColumn("use_count", gorm.Expr("use_count + 1")).Error
 }
 
-// ExistsByAssetID 检查业务键是否存在
 func (r *assetBundleRepo) ExistsByAssetID(ctx context.Context, assetID string) (bool, error) {
 	var c int64
 	if err := r.db.WithContext(ctx).Model(&model.AssetBundle{}).

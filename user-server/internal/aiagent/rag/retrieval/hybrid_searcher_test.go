@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"fmt"
@@ -18,11 +17,6 @@ import (
 // 注意：knowledge_chunks 表用 raw SQL 创建（含 pgvector 列），不能用 AutoMigrate
 type HybridSearcherTestModels struct{}
 
-// setupHybridTestDB 创建混合检索测试 DB（含 knowledge_chunks / knowledge_search_logs 表）
-//
-// 表结构对齐 v2.6.0 + v2.7.0 迁移：
-//   - knowledge_chunks: id, document_id, content, product_id, embedding, content_tsv, contextual_context, contextual_tsv
-//   - knowledge_search_logs: query, product_id, vector_count, bm25_count, ...
 func setupHybridTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	if testing.Short() {
@@ -88,7 +82,6 @@ func setupHybridTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// insertChunk 插入测试 chunk（自动维护 content_tsv）
 func insertChunk(t *testing.T, db *gorm.DB, docID uint, productID string, content string, embedding []float32) {
 	t.Helper()
 	vecLiteral := vecToPGString(embedding)
@@ -101,9 +94,6 @@ func insertChunk(t *testing.T, db *gorm.DB, docID uint, productID string, conten
 	}
 }
 
-// makePrefixVector 前 prefixLen 维为 1.0、其余为 0 的向量
-// 说明：makeFixedVector 产生的同值向量彼此平行（余弦距离全为 0），无法区分相似度排序；
-// 本 helper 通过不同激活前缀长度构造方向可区分的向量（cos = prefixLen/dim）
 func makePrefixVector(dim int, prefixLen int) []float32 {
 	v := make([]float32, dim)
 	for i := 0; i < prefixLen && i < dim; i++ {
@@ -112,7 +102,6 @@ func makePrefixVector(dim int, prefixLen int) []float32 {
 	return v
 }
 
-// waitUntil 每隔 20ms 轮询 cond 直到为真或超时（异步写入的确定性等待，替代固定 sleep）
 func waitUntil(cond func() bool, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	for !cond() {
@@ -136,7 +125,7 @@ func TestHybridSearcher_VectorRetrieve_EndToEnd(t *testing.T) {
 	db := setupHybridTestDB(t)
 
 	mockEmbed := &mockEmbeddingService{
-		vectors: [][]float32{makeFixedVector(1024, 1.0)}, 
+		vectors: [][]float32{makeFixedVector(1024, 1.0)},
 	}
 	searcher := NewHybridSearcher(db, mockEmbed, nil, nil, nil, &HybridSearcherConfig{
 		DefaultTopK:      5,
@@ -199,7 +188,6 @@ func TestHybridSearcher_BM25Retrieve_Fallback(t *testing.T) {
 	}
 }
 
-// insertChunkNoEmbed 插入无 embedding 的 chunk（仅 BM25 可用）
 func insertChunkNoEmbed(t *testing.T, db *gorm.DB, docID uint, productID string, content string) {
 	t.Helper()
 	sql := `
@@ -253,7 +241,7 @@ func TestHybridSearcher_SearchIndex_WithProductFilter(t *testing.T) {
 	})
 
 	insertChunk(t, db, 100, "1", "产品A的退货流程", makeFixedVector(1024, 1.0))
-	insertChunk(t, db, 200, "2", "产品B的退货流程", makeFixedVector(1024, 1.0)) 
+	insertChunk(t, db, 200, "2", "产品B的退货流程", makeFixedVector(1024, 1.0))
 
 	out, err := searcher.SearchIndex(context.Background(), "1", "退货", 5)
 	if err != nil {
@@ -321,7 +309,6 @@ func TestHybridSearcher_LogSearch_WritesToDB(t *testing.T) {
 		t.Fatalf("Search failed: %v", err)
 	}
 
-	// 验证 knowledge_search_logs 表有记录（logSearch 为异步 fire-and-forget，轮询等待）
 	logWritten := waitUntil(func() bool {
 		var count int64
 		if err := db.Raw(`SELECT COUNT(*) FROM knowledge_search_logs`).Scan(&count).Error; err != nil {
@@ -348,7 +335,7 @@ func TestHybridSearcher_RerankerFailed_FallbackToFused(t *testing.T) {
 	searcher := NewHybridSearcher(db, mockEmbed, failingReranker, nil, nil, &HybridSearcherConfig{
 		EnableHyDE:       false,
 		EnableMultiQuery: false,
-		EnableRerank:     true, 
+		EnableRerank:     true,
 	})
 
 	insertChunk(t, db, 100, "1", "测试内容1", makeFixedVector(1024, 1.0))
@@ -363,7 +350,6 @@ func TestHybridSearcher_RerankerFailed_FallbackToFused(t *testing.T) {
 	}
 }
 
-// mockReranker mock RerankerInterface
 type mockReranker struct {
 	err error
 }
@@ -381,6 +367,4 @@ func (m *mockReranker) Rerank(_ context.Context, _ string, docs []RerankDoc) ([]
 
 var _ RerankerInterface = (*mockReranker)(nil)
 
-// 兼容性引用（防止 import 报未使用）
 var _ = llm.EmbeddingServiceInterface(nil)
-

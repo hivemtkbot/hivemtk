@@ -94,7 +94,7 @@ func (s *HelpCenterService) Articles(ctx context.Context, category, q string, li
 	for _, r := range rows {
 		out = append(out, &HCArticleRow{ID: r.ID, Title: r.Title, Category: r.Category, UpdatedAt: r.UpdatedAt})
 	}
-	// 摘要：批量取每篇首个 chunk 前 180 字
+
 	if len(out) > 0 {
 		ids := make([]uint64, 0, len(out))
 		for _, a := range out {

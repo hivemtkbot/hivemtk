@@ -1,6 +1,5 @@
 package controller
 
-
 import (
 	"context"
 	"fmt"
@@ -170,6 +169,3 @@ func (c *SSEDashboardController) Stats(ctx *gin.Context) {
 	}
 	response.Success(ctx, stats, "ok")
 }
-
-
-

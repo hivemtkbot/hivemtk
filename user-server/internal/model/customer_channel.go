@@ -12,20 +12,20 @@ import (
 // 主表 Customer 记录最常用的身份字段（首渠道），其余渠道身份存此表。
 // 自动同步：所有渠道 webhook 入站时自动 Upsert（按 OneID + channel）。
 type CustomerChannel struct {
-	ID            uint      `gorm:"primaryKey" json:"id"`
-	OneID         string    `gorm:"type:varchar(64);index;uniqueIndex:idx_oneid_channel" json:"one_id"`
-	Channel       string    `gorm:"type:varchar(32);uniqueIndex:idx_oneid_channel" json:"channel"`
-	ChannelUserID string    `gorm:"type:varchar(128);index" json:"channel_user_id"`
-	ChannelName   string    `gorm:"type:varchar(128)" json:"channel_name"`
-	AccountID     string    `gorm:"type:varchar(64);index" json:"account_id"`
-	GroupID       string    `gorm:"type:varchar(64)" json:"group_id,omitempty"`
-	IsGroup       bool      `gorm:"default:false" json:"is_group"`
-	IsPrimary     bool      `gorm:"default:false" json:"is_primary"`        // 是否首选渠道
-	PreferredRank int       `gorm:"default:0" json:"preferred_rank"`        // 触达优先级（数字越小越靠前）
-	LastSeenAt    time.Time `gorm:"autoUpdateTime" json:"last_seen_at"`
-	FirstSeenAt   time.Time `gorm:"autoCreateTime" json:"first_seen_at"`
-	CreatedAt     time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt     time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	ID            uint           `gorm:"primaryKey" json:"id"`
+	OneID         string         `gorm:"type:varchar(64);index;uniqueIndex:idx_oneid_channel" json:"one_id"`
+	Channel       string         `gorm:"type:varchar(32);uniqueIndex:idx_oneid_channel" json:"channel"`
+	ChannelUserID string         `gorm:"type:varchar(128);index" json:"channel_user_id"`
+	ChannelName   string         `gorm:"type:varchar(128)" json:"channel_name"`
+	AccountID     string         `gorm:"type:varchar(64);index" json:"account_id"`
+	GroupID       string         `gorm:"type:varchar(64)" json:"group_id,omitempty"`
+	IsGroup       bool           `gorm:"default:false" json:"is_group"`
+	IsPrimary     bool           `gorm:"default:false" json:"is_primary"`
+	PreferredRank int            `gorm:"default:0" json:"preferred_rank"`
+	LastSeenAt    time.Time      `gorm:"autoUpdateTime" json:"last_seen_at"`
+	FirstSeenAt   time.Time      `gorm:"autoCreateTime" json:"first_seen_at"`
+	CreatedAt     time.Time      `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt     time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 

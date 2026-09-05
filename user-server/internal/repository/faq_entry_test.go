@@ -10,7 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// boolPtr 工具函数,把 bool 转成 *bool (GORM v2 零值 false 处理)
 func boolPtr(v bool) *bool { return &v }
 
 func setupFAQTestDB(t *testing.T) *gorm.DB {
@@ -22,7 +21,6 @@ func setupFAQTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// setupFAQRepoWithTX 创建 repo + 一个会自动 rollback 的 tx, 隔离数据
 func setupFAQRepoWithTX(t *testing.T) (repo *FAQRepository, tx *gorm.DB, cleanup func()) {
 	t.Helper()
 	db := setupFAQTestDB(t)

@@ -162,4 +162,3 @@ func TestChurnStatistics_BasicFields(t *testing.T) {
 		t.Errorf("Expected ChurnRate 5.0, got %f", stats.ChurnRate)
 	}
 }
-

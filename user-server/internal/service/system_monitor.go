@@ -72,11 +72,6 @@ func sampleResourceUsage() {
 	diskSnapshot.Store(sampleDiskOnce())
 }
 
-// sampleCPUOnce / sampleDiskOnce 为平台相关实现，按构建标签拆分：
-// Unix 见 system_monitor_unix.go（getrusage / statfs），
-// Windows 见 system_monitor_windows.go（GetProcessTimes / GetDiskFreeSpaceEx）。
-
-// cpuUsagePercent 由两次 CPU 时间快照与墙钟间隔计算归一化 CPU 使用率（%）。
 func cpuUsagePercent(cpu1, cpu2 time.Duration, t1, t2 time.Time) float64 {
 	cpuDelta := cpu2 - cpu1
 	wallDelta := t2.Sub(t1)
@@ -90,7 +85,6 @@ func cpuUsagePercent(cpu1, cpu2 time.Duration, t1, t2 time.Time) float64 {
 	return clampPercent(float64(cpuDelta) / float64(wallDelta) * 100 / float64(numCPU))
 }
 
-// clampPercent 将百分比截断到 [0, 100]。
 func clampPercent(usage float64) float64 {
 	if usage < 0 {
 		return 0

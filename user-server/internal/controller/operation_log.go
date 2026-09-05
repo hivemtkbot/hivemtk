@@ -163,7 +163,6 @@ func (c *OperationLogController) ExportLogs(ctx *gin.Context) {
 		return
 	}
 
-	// 构造 CSV
 	var buf bytes.Buffer
 	writer := csv.NewWriter(&buf)
 	_ = writer.Write([]string{"ID", "Module", "Action", "Username", "IP", "CreatedAt"})
@@ -192,7 +191,7 @@ func (c *OperationLogController) CleanLogs(ctx *gin.Context) {
 		BeforeDate string `json:"before_date"`
 		Days       int    `json:"days"`
 	}
-	// 兼容前端不传 body 的情况：EOF 视为空请求体，走默认值
+
 	if err := ctx.ShouldBindJSON(&req); err != nil && err.Error() != "EOF" {
 		response.Error(ctx, http.StatusBadRequest, "参数错误: "+err.Error())
 		return
@@ -246,4 +245,3 @@ func (c *OperationLogController) DeleteLogs(ctx *gin.Context) {
 		"deleted_count": count,
 	}, "删除成功")
 }
-

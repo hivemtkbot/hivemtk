@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupScriptTemplateTestDB 设置话术模板测试数据库
 func setupScriptTemplateTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.ScriptTemplate{},
@@ -22,7 +21,6 @@ func setupScriptTemplateTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupScriptTemplateRepositories 创建测试用的仓库实例
 func setupScriptTemplateRepositories(t *testing.T) (*ScriptTemplateRepository, *ScriptCategoryRepository, *ScriptRecommendRepository) {
 	setupScriptTemplateTestDB(t)
 
@@ -381,7 +379,6 @@ func TestScriptCategoryRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	// 由于没有 GetByID，我们直接查询数据库验证
 	var updated model.ScriptCategory
 	db.GetDB().First(&updated, category.ID)
 	if updated.Name != "Updated Name" {
@@ -513,7 +510,6 @@ func TestScriptRecommendRepository_MarkAsUsed(t *testing.T) {
 		t.Errorf("MarkAsUsed() error = %v", err)
 	}
 
-	// 验证
 	var updated model.ScriptRecommend
 	db.GetDB().First(&updated, record.ID)
 	if !updated.IsUsed {
@@ -523,4 +519,3 @@ func TestScriptRecommendRepository_MarkAsUsed(t *testing.T) {
 		t.Error("Expected UsedAt to be set")
 	}
 }
-

@@ -117,4 +117,3 @@ func (c *EmailDraftController) DeleteEmailDraft(ctx *gin.Context) {
 	}
 	response.Success(ctx, nil, "删除成功")
 }
-

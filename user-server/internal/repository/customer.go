@@ -12,12 +12,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// txContextKey 事务上下文 key（OPT-ARC-06）
 type txContextKey struct{}
 
-// dbFromCtx 从 ctx 提取事务句柄；不在事务中则回退全局连接池。
-// WithTransaction 写入的 tx 由本函数消费——使仓储方法真正参与外层事务，
-// 修复"假事务"缺陷（此前 tx 存入 ctx 后无任何读取方，合并客户实际逐条自动提交）。
 func dbFromCtx(ctx context.Context) *gorm.DB {
 	if tx, ok := ctx.Value(txContextKey{}).(*gorm.DB); ok && tx != nil {
 		return tx
@@ -74,7 +70,6 @@ type CustomerSearchFilter struct {
 	PageSize      int
 }
 
-// customerRepository implements CustomerRepository
 type customerRepository struct{}
 
 // NewCustomerRepository creates a new CustomerRepository instance
@@ -82,12 +77,10 @@ func NewCustomerRepository() CustomerRepository {
 	return &customerRepository{}
 }
 
-// Create creates a new customer
 func (r *customerRepository) Create(ctx context.Context, customer *model.Customer) error {
 	return dbFromCtx(ctx).Create(customer).Error
 }
 
-// GetByID retrieves a customer by ID
 func (r *customerRepository) GetByID(ctx context.Context, id string) (*model.Customer, error) {
 	var customer model.Customer
 	if err := dbFromCtx(ctx).First(&customer, "id = ?", id).Error; err != nil {
@@ -99,7 +92,6 @@ func (r *customerRepository) GetByID(ctx context.Context, id string) (*model.Cus
 	return &customer, nil
 }
 
-// GetByUnifiedID retrieves a customer by unified ID
 func (r *customerRepository) GetByUnifiedID(ctx context.Context, unifiedID string) (*model.Customer, error) {
 	var customer model.Customer
 	if err := dbFromCtx(ctx).First(&customer, "unified_id = ?", unifiedID).Error; err != nil {
@@ -111,7 +103,6 @@ func (r *customerRepository) GetByUnifiedID(ctx context.Context, unifiedID strin
 	return &customer, nil
 }
 
-// GetByPhone retrieves a customer by phone
 func (r *customerRepository) GetByPhone(ctx context.Context, phone string) (*model.Customer, error) {
 	var customer model.Customer
 	if err := dbFromCtx(ctx).First(&customer, "phone = ?", phone).Error; err != nil {
@@ -123,7 +114,6 @@ func (r *customerRepository) GetByPhone(ctx context.Context, phone string) (*mod
 	return &customer, nil
 }
 
-// GetByPhoneHash retrieves a customer by phone hash (P0-05 隐私合规)
 func (r *customerRepository) GetByPhoneHash(ctx context.Context, phoneHash string) (*model.Customer, error) {
 	var customer model.Customer
 	if err := dbFromCtx(ctx).First(&customer, "phone_hash = ?", phoneHash).Error; err != nil {
@@ -135,7 +125,6 @@ func (r *customerRepository) GetByPhoneHash(ctx context.Context, phoneHash strin
 	return &customer, nil
 }
 
-// GetByEmail retrieves a customer by email
 func (r *customerRepository) GetByEmail(ctx context.Context, email string) (*model.Customer, error) {
 	var customer model.Customer
 	if err := dbFromCtx(ctx).First(&customer, "email = ?", email).Error; err != nil {
@@ -147,7 +136,6 @@ func (r *customerRepository) GetByEmail(ctx context.Context, email string) (*mod
 	return &customer, nil
 }
 
-// GetByWechatOpenID retrieves a customer by Wechat OpenID
 func (r *customerRepository) GetByWechatOpenID(ctx context.Context, openID string) (*model.Customer, error) {
 	var customer model.Customer
 	if err := dbFromCtx(ctx).First(&customer, "wechat_open_id = ?", openID).Error; err != nil {
@@ -159,7 +147,6 @@ func (r *customerRepository) GetByWechatOpenID(ctx context.Context, openID strin
 	return &customer, nil
 }
 
-// GetByDouyinOpenID retrieves a customer by Douyin OpenID
 func (r *customerRepository) GetByDouyinOpenID(ctx context.Context, openID string) (*model.Customer, error) {
 	var customer model.Customer
 	if err := dbFromCtx(ctx).First(&customer, "douyin_open_id = ?", openID).Error; err != nil {
@@ -171,18 +158,14 @@ func (r *customerRepository) GetByDouyinOpenID(ctx context.Context, openID strin
 	return &customer, nil
 }
 
-// Update updates an existing customer
 func (r *customerRepository) Update(ctx context.Context, customer *model.Customer) error {
 	return dbFromCtx(ctx).Save(customer).Error
 }
 
-// Delete deletes a customer by ID
 func (r *customerRepository) Delete(ctx context.Context, id string) error {
 	return dbFromCtx(ctx).Delete(&model.Customer{}, "id = ?", id).Error
 }
 
-// List retrieves customers with pagination.
-// keyword 对 phone / email / unified_id 做大小写不敏感模糊匹配（为空则忽略）。
 func (r *customerRepository) List(ctx context.Context, page, limit int, keyword string) ([]*model.Customer, int64, error) {
 	var customers []*model.Customer
 	var total int64
@@ -207,7 +190,6 @@ func (r *customerRepository) List(ctx context.Context, page, limit int, keyword 
 	return customers, total, nil
 }
 
-// FindByIdentity finds a customer by any identity field
 func (r *customerRepository) FindByIdentity(ctx context.Context, phone, email, wechatOpenID, douyinOpenID, xiaohongshuID string) (*model.Customer, error) {
 	var customer model.Customer
 	query := dbFromCtx(ctx)
@@ -252,8 +234,6 @@ func (r *customerRepository) FindByIdentity(ctx context.Context, phone, email, w
 	return &customer, nil
 }
 
-// FindByIdentityAll 返回所有匹配任一身份标识的客户（多条），供合并场景检测历史分裂。
-// 与 FindByIdentity（单条）不同，不会因 First 截断而漏掉同标识的第二条客户。
 func (r *customerRepository) FindByIdentityAll(ctx context.Context, phone, email, wechatOpenID, douyinOpenID, xiaohongshuID string) ([]*model.Customer, error) {
 	query := dbFromCtx(ctx)
 
@@ -296,8 +276,6 @@ func (r *customerRepository) FindByIdentityAll(ctx context.Context, phone, email
 	return customers, nil
 }
 
-// CountNotEmpty 统计指定字段非空的客户数
-// fieldName: phone / email / wechat_open_id / douyin_open_id / xiaohongshu_id
 func (r *customerRepository) CountNotEmpty(ctx context.Context, fieldName string) (int64, error) {
 	if fieldName == "" {
 		return 0, nil
@@ -320,8 +298,6 @@ func (r *customerRepository) CountNotEmpty(ctx context.Context, fieldName string
 	return n, nil
 }
 
-// CountMultiIdentity 统计具有 2 个及以上身份标识的客户数
-// 多身份：phone+email / phone+openid 等任意两种以上
 func (r *customerRepository) CountMultiIdentity(ctx context.Context) (int64, error) {
 	expr := "(CASE WHEN phone IS NOT NULL AND phone <> '' THEN 1 ELSE 0 END) + " +
 		"(CASE WHEN email IS NOT NULL AND email <> '' THEN 1 ELSE 0 END) + " +
@@ -337,8 +313,6 @@ func (r *customerRepository) CountMultiIdentity(ctx context.Context) (int64, err
 	return n, nil
 }
 
-// ReassignSessionOneID 合并时将次要客户会话聚合到主客户。
-// 按 one_id 将 customer_sessions 中 oldOneID 的记录改为 newOneID（幂等 UPDATE，无匹配不报错）。
 func (r *customerRepository) ReassignSessionOneID(ctx context.Context, oldOneID, newOneID string) error {
 	if oldOneID == "" || newOneID == "" || oldOneID == newOneID {
 		return nil
@@ -349,9 +323,6 @@ func (r *customerRepository) ReassignSessionOneID(ctx context.Context, oldOneID,
 		Update("one_id", newOneID).Error
 }
 
-// ReassignOneID CS-P0-3: 通用 OneID 重定向（普通表）。
-// 将指定表中 one_id = oldOneID 的记录改为 newOneID（幂等，无匹配不报错）。
-// 调用方需确保表名合法（gorm TableName 常量对应的字符串），禁止拼接外部输入。
 func (r *customerRepository) ReassignOneID(ctx context.Context, table, oldOneID, newOneID string) error {
 	if table == "" || oldOneID == "" || newOneID == "" || oldOneID == newOneID {
 		return nil
@@ -362,18 +333,12 @@ func (r *customerRepository) ReassignOneID(ctx context.Context, table, oldOneID,
 		Update("one_id", newOneID).Error
 }
 
-// ReassignDNCOneID CS-P0-3: DNC 重定向（处理唯一索引冲突）。
-// customer_do_not_contact 有唯一索引 (one_id, channel)，合并时 secondary 的某些
-// (oldOneID, channel) 可能与 primary 的 (newOneID, channel) 冲突。
-// 本方法先删除 primary 侧已存在的 channel 行（保留 primary 自己的退订时间/来源），
-// 再把 secondary 的 one_id 改为 newOneID。整个过程参与外层事务。
 func (r *customerRepository) ReassignDNCOneID(ctx context.Context, oldOneID, newOneID string) error {
 	if oldOneID == "" || newOneID == "" || oldOneID == newOneID {
 		return nil
 	}
 	db := dbFromCtx(ctx)
-	// 先收集 secondary 有但 primary 也有相同 channel 的行，删除 primary 侧的
-	// （保留 primary 端自己的 Block 记录，因为 primary 的 block 时间/来源更可信）
+
 	dupSubQuery := db.
 		Table("customer_do_not_contact").
 		Where("one_id = ?", oldOneID).
@@ -384,16 +349,13 @@ func (r *customerRepository) ReassignDNCOneID(ctx context.Context, oldOneID, new
 		Delete(nil).Error; err != nil {
 		return fmt.Errorf("delete duplicate DNC rows: %w", err)
 	}
-	// 再把 secondary 的 one_id 改为 newOneID（幂等）
+
 	return db.
 		Table("customer_do_not_contact").
 		Where("one_id = ?", oldOneID).
 		Update("one_id", newOneID).Error
 }
 
-// WithTransaction 事务封装（OPT-ARC-06）
-// 在事务中执行 fn，fn 内部应使用 txCtx 而非原 ctx。
-// 任意 return err 自动 Rollback，nil 自动 Commit。
 func (r *customerRepository) WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
 	return _db.GetDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		txCtx := context.WithValue(ctx, txContextKey{}, tx)
@@ -401,12 +363,6 @@ func (r *customerRepository) WithTransaction(ctx context.Context, fn func(ctx co
 	})
 }
 
-// ListByIDs 批量按 ID 拉取客户，返回按 ID 索引的 map（CC- N+1 优化）
-//
-// 单次 SQL：SELECT * FROM customers WHERE id IN (...)。
-// 入参 ids 去重 + 跳过空串；未命中的 ID 不会出现在结果 map 中。
-// 用于 ComputeAll / ListCustomersWithProfile 等"先 List 再 GetByID"场景，
-// 把 N 次 IO 收敛为 1 次。
 func (r *customerRepository) ListByIDs(ctx context.Context, ids []string) (map[string]*model.Customer, error) {
 	result := make(map[string]*model.Customer, len(ids))
 	if len(ids) == 0 {
@@ -440,14 +396,6 @@ func (r *customerRepository) ListByIDs(ctx context.Context, ids []string) (map[s
 	return result, nil
 }
 
-// GetByXiaohongshuID 按小红书 ID 查询客户
-//
-// 五层架构修复：tooluse 包 customer.search 工具原直接调用 t.deps.DB.Where("xiaohongshu_id = ?"),
-// 违反"service/tooluse 不可直接访问 DB"约束。本方法将查询下沉到 repository 层。
-//
-// 返回：
-//   - 找到: 返回客户指针
-//   - 未找到: 返回 (nil, nil)（与 GetByPhone 等同身份查询接口保持一致）
 func (r *customerRepository) GetByXiaohongshuID(ctx context.Context, xhsID string) (*model.Customer, error) {
 	if xhsID == "" {
 		return nil, nil
@@ -462,19 +410,6 @@ func (r *customerRepository) GetByXiaohongshuID(ctx context.Context, xhsID strin
 	return &customer, nil
 }
 
-// SearchByFilter 按过滤条件分页查询客户
-//
-// 五层架构修复：tooluse 包 customer.segment 工具原直接构造 t.deps.DB.Model().Where() 链,
-// 违反"service/tooluse 不可直接访问 DB"约束。本方法将整条查询链下沉到 repository 层。
-//
-// 支持的过滤条件（与 customer.segment 工具 args 一一对应）：
-//   - filter.Tag: tags::jsonb @> '["tag"]'
-//   - filter.RFMMin/RFMMax（需配合 HasRFMMin/HasRFMMax 才生效）: rfm_score 范围
-//   - filter.ChurnRisk: churn_risk 等值
-//   - filter.CreatedAfter/CreatedBefore: created_at 范围
-//   - filter.Page/filter.PageSize: 分页（1-based，PageSize 上限 100）
-//
-// 返回：切片 + 总数 + 错误
 func (r *customerRepository) SearchByFilter(ctx context.Context, filter CustomerSearchFilter) ([]*model.Customer, int64, error) {
 	page := filter.Page
 	if page <= 0 {
@@ -525,8 +460,6 @@ func (r *customerRepository) SearchByFilter(ctx context.Context, filter Customer
 	return customers, total, nil
 }
 
-// escapeJSONString 转义 JSON 字符串（防止 tag 注入）
-// 内部使用：仅供 SearchByFilter 拼 JSON 数组字面量时转义 tag 值
 func escapeJSONString(s string) string {
 	out := make([]byte, 0, len(s)+2)
 	for i := 0; i < len(s); i++ {

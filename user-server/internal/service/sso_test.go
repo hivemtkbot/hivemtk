@@ -36,7 +36,6 @@ import (
 
 const testOIDCIssuer = "https://test-idp.example.com"
 
-// mockOIDCTransport 拦截 discovery / jwks / token 请求的 mock RoundTripper
 type mockOIDCTransport struct {
 	priv          *rsa.PrivateKey
 	tokenIssuer   string
@@ -117,7 +116,6 @@ func (m *mockOIDCTransport) jsonResponse(status int, body any) (*http.Response, 
 	}, nil
 }
 
-// respBody 简单 io.ReadCloser
 type respBody struct {
 	data []byte
 	off  int
@@ -133,10 +131,6 @@ func (b *respBody) Read(p []byte) (int, error) {
 }
 func (b *respBody) Close() error { return nil }
 
-// setupSSOServiceTest 搭建 SSO mock OIDC 环境（不再创建 DB，避免重建表清空预置数据）
-//
-// 调用方应先 testutil.NewTestDB 注册模型并 db.SetTestDB，再传入 database。
-// 返回：mock transport（discovery / jwks / token）。
 func setupSSOServiceTest(t *testing.T, database *gorm.DB) *mockOIDCTransport {
 	t.Helper()
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -153,7 +147,6 @@ func setupSSOServiceTest(t *testing.T, database *gorm.DB) *mockOIDCTransport {
 	}
 }
 
-// ssoTestConfig 构造启用了通用 OIDC provider 的测试配置
 func ssoTestConfig(autoProvision bool) config.SSOConfig {
 	return config.SSOConfig{
 		Enabled: true,
@@ -171,7 +164,6 @@ func ssoTestConfig(autoProvision bool) config.SSOConfig {
 	}
 }
 
-// newTestSSOService 用指定配置 + 测试 DB 构建服务并注入 mock HTTP client
 func newTestSSOService(t *testing.T, database *gorm.DB, cfg config.SSOConfig, mt *mockOIDCTransport) *SSOService {
 	t.Helper()
 	svc := NewSSOServiceWithRepos(
@@ -247,7 +239,6 @@ func TestSSOService_HandleCallback_AutoProvision(t *testing.T) {
 		t.Errorf("expected username alice, got %+v", result.User)
 	}
 
-	// 校验本地用户已创建
 	var users []model.SystemUser
 	if err := database.Where("username = ?", "alice").Find(&users).Error; err != nil || len(users) != 1 {
 		t.Fatalf("expected 1 provisioned user, got %d (err=%v)", len(users), err)
@@ -259,7 +250,6 @@ func TestSSOService_HandleCallback_AutoProvision(t *testing.T) {
 		t.Error("SSO user should have a hashed random password")
 	}
 
-	// 校验身份绑定已落库
 	var identities []model.SSOIdentity
 	if err := database.Where("provider = ? AND subject = ?", "generic", "user-123").Find(&identities).Error; err != nil || len(identities) != 1 {
 		t.Fatalf("expected 1 sso identity, got %d (err=%v)", len(identities), err)
@@ -390,7 +380,6 @@ func TestSSOService_HandleCallback_EmailMatchWithoutAutoProvision(t *testing.T) 
 		t.Errorf("expected existing user returned, got %+v", result.User)
 	}
 
-	// 身份绑定到已有用户
 	var identities []model.SSOIdentity
 	database.Where("provider = ? AND subject = ?", "generic", "user-123").Find(&identities)
 	if len(identities) != 1 || identities[0].UserID != existing.ID {

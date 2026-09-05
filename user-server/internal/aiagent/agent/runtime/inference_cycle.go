@@ -10,7 +10,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 // EpisodicMemoryProvider 跨会话情境记忆提供者（E1 补全）
 // 由外部注入，InferenceCycle 在 RunOnce 开头调用 LoadEpisodicMemory 读取
 // 跨会话上下文（L1/L2/L3/L4 汇总），填入 InferenceContext.EpisodicMemory，
@@ -108,7 +107,6 @@ func (c *InferenceCycle) SetReviewerStage(r InferenceStage) {
 	defer c.mu.Unlock()
 	c.ReviewerStage = r
 }
-
 
 // RunOnce 执行一次完整推理闭环
 //
@@ -286,8 +284,6 @@ func (c *InferenceCycle) RunOnce(ctx context.Context, payload CustomerMessagePay
 	return &ic.Decision, nil
 }
 
-
-// mergeDecision 合并两个决策（早退决策优先）
 func mergeDecision(base, override InferenceDecision) InferenceDecision {
 	merged := base
 	if override.HandoffToHuman {
@@ -321,7 +317,6 @@ func mergeDecision(base, override InferenceDecision) InferenceDecision {
 	return merged
 }
 
-// reviewPassedOf 安全获取 Review.Passed
 func reviewPassedOf(r *ReviewResult) any {
 	if r == nil {
 		return "n/a"
@@ -329,7 +324,6 @@ func reviewPassedOf(r *ReviewResult) any {
 	return r.Passed
 }
 
-// planTypeOf 安全获取 PlanType
 func planTypeOf(p *ActionPlan) string {
 	if p == nil {
 		return "none"
@@ -337,7 +331,6 @@ func planTypeOf(p *ActionPlan) string {
 	return p.PlanType
 }
 
-// recordStats 记录统计
 func (c *InferenceCycle) recordStats(d InferenceDecision) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -383,7 +376,6 @@ func (c *InferenceCycle) Reset() {
 	c.lastStats = CycleStats{}
 }
 
-
 // ErrInferenceTimeout 推理超时
 var ErrInferenceTimeout = errors.New("inference cycle timeout")
 
@@ -400,4 +392,3 @@ func ValidatePayload(p CustomerMessagePayload) error {
 	}
 	return nil
 }
-

@@ -23,7 +23,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// 邮件追踪 token 签名密钥（仅来自环境变量 EMAIL_TRACKING_SECRET，源码不含硬编码密钥）
 const emailTrackingSecretEnv = "EMAIL_TRACKING_SECRET"
 
 const emailTrackingDefaultSecret = "marketing-tools-kit-email-tracking-dev-secret"
@@ -72,7 +71,6 @@ func (s *EmailTrackingService) GenerateClickTrackingLink(ctx context.Context, em
 		strings.TrimRight(base, "/"), token, url.QueryEscape(targetURL)), nil
 }
 
-// generateToken 生成签名 token
 func (s *EmailTrackingService) generateToken(ctx context.Context, email, jobID, tokenType, target string) (string, error) {
 	email = normalizeEmail(email)
 	if email == "" {
@@ -159,9 +157,6 @@ func (s *EmailTrackingService) RecordUnsubscribeEvent(ctx context.Context, email
 	return s.recordEvent(ctx, email, jobID, model.EmailEventTypeUnsubscribe, "", ip, ua)
 }
 
-// recordEvent 内部统一记录事件（幂等）
-// target 用于区分同类事件的不同对象（例如点击的不同链接 URL）；为空时仅按 (email,job,type) 去重，
-// 避免邮件被重复打开/点击时被重复计数，保证打开率/点击率等指标准确。
 func (s *EmailTrackingService) recordEvent(ctx context.Context, email, jobID, eventType, target, ip, ua string) error {
 	email = normalizeEmail(email)
 	if email == "" {
@@ -199,8 +194,6 @@ func (s *EmailTrackingService) recordEvent(ctx context.Context, email, jobID, ev
 	return nil
 }
 
-// deriveTrackingEventID 由去重维度生成稳定的事件ID，保证同一事件只落一条记录。
-// 取 SHA256 前 32 位十六进制（128 bit），既保证确定性去重，又落在 event_id 列 varchar(36) 长度内。
 func deriveTrackingEventID(email, jobID, eventType, target string) string {
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%s|%s", email, jobID, eventType, target)))
 	return hex.EncodeToString(sum[:])[:32]
@@ -327,24 +320,20 @@ func (s *EmailTrackingService) ListJobEvents(ctx context.Context, jobID string, 
 	return s.repo.ListEventsByJob(ctx, jobID, page, limit)
 }
 
-// sign 使用 HMAC-SHA256 计算签名
 func (s *EmailTrackingService) sign(ctx context.Context, data []byte) string {
 	mac := hmac.New(sha256.New, []byte(s.secret(ctx)))
 	mac.Write(data)
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
-// secret 读取追踪签名密钥（v3 审计 P2：缺失时 fail-closed）
 func (s *EmailTrackingService) secret(ctx context.Context) string {
 	return os.Getenv(emailTrackingSecretEnv)
 }
 
-// baseURL 读取对外可访问的基础 URL
 func (s *EmailTrackingService) baseURL(ctx context.Context) string {
 	return config.GetServerBaseURL()
 }
 
-// round2 保留 2 位小数
 func round2(v float64) float64 {
 	return math.Round(v*100) / 100
 }

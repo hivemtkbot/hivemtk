@@ -14,7 +14,7 @@ import (
 // LLMRoutingController LLM 路由控制器
 type LLMRoutingController struct {
 	routingService *service.LLMRoutingService
-	failoverSvc    *service.LLMFailoverService 
+	failoverSvc    *service.LLMFailoverService
 }
 
 // NewLLMRoutingController 创建 LLM 路由控制器
@@ -26,7 +26,6 @@ func NewLLMRoutingController(routingService *service.LLMRoutingService) *LLMRout
 func (c *LLMRoutingController) SetFailover(f *service.LLMFailoverService) {
 	c.failoverSvc = f
 }
-
 
 // ListModels 列出所有 LLM provider
 //
@@ -138,7 +137,7 @@ func (c *LLMRoutingController) TestModel(ctx *gin.Context) {
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		req = service.TestModelRequest{}
 	}
-	req.Provider = resolved 
+	req.Provider = resolved
 	result, err := c.routingService.TestModel(ctx.Request.Context(), req)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
@@ -146,7 +145,6 @@ func (c *LLMRoutingController) TestModel(ctx *gin.Context) {
 	}
 	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": result})
 }
-
 
 // ListStrategies 列出所有场景路由
 //
@@ -180,7 +178,7 @@ func (c *LLMRoutingController) UpdateStrategies(ctx *gin.Context) {
 //
 // Body 兼容：{ routes: [...] } 或 { scenario: "...", provider: "...", fallbacks: [...] }
 func (c *LLMRoutingController) UpdateSceneRouting(ctx *gin.Context) {
-	// 尝试解析成 UpdateStrategiesRequest
+
 	var req service.UpdateStrategiesRequest
 	if err := ctx.ShouldBindJSON(&req); err == nil && len(req.Routes) > 0 {
 		if err := c.routingService.UpdateStrategies(ctx.Request.Context(), req); err != nil {
@@ -190,7 +188,7 @@ func (c *LLMRoutingController) UpdateSceneRouting(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": req.Routes})
 		return
 	}
-	// 兼容单 route 形式
+
 	var single service.LLMScenarioRoute
 	if err := ctx.ShouldBindJSON(&single); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid body: " + err.Error()})
@@ -216,7 +214,6 @@ func (c *LLMRoutingController) ListAuditHistory(ctx *gin.Context) {
 	}
 	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": rows})
 }
-
 
 // Stats 进程内实时 provider 维度统计
 //
@@ -257,7 +254,7 @@ func (c *LLMRoutingController) CostStats(ctx *gin.Context) {
 		"total_calls":    summary.TotalCalls,
 		"by_scenario":    summary.ByScenario,
 		"by_provider":    summary.ByProvider,
-		"by_model":       summary.ByProvider, 
+		"by_model":       summary.ByProvider,
 		"enabled_models": summary.EnabledModels,
 		"active_models":  summary.ActiveModels,
 	}
@@ -281,7 +278,6 @@ func (c *LLMRoutingController) FallbackConfig(ctx *gin.Context) {
 	}
 	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": out})
 }
-
 
 // ListScenarios 场景列表（与 strategies 同义）
 //
@@ -498,4 +494,3 @@ func (c *LLMRoutingController) EgressAlerts(ctx *gin.Context) {
 func (c *LLMRoutingController) EgressAudit(ctx *gin.Context) {
 	c.EgressAlerts(ctx)
 }
-

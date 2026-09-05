@@ -31,7 +31,6 @@ func NewCustomerProfileInsightRepositoryWithDB(db *gorm.DB) CustomerProfileInsig
 	return &customerProfileInsightRepository{db: db}
 }
 
-// MessageHourHistogram 轻量 SQL：单条 GROUP BY 按小时聚合最近消息（P-4 PreferredTime 来源）。
 func (r *customerProfileInsightRepository) MessageHourHistogram(ctx context.Context, sessionIDs []string, since time.Time) (map[int]int64, error) {
 	out := make(map[int]int64)
 	if r.db == nil || len(sessionIDs) == 0 {

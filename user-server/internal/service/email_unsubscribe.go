@@ -19,10 +19,8 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// 邮件退订 token 有效期（30 天），合规要求退订链接在合理时长内可用
 const emailUnsubscribeTokenTTL = 30 * 24 * time.Hour
 
-// 邮件退订 token 签名密钥（仅来自环境变量 EMAIL_UNSUBSCRIBE_SECRET，源码不含硬编码密钥）
 const emailUnsubscribeSecretEnv = "EMAIL_UNSUBSCRIBE_SECRET"
 
 const emailUnsubscribeDefaultSecret = "marketing-tools-kit-email-unsubscribe-dev-secret"
@@ -196,7 +194,6 @@ func (s *EmailUnsubscribeService) ListAllUnsubscribes(ctx context.Context) ([]*m
 	return s.repo.ListAll(ctx)
 }
 
-// sign 使用 HMAC-SHA256 计算签名（密钥未配置时返回空串，调用方必须视为失败）
 func (s *EmailUnsubscribeService) sign(ctx context.Context, data []byte) string {
 	sec := s.secret(ctx)
 	if sec == "" {
@@ -207,18 +204,14 @@ func (s *EmailUnsubscribeService) sign(ctx context.Context, data []byte) string 
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
-// secret 读取退订签名密钥（v3 审计 P2：缺失时 fail-closed 返回空，
-// 调用方必须拒绝签发/校验，杜绝可伪造 token 的默认密钥）
 func (s *EmailUnsubscribeService) secret(ctx context.Context) string {
 	return os.Getenv(emailUnsubscribeSecretEnv)
 }
 
-// baseURL 读取对外可访问的基础 URL
 func (s *EmailUnsubscribeService) baseURL(ctx context.Context) string {
 	return config.GetServerBaseURL()
 }
 
-// normalizeEmail 规范化邮箱地址（小写 + 去空格）
 func normalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }

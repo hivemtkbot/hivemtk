@@ -121,7 +121,6 @@ func (c *ClueController) ImportClues(ctx *gin.Context) {
 		return
 	}
 
-	// 1) 参数预校验（轻量）
 	for _, item := range req {
 		if _, err := strconv.ParseInt(item.Type, 10, 64); err != nil {
 			response.Error(ctx, http.StatusBadRequest, "线索类型格式错误")
@@ -129,7 +128,6 @@ func (c *ClueController) ImportClues(ctx *gin.Context) {
 		}
 	}
 
-	// 2) 调用 service，转换在 service 内部完成
 	successCount, skipCount, err := c.svc.BatchImportCluesFromDTO(ctx.Request.Context(), req)
 	if err != nil {
 		response.ErrorFromDB(ctx, err, "导入线索失败")
@@ -151,4 +149,3 @@ func (c *ClueController) GetClueTypes(ctx *gin.Context) {
 	}
 	response.Success(ctx, types, "获取线索类型成功")
 }
-

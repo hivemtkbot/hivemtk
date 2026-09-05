@@ -37,4 +37,3 @@ func BuildTrace(htmlstr string, traceID uuid.UUID, websiteURL string) string {
 	htmlstr = htmlstr + image
 	return htmlstr
 }
-

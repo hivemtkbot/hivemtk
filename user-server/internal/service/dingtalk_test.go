@@ -10,7 +10,6 @@ import (
 	"testing"
 )
 
-// 回放钉钉机器人接口：根据 errcode 返回对应 JSON
 func dingtalkTestServer(t *testing.T, wantErrcode int, capture *url.Values) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

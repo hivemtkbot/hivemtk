@@ -54,4 +54,3 @@ type DeleteAccountRequest struct {
 type GetAccountRequest struct {
 	ID string `form:"id" binding:"required"`
 }
-

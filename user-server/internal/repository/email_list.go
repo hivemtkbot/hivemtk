@@ -32,7 +32,6 @@ func NewEmailListRepository() EmailListRepository {
 	return &emailListRepo{db: _db.GetDB()}
 }
 
-// Create 创建列表
 func (r *emailListRepo) Create(ctx context.Context, list *model.EmailList) error {
 	return r.db.WithContext(ctx).Create(list).Error
 }
@@ -42,7 +41,6 @@ func (r *emailListRepo) BatchCreate(ctx context.Context, list []*model.EmailList
 	return result.RowsAffected, nil
 }
 
-// GetByID 根据ID获取列表
 func (r *emailListRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.EmailList, error) {
 	var list model.EmailList
 	if err := r.db.WithContext(ctx).First(&list, "id = ?", id).Error; err != nil {
@@ -51,7 +49,6 @@ func (r *emailListRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.Email
 	return &list, nil
 }
 
-// List 获取所有列表
 func (r *emailListRepo) List(ctx context.Context, page int, pageSize int) ([]*model.EmailList, int64, error) {
 	var emailLists []*model.EmailList
 	var total int64
@@ -67,17 +64,14 @@ func (r *emailListRepo) List(ctx context.Context, page int, pageSize int) ([]*mo
 	return emailLists, total, err
 }
 
-// Update 更新列表
 func (r *emailListRepo) Update(ctx context.Context, list *model.EmailList) error {
 	return r.db.WithContext(ctx).Save(list).Error
 }
 
-// Delete 删除列表
 func (r *emailListRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.db.WithContext(ctx).Delete(&model.EmailList{}, "id = ?", id).Error
 }
 
-// GetUnsentEmailList 获取未发送的邮件列表
 func (r *emailListRepo) GetUnsentEmailList(ctx context.Context, limit int) ([]*model.EmailList, error) {
 	var emailLists []*model.EmailList
 	err := r.db.WithContext(ctx).Where("is_send = ?", 0).Order("created_at ASC").Limit(limit).Find(&emailLists).Error
@@ -87,8 +81,6 @@ func (r *emailListRepo) GetUnsentEmailList(ctx context.Context, limit int) ([]*m
 	return emailLists, nil
 }
 
-// GetTodayCountByFrom 获取今日发送个数
-// 注："from" 是 SQL 关键字，PostgreSQL 中需用双引号包裹；GORM 的 ? 占位符无法处理列名，需直接字符串拼接（from 参数来自上层调用，非用户输入）。
 func (r *emailListRepo) GetTodayCountByFrom(ctx context.Context, from string) (int64, error) {
 	var count int64
 	now := time.Now()
@@ -104,7 +96,6 @@ func (r *emailListRepo) GetTodayCountByFrom(ctx context.Context, from string) (i
 	return count, nil
 }
 
-// GetByTraceID 根据trace id 获取邮件信息
 func (r *emailListRepo) GetByTraceID(ctx context.Context, traceID uuid.UUID) (*model.EmailList, error) {
 	var emailList model.EmailList
 	err := r.db.WithContext(ctx).First(&emailList, "trace_id = ?", traceID).Error

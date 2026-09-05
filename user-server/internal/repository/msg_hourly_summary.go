@@ -64,7 +64,6 @@ func (r *msgHourlySummaryRepo) LoadWatermark(ctx context.Context, source string)
 	return wm.LastEventID, nil
 }
 
-// upsertIncrementSQL 增量累加 upsert：冲突时在已有计数上叠加本批增量。
 const upsertIncrementSQL = `
 	INSERT INTO msg_hourly_summary
 		(hour_bucket, merchant_id, platform, session_count, ai_count, human_count, message_count, updated_at)
@@ -94,7 +93,7 @@ func (r *msgHourlySummaryRepo) UpsertIncrementBatch(ctx context.Context, source 
 				return err
 			}
 		}
-		// 水位线与数据同事务推进：崩溃后重放不会重复累加（幂等）
+
 		return tx.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "source"}},
 			DoUpdates: clause.Assignments(map[string]any{"last_event_id": newWatermark, "updated_at": time.Now()}),
@@ -122,10 +121,6 @@ func (r *msgHourlySummaryRepo) LatestBucket(ctx context.Context) (*time.Time, er
 	return row.Latest, err
 }
 
-// LatestUpdate 返回 summary 最近一次被增量任务刷新的时间（MAX(updated_at)）。
-//
-// 陈旧判定用 updated_at 而非 hour_bucket：bucket 是小时粒度，当前小时的 bucket
-// 在整点后必然"看起来很旧"；而 updated_at 反映聚合任务的最近一次推进。
 func (r *msgHourlySummaryRepo) LatestUpdate(ctx context.Context) (*time.Time, error) {
 	var row struct {
 		Latest *time.Time

@@ -55,14 +55,13 @@ func (c *ProactiveReachController) QuickSend(ctx *gin.Context) {
 	}
 
 	v2req := &service.ProactiveReachRequest{
-		Phone:    req.Phone,
-		Email:    req.Email,
-		Content:  req.Content,
-		Subject:  req.Subject,
+		Phone:     req.Phone,
+		Email:     req.Email,
+		Content:   req.Content,
+		Subject:   req.Subject,
 		AccountID: req.AccountID,
 	}
 
-	// 如果是 Bridge 渠道则把 userID 透传
 	if req.UserID != "" {
 		v2req.OneID = req.UserID
 	}
@@ -86,10 +85,10 @@ func (c *ProactiveReachController) ProactiveSendFromCustomer(ctx *gin.Context) {
 	}
 
 	var body struct {
-		Content            string   `json:"content" binding:"required"`
-		Subject            string   `json:"subject,omitempty"`
-		PreferredChannels  []string `json:"preferred_channels,omitempty"`
-		DryRun             bool     `json:"dry_run,omitempty"`
+		Content           string   `json:"content" binding:"required"`
+		Subject           string   `json:"subject,omitempty"`
+		PreferredChannels []string `json:"preferred_channels,omitempty"`
+		DryRun            bool     `json:"dry_run,omitempty"`
 	}
 	if err := ctx.ShouldBindJSON(&body); err != nil {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
@@ -120,7 +119,6 @@ func (c *ProactiveReachController) ListChannels(ctx *gin.Context) {
 		return
 	}
 
-	// 先按 ID 找客户
 	cust, err := c.svc.LoadCustomer(ctx.Request.Context(), customerID, "")
 	if err != nil || cust == nil {
 		response.Error(ctx, http.StatusNotFound, "客户不存在")
@@ -167,7 +165,7 @@ func (c *ProactiveReachController) ValidateReach(ctx *gin.Context) {
 func (c *ProactiveReachController) BatchProactiveSend(ctx *gin.Context) {
 	var req struct {
 		Targets  []service.ProactiveReachRequest `json:"targets" binding:"required"`
-		Template string                            `json:"template,omitempty"`
+		Template string                          `json:"template,omitempty"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())

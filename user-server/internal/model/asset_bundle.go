@@ -30,8 +30,8 @@ import (
 type AssetBundleScope string
 
 const (
-	AssetBundleScopePrivate AssetBundleScope = "private"
-	AssetBundleScopeShared AssetBundleScope = "shared"
+	AssetBundleScopePrivate  AssetBundleScope = "private"
+	AssetBundleScopeShared   AssetBundleScope = "shared"
 	AssetBundleScopeOfficial AssetBundleScope = "official"
 )
 
@@ -39,18 +39,18 @@ const (
 type AssetBundleStatus string
 
 const (
-	AssetBundleStatusDraft    AssetBundleStatus = "draft"    
-	AssetBundleStatusActive   AssetBundleStatus = "active"   
-	AssetBundleStatusInactive AssetBundleStatus = "inactive" 
-	AssetBundleStatusArchived AssetBundleStatus = "archived" 
+	AssetBundleStatusDraft    AssetBundleStatus = "draft"
+	AssetBundleStatusActive   AssetBundleStatus = "active"
+	AssetBundleStatusInactive AssetBundleStatus = "inactive"
+	AssetBundleStatusArchived AssetBundleStatus = "archived"
 )
 
 // AssetBundleMessage 资产包内的单条消息（OpenAI ChatML 协议）
 type AssetBundleMessage struct {
-	Role    string `json:"role"`    
-	Content string `json:"content"` 
+	Role       string `json:"role"`
+	Content    string `json:"content"`
 	ToolCallID string `json:"tool_call_id,omitempty"`
-	Name string `json:"name,omitempty"`
+	Name       string `json:"name,omitempty"`
 }
 
 // AssetBundleMessages 消息数组（实现 driver.Valuer / sql.Scanner 让 GORM 透明序列化到 JSONB）
@@ -100,20 +100,20 @@ type AssetBundle struct {
 	Version            string              `gorm:"size:16;default:'1.0.0'" json:"version"`
 	Scope              AssetBundleScope    `gorm:"size:16;index;default:'private'" json:"scope"`
 	Status             AssetBundleStatus   `gorm:"size:16;index;default:'draft'" json:"status"`
-	Industry           string              `gorm:"size:32;index" json:"industry"` 
+	Industry           string              `gorm:"size:32;index" json:"industry"`
 	Language           string              `gorm:"size:8;index;default:'zh'" json:"language"`
 	Tags               pq.StringArray      `gorm:"type:text[];default:'{}'" json:"tags"`
 	Messages           AssetBundleMessages `gorm:"type:jsonb;not null;default:'[]'" json:"messages"`
-	Examples           JSONArray           `gorm:"type:jsonb;column:examples;default:'[]'" json:"examples"`                        
-	SupportedLanguages pq.StringArray      `gorm:"type:text[];column:supported_languages;default:'{}'" json:"supported_languages"` 
-	UseCount    int64   `gorm:"default:0" json:"use_count"`
-	Rating      float64 `gorm:"default:0" json:"rating"`
-	RatingCount int     `gorm:"default:0" json:"rating_count"`
+	Examples           JSONArray           `gorm:"type:jsonb;column:examples;default:'[]'" json:"examples"`
+	SupportedLanguages pq.StringArray      `gorm:"type:text[];column:supported_languages;default:'{}'" json:"supported_languages"`
+	UseCount           int64               `gorm:"default:0" json:"use_count"`
+	Rating             float64             `gorm:"default:0" json:"rating"`
+	RatingCount        int                 `gorm:"default:0" json:"rating_count"`
 	// CoverImage 资产包封面 URL（由统一存储服务返回，值形如 /files/covers/2026/09/03/uuid.jpg）
-	CoverImage  string  `gorm:"size:500" json:"cover_image"`
-	CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	CoverImage string         `gorm:"size:500" json:"cover_image"`
+	CreatedAt  time.Time      `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt  time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
+	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 // TableName 表名
@@ -133,4 +133,3 @@ type AssetBundleVersionLog struct {
 
 // TableName 表名
 func (AssetBundleVersionLog) TableName() string { return "asset_bundle_version_logs" }
-

@@ -11,7 +11,7 @@ type EmailSmtp struct {
 	Server   string `gorm:"type:varchar(255)" json:"server"`
 	Port     int    `gorm:"type:int" json:"port"`
 	Username string `gorm:"type:varchar(255)" json:"username"`
-	Password string `gorm:"type:varchar(500)" json:"-"` // v3 审计 P0：禁止 JSON 回显；静态加密见 email_smtp service
+	Password string `gorm:"type:varchar(500)" json:"-"`
 	Limit    int64  `gorm:"type:int" json:"limit"`
 }
 
@@ -25,4 +25,3 @@ func (u *EmailSmtp) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
-

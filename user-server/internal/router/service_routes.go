@@ -18,10 +18,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupCustomerServiceRoutes 客服会话管理路由
-//
-// 传入 aiAgentSvc 以满足 agent_status controller 装配（控制器零 db 引用）。
-// 传入 langResolver 注入到坐席 WebSocket handler。
 func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAgentService, langResolver *translation.LangConfigResolver) {
 	customerSessionCtrl := controller.NewCustomerSessionController()
 	auth.GET("/customer-sessions", customerSessionCtrl.GetSessions)
@@ -75,7 +71,6 @@ func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAge
 	auth.GET("/ai-suggestions/:session_id", aiSuggestionCtrl.GetSuggestions)
 	auth.POST("/ai-suggestions/:id/use", aiSuggestionCtrl.UseSuggestion)
 
-	// G9: 客服队列与容量管理
 	csQueueCtrl := controller.NewCustomerServiceController()
 	auth.GET("/customer-service/queue", csQueueCtrl.GetQueue)
 	auth.GET("/customer-service/capacity", csQueueCtrl.GetCapacity)
@@ -84,7 +79,6 @@ func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAge
 	wsHandler := websocket.NewWSHandler()
 	wsHandler.SetLangResolver(langResolver)
 	auth.GET("/ws/agent", wsHandler.HandleWebSocket)
-
 
 	customer360Ctrl := controller.NewCustomer360Controller()
 	auth.GET("/customer-360", customer360Ctrl.GetCustomer360)
@@ -133,18 +127,15 @@ func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAge
 	auth.POST("/customer/session/:id/transfer", customerSessionCtrl.TransferSession)
 
 	appConfigCtrl := controller.NewAppConfigController()
-	// /app-config/health 仅返回健康状态，无敏感字段，保持登录用户可读
+
 	auth.GET("/app-config/health", appConfigCtrl.HealthCheck)
-	// P0-1 写操作 admin only（防 staff 改全局应用配置 / 触发平台同步）
-	// P0-2 读操作同样 admin only：GetAppConfig 响应含 db_config.password /
-	// redis_config.password / merchant_key，普通登录用户可读即凭据泄露（前端无调用点，收敛无副作用）
+
 	appAdmin := auth.Group("", middleware.AdminAuthMiddleware())
 	appAdmin.GET("/app-config", appConfigCtrl.GetAppConfig)
 	appAdmin.PUT("/app-config", appConfigCtrl.UpdateAppConfig)
 	appAdmin.POST("/app-config/sync", appConfigCtrl.SyncWithPlatform)
 }
 
-// setupMessageRoutes 统一消息管理路由
 func setupMessageRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	unifiedMsgCtrl := controller.NewUnifiedMessageController()
 	auth.GET("/messages", unifiedMsgCtrl.GetMessages)
@@ -160,27 +151,18 @@ func setupMessageRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.GET("/message-hub/:id", messageHubCtrl.GetByID)
 	auth.POST("/message-hub/:id/read", messageHubCtrl.MarkRead)
 
-	// W-3 废弃：unified_inbox 路由已摘除（前端零消费，InboxService 标 Deprecated）。
-	// controller/inbox.go + service/inbox*.go 保留为内部基础设施，待新 inbox 实现替换。
-
 	inboxIngressCtrl := controller.NewInboxIngressController(service.NewInboxIngressService())
 	auth.POST("/inbox/lock-human", inboxIngressCtrl.LockHuman)
 	auth.POST("/inbox/unlock-human/:session_id", inboxIngressCtrl.UnlockHuman)
 }
 
-// setupPlatformAccountRoutes 平台账号管理路由
-//
-// P0-2 权限分级（2026-08-31 四轮加固）：
-//   - 读（List/Get/Status/Platforms）：任意登录用户
-//   - 写（Create/Update/Delete/Login）：admin only
-// 平台账号持有 access_token/secret_key 等敏感凭据，staff 不能 CRUD。
 func setupPlatformAccountRoutes(auth *gin.RouterGroup) {
 	platformAccountCtrl := controller.NewPlatformAccountController()
 	auth.GET("/platform-accounts", platformAccountCtrl.GetAccounts)
 	auth.GET("/platform-accounts/platforms", platformAccountCtrl.GetSupportedPlatforms)
 	auth.GET("/platform-accounts/:id", platformAccountCtrl.GetAccountByID)
 	auth.GET("/platform-accounts/:id/status", platformAccountCtrl.CheckLoginStatus)
-	// 写操作 admin only
+
 	admin := auth.Group("", middleware.AdminAuthMiddleware())
 	admin.POST("/platform-accounts", platformAccountCtrl.CreateAccount)
 	admin.PUT("/platform-accounts/:id", platformAccountCtrl.UpdateAccount)
@@ -188,7 +170,6 @@ func setupPlatformAccountRoutes(auth *gin.RouterGroup) {
 	admin.POST("/platform-accounts/:id/login", platformAccountCtrl.LoginAccount)
 }
 
-// setupWeComHealthRoutes 企微账号健康度路由
 func setupWeComHealthRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	wcHCtrl := controller.NewWeComHealthController(service.NewWeComAccountHealthService(db), service.NewWeComIntegrationService(db))
 	auth.GET("/wecom/health/accounts", wcHCtrl.ListAccountsWithHealth)
@@ -205,10 +186,6 @@ func setupWeComHealthRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.POST("/wecom/messages/send", wcHCtrl.SendMessage)
 }
 
-// setupIntentRoutes 意图识别路由
-//
-// 使用全局 IntentRecognizer（main.go 中 InitIntentRecognizer 初始化），
-// 复用 dispatcher/db,避免每个请求重建对象。
 func setupIntentRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	rec := service.GetIntentRecognizer()
 	if rec == nil {
@@ -224,62 +201,49 @@ func setupIntentRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.GET("/intent/logs", intentCtrl.IntentLogs)
 	auth.GET("/intent/stats/fine", intentCtrl.IntentStatsFine)
 	auth.GET("/intent/config", intentCtrl.GetConfig)
-	// P0-3 PUT /intent/config admin only（防 staff 改意图识别阈值 / 模型参数）
+
 	admin := auth.Group("", middleware.AdminAuthMiddleware())
 	admin.PUT("/intent/config", intentCtrl.UpdateConfig)
 }
 
-// setupLLMProviderRoutes LLM Provider 降级管理路由（）
-//
-// failover 为 nil 时使用占位 controller（所有端点返回 503）。
-// 生产环境 main.go 应通过 NewSetupLLMProviderRoutes 注入真实 failover。
-//
-// 权限分级（2026-08-18）：写操作（reset circuit / update policy）必须 admin
-// 防止 staff 误操作 / 恶意绕过熔断器造成服务不可用。
 func setupLLMProviderRoutes(auth *gin.RouterGroup) {
 	failoverSvc := service.NewLLMFailoverService(app.GetGlobalProviderFailover())
 	llmProvCtrl := controller.NewLLMProviderController(failoverSvc)
-	// 写操作：admin only
+
 	admin := auth.Group("", middleware.AdminAuthMiddleware())
 	admin.POST("/llm/providers/circuit/reset", llmProvCtrl.ResetCircuit)
 	admin.POST("/llm/providers/circuit/reset/:provider", llmProvCtrl.ResetCircuit)
 	admin.PUT("/llm/providers/policy", llmProvCtrl.UpdatePolicy)
 	admin.POST("/llm-routings/providers/circuit/reset", llmProvCtrl.ResetCircuit)
 	admin.PUT("/llm-routings/policy", llmProvCtrl.UpdatePolicy)
-	// 读操作：任意登录用户（监控面板需要）
+
 	auth.GET("/llm/providers/health", llmProvCtrl.GetHealth)
 	auth.GET("/llm/providers/health/:provider", llmProvCtrl.GetProviderHealth)
 	auth.GET("/llm/providers/policy", llmProvCtrl.GetPolicy)
 	auth.GET("/llm-routings/providers/health", llmProvCtrl.GetHealth)
 	auth.GET("/llm-routings/providers/:provider/health", llmProvCtrl.GetProviderHealth)
 	auth.GET("/llm-routings/policy", llmProvCtrl.GetPolicy)
-	// resolve 是只读路径解析（业务侧 chat/sop 会调），不需要 admin
+
 	auth.POST("/llm-routings/resolve", llmProvCtrl.ResolveRoute)
 }
 
-// setupTraceRoutes 全链路追踪路由（）
-//
-// 路由顺序重要：/traces/recent 必须在 /trace/:traceId 之前注册，
-// 否则 gin 路由树会把 "/traces/recent" 匹配为 /trace/:traceId（traceId="s/recent"）。
 func setupTraceRoutes(auth *gin.RouterGroup) {
 	traceCtrl := controller.NewTraceController()
 	auth.GET("/traces/recent", traceCtrl.ListRecent)
 	auth.GET("/trace/:traceId", traceCtrl.GetTrace)
 }
 
-// setupSSEDashboardRoutes SSE 实时驾驶舱路由（）
 func setupSSEDashboardRoutes(auth *gin.RouterGroup) {
 	sseCtrl := controller.NewSSEDashboardController()
 	auth.GET("/dashboard/sse", sseCtrl.Stream)
 	auth.GET("/dashboard/clients", sseCtrl.ListClients)
 	auth.GET("/dashboard/topics", sseCtrl.ListTopics)
 	auth.GET("/dashboard/stats", sseCtrl.Stats)
-	// P0-4 广播端点 admin only（防 staff 向所有 SSE 客户端推送假数据）
+
 	admin := auth.Group("", middleware.AdminAuthMiddleware())
 	admin.POST("/dashboard/broadcast", sseCtrl.Broadcast)
 }
 
-// setupDialogueMemoryRoutes 对话记忆路由
 func setupDialogueMemoryRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	memCtrl := controller.NewDialogueMemoryController(service.NewDialogueMemoryService(db, nil))
 	auth.POST("/memory/messages", memCtrl.AppendMessage)
@@ -294,19 +258,13 @@ func setupDialogueMemoryRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.GET("/memory/list", memCtrl.Stats)
 }
 
-// setupSOPRoutes SOP 智能体路由
-//
-// 权限分级（2026-08-18 三轮发现）：写操作（Create/Update/Delete/Activate/Pause/Resume/Cancel/Execute/Step/ABTest）admin only
-// SOP 是一线客服自动应答流程，被 staff 误操作会立即影响客户对话体验。
 func setupSOPRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	sopCtrl := controller.NewSOPController(service.NewSOPService(db, nil))
 
-	// P1h SOP 热力图服务（只读，staff 可访问）
 	sopAgentRepo := repository.NewSopAgentRepository(db)
 	sopExecRepo := repository.NewSopExecutionRepository(db)
 	heatmapCtrl := controller.NewSopHeatmapController(service.NewSopHeatmapService(sopAgentRepo, sopExecRepo))
 
-	// 读操作
 	auth.GET("/sop", sopCtrl.List)
 	auth.GET("/sop/stats", sopCtrl.Stats)
 	auth.GET("/sop/match", sopCtrl.MatchByIntent)
@@ -314,9 +272,9 @@ func setupSOPRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.GET("/sop/executions/:id", sopCtrl.GetExecution)
 	auth.GET("/sop/:id", sopCtrl.Get)
 	auth.GET("/sop/:id/abtest/stats", sopCtrl.GetABTestStats)
-	// 热力图端点
+
 	auth.GET("/sop/:id/heatmap", heatmapCtrl.GetHeatmap)
-	// 写操作：admin only
+
 	admin := auth.Group("/sop", middleware.AdminAuthMiddleware())
 	{
 		admin.POST("", sopCtrl.Create)
@@ -345,7 +303,6 @@ func setupSOPRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	bindCtrl.RegisterRoutes(auth)
 }
 
-// setupReachPipelineRoutes 触达 Pipeline 路由
 func setupReachPipelineRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	reachSvc := service.NewReachPipelineService(db)
 	if hook := service.NewHTTPAlertHook(os.Getenv("ALERT_WEBHOOK_URL")); hook != nil {
@@ -354,19 +311,18 @@ func setupReachPipelineRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	if sender := app.NewPipelineReachSender(db); sender != nil {
 		reachSvc.SetReachSender(sender)
 	}
-	// 2026-08-16 严肃化：把全渠道 service 注册到 tooluse GlobalServiceRegistry，
-	// 否则 AI Agent 触发 reach.*.send 全部走 NoOp 路径。
+
 	app.RegisterAllReachServices(db)
 	reachSvc.StartDispatcher(context.Background(), 15*time.Second)
 	reachCtrl := controller.NewReachPipelineController(reachSvc)
-	// 读操作：任意登录用户（触达管道监控面板）
+
 	auth.GET("/reach/pipelines", reachCtrl.ListPipelines)
 	auth.GET("/reach/stats", reachCtrl.Stats)
 	auth.GET("/reach/jobs", reachCtrl.ListJobs)
 	auth.GET("/reach/pipelines/:id", reachCtrl.GetPipeline)
 	auth.GET("/reach/jobs/:id", reachCtrl.GetJob)
 	auth.GET("/reach/jobs/with-experiment", reachCtrl.ListJobsWithExperiment)
-	// P0-5 写操作 admin only（触达管道 = 消息下发通道，防 staff 乱触发批量推送 / 限频重置）
+
 	admin := auth.Group("", middleware.AdminAuthMiddleware())
 	admin.POST("/reach/pipelines", reachCtrl.CreatePipeline)
 	admin.POST("/reach/jobs", reachCtrl.EnqueueJob)
@@ -381,34 +337,24 @@ func setupReachPipelineRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	admin.POST("/reach/jobs/:id/execute", reachCtrl.ExecuteJob)
 }
 
-// setupProactiveReachRoutes 主动触达路由
 func setupProactiveReachRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	reachSvc := service.NewReachPipelineService(db)
 	proactiveSvc := service.NewProactiveReachService(db, nil)
 	service.BindProactiveReachSenders(proactiveSvc, db)
 	proactiveCtrl := controller.NewProactiveReachController(proactiveSvc)
 
-	// 主动触达核心 API
 	auth.POST("/reach/proactive/send", proactiveCtrl.ProactiveSend)
 	auth.POST("/reach/proactive/quick", proactiveCtrl.QuickSend)
 	auth.POST("/reach/proactive/validate", proactiveCtrl.ValidateReach)
 
-	// 客户维度触达（按 OneID 智能选渠道）
 	auth.POST("/reach/proactive/customer/:customer_id", proactiveCtrl.ProactiveSendFromCustomer)
 	auth.GET("/reach/proactive/customer/:customer_id/channels", proactiveCtrl.ListChannels)
 
-	// 批量触达
 	auth.POST("/reach/proactive/batch", proactiveCtrl.BatchProactiveSend)
 
 	_ = reachSvc
 }
 
-// setupLLMRoutingRoutes LLM 多模型路由
-//
-// 权限分级（2026-08-18 多角度审计修复）：
-//   - 写操作（Create/Update/Delete/Test/Strategies）必须 admin（防 staff 注入恶意 base_url
-//     把全公司 LLM 流量重定向到 evil.com，窃取全部对话数据）
-//   - 读操作（ListModels/GetModel/ListStrategies/Stats/Health 等）任意登录用户可访问（业务需要）
 func setupLLMRoutingRoutes(auth *gin.RouterGroup) {
 	dispatcher := app.GetGlobalDispatcher()
 	routingService := service.NewLLMRoutingService(dispatcher)
@@ -416,7 +362,7 @@ func setupLLMRoutingRoutes(auth *gin.RouterGroup) {
 	if f := app.GetGlobalProviderFailover(); f != nil {
 		llmCtrl.SetFailover(service.NewLLMFailoverService(f))
 	}
-	// 写操作：admin only（防 LLM 流量重定向 / 注入 / 熔断绕过）
+
 	admin := auth.Group("/llm", middleware.AdminAuthMiddleware())
 	{
 		admin.POST("/models", llmCtrl.CreateModel)
@@ -430,7 +376,7 @@ func setupLLMRoutingRoutes(auth *gin.RouterGroup) {
 		admin.PUT("/fallback", llmCtrl.UpdateSceneRouting)
 		admin.POST("/fallback", llmCtrl.UpdateSceneRouting)
 	}
-	// 读操作：任意登录用户（业务展示需要）
+
 	auth.GET("/llm/models", llmCtrl.ListModels)
 	auth.GET("/llm/models/:name", llmCtrl.GetModel)
 	auth.GET("/llm/strategies", llmCtrl.ListStrategies)
@@ -448,7 +394,6 @@ func setupLLMRoutingRoutes(auth *gin.RouterGroup) {
 	auth.GET("/llm/egress-audit", llmCtrl.EgressAudit)
 }
 
-// setupAnalyticsRoutes 数据分析 (转化漏斗 + AI 产能 + 销冠画像)
 func setupAnalyticsRoutes(auth *gin.RouterGroup) {
 	funnelCtrl := opsctrl.NewConversionFunnelController()
 	auth.GET("/analytics/funnel", funnelCtrl.GetFunnel)
@@ -463,7 +408,6 @@ func setupAnalyticsRoutes(auth *gin.RouterGroup) {
 	auth.GET("/analytics/persona/staffs/:id", personaCtrl.GetReport)
 }
 
-// setupObjectionHandlerRoutes 异议处理
 func setupObjectionHandlerRoutes(auth *gin.RouterGroup) {
 	objCtrl := controller.NewObjectionHandlerController()
 	auth.POST("/objection/handle", objCtrl.Handle)
@@ -472,7 +416,6 @@ func setupObjectionHandlerRoutes(auth *gin.RouterGroup) {
 	auth.POST("/objection/usage", objCtrl.RecordUsage)
 }
 
-// setupCustomerJourneyRoutes 客户旅程大屏 (G10)
 func setupCustomerJourneyRoutes(auth *gin.RouterGroup) {
 	journeyCtrl := controller.NewCustomerJourneyController()
 	auth.GET("/customer-journey/overview", journeyCtrl.GetOverview)
@@ -482,24 +425,21 @@ func setupCustomerJourneyRoutes(auth *gin.RouterGroup) {
 	auth.POST("/customer-journey/touch", journeyCtrl.TouchCustomer)
 }
 
-// setupQualityRoutes 性能压测 + 安全审计
 func setupQualityRoutes(auth *gin.RouterGroup) {
 	perfCtrl := opsctrl.NewPerformanceTestController()
-	// 读操作：压测结果查询
+
 	auth.GET("/perf/list", perfCtrl.ListResults)
 	auth.GET("/perf/:id", perfCtrl.GetResult)
-	// P0-6 POST /perf/run admin only（防 staff 发起大规模压测打垮数据库）
+
 	admin := auth.Group("", middleware.AdminAuthMiddleware())
 	admin.POST("/perf/run", perfCtrl.RunTest)
 }
 
-// setupSecurityAuditRoutes 安全审计：列表 / 立即审计 / 明细。
 func setupSecurityAuditRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	ctrl := controller.NewSecurityAuditController(service.NewSecurityAuditService(gormDB))
 	auth.GET("/security/audit/list", ctrl.ListSecurityAudits)
 	auth.GET("/security/audit/:id", ctrl.GetSecurityAudit)
-	// P0-7 POST /security/audit admin only（防 staff 触发大规模扫描拖慢系统 / 触发审计自指）
+
 	admin := auth.Group("", middleware.AdminAuthMiddleware())
 	admin.POST("/security/audit", ctrl.RunSecurityAudit)
 }
-

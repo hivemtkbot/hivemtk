@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupTestRepositoryDB 设置测试数据库
 func setupTestRepositoryDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.User{},

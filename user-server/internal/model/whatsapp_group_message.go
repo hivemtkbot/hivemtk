@@ -16,7 +16,7 @@ type WhatsappGroupMessage struct {
 	LeadID     string    `gorm:"type:varchar(64);index" json:"lead_id"`
 	Content    string    `gorm:"type:text" json:"content"`
 	TemplateID string    `gorm:"type:varchar(64)" json:"template_id"`
-	Status     string    `gorm:"type:varchar(20);index" json:"status"` 
+	Status     string    `gorm:"type:varchar(20);index" json:"status"`
 	ErrorMsg   string    `gorm:"type:text" json:"error_msg"`
 	SentAt     time.Time `json:"sent_at"`
 	CreatedAt  time.Time `gorm:"autoCreateTime" json:"created_at"`
@@ -34,4 +34,3 @@ func (m *WhatsappGroupMessage) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
-

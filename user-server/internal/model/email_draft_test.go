@@ -322,4 +322,3 @@ func TestEmailList_IsReadValues(t *testing.T) {
 		}
 	}
 }
-

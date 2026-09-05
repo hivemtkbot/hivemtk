@@ -51,4 +51,3 @@ type GetEmailJobsListResponse struct {
 type DeleteEmailJobsRequest struct {
 	ID string `uri:"id" binding:"required"`
 }
-

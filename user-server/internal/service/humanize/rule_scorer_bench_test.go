@@ -8,7 +8,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// 真实业务 AI 回复样本（用于 benchmark）
 var benchReplies = []struct {
 	name    string
 	reply   string

@@ -10,20 +10,13 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// Saga 补偿状态
-//
-// 业界依据：Garcia-Molina, H. & Salem, K. (1987). "Sagas".
-//   - 经典 SAGA 模式：每个 Activity 都有对应的 Compensation
-//   - 失败时按反向顺序执行 Compensation，最终一致性
-//   - 本实现是 saga 在 SOP 引擎内的轻量化版本
-
 // 补偿状态常量
 const (
-	CompensationStatusPending   = "pending"   // 待执行
-	CompensationStatusRunning   = "running"   // 执行中
-	CompensationStatusCompleted = "completed" // 已完成
-	CompensationStatusFailed    = "failed"    // 失败
-	CompensationStatusSkipped   = "skipped"   // 跳过（无补偿逻辑）
+	CompensationStatusPending   = "pending"
+	CompensationStatusRunning   = "running"
+	CompensationStatusCompleted = "completed"
+	CompensationStatusFailed    = "failed"
+	CompensationStatusSkipped   = "skipped"
 )
 
 // Compensable 节点支持 Saga 补偿的可选接口
@@ -71,15 +64,15 @@ type CompensationPlan struct {
 // 线程安全：支持多 Execution 并发补偿
 type CompensationManager struct {
 	mu     sync.RWMutex
-	plans  map[uint]*CompensationPlan // executionID -> plan
+	plans  map[uint]*CompensationPlan
 	config CompensationConfig
 }
 
 // CompensationConfig 补偿配置
 type CompensationConfig struct {
-	MaxAttempts        int           // 单节点最大补偿尝试次数
-	PerCompensationTTL time.Duration // 单节点补偿超时
-	TotalTimeout       time.Duration // 整个补偿流程总超时
+	MaxAttempts        int
+	PerCompensationTTL time.Duration
+	TotalTimeout       time.Duration
 }
 
 // DefaultCompensationConfig 默认配置
@@ -120,7 +113,7 @@ func NewCompensationManager(cfg CompensationConfig) *CompensationManager {
 //
 // 返回：反向顺序的节点列表（先补偿最后执行的，最后补偿最早执行的）
 func (m *CompensationManager) Plan(executedNodes []CompensationRecord) []CompensationRecord {
-	// 反向：拷贝避免修改原 slice
+
 	reversed := make([]CompensationRecord, len(executedNodes))
 	for i, n := range executedNodes {
 		reversed[len(executedNodes)-1-i] = n
@@ -145,7 +138,6 @@ func (m *CompensationManager) CompensateNode(
 		TraceID:   execCtx.TraceID,
 	}
 
-	// 检查是否实现 Compensable
 	comp, ok := executor.(Compensable)
 	if !ok {
 		rec.Status = CompensationStatusSkipped
@@ -157,12 +149,10 @@ func (m *CompensationManager) CompensateNode(
 		return rec
 	}
 
-	// 重试循环
 	var lastErr error
 	for attempt := 1; attempt <= m.config.MaxAttempts; attempt++ {
 		rec.Attempt = attempt
 
-		// 单次补偿超时
 		compCtx, cancel := context.WithTimeout(ctx, m.config.PerCompensationTTL)
 		err := comp.Compensate(compCtx, execCtx)
 		cancel()
@@ -187,7 +177,6 @@ func (m *CompensationManager) CompensateNode(
 			Int("max_attempts", m.config.MaxAttempts).
 			Msg("[Compensation] node compensate failed, will retry")
 
-		// 重试间隔（指数退避）
 		if attempt < m.config.MaxAttempts {
 			backoff := time.Duration(attempt) * time.Second
 			select {
@@ -244,7 +233,7 @@ func (m *CompensationManager) Run(
 
 	defer func() {
 		result.FinishedAt = time.Now()
-		// 计算整体状态
+
 		hasFailed := false
 		hasCompleted := false
 		for _, r := range result.Records {
@@ -258,7 +247,7 @@ func (m *CompensationManager) Run(
 		if hasFailed && !hasCompleted {
 			result.Status = CompensationStatusFailed
 		} else if hasFailed {
-			result.Status = "partial" // 部分成功
+			result.Status = "partial"
 		} else {
 			result.Status = CompensationStatusCompleted
 		}
@@ -272,7 +261,7 @@ func (m *CompensationManager) Run(
 	for _, planned := range plan {
 		if totalCtx.Err() != nil {
 			logger.Ctx(ctx).Warn().Msg("[Compensation] total timeout, abort remaining")
-			// 记录被跳过的节点（运维可观察）
+
 			result.Records = append(result.Records, CompensationRecord{
 				NodeID:     planned.NodeID,
 				NodeType:   planned.NodeType,
@@ -353,11 +342,8 @@ func (m *CompensationManager) Summary() CompensationSummary {
 	return summary
 }
 
-// 编译器断言：确保 dto.SOPNode 与我们的 NodeType 字段匹配
-// （非必需但提高代码可读性）
 var _ = func() *dto.SOPNode {
 	return &dto.SOPNode{Type: "compensable_test"}
 }
 
-// dummy use of fmt to keep import
 var _ = fmt.Sprintf

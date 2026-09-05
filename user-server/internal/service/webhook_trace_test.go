@@ -18,7 +18,7 @@ import (
 // 真实场景难以直接观察。改用 trace.NewContextWithTraceID + trace.TraceIDFromContext
 // 的同源契约做单测。
 func TestTraceID_InheritanceWebhookRouteCtx(t *testing.T) {
-	// 上游 trace_id（HTTP 中间件已绑定）
+
 	const upstreamTraceID = "tr-upstream-001"
 	parent := trace.NewContextWithTraceID(context.Background(), upstreamTraceID)
 

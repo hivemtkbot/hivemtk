@@ -23,7 +23,7 @@ const (
 // Decision 决策结果。
 type Decision struct {
 	Allowed    bool
-	Reason     string // "disabled_by_flag" | "whitelisted" | "denied_default" | "denied_explicit"
+	Reason     string
 	FlagReason string
 }
 
@@ -33,7 +33,7 @@ type OnDecision func(ctx context.Context, toolName, accountID string, d Decision
 // WhiteListApprovalChecker 白名单实现。
 type WhiteListApprovalChecker struct {
 	mu        sync.RWMutex
-	whitelist map[string]map[string]time.Time // toolName -> accountID -> expiresAt
+	whitelist map[string]map[string]time.Time
 	callback  OnDecision
 	nowFn     func() time.Time
 }

@@ -45,38 +45,38 @@ const (
 
 // 帧类型常量（渠道客户端 <-> 服务器 双向，HTTP 与 WS 传输共用同一套语义）。
 const (
-	FrameRegister       = "register"          
-	FrameRegisterReject = "register_rejected" 
-	FrameRegistered     = "registered"        
-	FrameInbound        = "inbound_message"   
-	FrameHistory        = "history"           
-	FramePong           = "pong"              
-	FrameAck            = "ack"               
-	FramePing           = "ping"              
-	FrameOutboundReply  = "outbound_reply"    
-	FrameConfigPush     = "config_push"       
+	FrameRegister       = "register"
+	FrameRegisterReject = "register_rejected"
+	FrameRegistered     = "registered"
+	FrameInbound        = "inbound_message"
+	FrameHistory        = "history"
+	FramePong           = "pong"
+	FrameAck            = "ack"
+	FramePing           = "ping"
+	FrameOutboundReply  = "outbound_reply"
+	FrameConfigPush     = "config_push"
 )
 
 // 传输类型标识（渠道注册表声明每渠道支持的传输）。
 type Transport string
 
 const (
-	TransportHTTP      Transport = "http"      
-	TransportWebSocket Transport = "websocket" 
+	TransportHTTP      Transport = "http"
+	TransportWebSocket Transport = "websocket"
 )
 
 // HistoryItem 会话级 history 中的单轮消息（一个会话 = 一条消息，内含多轮历史）。
 type HistoryItem struct {
 	EventID    string `json:"event_id,omitempty"`
-	SenderType string `json:"sender_type,omitempty"` 
+	SenderType string `json:"sender_type,omitempty"`
 	SenderID   string `json:"sender_id,omitempty"`
 	SenderName string `json:"sender_name,omitempty"`
-	ReceiverID string `json:"receiver_id,omitempty"` 
+	ReceiverID string `json:"receiver_id,omitempty"`
 	MsgType    string `json:"msg_type"`
 	Content    string `json:"content"`
 	MediaURL   string `json:"media_url,omitempty"`
 	Timestamp  int64  `json:"timestamp"`
-	Direction  string `json:"direction,omitempty"` 
+	Direction  string `json:"direction,omitempty"`
 	IsGroup    bool   `json:"is_group,omitempty"`
 	GroupID    string `json:"group_id,omitempty"`
 	GroupName  string `json:"group_name,omitempty"`
@@ -100,38 +100,38 @@ type IngestMessage struct {
 	EventID        string         `json:"event_id,omitempty"`
 	Channel        string         `json:"channel,omitempty"`
 	AccountID      string         `json:"account_id,omitempty"`
-	AgentID        uint           `json:"agent_id,omitempty"`     
-	AccountName    string         `json:"account_name,omitempty"` 
+	AgentID        uint           `json:"agent_id,omitempty"`
+	AccountName    string         `json:"account_name,omitempty"`
 	ConversationID string         `json:"conversation_id"`
 	SenderID       string         `json:"sender_id"`
 	SenderName     string         `json:"sender_name,omitempty"`
 	ReceiverID     string         `json:"receiver_id,omitempty"`
-	SenderType     string         `json:"sender_type,omitempty"` 
+	SenderType     string         `json:"sender_type,omitempty"`
 	MsgType        string         `json:"msg_type"`
 	Content        string         `json:"content"`
 	MediaURL       string         `json:"media_url,omitempty"`
 	Timestamp      int64          `json:"timestamp"`
-	Direction      string         `json:"direction,omitempty"` 
-	IsGroup        bool           `json:"is_group,omitempty"`  
-	GroupID        string         `json:"group_id,omitempty"`  
+	Direction      string         `json:"direction,omitempty"`
+	IsGroup        bool           `json:"is_group,omitempty"`
+	GroupID        string         `json:"group_id,omitempty"`
 	GroupName      string         `json:"group_name,omitempty"`
-	History        []*HistoryItem `json:"history,omitempty"` 
+	History        []*HistoryItem `json:"history,omitempty"`
 	Extra          map[string]any `json:"extra,omitempty"`
 	ContentHash    string         `json:"content_hash,omitempty"`
 }
 
 // IngestRequest HTTP 上报请求体（与扩展端 http-ingest.js 严格对齐）。
 type IngestRequest struct {
-	V              int              `json:"v,omitempty"` 
+	V              int              `json:"v,omitempty"`
 	Channel        string           `json:"channel"`
 	AccountID      string           `json:"account_id"`
 	ConversationID string           `json:"conversation_id,omitempty"`
 	Messages       []*IngestMessage `json:"messages"`
-	ExpectReply    bool             `json:"expect_reply,omitempty"` 
-	TimeoutMs      int              `json:"timeout_ms,omitempty"`   
-	AccountName    string           `json:"account_name,omitempty"` 
-	AgentID        uint             `json:"agent_id,omitempty"`     
-	InternalOnly bool `json:"internal_only,omitempty"`
+	ExpectReply    bool             `json:"expect_reply,omitempty"`
+	TimeoutMs      int              `json:"timeout_ms,omitempty"`
+	AccountName    string           `json:"account_name,omitempty"`
+	AgentID        uint             `json:"agent_id,omitempty"`
+	InternalOnly   bool             `json:"internal_only,omitempty"`
 }
 
 // IngestResult 单条消息处理结果（HTTP 响应与 WS ack 帧共用）。
@@ -143,8 +143,8 @@ type IngestRequest struct {
 type IngestResult struct {
 	EventID   string `json:"event_id"`
 	Accepted  bool   `json:"accepted"`
-	Duplicate bool   `json:"duplicate"`  
-	AIHandled bool   `json:"ai_handled"` 
+	Duplicate bool   `json:"duplicate"`
+	AIHandled bool   `json:"ai_handled"`
 	Reason    string `json:"reason,omitempty"`
 }
 
@@ -209,16 +209,16 @@ type Frame struct {
 	Channel   string           `json:"channel,omitempty"`
 	AccountID string           `json:"account_id,omitempty"`
 	Seq       int64            `json:"seq,omitempty"`
-	EventID   string           `json:"event_id,omitempty"` 
-	TraceID   string           `json:"trace_id,omitempty"` 
-	MsgID     string           `json:"msg_id,omitempty"`   
+	EventID   string           `json:"event_id,omitempty"`
+	TraceID   string           `json:"trace_id,omitempty"`
+	MsgID     string           `json:"msg_id,omitempty"`
 	Message   *IngestMessage   `json:"message,omitempty"`
 	Messages  []*IngestMessage `json:"messages,omitempty"`
 	Reply     *OutboundReply   `json:"reply,omitempty"`
-	MsgIDs    []string         `json:"msg_ids,omitempty"` 
-	Status    string           `json:"status,omitempty"`  
-	Results   []*IngestResult  `json:"results,omitempty"` 
-	Reason    string           `json:"reason,omitempty"`  
+	MsgIDs    []string         `json:"msg_ids,omitempty"`
+	Status    string           `json:"status,omitempty"`
+	Results   []*IngestResult  `json:"results,omitempty"`
+	Reason    string           `json:"reason,omitempty"`
 }
 
 // MessageEventID 透传帧内单条上行消息的 EventID（便于日志/去重）。
@@ -232,11 +232,10 @@ func (f *Frame) MessageEventID() string {
 // ProtocolVersion 透传 Frame.V（缺省按 v1 处理，向后兼容）。
 func (f *Frame) ProtocolVersion() int {
 	if f == nil || f.V == 0 {
-		return ProtocolVersionV1 
+		return ProtocolVersionV1
 	}
 	return f.V
 }
-
 
 // ToEvent 将上行消息转换为消息中台的 model.MessageEvent（不含 History 拷贝）。
 //
@@ -376,12 +375,12 @@ func IsDuplicateReason(reason string) bool {
 		return false
 	}
 	for _, kw := range []string{
-		"msg_id already exists", 
-		"intercepted",           
-		"echo",                  
-		"duplicate",             
-		"skip",                  
-		"already exists",        
+		"msg_id already exists",
+		"intercepted",
+		"echo",
+		"duplicate",
+		"skip",
+		"already exists",
 	} {
 		if strings.Contains(reason, kw) {
 			return true
@@ -390,11 +389,9 @@ func IsDuplicateReason(reason string) bool {
 	return false
 }
 
-// firstNonEmpty 返回第一个非空字符串（v 为空时回退 def）。
 func firstNonEmpty(v, def string) string {
 	if v != "" {
 		return v
 	}
 	return def
 }
-

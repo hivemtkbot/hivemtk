@@ -1,10 +1,10 @@
 package controller
 
 import (
-	"strings"
 	"context"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -65,7 +65,7 @@ func (c *WhatsappController) StartLogin(ctx *gin.Context) {
 	}
 	qr, err := c.svc.StartLogin(context.Background(), accID, 20*time.Second)
 	if err != nil {
-		// R47: 外部服务不可达(websocket dial失败)=503网关语义, 非500服务器错误
+
 		if strings.Contains(err.Error(), "dial") || strings.Contains(err.Error(), "websocket") || strings.Contains(err.Error(), "handshake") {
 			response.Error(ctx, 503, "无法连接 WhatsApp 服务器（检查网络/代理后重试）", err.Error())
 			return
@@ -92,7 +92,6 @@ func (c *WhatsappController) LoginStatus(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"logged_in": loggedIn, "qr": qr}, "登录状态获取成功")
 }
 
-// Drafts
 type createDraftReq struct {
 	Title   string `json:"title"`
 	Content string `json:"content"`
@@ -121,7 +120,6 @@ func (c *WhatsappController) CreateDraft(ctx *gin.Context) {
 	response.Success(ctx, d, "创建草稿成功")
 }
 
-// Jobs
 type createJobReq struct {
 	DraftID string `json:"draft_id"`
 }
@@ -281,4 +279,3 @@ func (c *WhatsappController) DeleteJob(ctx *gin.Context) {
 	}
 	response.Success(ctx, nil, "删除任务成功")
 }
-

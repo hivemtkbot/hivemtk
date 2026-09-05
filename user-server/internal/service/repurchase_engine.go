@@ -123,7 +123,6 @@ func (e *RepurchaseEngine) ComputeRFM(ctx context.Context, customerID string) *R
 	return score
 }
 
-// scoreRecency R 评分（1=最久，5=最近）
 func scoreRecency(days int) int {
 	switch {
 	case days <= 7:
@@ -139,7 +138,6 @@ func scoreRecency(days int) int {
 	}
 }
 
-// scoreFrequency F 评分
 func scoreFrequency(times int) int {
 	switch {
 	case times >= 10:
@@ -155,7 +153,6 @@ func scoreFrequency(times int) int {
 	}
 }
 
-// scoreMonetary M 评分
 func scoreMonetary(amount float64) int {
 	switch {
 	case amount >= 10000:
@@ -171,11 +168,6 @@ func scoreMonetary(amount float64) int {
 	}
 }
 
-// classifyRFM RFM 分层
-// 商业逻辑：
-//   - 有过购买但 R=1（>90 天未购）→ Hibernating（沉睡，仍可激活）
-//   - 完全无购买记录（amount=0）→ Lost（流失，重新激活成本高）
-//   - 100 天前 1 次购买的客户应为 Hibernating（非 Lost）
 func (e *RepurchaseEngine) classifyRFM(ctx context.Context, r, f, m int) RFMType {
 	switch {
 	case r >= 4 && f >= 4 && m >= 4:
@@ -272,7 +264,6 @@ func (e *RepurchaseEngine) ListReactivationCandidates(ctx context.Context, limit
 	return candidates
 }
 
-// computeRFMLocked 内部计算（不重新加锁）
 func (e *RepurchaseEngine) computeRFMLocked(ctx context.Context, customerID string) *RFMScore {
 	events := e.history[customerID]
 	if len(events) == 0 {
@@ -360,7 +351,7 @@ func (e *RepurchaseEngine) GenerateReactivationPlan(ctx context.Context, custome
 // TriggerJourney 触发旅程（结合客户旅程服务）
 func (e *RepurchaseEngine) TriggerJourney(ctx context.Context, customerID string, journey *CustomerJourneyService) error {
 	rfm := e.ComputeRFM(ctx, customerID)
-	// 根据 RFM 分层自动迁移到合适阶段
+
 	var targetStage JourneyStage
 	switch rfm.Segment {
 	case RFMTYPEChampion, RFMTYPELoyal:

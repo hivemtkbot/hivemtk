@@ -16,7 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupWeComServiceTestDB 设置企业微信服务测试数据库
 func setupWeComServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.WeComAccount{},
@@ -68,7 +67,6 @@ func TestWeComService_CreateAccount(t *testing.T) {
 		t.Errorf("Expected Status 1, got %d", account.Status)
 	}
 
-	// 验证数据库中已保存
 	var count int64
 	database.Model(&model.WeComAccount{}).Where("corp_id = ?", "test_corp_id").Count(&count)
 	if count != 1 {
@@ -167,7 +165,6 @@ func TestWeComService_UpdateAccount(t *testing.T) {
 		t.Errorf("Expected AgentID 2000, got %d", updatedAccount.AgentID)
 	}
 
-	// 验证数据库已更新
 	var dbAccount model.WeComAccount
 	database.First(&dbAccount, account.ID)
 	if dbAccount.CorpID != "new_corp_id" {
@@ -191,7 +188,6 @@ func TestWeComService_DeleteAccount(t *testing.T) {
 		t.Fatalf("DeleteAccount failed: %v", err)
 	}
 
-	// 验证已删除
 	var count int64
 	database.Model(&model.WeComAccount{}).Where("id = ?", account.ID).Count(&count)
 	if count != 0 {

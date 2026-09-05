@@ -11,11 +11,11 @@ import (
 
 // VisitorRateLimitConfig 访客限流配置
 type VisitorRateLimitConfig struct {
-	PerIPRPS float64
-	PerIPBucket int
-	PerChannelRPS float64
+	PerIPRPS         float64
+	PerIPBucket      int
+	PerChannelRPS    float64
 	PerChannelBucket int
-	Enabled bool
+	Enabled          bool
 }
 
 // DefaultVisitorRateLimitConfig 默认访客限流
@@ -28,13 +28,11 @@ var DefaultVisitorRateLimitConfig = VisitorRateLimitConfig{
 	Enabled:          true,
 }
 
-// visitorLimiterEntry 限流器条目
 type visitorLimiterEntry struct {
 	limiter  *rate.Limiter
 	lastSeen time.Time
 }
 
-// visitorRateLimiter 访客限流器（双维度：IP + channel）
 type visitorRateLimiter struct {
 	mu              sync.RWMutex
 	ipLimiters      map[string]*visitorLimiterEntry
@@ -166,4 +164,3 @@ func VisitorRateLimitMiddleware(config ...VisitorRateLimitConfig) gin.HandlerFun
 		c.Next()
 	}
 }
-

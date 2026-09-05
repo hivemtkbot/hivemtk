@@ -47,7 +47,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/response"
 )
 
-
 const (
 	chatWSPingPeriod = 30 * time.Second
 
@@ -58,13 +57,11 @@ const (
 	chatWSReadLimit = 8 * 1024
 )
 
-
 // StreamEngineInterface 流式销售引擎接口（向后兼容别名）
 //
 // Deprecated: 请直接引用 contract.StreamEngineInterface。
 // 保留别名仅为兼容历史调用方, 后续 controller/ 内部将统一改用 contract。
 type StreamEngineInterface = contract.StreamEngineInterface
-
 
 // ChatWSController WebSocket 聊天控制器
 //
@@ -98,14 +95,6 @@ func NewChatWSController(hub *ChatWSHub, engine contract.StreamEngineInterface) 
 	}
 }
 
-// buildCheckOrigin 构造 gorilla/websocket.Upgrader.CheckOrigin 回调
-//
-// 规则:
-//   - 白名单包含 "*" -> 放行所有 origin (调试用, 生产禁用)
-//   - 否则严格匹配 (==); 大小写敏感, 不支持通配符
-//
-// 返回的 func 闭包持有 allowedOrigins 切片, 单次 controller 启动时锁定。
-// 如需运行时重载, 调用 config.ReloadAllowedWSOrigins() 后重建 controller。
 func buildCheckOrigin(allowedOrigins []string) func(r *http.Request) bool {
 	allowed := make([]string, len(allowedOrigins))
 	copy(allowed, allowedOrigins)
@@ -176,14 +165,6 @@ func (ctrl *ChatWSController) HandleChatWS(c *gin.Context) {
 	go ctrl.readPump(client, conn, ctrl.engine, ctx)
 }
 
-
-// readPump 读取客户端消息并处理业务逻辑
-//
-// 职责:
-//   - 设置读超时 / pong handler
-//   - 解析消息为 dto.SalesRequest
-//   - 调用 engine.HandleStream（StreamChunk 回调 -> 写入 client.send）
-//   - 连接断开时注销 client
 func (ctrl *ChatWSController) readPump(client *Client, conn *websocket.Conn, engine StreamEngineInterface, ctx context.Context) {
 	defer func() {
 		ctrl.hub.Unregister(client)
@@ -211,7 +192,6 @@ func (ctrl *ChatWSController) readPump(client *Client, conn *websocket.Conn, eng
 			return
 		}
 
-		// 解析消息
 		var msg wsIncomingMessage
 		if err := json.Unmarshal(message, &msg); err != nil {
 			logger.Ctx(ctx).Warn().Err(err).Msg("[ws-chat] invalid message format")
@@ -237,11 +217,6 @@ func (ctrl *ChatWSController) readPump(client *Client, conn *websocket.Conn, eng
 	}
 }
 
-// writePump 将 client.send 中的字节写入 WebSocket
-//
-// 职责:
-//   - 监听 client.send 通道（异步发送）
-//   - 周期性 ping（保活）
 func (ctrl *ChatWSController) writePump(client *Client, conn *websocket.Conn, ctx context.Context) {
 	ticker := time.NewTicker(chatWSPingPeriod)
 	defer func() {
@@ -273,14 +248,6 @@ func (ctrl *ChatWSController) writePump(client *Client, conn *websocket.Conn, ct
 	}
 }
 
-
-// handleBusinessMessage 处理业务消息（user_message -> 流式回复）
-//
-// 流程:
-//  1. 构造 dto.SalesRequest
-//  2. 定义 StreamChunk 回调（写入 client.send）
-//  3. 调用 engine.HandleStream
-//  4. 错误处理（发送 error chunk）
 func (ctrl *ChatWSController) handleBusinessMessage(
 	ctx context.Context,
 	client *Client,
@@ -307,7 +274,7 @@ func (ctrl *ChatWSController) handleBusinessMessage(
 		payload, err := json.Marshal(chunk)
 		if err != nil {
 			logger.Ctx(ctx).Error().Err(err).Msg("[ws-chat] marshal chunk failed")
-			return true 
+			return true
 		}
 		select {
 		case client.SendChan() <- payload:
@@ -324,7 +291,6 @@ func (ctrl *ChatWSController) handleBusinessMessage(
 	}
 }
 
-// sendErrorChunk 发送错误 chunk 给客户端（异步，写入 client.send）
 func (ctrl *ChatWSController) sendErrorChunk(ctx context.Context, client *Client, code, msg string) {
 	chunk := &dto.StreamChunk{
 		Type:    dto.ChunkTypeError,
@@ -342,23 +308,14 @@ func (ctrl *ChatWSController) sendErrorChunk(ctx context.Context, client *Client
 	}
 }
 
-
-// wsIncomingMessage 客户端 -> 服务端 消息
-//
-// 字段大小写不敏感（JSON 标准）；使用 client API 时建议保持小写。
 type wsIncomingMessage struct {
-	Type        string `json:"type"` 
+	Type        string `json:"type"`
 	UserMessage string `json:"user_message"`
 	Platform    string `json:"platform,omitempty"`
 	SessionID   string `json:"session_id,omitempty"`
 	CustomerID  string `json:"customer_id,omitempty"`
 }
 
-
-// newTraceID 生成 trace_id（时间戳 + 8 字节随机）
-//
-// 示例: "1753948800123-a1b2c3d4e5f6g7h8"
-// 用于跨协程 / 跨服务调用链路追踪。
 func newTraceID() string {
 	ts := time.Now().UnixMilli()
 	b := make([]byte, 8)
@@ -368,11 +325,9 @@ func newTraceID() string {
 	return fmt.Sprintf("%d-%s", ts, hex.EncodeToString(b))
 }
 
-// defaultStr 返回 s 当 s 非空，否则返回 fallback
 func defaultStr(s, fallback string) string {
 	if s == "" {
 		return fallback
 	}
 	return s
 }
-

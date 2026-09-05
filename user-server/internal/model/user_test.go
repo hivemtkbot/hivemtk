@@ -188,4 +188,3 @@ func TestUser_WithAccountID(t *testing.T) {
 		t.Errorf("Expected AccountID 'account-123', got %s", user.AccountID)
 	}
 }
-

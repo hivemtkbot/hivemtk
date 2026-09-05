@@ -8,7 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 // ToolProvider 工具集提供者接口
 //
 // 一个 Provider 对应一类工具集（如 5 个内置：reach/pm/customer/knowledge/business）
@@ -46,16 +45,16 @@ type ProviderConfig struct {
 //
 // 由 ProviderRegistry.RegisterAll 返回，用于日志、监控和 /api/agent/tools/providers 接口
 type ProviderRegistrationResult struct {
-	ProviderName    string        `json:"provider_name"`    
-	Category        ToolCategory  `json:"category"`         
-	Description     string        `json:"description"`      
-	RegisteredTools []string      `json:"registered_tools"` 
-	SkippedTools    []string      `json:"skipped_tools"`    
-	ToolCount       int           `json:"tool_count"`       
-	Skipped         bool          `json:"skipped"`          
-	SkippedReason   string        `json:"skipped_reason"`   
-	Err             string        `json:"err,omitempty"`    
-	Duration        time.Duration `json:"duration_ms"`      
+	ProviderName    string        `json:"provider_name"`
+	Category        ToolCategory  `json:"category"`
+	Description     string        `json:"description"`
+	RegisteredTools []string      `json:"registered_tools"`
+	SkippedTools    []string      `json:"skipped_tools"`
+	ToolCount       int           `json:"tool_count"`
+	Skipped         bool          `json:"skipped"`
+	SkippedReason   string        `json:"skipped_reason"`
+	Err             string        `json:"err,omitempty"`
+	Duration        time.Duration `json:"duration_ms"`
 }
 
 // ErrProviderAlreadyExists 重复注册 Provider 错误
@@ -70,9 +69,9 @@ var ErrProviderNotFound = fmt.Errorf("tool provider not found")
 // 线程安全（sync.RWMutex 保护）
 type ProviderRegistry struct {
 	providers map[string]ToolProvider
-	order     []string 
+	order     []string
 	mu        sync.RWMutex
-	results   []ProviderRegistrationResult 
+	results   []ProviderRegistrationResult
 }
 
 // NewProviderRegistry 创建空的 ProviderRegistry
@@ -277,4 +276,3 @@ func (r *ProviderRegistry) Results() []ProviderRegistrationResult {
 	copy(out, r.results)
 	return out
 }
-

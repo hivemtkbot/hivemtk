@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupMFATestDB 准备 MFA 测试库
 func setupMFATestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	database := testutil.NewTestDB(t,
@@ -265,7 +264,6 @@ func TestSetupMFA(t *testing.T) {
 		t.Errorf("QRCodeURL 应该是 https URL: %s", resp.QRCodeURL)
 	}
 
-	// 数据库里应该有记录，mfa_enabled=false
 	var mfa model.UserMFA
 	if err := database.Where("user_id = ?", user.ID).First(&mfa).Error; err != nil {
 		t.Fatalf("查询 MFA 记录失败: %v", err)
@@ -297,7 +295,6 @@ func TestConfirmMFASetup_VerifyAndEnable(t *testing.T) {
 		t.Fatalf("SetupMFA 失败: %v", err)
 	}
 
-	// Confirm：先从 DB 取 secret，再生成有效码
 	var mfa model.UserMFA
 	database.Where("user_id = ?", user.ID).First(&mfa)
 	now := time.Now()
@@ -440,7 +437,6 @@ func TestGenerateBackupCodes(t *testing.T) {
 		seen[c] = true
 	}
 
-	// DB 中应存储了 hashed codes
 	var mfa model.UserMFA
 	database.Where("user_id = ?", user.ID).First(&mfa)
 	if mfa.BackupCodes == "" || mfa.BackupCodes == "[]" {
@@ -451,7 +447,6 @@ func TestGenerateBackupCodes(t *testing.T) {
 	}
 }
 
-// isBase32Char 判断字符是否属于 base32 字符集（A-Z 2-7）
 func isBase32Char(c rune) bool {
 	if c >= 'A' && c <= 'Z' {
 		return true

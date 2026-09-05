@@ -201,7 +201,7 @@ func injectMerchantVars(msgs []model.AssetBundleMessage, vars map[string]string)
 	var sb strings.Builder
 	sb.WriteString(msgs[firstSystemIdx].Content)
 	sb.WriteString("\n\n# 商户经营参数（自动注入）\n")
-	// K-4：白名单键保持优先序，其余变量按键名字典序输出，保证 prompt 可复现
+
 	whitelist := []string{"shop_name", "campaign_name", "discount_pct", "support_contact"}
 	others := make([]string, 0, len(vars))
 	for k, v := range vars {
@@ -347,18 +347,14 @@ func (s *AssetBundleService) UpdateBundle(ctx context.Context, m *model.AssetBun
 	if err != nil {
 		return err
 	}
-	// R1-D3 修复: HTTP 更新路径(dto 无 asset_id 字段)构造的 model AssetID 恒为空,
-	// 直接比较会误触发不可变守卫导致 PUT /asset-bundle/:id 100% 失败。
-	// 空值视为"保持原值"; 非空且不同仍拒绝, 守卫语义不变。
+
 	if m.AssetID == "" {
 		m.AssetID = old.AssetID
 	}
 	if old.AssetID != m.AssetID {
 		return errors.New("asset_id cannot be changed")
 	}
-	// R1-D3b 修复: repo.Update 用 GORM Save 全行覆盖, HTTP 部分更新省略的字段
-	// 会以零值覆写原数据(status="" 还会命中 PG enum 解析错误)。
-	// 统一语义: 请求中空/缺省字段 = 保持原值。
+
 	if m.Title == "" {
 		m.Title = old.Title
 	}
@@ -403,7 +399,7 @@ func (s *AssetBundleService) UpdateBundle(ctx context.Context, m *model.AssetBun
 			ChangeNote: "manual update",
 			Operator:   m.Author,
 		}); err != nil {
-			// K-3：版本日志写失败必须告警，不再静默吞掉
+
 			logger.Errorf("[asset_bundle] version log write FAILED asset=%s %s->%s operator=%s err=%v",
 				m.AssetID, old.Version, m.Version, m.Author, err)
 		}
@@ -527,7 +523,7 @@ func resolveLocalAssetSystemPrompt(data []byte) string {
 			return p
 		}
 	}
-	// 2) 再尝试平台市场结构化对象（system_prompt 优先，persona 兜底）
+
 	var obj struct {
 		SystemPrompt string `json:"system_prompt"`
 		Persona      struct {
@@ -647,16 +643,11 @@ func (s *AssetBundleService) WeaveForRequest(ctx context.Context, assetID, userQ
 	return Weave(*in)
 }
 
-// bundle.hotplug.{assetID} 持久化到 system_config_kv（K-2 热插拔持久化）
 const (
 	bundleHotPlugKeyPrefix = "bundle.hotplug."
 
-	// bundleHotPlugIndexKey 已知热插拔 assetID 候选索引（JSON 数组）。
-	// system_config_kv 无枚举接口，list/isEmpty 依赖该索引定位候选，
-	// 单个开关的权威状态仍以 bundle.hotplug.{assetID} 的值为准。
 	bundleHotPlugIndexKey = "bundle.hotplug.index"
 
-	// bundleHotPlugLocalTTL 本地缓存 TTL（跨实例最终一致窗口）
 	bundleHotPlugLocalTTL = 30 * time.Second
 )
 
@@ -669,7 +660,6 @@ func (e hotPlugEntry) fresh() bool {
 	return time.Since(e.fetchedAt) < bundleHotPlugLocalTTL
 }
 
-// hotPlugCache 资产包热插拔开关：DB(system_config_kv) 权威 + 本地 30s 缓存
 type hotPlugCache struct {
 	mu      sync.RWMutex
 	kv      repository.SystemConfigKVRepository
@@ -682,7 +672,6 @@ func newHotPlugCache() hotPlugCache {
 	return hotPlugCache{entries: make(map[string]hotPlugEntry)}
 }
 
-// SetConfigKVRepo 注入 KV 配置仓储（测试/装配用；生产默认回退全局 DB）
 func (c *hotPlugCache) SetConfigKVRepo(kv repository.SystemConfigKVRepository) {
 	c.mu.Lock()
 	c.kv = kv
@@ -699,8 +688,7 @@ func (c *hotPlugCache) ensureKV() repository.SystemConfigKVRepository {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.kv == nil {
-		// 无显式注入 KV 后端时回退全局仓储；但全局 DB 未初始化（单测/
-		// 极早期启动）时保持 nil → 调用方走进程内语义，避免空指针 panic
+
 		if _db.GetDB() == nil {
 			return nil
 		}
@@ -709,7 +697,6 @@ func (c *hotPlugCache) ensureKV() repository.SystemConfigKVRepository {
 	return c.kv
 }
 
-// fetchEnabled 从 DB 读单个开关的权威状态（值="1" 视为启用）
 func (c *hotPlugCache) fetchEnabled(ctx context.Context, assetID string, fallback bool) bool {
 	kv := c.ensureKV()
 	if kv == nil {
@@ -723,7 +710,6 @@ func (c *hotPlugCache) fetchEnabled(ctx context.Context, assetID string, fallbac
 	return strings.TrimSpace(val) == "1"
 }
 
-// loadEnabled 单开关读取：本地缓存(30s) → DB 权威 → 回退本地旧值
 func (c *hotPlugCache) loadEnabled(ctx context.Context, assetID string) bool {
 	if assetID == "" {
 		return false
@@ -738,7 +724,7 @@ func (c *hotPlugCache) loadEnabled(ctx context.Context, assetID string) bool {
 		return e.enabled
 	}
 	if kv == nil && c.ensureKV() == nil {
-		// 无 KV 后端：退化为进程内语义（兼容现接口）
+
 		return fallback
 	}
 	enabled := c.fetchEnabled(ctx, assetID, fallback)
@@ -748,7 +734,6 @@ func (c *hotPlugCache) loadEnabled(ctx context.Context, assetID string) bool {
 	return enabled
 }
 
-// upsert 写路径：先写库（权威），再更新本地缓存；库写失败仅告警，本地保持兼容语义
 func (c *hotPlugCache) upsert(ctx context.Context, assetID string, enabled bool) {
 	if assetID == "" {
 		return
@@ -772,7 +757,6 @@ func (c *hotPlugCache) upsert(ctx context.Context, assetID string, enabled bool)
 	c.mu.Unlock()
 }
 
-// appendIndex 维护候选索引键（best-effort；多实例并发追加极端情况可能丢一个候选，单开关值不受影响）
 func (c *hotPlugCache) appendIndex(ctx context.Context, kv repository.SystemConfigKVRepository, assetID string) {
 	ids := c.candidateIDs(ctx)
 	for _, id := range ids {
@@ -791,7 +775,6 @@ func (c *hotPlugCache) appendIndex(ctx context.Context, kv repository.SystemConf
 	}
 }
 
-// candidateIDs 候选列表：本地索引 + 远端索引合并（30s 缓存）
 func (c *hotPlugCache) candidateIDs(ctx context.Context) []string {
 	c.mu.RLock()
 	localFresh := time.Since(c.indexAt) < bundleHotPlugLocalTTL
@@ -959,13 +942,11 @@ func buildMerchantSystemPrompt(req dto.MerchantFormSaveRequest) string {
 	return sb.String()
 }
 
-// buildMerchantJSONProtocol 构造业务结算 JSON 协议
 func buildMerchantJSONProtocol(req dto.MerchantFormSaveRequest) string {
 	_ = req
 	return "# 强制业务结算协议\n为了配合后台数据登记，你必须在每一次回复用户的纯文本消息【最后】，强制附带一个结构完全合法的 JSON 块，并严格包裹在 ```json 和 ``` 之间。格式如下：\n```json\n{\n  \"intent\": \"枚举值: faq / lead_capture / human_transfer\",\n  \"captured_data\": {\"whatsapp\": \"提取的号码\", \"email\": \"提取的邮箱\", \"product\": \"意向产品\", \"quantity\": \"意向数量\"}\n}\n```\n## 铁律\n- 给用户的纯文本回复必须放在 JSON 块的【前面】。\n- 绝不允许漏掉最后的 JSON 块，即便 captured_data 为空对象 {} 也必须输出。"
 }
 
-// buildMerchantCardSystemMessage 构造乐高卡片配置消息
 func buildMerchantCardSystemMessage(cfg dto.MerchantCardConfig) string {
 	var sb strings.Builder
 	sb.WriteString("# 多媒体卡片消息配置\n")
@@ -988,7 +969,6 @@ func buildMerchantCardSystemMessage(cfg dto.MerchantCardConfig) string {
 	return sb.String()
 }
 
-// buildIntentJSON 根据 QA 卡片内容推断 intent
 func buildIntentJSON(card dto.MerchantQACard) string {
 	reply := strings.ToLower(card.Reply)
 	trigger := strings.ToLower(card.Trigger)
@@ -1073,7 +1053,6 @@ func ParseBundleToMerchantForm(bundle *model.AssetBundle) dto.MerchantFormParseR
 	return resp
 }
 
-// 平台提交前 system prompt 敏感词黑名单（越狱/对抗性话术）
 var platformSubmitBannedWords = []string{
 	"越狱",
 	"jailbreak",
@@ -1087,9 +1066,6 @@ var platformSubmitBannedWords = []string{
 var (
 	bannedWordRE = regexp.MustCompile(`(?i)(` + strings.Join(platformSubmitBannedWords, "|") + `)`)
 
-	// censorConfigKeyLineRE 匹配商户配置快照中的固定键行。
-	// 「反审查尺度」是 ParseBundleToMerchantForm 依赖的固定冒号键名，不可改动，
-	// 扫描时需先剔除该配置行，避免把合法配置键误判为敏感词。
 	censorConfigKeyLineRE = regexp.MustCompile(`(?m)^- 反审查尺度[:：].*$`)
 )
 

@@ -1,13 +1,11 @@
 package controller
 
-
 import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
-// makeOriginReq 构造带指定 Origin 头的测试请求
 func makeOriginReq(origin string) *http.Request {
 	r := httptest.NewRequest(http.MethodGet, "/ws/chat", nil)
 	if origin != "" {
@@ -82,4 +80,3 @@ func TestBuildCheckOrigin_NoExternalMutation(t *testing.T) {
 		t.Errorf("input slice should not be mutated, got %v", origins)
 	}
 }
-

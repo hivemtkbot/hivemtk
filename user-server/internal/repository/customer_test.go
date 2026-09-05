@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupCustomerTestDB sets up the test database for customer tests
 func setupCustomerTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.Customer{},
@@ -23,7 +22,6 @@ func setupCustomerTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupCustomerRepository creates a test customer repository instance
 func setupCustomerRepository(t *testing.T) CustomerRepository {
 	setupCustomerTestDB(t)
 	return NewCustomerRepository()
@@ -337,8 +335,7 @@ func TestCustomerRepository_List(t *testing.T) {
 	ctx := context.Background()
 
 	for i := 1; i <= 25; i++ {
-		// v3 审计 P0-2 后 unified_id 由规范化手机号哈希派生，
-		// 种子必须使用合法且互异的手机号（原控制字符种子依赖旧拼接行为才能插入）
+
 		customer := &model.Customer{
 			Phone: fmt.Sprintf("1380013%04d", i),
 			Email: fmt.Sprintf("user%02d@example.com", i),
@@ -465,7 +462,7 @@ func TestCustomerRepository_GetByUnifiedID(t *testing.T) {
 	}
 	repo.Create(ctx, customer)
 
-	wantUID := identity.UnifiedIDFromPhone("13800138000") // v3 审计 P0-2 后为盐化哈希派生
+	wantUID := identity.UnifiedIDFromPhone("13800138000")
 	result, err := repo.GetByUnifiedID(context.Background(), wantUID)
 	if err != nil {
 		t.Errorf("GetByUnifiedID() error = %v", err)

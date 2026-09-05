@@ -10,10 +10,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// toPtr 将字符串转为 *string，便于构造素材分类的 ParentID 指针字段
 func toPtr(s string) *string { return &s }
 
-// setupMaterialCategoryTestDB 设置素材分类测试数据库
 func setupMaterialCategoryTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.MaterialCategory{},
@@ -23,7 +21,6 @@ func setupMaterialCategoryTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupMaterialCategoryRepository 创建测试用的素材分类仓库实例
 func setupMaterialCategoryRepository(t *testing.T) (*gorm.DB, MaterialCategoryRepository) {
 	database := setupMaterialCategoryTestDB(t)
 	return database, NewMaterialCategoryRepository()
@@ -556,4 +553,3 @@ func TestMaterialCategoryRepository_GetList_EmptyResult(t *testing.T) {
 		t.Errorf("Expected total 0, got %d", total)
 	}
 }
-

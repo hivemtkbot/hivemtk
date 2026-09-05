@@ -47,7 +47,6 @@ func TestWithTransaction_Rollback_Participation(t *testing.T) {
 		t.Fatalf("事务内写入应被回滚, 实际 Name=%q (假事务回归!)", after.Name)
 	}
 
-	// 对照组：事务内写入且成功提交 → 变更生效
 	err = repo.WithTransaction(ctx, func(txCtx context.Context) error {
 		cust.Name = "committed"
 		return repo.Update(txCtx, cust)

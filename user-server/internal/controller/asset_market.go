@@ -261,4 +261,3 @@ func (h *AssetMarketController) BindToAgent(c *gin.Context) {
 	}
 	assetOK(c, gin.H{"message": "绑定成功"})
 }
-

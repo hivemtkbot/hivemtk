@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupMarketingFlowTestDB 设置营销流程测试数据库
 func setupMarketingFlowTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.MarketingFlow{},
@@ -21,7 +20,6 @@ func setupMarketingFlowTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupMarketingFlowRepositories 创建测试用的仓库实例
 func setupMarketingFlowRepositories(t *testing.T) (*MarketingFlowRepository, *FlowExecutionRepository) {
 	setupMarketingFlowTestDB(t)
 	return NewMarketingFlowRepository(), NewFlowExecutionRepository()
@@ -666,7 +664,7 @@ func TestFlowExecutionRepository_GetStats(t *testing.T) {
 func TestFlowExecutionRepository_CleanupOldExecutions(t *testing.T) {
 	_, execRepo := setupMarketingFlowRepositories(t)
 
-	oldTime := time.Now().AddDate(0, 0, -31) 
+	oldTime := time.Now().AddDate(0, 0, -31)
 	execRepo.Create(&model.FlowExecution{
 		FlowID:      1,
 		UserID:      "user-old-1",
@@ -694,4 +692,3 @@ func TestFlowExecutionRepository_CleanupOldExecutions(t *testing.T) {
 		t.Errorf("Expected 1 execution remaining, got %d", len(results))
 	}
 }
-

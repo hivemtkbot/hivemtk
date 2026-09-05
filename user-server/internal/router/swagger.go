@@ -6,11 +6,10 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
-	ginSwagger "github.com/swaggo/gin-swagger"
 	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-// isLocalRequest 检查请求是否来自本地
 func isLocalRequest(ip string) bool {
 	if ip == "127.0.0.1" || ip == "::1" || ip == "localhost" {
 		return true
@@ -28,7 +27,8 @@ func isLocalRequest(ip string) bool {
 // 访问 http://localhost:8204/swagger/index.html
 //
 // 生成 Swagger 文档命令：
-//   swag init -g cmd/user-server/main.go -o ./docs
+//
+//	swag init -g cmd/user-server/main.go -o ./docs
 func RegisterSwaggerRoutes(r *gin.Engine) {
 	if os.Getenv("ENABLE_SWAGGER") != "true" {
 		return

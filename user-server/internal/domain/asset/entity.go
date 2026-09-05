@@ -99,4 +99,3 @@ type Asset struct {
 	SyncedAt    time.Time
 	UpdatedAt   time.Time
 }
-

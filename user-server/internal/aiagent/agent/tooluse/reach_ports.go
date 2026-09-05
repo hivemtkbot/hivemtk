@@ -5,32 +5,30 @@ import (
 	"time"
 )
 
-
-
 // ReachSendRequest 触达发送请求（镜像 service.ReachSendRequest）
 type ReachSendRequest struct {
-	Channel     string               
-	AccountID   string               
-	RecipientID string               
-	CustomerID  string               
-	OperatorID  string               
-	MsgType     string               
-	Content     string               
-	Subject     string               
-	TemplateID  string               
-	Params      map[string]string    
-	Attachments []string             
-	CardID      string               
-	Fallback    *ReachFallbackConfig 
-	Metadata    map[string]string    
+	Channel     string
+	AccountID   string
+	RecipientID string
+	CustomerID  string
+	OperatorID  string
+	MsgType     string
+	Content     string
+	Subject     string
+	TemplateID  string
+	Params      map[string]string
+	Attachments []string
+	CardID      string
+	Fallback    *ReachFallbackConfig
+	Metadata    map[string]string
 }
 
 // ReachFallbackConfig 降级配置（镜像 service.FallbackConfig）
 type ReachFallbackConfig struct {
 	Enabled       bool
-	BackupChannel string 
-	BackupAccount string 
-	MaxAttempts   int    
+	BackupChannel string
+	BackupAccount string
+	MaxAttempts   int
 }
 
 // ReachSendResponse 发送结果（镜像 service.SendResponse）
@@ -40,7 +38,7 @@ type ReachSendResponse struct {
 	Channel        string             `json:"channel"`
 	AccountID      string             `json:"account_id"`
 	FallbackUsed   bool               `json:"fallback_used"`
-	PrimaryChannel string             `json:"primary_channel"` 
+	PrimaryChannel string             `json:"primary_channel"`
 	RetryCount     int                `json:"retry_count"`
 	StepResults    []ReachSendStepLog `json:"step_results"`
 	Error          string             `json:"error,omitempty"`
@@ -55,7 +53,7 @@ type ReachSendStepLog struct {
 	StartedAt  time.Time `json:"started_at"`
 	EndedAt    time.Time `json:"ended_at"`
 	DurationMs int64     `json:"duration_ms"`
-	Output     []any     `json:"output,omitempty"` 
+	Output     []any     `json:"output,omitempty"`
 	Error      string    `json:"error,omitempty"`
 	Skipped    bool      `json:"skipped,omitempty"`
 }
@@ -77,7 +75,6 @@ type ReachJobView struct {
 	State string `json:"state"`
 }
 
-
 // ReachSendPipelinePort 9 步消息发送管线端口（镜像 service.SendPipeline）。
 //
 // 由 app 装配层注入 service.NewSendPipeline 的适配实现；
@@ -95,11 +92,6 @@ type ReachBatchPipelinePort interface {
 	ListJobs(ctx context.Context, channel, state string, page, pageSize int) ([]any, int64, error)
 }
 
-
-// complianceReminderHook 主动触达合规提示钩子。
-//
-// 生产由 app 装配层注入 service.LogComplianceReminder；未注入时 no-op。
-// 敏感接口：sendViaPipeline 回退路径仍会调用，保证合规提示不因装配缺失而静默丢失语义。
 var complianceReminderHook = func(channel, recipientID string) {}
 
 // SetComplianceReminderHook 注入合规提示实现（仅装配层调用，重复注入以最后一次为准）
@@ -108,4 +100,3 @@ func SetComplianceReminderHook(fn func(channel, recipientID string)) {
 		complianceReminderHook = fn
 	}
 }
-

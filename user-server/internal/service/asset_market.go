@@ -35,7 +35,7 @@ func (s *AssetMarketService) GetMarketAssetDetail(ctx context.Context, assetID s
 func (s *AssetMarketService) MyPurchases(ctx context.Context) ([]map[string]any, error) {
 	list, err := s.platformClient.MyPurchases(ctx)
 	if err != nil {
-		// 平台不可用时优雅降级返回空列表
+
 		return []map[string]any{}, nil
 	}
 	if list == nil {

@@ -61,7 +61,6 @@ func (m *SoftDeleteMigration) Description() string {
 	return "为 ai_agents / knowledge_bases / sop_agents 等核心业务表添加 deleted_at 列，支持软删除"
 }
 
-// coreTables 需要添加 deleted_at 的核心业务表列表
 var coreTables = []string{
 	"ai_agents",
 	"knowledge_bases",
@@ -97,7 +96,7 @@ func (m *SoftDeleteMigration) Up(ctx context.Context) error {
 	}
 
 	for _, table := range coreTables {
-		// 检查表是否存在
+
 		var exists bool
 		err := m.db.WithContext(ctx).Raw(
 			`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ?)`,
@@ -110,7 +109,6 @@ func (m *SoftDeleteMigration) Up(ctx context.Context) error {
 			continue
 		}
 
-		// 检查列是否已存在
 		var colExists bool
 		err = m.db.WithContext(ctx).Raw(
 			`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ? AND column_name = 'deleted_at')`,
@@ -123,14 +121,12 @@ func (m *SoftDeleteMigration) Up(ctx context.Context) error {
 			continue
 		}
 
-		// 添加 deleted_at 列
 		sql := fmt.Sprintf(`ALTER TABLE %q ADD COLUMN deleted_at timestamptz`,
 			table)
 		if err := m.db.WithContext(ctx).Exec(sql).Error; err != nil {
 			return fmt.Errorf("添加 %s.deleted_at 失败: %w", table, err)
 		}
 
-		// 添加索引
 		idxSQL := fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%s_deleted_at ON %q (deleted_at)`,
 			table, table)
 		_ = m.db.WithContext(ctx).Exec(idxSQL).Error

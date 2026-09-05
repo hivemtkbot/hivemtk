@@ -25,4 +25,3 @@ func (m *WhatsappSession) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
-

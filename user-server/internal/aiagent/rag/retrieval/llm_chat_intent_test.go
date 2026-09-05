@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"errors"
@@ -232,4 +231,3 @@ func TestMatchKeyIntentByRule_HighestScore(t *testing.T) {
 		t.Errorf("expected trust_objection, got %s", res.Intent)
 	}
 }
-

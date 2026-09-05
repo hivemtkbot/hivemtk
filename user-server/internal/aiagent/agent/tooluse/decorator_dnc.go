@@ -39,7 +39,6 @@ type AllowAllDNC struct{}
 
 func (AllowAllDNC) IsBlocked(ctx context.Context, oneID string) bool { return false }
 
-// 全局 DNC resolver（未接线时 nil → 视为放行，向后兼容）
 var globalDNCResolver DNCResolver = AllowAllDNC{}
 
 // SetGlobalDNCResolver 设置全局 DNC resolver；传 nil 恢复默认放行。
@@ -54,10 +53,9 @@ func SetGlobalDNCResolver(r DNCResolver) {
 // ErrDNCBlocked DNC 命中错误
 var ErrDNCBlocked = fmt.Errorf("dnc blocked")
 
-// dncTool DNC 网关包装器
 type dncTool struct {
 	inner    Tool
-	resolver DNCResolver // nil → 使用全局 resolver
+	resolver DNCResolver
 }
 
 // WithDNCGuard 用全局 DNC resolver 包装工具。
@@ -93,7 +91,7 @@ func (d *dncTool) Execute(ctx context.Context, args map[string]any) (ToolResult,
 	}
 	oneID := dncOneID(ctx, args)
 	if oneID == "" {
-		// 无 oneID 与 phone → 直接放行（仅本网关，业务其他拦截器继续生效）
+
 		return d.inner.Execute(ctx, args)
 	}
 	resolver := d.resolver
@@ -107,8 +105,6 @@ func (d *dncTool) Execute(ctx context.Context, args map[string]any) (ToolResult,
 	return d.inner.Execute(ctx, args)
 }
 
-// dncOneID 解析 one_id：优先 ToolContext.CustomerID，再 args[one_id]，
-// 最后 args[phone] 降级为 "phone:"+phone（与 service.DoNotContactService 对齐）。
 func dncOneID(ctx context.Context, args map[string]any) string {
 	if tc := GetToolContext(ctx); tc != nil && strings.TrimSpace(tc.CustomerID) != "" {
 		return tc.CustomerID

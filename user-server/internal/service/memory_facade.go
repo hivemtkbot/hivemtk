@@ -18,11 +18,10 @@ import (
 type MemoryScope string
 
 const (
-	MemoryScopeDialogue MemoryScope = "dialogue" // L1 对话记忆（DialogueMemory 既有写路径）
-	MemoryScopeFact     MemoryScope = "fact"     // L2 长期事实（MemorySystem 既有写路径）
+	MemoryScopeDialogue MemoryScope = "dialogue"
+	MemoryScopeFact     MemoryScope = "fact"
 )
 
-// facadeWriteTotal L-3：门面写入计数（模仿 toolCallTotal 用法）
 var facadeWriteTotal = metrics.NewCounter(
 	"hivemtk_memory_facade_write_total",
 	"Memory facade write total",
@@ -32,21 +31,21 @@ var facadeWriteTotal = metrics.NewCounter(
 // MemoryWrite 统一写入请求
 type MemoryWrite struct {
 	Scope      MemoryScope
-	SessionID  string // Scope=dialogue 必填
+	SessionID  string
 	CustomerID string
-	Role       string // Scope=dialogue 使用
-	Content    string // Scope=dialogue 使用
-	Key        string // Scope=fact 使用
-	Value      string // Scope=fact 使用
+	Role       string
+	Content    string
+	Key        string
+	Value      string
 	Importance int
-	EventAt    time.Time // M-6 事件时间，零值→now（由 L2SaveFactAt 兜底）
+	EventAt    time.Time
 }
 
 // MemoryQuery 统一读取请求
 type MemoryQuery struct {
 	CustomerID string
-	AsOf       time.Time   // M-6 双时间轴 asOf，零值→now
-	Scope      MemoryScope // 空 → 双库合并
+	AsOf       time.Time
+	Scope      MemoryScope
 	Limit      int
 }
 
@@ -54,9 +53,9 @@ type MemoryQuery struct {
 type MemoryFact struct {
 	Key        string
 	Value      string
-	Source     string // "L2_item"=memory_items / "L2_vector"=customer_long_term_memory
+	Source     string
 	Confidence float64
-	ValidFrom  time.Time // 已兜底（NULL→CreatedAt）
+	ValidFrom  time.Time
 	InvalidAt  *time.Time
 }
 
@@ -115,7 +114,6 @@ func (f *MemoryFacade) Read(ctx context.Context, q MemoryQuery) ([]MemoryFact, e
 
 	byKey := map[string][]MemoryFact{}
 
-	// 库 1：memory_items L2 事实（AsOf SQL 过滤）
 	items, err := f.ms.L2ListFactsAsOf(ctx, q.CustomerID, asOf, limit)
 	if err != nil {
 		return nil, err
@@ -132,7 +130,6 @@ func (f *MemoryFacade) Read(ctx context.Context, q MemoryQuery) ([]MemoryFact, e
 		})
 	}
 
-	// 库 2：customer_long_term_memory L2 向量记忆（内存 AsOf 过滤）
 	l2v, err := f.ms.ListLongTermMemories(ctx, q.CustomerID, string(model.LongTermMemoryFact), limit)
 	if err != nil {
 		return nil, err
@@ -156,7 +153,6 @@ func (f *MemoryFacade) Read(ctx context.Context, q MemoryQuery) ([]MemoryFact, e
 		})
 	}
 
-	// 同键冲突合并（验证门）
 	keys := make([]string, 0, len(byKey))
 	for k := range byKey {
 		keys = append(keys, k)
@@ -174,7 +170,6 @@ func (f *MemoryFacade) Read(ctx context.Context, q MemoryQuery) ([]MemoryFact, e
 	return out, nil
 }
 
-// factKeyOfItem 从 MemoryItem 提取事实键：metadata["key"] 优先，兜底剥 item_type 前缀
 func factKeyOfItem(it model.MemoryItem) string {
 	if it.Metadata != nil {
 		if k, ok := it.Metadata["key"].(string); ok && k != "" {
@@ -184,7 +179,6 @@ func factKeyOfItem(it model.MemoryItem) string {
 	return strings.TrimPrefix(it.ItemType, "fact:")
 }
 
-// splitFactKV 从 "k=v" 形态内容拆出键值（无 = 时 key 为空，整体作为 value）
 func splitFactKV(content string) (string, string) {
 	if i := strings.Index(content, "="); i > 0 {
 		return content[:i], content[i+1:]
@@ -192,10 +186,6 @@ func splitFactKV(content string) (string, string) {
 	return "", content
 }
 
-// pickLatestValid L-3 冲突合并验证门（纯函数）：
-//   - 过滤 asOf 时刻有效候选（validAtAsOf 判定）
-//   - 取 ValidFrom 最新者为主值
-//   - 全部有效候选 Confidence 相加封顶 1.0（多来源佐证提升置信度）
 func pickLatestValid(cands []MemoryFact, asOf time.Time) (MemoryFact, bool) {
 	var best MemoryFact
 	found := false

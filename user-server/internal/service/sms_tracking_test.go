@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupSmsTrackingTestDB 设置短信追踪测试数据库
 func setupSmsTrackingTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.SmsDeliveryStatus{},
@@ -24,7 +23,6 @@ func setupSmsTrackingTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// newSmsTrackingService 创建测试用短信追踪服务
 func newSmsTrackingService(database *gorm.DB) *SmsTrackingService {
 	return NewSmsTrackingService(repository.NewSmsTrackingRepository(database))
 }
@@ -109,7 +107,6 @@ func TestSmsTracking_RecordDeliveryReport_ExistingUpdate(t *testing.T) {
 		t.Fatalf("更新状态失败: %v", err)
 	}
 
-	// 验证只有一条记录且状态已更新
 	var records []model.SmsDeliveryStatus
 	if err := database.Where("message_id = ?", "msg-002").Find(&records).Error; err != nil {
 		t.Fatalf("查询记录失败: %v", err)
@@ -304,7 +301,6 @@ func TestSmsTracking_RetryFailedMessages_NormalRetry(t *testing.T) {
 		t.Errorf("Expected retried=2, got %d", retried)
 	}
 
-	// 验证 retry_count 已自增
 	var records []model.SmsDeliveryStatus
 	if err := database.Where("job_id = ?", "job-retry").Find(&records).Error; err != nil {
 		t.Fatalf("查询记录失败: %v", err)
@@ -348,7 +344,6 @@ func TestSmsTracking_RetryFailedMessages_MaxRetryReached(t *testing.T) {
 		t.Errorf("Expected retried=0, got %d", retried)
 	}
 
-	// 验证状态已变为 failed，IsRetryable=false
 	var updated model.SmsDeliveryStatus
 	if err := database.Where("message_id = ?", "max-retry-001").First(&updated).Error; err != nil {
 		t.Fatalf("查询记录失败: %v", err)
@@ -562,7 +557,6 @@ func TestSmsTracking_RefreshJobMetrics(t *testing.T) {
 		t.Fatalf("RefreshJobMetrics failed: %v", err)
 	}
 
-	// 验证 SmsJobMetric 已落库
 	var metric model.SmsJobMetric
 	if err := database.Where("job_id = ?", "job-refresh").First(&metric).Error; err != nil {
 		t.Fatalf("查询指标失败: %v", err)
@@ -777,7 +771,6 @@ func TestSmsTracking_FullFlow(t *testing.T) {
 		t.Fatalf("step 5 失败: %v", err)
 	}
 
-	// 6. 验证最终状态和指标
 	var record model.SmsDeliveryStatus
 	if err := database.Where("message_id = ?", "flow-001").First(&record).Error; err != nil {
 		t.Fatalf("查询记录失败: %v", err)
@@ -838,7 +831,6 @@ func TestSmsTracking_FullFlow_MaxRetryExhausted(t *testing.T) {
 		t.Errorf("Expected retried=0, got %d", retried)
 	}
 
-	// 验证最终状态
 	var record model.SmsDeliveryStatus
 	if err := database.Where("message_id = ?", "exhaust-001").First(&record).Error; err != nil {
 		t.Fatalf("查询记录失败: %v", err)

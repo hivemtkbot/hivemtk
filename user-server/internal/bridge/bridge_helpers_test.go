@@ -156,7 +156,7 @@ func TestMaskTokenBridge_LogFormatAlignment(t *testing.T) {
 	if idx < 0 {
 		t.Fatalf("格式错误: %q", got)
 	}
-	tail := got[idx+4:] 
+	tail := got[idx+4:]
 	tail = strings.TrimSuffix(tail, " chars)")
 	var n int
 	for _, c := range tail {
@@ -244,7 +244,7 @@ func TestHistoryItemToEvent(t *testing.T) {
 				EventID:   "i2",
 				MsgType:   "text",
 				Content:   "缺省方向",
-				Timestamp: 0, 
+				Timestamp: 0,
 			},
 			want: func(t *testing.T, ev *model.MessageEvent) {
 				if ev.MsgType != "text" || ev.Content != "缺省方向" {
@@ -281,6 +281,3 @@ func TestHistoryItemToEvent_ToChannelConversion(t *testing.T) {
 		t.Fatalf("渠道应保持 web 变体: %q", ev.Channel)
 	}
 }
-
-
-

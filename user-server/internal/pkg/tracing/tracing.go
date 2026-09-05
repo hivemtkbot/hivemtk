@@ -6,10 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hivemtk-user/internal/pkg/textutil"
 	"sync"
 	"sync/atomic"
 	"time"
-	"hivemtk-user/internal/pkg/textutil"
 
 	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
@@ -23,19 +23,19 @@ import (
 // ToolTraceEvent 工具层一次调用（agent 一轮 / 单次工具）的可观测事件。
 // 由 tooluse 包在 observer 中点出，tracing 包负责落库（见 ReportToolCall）。
 type ToolTraceEvent struct {
-	Kind       string 
-	TraceID    string 
+	Kind       string
+	TraceID    string
 	AgentID    string
 	SessionID  string
 	CustomerID string
 	CallerID   string
 	ToolName   string
-	TurnIndex  int 
+	TurnIndex  int
 	Input      any
 	Output     any
 	Error      string
 	DurationMs int64
-	Status     string 
+	Status     string
 }
 
 // ===== 生命周期节点（固定顺序，用于画链路图 + 计算节点间时延） =====
@@ -86,10 +86,6 @@ func NodeLabel(node string) string {
 	return node
 }
 
-// ===== 异步非阻塞 span 投递（核心：追踪绝不阻塞业务主链路） =====
-//
-// 业务代码调用 RecordNode / Span.End 仅是把 *model.MessageTrace 投递进一个带缓冲的 channel，
-// 由独立后台 goroutine 批量落库。当缓冲满时主动丢弃（背压），保证调用方零等待。
 var (
 	spanCh    chan pendingSpan
 	sinkOnce  sync.Once
@@ -101,9 +97,6 @@ var (
 
 const sinkBuffer = 8192
 
-// pendingSpan 异步 sink 待落库的原始 span：input/output 仍为原始 any，JSON 序列化延迟到
-// 后台落库 goroutine 执行，避免在大体积输出（LLM 完整回复、长工具输出）时阻塞业务主链路。
-// 业务侧仅做指针传递 + channel 发送（零拷贝、零序列化），最大化降低请求路径延迟。
 type pendingSpan struct {
 	carrier        *Carrier
 	traceID        string
@@ -141,7 +134,6 @@ func Init(d *gorm.DB) {
 	})
 }
 
-// flushLoop 后台批量写库：每 300ms 或缓冲达到 256 条时落一次。
 func flushLoop(d *gorm.DB) {
 	ticker := time.NewTicker(300 * time.Millisecond)
 	defer ticker.Stop()
@@ -229,10 +221,6 @@ func Stats() (int64, int64) {
 	return atomic.LoadInt64(&published), atomic.LoadInt64(&dropped)
 }
 
-// ===== 上下文载体（context 传播，减少业务手动透传 trace_id） =====
-//
-// 一次业务处理（一条消息）在入口构造一个 Carrier，存入 context，沿调用链透传。
-// 子 span（工具调用 / 多轮）通过 CarrierFromContext 自动继承会话/渠道维度，无需逐层传参。
 type carrierKey struct{}
 
 // Carrier 一次业务处理的归属信息，随 context 透传。
@@ -303,7 +291,6 @@ func (c *Carrier) WithMsgID(id string) *Carrier {
 	cp.MsgID = id
 	return cp
 }
-
 
 type recalledChunksKey struct{}
 
@@ -437,7 +424,6 @@ func (s *Span) End(output any, err error) {
 	Publish(s.toPending(dur, status, errStr))
 }
 
-// toPending 在业务 goroutine 仅做字段拷贝（input/output 仍是原始 any），零 JSON 序列化。
 func (s *Span) toPending(dur int64, status, errStr string) pendingSpan {
 	c := s.carrier
 	if c == nil {
@@ -484,9 +470,6 @@ func (s *Span) toPending(dur int64, status, errStr string) pendingSpan {
 	}
 }
 
-
-// toModelFromPending 在后台落库 goroutine 中将 pendingSpan 转为落库模型（此处才做 JSON 序列化，
-// 把 CPU 开销从业务主链路移到异步 sink，降低请求路径延迟）。
 func toModelFromPending(p pendingSpan) *model.MessageTrace {
 	return &model.MessageTrace{
 		TraceID:        p.traceID,
@@ -538,7 +521,7 @@ const (
 	StatusOk       = "ok"
 	StatusAbnormal = "abnormal"
 	StatusFailed   = "failed"
-	StatusSkipped  = "skipped" 
+	StatusSkipped  = "skipped"
 )
 
 // RecordNode 记录一个生命周期节点 span（异步非阻塞）。
@@ -585,7 +568,6 @@ func RecordNode(ctx context.Context, span NodeSpan) {
 		spanKind:       model.SpanKindLifecycle,
 	})
 }
-
 
 // ReportToolCall 由工具层 observer（tooluse.ToolTraceSink）调用，将一次工具/轮次事件转为层级 span。
 // 在 router 启动时接线：tooluse.ToolTraceSink = tracing.ReportToolCall。
@@ -636,7 +618,6 @@ func ReportToolCall(ctx context.Context, ev ToolTraceEvent) {
 	})
 }
 
-
 // RecordDownlinkFetchBatch 记录一次下行出库拉取（按 msg_id 去重：同一 msg 只记一次）。
 func RecordDownlinkFetchBatch(ctx context.Context, channel, accountID string, hubs []*model.MessageHub) {
 	if len(hubs) == 0 {
@@ -681,7 +662,6 @@ func RecordDownlinkFetchBatch(ctx context.Context, channel, accountID string, hu
 		})
 	}
 }
-
 
 // GenerateTraceID 生成全局唯一 trace_id（带 tr- 前缀，>=20 字符）。
 func GenerateTraceID() string {
@@ -750,7 +730,6 @@ func StartSpan() *SpanTimer { return &SpanTimer{start: time.Now()} }
 // ElapsedMs 返回自 StartSpan 以来的毫秒数。
 func (t *SpanTimer) ElapsedMs() int64 { return time.Since(t.start).Milliseconds() }
 
-// toJSON 安全序列化任意值为 JSON 字符串（nil/string/[]byte 直通）。
 func toJSON(v any) string {
 	if v == nil {
 		return ""
@@ -768,10 +747,8 @@ func toJSON(v any) string {
 	return string(b)
 }
 
-// sha1Sum 计算 SHA1 十六进制（用于派生稳定 trace_id）。
 func sha1Sum(s string) string {
 	h := sha1.New()
 	h.Write([]byte(s))
 	return hex.EncodeToString(h.Sum(nil))
 }
-

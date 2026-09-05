@@ -27,12 +27,10 @@ func NewEmailJobsRepository() EmailJobsRepository {
 	return &emailJobsRepo{db: _db.GetDB()}
 }
 
-// Create 创建任务
 func (r *emailJobsRepo) Create(ctx context.Context, jobs *model.EmailJobs) error {
 	return r.db.WithContext(ctx).Create(jobs).Error
 }
 
-// GetByID 根据ID获取任务
 func (r *emailJobsRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.EmailJobs, error) {
 	var jobs model.EmailJobs
 	if err := r.db.WithContext(ctx).First(&jobs, "id = ?", id).Error; err != nil {
@@ -41,7 +39,6 @@ func (r *emailJobsRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.Email
 	return &jobs, nil
 }
 
-// List 获取所有任务
 func (r *emailJobsRepo) List(ctx context.Context, page int, pageSize int) ([]*model.EmailJobs, int64, error) {
 	var jobsLists []*model.EmailJobs
 	var total int64
@@ -57,12 +54,10 @@ func (r *emailJobsRepo) List(ctx context.Context, page int, pageSize int) ([]*mo
 	return jobsLists, total, err
 }
 
-// Update 更新任务
 func (r *emailJobsRepo) Update(ctx context.Context, jobs *model.EmailJobs) error {
 	return r.db.WithContext(ctx).Save(jobs).Error
 }
 
-// Delete 删除任务
 func (r *emailJobsRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.db.WithContext(ctx).Delete(&model.EmailJobs{}, "id = ?", id).Error
 }

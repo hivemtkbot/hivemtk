@@ -1,12 +1,12 @@
 package platform
 
 import (
-	"errors"
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hivemtk-user/internal/config"
 	"hivemtk-user/internal/pkg/utils/logger"
@@ -23,12 +23,12 @@ import (
 var ErrPlatformNotConfigured = errors.New("平台配置未初始化")
 
 type Client struct {
-	merchantSecret string // 每商户独立 HMAC 密钥(平台注册响应下发)
-	merchantKey string
-	httpClient  *http.Client
-	jwtToken    string
-	jwtExpireAt time.Time
-	jwtMu       sync.Mutex
+	merchantSecret string
+	merchantKey    string
+	httpClient     *http.Client
+	jwtToken       string
+	jwtExpireAt    time.Time
+	jwtMu          sync.Mutex
 }
 
 func NewPlatformClient(merchantKey string) *Client {
@@ -36,7 +36,7 @@ func NewPlatformClient(merchantKey string) *Client {
 		merchantKey: merchantKey,
 		httpClient:  &http.Client{Timeout: 5 * time.Second},
 	}
-	// 启动时恢复历史下发的 per-merchant secret（幂等）
+
 	c.loadMerchantSecret()
 	return c
 }
@@ -79,7 +79,6 @@ func (c *Client) Do(method, path string, reqData, respData any) error {
 	return c.doRetry(method, path, reqData, respData, false)
 }
 
-// ensureJWTToken 获取并缓存平台 JWT token（用于调用 /platform/* 路由）
 func (c *Client) ensureJWTToken() error {
 	c.jwtMu.Lock()
 	defer c.jwtMu.Unlock()
@@ -157,8 +156,6 @@ func (c *Client) do(method, path string, reqData, respData any) error {
 	return c.doRetry(method, path, reqData, respData, false)
 }
 
-// doRetry 执行平台 HTTP 请求。retried=true 表示已重试过一次（用于 401 自愈），
-// 避免无限重试。
 func (c *Client) doRetry(method, path string, reqData, respData any, retried bool) error {
 	if config.PlatformCfg == nil {
 		logger.Error(fmt.Errorf("平台配置未初始化"), "商户上报请求失败")
@@ -235,7 +232,6 @@ func (c *Client) doRetry(method, path string, reqData, respData any, retried boo
 		return &PlatformError{StatusCode: resp.StatusCode, RawBody: bodyStr, Resp: &baseResp}
 	}
 
-	// 先读取响应体
 	var respBody []byte
 	if respData != nil {
 		var err error
@@ -258,7 +254,7 @@ func (c *Client) RegisterMerchant(req RegisterMerchantReq) error {
 		logger.Error(err, "商户注册失败")
 		return err
 	}
-	// v3 审计 P0：接收并持久化每商户独立 HMAC 密钥（仅注册响应一次性下发）
+
 	if len(resp.Data) > 0 {
 		var reg struct {
 			Key    string `json:"key"`
@@ -276,7 +272,6 @@ func (c *Client) RegisterMerchant(req RegisterMerchantReq) error {
 	return nil
 }
 
-// merchantSecretFilePath per-merchant secret 本地持久化路径（0600 权限）
 func merchantSecretFilePath() string {
 	return filepath.Join("config", ".merchant_api_secret")
 }
@@ -289,7 +284,6 @@ func saveMerchantSecret(secret string) error {
 	return os.WriteFile(p, []byte(secret), 0o600)
 }
 
-// loadMerchantSecret 启动时恢复已下发的 per-merchant secret（幂等，可多次调用）
 func (c *Client) loadMerchantSecret() {
 	b, err := os.ReadFile(merchantSecretFilePath())
 	if err == nil {
@@ -408,10 +402,10 @@ func ReportInstallDefault(req *ReportInstallReq) error {
 type ReportHeartbeatReq struct {
 	InstallID         string          `json:"install_id"`
 	Version           string          `json:"version"`
-	HostInfo          json.RawMessage `json:"host_info"`          
-	Metrics           json.RawMessage `json:"metrics"`            
-	DeviceFingerprint string          `json:"device_fingerprint"` 
-	ClientIP          string          `json:"client_ip"`          
+	HostInfo          json.RawMessage `json:"host_info"`
+	Metrics           json.RawMessage `json:"metrics"`
+	DeviceFingerprint string          `json:"device_fingerprint"`
+	ClientIP          string          `json:"client_ip"`
 	Timestamp         time.Time       `json:"timestamp"`
 }
 
@@ -445,4 +439,3 @@ func (c *Client) ReportHeartbeat(req *ReportHeartbeatReq) error {
 func ReportHeartbeatDefault(req *ReportHeartbeatReq) error {
 	return NewPlatformClient("").ReportHeartbeat(req)
 }
-

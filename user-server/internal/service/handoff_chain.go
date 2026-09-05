@@ -16,13 +16,13 @@ import (
 // HandoffRule 升级规则定义
 // 规则存储在 system_config_kv 中，key = "handoff_rules"，value 是 JSON 数组
 type HandoffRule struct {
-	ID          string `json:"id"`          // 规则唯一标识，如 "escalate_24h"
-	Name        string `json:"name"`        // 展示名
-	Enabled     bool   `json:"enabled"`     // 是否启用
-	Order       int    `json:"order"`       // 执行优先级（从小到大）
-	Condition   string `json:"condition"`   // 触发条件表达式，如 "unresolved > 24h" / "csat <= 2 && unresolved"
-	TargetRole  string `json:"target_role"` // 目标角色: supervisor / specialist / agent
-	Action      string `json:"action"`      // escalate / transfer / notify
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Enabled     bool   `json:"enabled"`
+	Order       int    `json:"order"`
+	Condition   string `json:"condition"`
+	TargetRole  string `json:"target_role"`
+	Action      string `json:"action"`
 	Description string `json:"description,omitempty"`
 }
 
@@ -58,8 +58,7 @@ func (s *HandoffChainService) LoadRules(ctx context.Context) ([]HandoffRule, err
 		return defaultHandoffRules(), nil
 	}
 	var kv model.SystemConfigKV
-	// ⚠️ PostgreSQL 不支持 MySQL 风格反引号标识符，必须裸写 key（此处 key 在 PG 中为非保留字）。
-	// 曾因 `` `key` `` 导致 syntax error at or near "=" ，使全部会话的升级规则判定失败并回退错误。
+
 	err := s.db.WithContext(ctx).Where("key = ?", "handoff_rules").First(&kv).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -72,14 +71,14 @@ func (s *HandoffChainService) LoadRules(ctx context.Context) ([]HandoffRule, err
 		logger.Warnf("[HandoffChain] 解析 handoff_rules JSON 失败，使用默认规则: %v", err)
 		return defaultHandoffRules(), nil
 	}
-	// 过滤禁用的
+
 	out := make([]HandoffRule, 0, len(rules))
 	for _, r := range rules {
 		if r.Enabled {
 			out = append(out, r)
 		}
 	}
-	// 按 Order 排序
+
 	sortHandoffRules(out)
 	return out, nil
 }
@@ -115,17 +114,13 @@ func (s *HandoffChainService) CheckRules(ctx context.Context, sessionID string) 
 		return nil, nil
 	}
 
-	// 查会话状态
-	// P0-FIX 2026-09-02: 原引用 csat_score / resolved_at / assigned_agent_id 三列，
-	// 但 DB 实际只有 rating / agent_id。ResolvedAt 用 updated_at 近似（如果 status
-	// 是 resolved 或 closed，则该字段可以近似视为已解决时间）。
 	type sessSnapshot struct {
 		ID              string     `gorm:"column:id"`
 		Status          string     `gorm:"column:status"`
 		CreatedAt       time.Time  `gorm:"column:created_at"`
-		ResolvedAt      *time.Time `gorm:"column:updated_at"`   // 近似替代 resolved_at（DB 缺列）
-		CsatScore       *int       `gorm:"column:rating"`       // 用 rating 替代 csat_score
-		AssignedAgentID *uint      `gorm:"column:agent_id"`     // 用 agent_id 替代 assigned_agent_id
+		ResolvedAt      *time.Time `gorm:"column:updated_at"`
+		CsatScore       *int       `gorm:"column:rating"`
+		AssignedAgentID *uint      `gorm:"column:agent_id"`
 	}
 	var sess sessSnapshot
 	if err := s.db.WithContext(ctx).
@@ -164,7 +159,7 @@ func (s *HandoffChainService) RunCron(ctx context.Context, limit int) (int, erro
 	if limit <= 0 {
 		limit = 200
 	}
-	// 取 status 不是 resolved/closed 的会话
+
 	type sessRow struct {
 		ID string `gorm:"column:id"`
 	}
@@ -191,41 +186,39 @@ func (s *HandoffChainService) RunCron(ctx context.Context, limit int) (int, erro
 	return triggeredTotal, nil
 }
 
-// matchRule 判断规则条件是否成立
 func (s *HandoffChainService) matchRule(rule HandoffRule, sess struct {
 	ID              string     `gorm:"column:id"`
 	Status          string     `gorm:"column:status"`
 	CreatedAt       time.Time  `gorm:"column:created_at"`
-	ResolvedAt      *time.Time `gorm:"column:updated_at"` // P0-FIX: 用 updated_at 近似 resolved_at
-	CsatScore       *int       `gorm:"column:rating"`     // P0-FIX: 用 rating 替代 csat_score
-	AssignedAgentID *uint      `gorm:"column:agent_id"`   // P0-FIX: 用 agent_id 替代 assigned_agent_id
+	ResolvedAt      *time.Time `gorm:"column:updated_at"`
+	CsatScore       *int       `gorm:"column:rating"`
+	AssignedAgentID *uint      `gorm:"column:agent_id"`
 }, now time.Time) bool {
-	// 会话已解决 → 跳过
+
 	if sess.Status == "resolved" || sess.Status == "closed" {
 		return false
 	}
 	switch rule.ID {
 	case "escalate_24h":
-		// unresolved > 24h
+
 		if sess.ResolvedAt != nil {
 			return false
 		}
 		return now.Sub(sess.CreatedAt) > 24*time.Hour
 	case "transfer_low_csat":
-		// csat <= 2 && unresolved
+
 		if sess.CsatScore == nil || *sess.CsatScore > 2 {
 			return false
 		}
 		return sess.ResolvedAt == nil
 	default:
-		// 兜底：解析 condition 字符串做简单 key=value 匹配
+
 		return evalSimpleCondition(rule.Condition, sess, now)
 	}
 }
 
-// applyRule 执行规则动作
 func (s *HandoffChainService) applyRule(ctx context.Context, rule HandoffRule, sessionID string) error {
-	// 1) 写入 handoff_decisions 记录（规则驱动的升级/转派也落同一张表）
+
 	if s.db != nil {
 		record := model.HandoffDecisionRecord{
 			DecisionID:   rule.ID + "_" + sessionID,
@@ -236,7 +229,7 @@ func (s *HandoffChainService) applyRule(ctx context.Context, rule HandoffRule, s
 		}
 		_ = s.db.WithContext(ctx).Create(&record).Error
 	}
-	// 2) 更新会话状态（根据 target_role）
+
 	if s.db != nil && rule.Action == "escalate" {
 		_ = s.db.WithContext(ctx).
 			Table("customer_sessions").
@@ -246,18 +239,16 @@ func (s *HandoffChainService) applyRule(ctx context.Context, rule HandoffRule, s
 	return nil
 }
 
-// evalSimpleCondition 简单条件求值（未匹配到预设 rule ID 时兜底）
 func evalSimpleCondition(cond string, sess interface{}, now time.Time) bool {
-	// 实现简化：仅做关键字包含匹配
+
 	switch {
 	case handoffContains(cond, "24h"):
-		// 无法精确解析时保守返回 false（避免误触发）
+
 		return false
 	}
 	return false
 }
 
-// handoffContains 避免与 customer_session_blacklist_test.go 中的 contains 重名
 func handoffContains(s, sub string) bool {
 	return len(s) >= len(sub) && (s == sub || len(s) > 0 && (len(sub) == 0 || handoffSearchSubstring(s, sub)))
 }
@@ -271,7 +262,6 @@ func handoffSearchSubstring(s, sub string) bool {
 	return false
 }
 
-// defaultHandoffRules 默认规则（首次使用时的种子数据）
 func defaultHandoffRules() []HandoffRule {
 	return []HandoffRule{
 		{
@@ -297,7 +287,6 @@ func defaultHandoffRules() []HandoffRule {
 	}
 }
 
-// sortHandoffRules 简单按 Order 升序排序
 func sortHandoffRules(rules []HandoffRule) {
 	for i := 1; i < len(rules); i++ {
 		for j := i; j > 0 && rules[j-1].Order > rules[j].Order; j-- {

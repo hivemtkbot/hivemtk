@@ -211,7 +211,7 @@ func (r *RagConfigRepository) UpdateRagProduct(ctx context.Context, product *mod
 
 	updates["updated_at"] = time.Now()
 
-	if len(updates) == 1 { 
+	if len(updates) == 1 {
 		return nil
 	}
 	return r.db.WithContext(ctx).Model(&model.RagProduct{}).
@@ -227,4 +227,3 @@ func (r *RagConfigRepository) DeleteRagProduct(ctx context.Context, id string) e
 func (r *RagConfigRepository) UpdateRagProductStats(ctx context.Context, productID string, docCount int, chunkCount int64, lastSyncAt any) error {
 	return nil
 }
-

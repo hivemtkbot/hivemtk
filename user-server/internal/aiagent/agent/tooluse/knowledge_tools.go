@@ -18,8 +18,6 @@ import (
 	"hivemtk-user/internal/pkg/db"
 )
 
-
-
 // KnowledgeToolDeps 知识工具依赖
 type KnowledgeToolDeps struct {
 	KnowledgeService *knowledgesvc.KnowledgeService
@@ -29,7 +27,7 @@ type KnowledgeToolDeps struct {
 	SearchLogRepo    *knowledgerepo.KnowledgeSearchLogRepository
 	FeedbackRepo     *knowledgerepo.KnowledgeFeedbackRepository
 	ChunkRepo        *knowledgerepo.KnowledgeChunkRepository
-	DB               *gorm.DB 
+	DB               *gorm.DB
 }
 
 // NewKnowledgeToolDeps 创建知识工具依赖（使用全局 DB）
@@ -92,7 +90,6 @@ func MustRegisterKnowledgeTools(registry *ToolRegistry, deps KnowledgeToolDeps) 
 		panic(err)
 	}
 }
-
 
 // RagSearchTool RAG 检索工具
 type RagSearchTool struct {
@@ -259,14 +256,11 @@ func (t *RagSearchTool) Execute(ctx context.Context, args map[string]any) (ToolR
 	}), nil
 }
 
-// hashQuery 计算查询的 SHA-256 哈希（用于检索日志聚合）
 func hashQuery(query string) string {
 	h := sha256.Sum256([]byte(strings.TrimSpace(strings.ToLower(query))))
 	return hex.EncodeToString(h[:])
 }
 
-// parseMetadataFilters 从工具参数中解析附加字段过滤条件。
-// 入参通常为 map[string]interface{}（JSON 反序列化得到），值统一转为字符串比较。
 func parseMetadataFilters(raw any) map[string]string {
 	m, ok := raw.(map[string]any)
 	if !ok || len(m) == 0 {
@@ -278,7 +272,6 @@ func parseMetadataFilters(raw any) map[string]string {
 	}
 	return out
 }
-
 
 // KnowledgeFeedbackTool 知识反馈工具
 type KnowledgeFeedbackTool struct {
@@ -336,7 +329,6 @@ func (t *KnowledgeFeedbackTool) Execute(ctx context.Context, args map[string]any
 		operator = "ai_agent"
 	}
 
-	// 评分映射
 	var rating int
 	switch strings.ToLower(ratingStr) {
 	case "helpful":
@@ -349,7 +341,6 @@ func (t *KnowledgeFeedbackTool) Execute(ctx context.Context, args map[string]any
 		return ErrorResult(t.Name(), fmt.Errorf("rating 必须是 helpful/bad/neutral，实际：%s", ratingStr)), fmt.Errorf("rating 必须是 helpful/bad/neutral，实际：%s", ratingStr)
 	}
 
-	// 可选 document_id / chunk_id
 	var documentID, chunkID *uint64
 	if docID, ok := GetIntArgSafe(args, "document_id"); ok && docID > 0 {
 		u := uint64(docID)
@@ -385,7 +376,6 @@ func (t *KnowledgeFeedbackTool) Execute(ctx context.Context, args map[string]any
 		"message":     "反馈已记录，将用于优化召回质量",
 	}), nil
 }
-
 
 // KnowledgeAddDocTool 添加知识文档工具
 type KnowledgeAddDocTool struct {
@@ -448,7 +438,6 @@ func (t *KnowledgeAddDocTool) Execute(ctx context.Context, args map[string]any) 
 	}
 	tags := getArgStringSlice(args, "tags")
 
-	// 参数校验
 	var modelSourceType model.SourceType
 	switch sourceType {
 	case "text":
@@ -494,7 +483,6 @@ func (t *KnowledgeAddDocTool) Execute(ctx context.Context, args map[string]any) 
 	}), nil
 }
 
-
 // KnowledgeListKBTool 列出知识库工具
 type KnowledgeListKBTool struct {
 	BaseTool
@@ -535,7 +523,6 @@ func (t *KnowledgeListKBTool) Execute(ctx context.Context, args map[string]any) 
 		return ErrorResult(t.Name(), err), err
 	}
 
-	// 构造响应
 	type KBItem struct {
 		ID                  string     `json:"id"`
 		Name                string     `json:"name"`
@@ -588,4 +575,3 @@ func (t *KnowledgeListKBTool) Execute(ctx context.Context, args map[string]any) 
 		"total":           len(items),
 	}), nil
 }
-

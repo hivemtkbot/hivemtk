@@ -67,4 +67,3 @@ func (m *WhatsappJobDetail) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
-

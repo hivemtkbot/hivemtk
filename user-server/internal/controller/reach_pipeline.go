@@ -13,11 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
-// reachHTTPStatus 将触达 service 错误映射到合适的 HTTP 状态码
-//
-// 遵循项目约定（response.ErrorFromDB 语义）：not found -> 404，可预期校验错误 -> 400，
-// 其余（数据库 / 未知错误）-> 500。避免把校验错误一律按 400、也不把 not found 误判为 500。
 func reachHTTPStatus(err error) int {
 	switch {
 	case errors.Is(err, service.ErrReachPipelineNotFound),
@@ -287,8 +282,6 @@ func (c *ReachPipelineController) ResetRateLimit(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"channel": channel}, "重置成功")
 }
 
-
-
 // ListJobsWithExperiment GET /api/reach/jobs/with-experiment?experiment_id=xxx
 func (c *ReachPipelineController) ListJobsWithExperiment(ctx *gin.Context) {
 	experimentID := ctx.Query("experiment_id")
@@ -312,4 +305,3 @@ func (c *ReachPipelineController) ListJobsWithExperiment(ctx *gin.Context) {
 		"page_size": pageSize,
 	}, "ok")
 }
-

@@ -457,12 +457,10 @@ func TestDecideLLMSample_EqualBoundaryHigh(t *testing.T) {
 	}
 }
 
-// stringContains 字符串包含（避免引入 strings 包）
 func stringContains(s, sub string) bool {
 	return len(s) >= len(sub) && (indexOf(s, sub) >= 0)
 }
 
-// indexOf 子串索引
 func indexOf(s, sub string) int {
 	for i := 0; i+len(sub) <= len(s); i++ {
 		if s[i:i+len(sub)] == sub {

@@ -113,4 +113,3 @@ func (c *AssetMarketClient) ReportUsage(ctx context.Context, assetID string, del
 	return c.doData("POST", "/merchant-api/asset-market/report-usage",
 		map[string]any{"asset_id": assetID, "delta": delta}, nil)
 }
-

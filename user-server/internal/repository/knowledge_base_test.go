@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupKBTestDB 初始化测试 DB (含 knowledge_bases / agent_kb_bindings)
 func setupKBTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := testutil.NewTestDB(t, &model.KnowledgeBase{}, &model.AgentKBBinding{})

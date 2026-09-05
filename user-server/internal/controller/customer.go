@@ -229,4 +229,3 @@ func (c *CustomerController) MergeCustomers(ctx *gin.Context) {
 
 	response.Success(ctx, nil, "合并成功")
 }
-

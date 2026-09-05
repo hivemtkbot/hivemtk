@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/pkg/tracing"
 )
 
-// fakeResultTool 返回预设的 ToolResult 与 err，用于精确复现各类错误/成功路径。
 type fakeResultTool struct {
 	BaseTool
 	res ToolResult
@@ -35,7 +34,6 @@ func newTestTool(name string, res ToolResult, err error) *fakeResultTool {
 	}
 }
 
-// runToolAndCapture 注册工具、接线 trace sink、执行并返回结果与捕获到的 trace 事件。
 func runToolAndCapture(t *testing.T, tool Tool, cfg ToolExecutorConfig, ctx context.Context, req ExecuteRequest) (ExecuteResult, *tracing.ToolTraceEvent) {
 	t.Helper()
 	reg := NewToolRegistry()
@@ -90,7 +88,7 @@ func TestRetryDecorator_ContextCancelBeforeExecute(t *testing.T) {
 	tool := newTestTool("test.ctx_cancel_before", ToolResult{}, nil)
 	cfg := ToolExecutorConfig{RetryPolicy: NewExponentialBackoffPolicy(3, 50*time.Millisecond, 200*time.Millisecond)}
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() 
+	cancel()
 
 	res, captured := runToolAndCapture(t, tool, cfg, ctx, ExecuteRequest{Args: map[string]any{}})
 
@@ -231,8 +229,6 @@ func TestRetry_PreservesBusinessErrorUnderRetry(t *testing.T) {
 	}
 }
 
-
-// runDispatchAndCaptureTurn 注册工具、接线 trace sink、执行整轮调度，并抽出 agent_turn 事件。
 func runDispatchAndCaptureTurn(t *testing.T, tool Tool, cfg ToolExecutorConfig, ctx context.Context, calls []LLMToolCall) ([]LLMToolResult, *tracing.ToolTraceEvent) {
 	t.Helper()
 	reg := NewToolRegistry()
@@ -260,7 +256,6 @@ func runDispatchAndCaptureTurn(t *testing.T, tool Tool, cfg ToolExecutorConfig, 
 	return results, turn
 }
 
-// ctxAwareTool 在 ctx 已取消时返回 context.Canceled（精确复现「客户端断开 / turn 截止」）。
 type ctxAwareTool struct {
 	BaseTool
 }
@@ -359,7 +354,7 @@ func TestDispatch_AgentTurnStatusAbnormalOnCancel(t *testing.T) {
 		{ID: "c1", Function: LLMToolFunction{Name: "test.turn_cancel", Arguments: "{}"}},
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() 
+	cancel()
 	_, turn := runDispatchAndCaptureTurn(t, tool, ToolExecutorConfig{}, ctx, calls)
 	if turn == nil {
 		t.Fatal("未收到 agent_turn trace 事件")
@@ -371,4 +366,3 @@ func TestDispatch_AgentTurnStatusAbnormalOnCancel(t *testing.T) {
 		t.Fatalf("异常 turn 应携带 %q，实际 %q", context.Canceled.Error(), turn.Error)
 	}
 }
-

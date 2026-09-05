@@ -15,9 +15,6 @@ import (
 	"sync"
 )
 
-// oneidSalt 读取 env ONEID_SALT（一次性初始化，运行时不再读 env）
-// v3 审计 P0-05 修复：盐从 env 注入
-// 未设置时 fallback 到硬编码默认值（仅兼容老数据，warning 提示）
 var (
 	oneidSaltOnce sync.Once
 	oneidSaltVal  string
@@ -44,10 +41,9 @@ type Identifiers struct {
 
 var (
 	phoneDigits = regexp.MustCompile(`\D+`)
-	emailValid = regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9](?:[a-z0-9.\-]*[a-z0-9])?\.[a-z]{2,}$`)
+	emailValid  = regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9](?:[a-z0-9.\-]*[a-z0-9])?\.[a-z]{2,}$`)
 )
 
-// hasAnyAlnum 字符串中是否包含任何字母或数字
 func hasAnyAlnum(s string) bool {
 	for _, r := range s {
 		if (r >= '0' && r <= '9') || (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') {
@@ -63,11 +59,12 @@ func hasAnyAlnum(s string) bool {
 // 非 11 位数字时返回原 trim 字符串。
 //
 // 长度与前缀的判断（精确匹配历史数据）：
-//   长度 13 且 86 前缀 → 剥前 2 位
-//   长度 15 且 0086 前缀 → 剥前 4 位
-//   长度 15 且 +86 前缀 → 剥前 3 位
-//   长度 14 且 0086 前缀 → 剥前 4 位
-//   长度 12 且 +86 前缀（13 位减 +）→ 剥前 3 位
+//
+//	长度 13 且 86 前缀 → 剥前 2 位
+//	长度 15 且 0086 前缀 → 剥前 4 位
+//	长度 15 且 +86 前缀 → 剥前 3 位
+//	长度 14 且 0086 前缀 → 剥前 4 位
+//	长度 12 且 +86 前缀（13 位减 +）→ 剥前 3 位
 func NormalizePhone(raw string) string {
 	if raw == "" {
 		return ""
@@ -78,9 +75,7 @@ func NormalizePhone(raw string) string {
 	}
 	digits := phoneDigits.ReplaceAllString(trimmed, "")
 	if digits == "" {
-		// 区分字母和纯分隔符：
-		// - 含字母数字（如 "abcdefghijk"）→ 返回 trimmed（保留观察）
-		// - 纯分隔符（如 "+ - . _"）→ 返回 ""（无意义输入）
+
 		if hasAnyAlnum(trimmed) {
 			return trimmed
 		}
@@ -96,12 +91,12 @@ func NormalizePhone(raw string) string {
 	case len(digits) == 14 && strings.HasPrefix(digits, "0086"):
 		digits = digits[4:]
 	}
-	// 兼容测试 +86 / 0086 等带 + 的 12 字符前缀剥离
+
 	if len(digits) == 12 && strings.HasPrefix(digits, "86") {
 		digits = digits[2:]
 	}
 	if len(digits) != 11 {
-		// 若经过国码剥离后剩余 < 11 位但 > 0，返回剥离后的 digits（测试期望）
+
 		if digits != "" && len(digits) < 11 {
 			return digits
 		}
@@ -172,7 +167,6 @@ func HasAny(in Identifiers) bool {
 		strings.TrimSpace(in.DouyinOpenID) != "" ||
 		strings.TrimSpace(in.XiaohongshuID) != ""
 }
-
 
 // UnifiedIDFromPhone 由手机号派生 OneID（不可逆：盐化哈希，杜绝明文手机号入库）。
 // v3 审计 P0-2 配套修复：原 "phone:"+明文 随各接口下发造成 PII 泄露。

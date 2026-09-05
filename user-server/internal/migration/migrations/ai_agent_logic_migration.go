@@ -8,7 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 // AIAgentExtensionMigration ai_agents 表扩展迁移
 type AIAgentExtensionMigration struct {
 	db *gorm.DB
@@ -69,6 +68,4 @@ func (m *AIAgentExtensionMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// 编译期接口断言
 var _ migration.Migration = (*AIAgentExtensionMigration)(nil)
-

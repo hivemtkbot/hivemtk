@@ -1,6 +1,5 @@
 package controller
 
-
 import (
 	"net/http"
 	"strconv"
@@ -103,7 +102,6 @@ func (c *FAQController) Get(ctx *gin.Context) {
 	response.Success(ctx, entry, "查询成功")
 }
 
-// faqCreateReq 创建/更新请求体
 type faqCreateReq struct {
 	Question   string   `json:"question" binding:"required"`
 	Answer     string   `json:"answer" binding:"required"`
@@ -112,7 +110,7 @@ type faqCreateReq struct {
 	Intent     string   `json:"intent"`
 	Confidence float64  `json:"confidence"`
 	Enabled    *bool    `json:"enabled"`
-	AgentID uint `json:"agent_id" binding:"required"`
+	AgentID    uint     `json:"agent_id" binding:"required"`
 }
 
 // Create godoc
@@ -203,13 +201,10 @@ func (c *FAQController) Delete(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"id": id}, "删除成功")
 }
 
-// faqMatchReq 关键词匹配请求
-//
-// Task 15 强 1对1: agent_id 必填 (uint); 不再支持"空 agent = 全局"分支
 type faqMatchReq struct {
 	Msg     string `json:"msg" binding:"required"`
 	TopK    int    `json:"top_k"`
-	AgentID uint   `json:"agent_id" binding:"required"` 
+	AgentID uint   `json:"agent_id" binding:"required"`
 }
 
 // Match 关键词匹配 (调试接口 + 未来 RAG 引擎调用)
@@ -244,8 +239,6 @@ func (c *FAQController) Stats(ctx *gin.Context) {
 	}, "查询成功")
 }
 
-
-
 // AnnotateFromSession R53 D1: bad case 一键标注（Dify annotation-reply 对标）
 // POST /api/faqs/annotate {session_id, message_content, answer}
 // 将会话中的 bad case（AI 答错的问题+正确答案）固化为 FAQ 标注，后续 Layer1 命中直接返回
@@ -260,7 +253,7 @@ func (c *FAQController) AnnotateFromSession(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误："+err.Error())
 		return
 	}
-	// 防重复：同问题已存在标注（相似度≥0.92）则更新答案
+
 	matches, _ := c.svc.Match(ctx.Request.Context(), req.MessageContent, 1)
 	if len(matches) > 0 && matches[0].Entry != nil && matches[0].Score >= 0.92 {
 		existing := matches[0].Entry
@@ -296,6 +289,5 @@ func orStr(v, def string) string {
 	}
 	return v
 }
-
 
 func boolPtr(v bool) *bool { return &v }

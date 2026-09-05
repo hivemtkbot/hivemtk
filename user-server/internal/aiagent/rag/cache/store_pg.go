@@ -32,12 +32,10 @@ type KBMetaReader interface {
 	GetKBUpdatedAt(ctx context.Context, kbID string) (time.Time, error)
 }
 
-// pgKBMetaReader 基于 GORM 的实现（读 knowledge_bases 表）
 type pgKBMetaReader struct {
 	db *gorm.DB
 }
 
-// GetKBUpdatedAt 实现 KBMetaReader
 func (r *pgKBMetaReader) GetKBUpdatedAt(ctx context.Context, kbID string) (time.Time, error) {
 	if r == nil || r.db == nil {
 		return time.Time{}, errors.New("kb meta reader 未初始化")
@@ -165,7 +163,6 @@ func (s *PGAnswerCacheStore) Delete(ctx context.Context, id uint64) error {
 	return s.db.WithContext(ctx).Exec(`DELETE FROM rag_answer_cache WHERE id = ?`, id).Error
 }
 
-// rowToEntry 把 pgvector 字面量行转为 Entry
 func rowToEntry(row *RAGAnswerCache) (*Entry, error) {
 	vec, err := parseVectorLiteral(row.QueryVector)
 	if err != nil {

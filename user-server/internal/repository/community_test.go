@@ -20,7 +20,6 @@ func setupCommunityTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// Helper functions to create models with IDs since BeforeCreate is missing
 func createGroup(t *testing.T, repo CommunityRepository, name, description string) *model.CommunityGroup {
 	group := &model.CommunityGroup{
 		ID:          uuid.New().String(),

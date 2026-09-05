@@ -11,9 +11,9 @@ type PermissionChecker interface {
 
 var (
 	ErrPermissionDenied = fmt.Errorf("permission denied")
-	ErrRateLimited = fmt.Errorf("rate limited")
-	ErrToolTimeout = fmt.Errorf("tool execution timeout")
-	ErrToolPanic = fmt.Errorf("tool panic")
+	ErrRateLimited      = fmt.Errorf("rate limited")
+	ErrToolTimeout      = fmt.Errorf("tool execution timeout")
+	ErrToolPanic        = fmt.Errorf("tool panic")
 )
 
 func PermissionDecorator(checker PermissionChecker) ToolDecorator {
@@ -35,4 +35,3 @@ func PermissionDecorator(checker PermissionChecker) ToolDecorator {
 }
 
 type NoOpPermissionChecker struct{}
-

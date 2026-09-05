@@ -10,14 +10,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupDouyinCardTestDB 设置抖音卡片测试数据库
 func setupDouyinCardTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.DouyinCard{},
 	)
 }
 
-// setupDouyinCardRepository 创建测试用的抖音卡片仓库实例
 func setupDouyinCardRepository(t *testing.T) DouyinCardRepository {
 	database := setupDouyinCardTestDB(t)
 	return NewDouyinCardRepository(database)
@@ -152,7 +150,7 @@ func TestDouyinCardRepository_GetList(t *testing.T) {
 	if err := database.Model(&model.DouyinCard{}).Where("id = ?", inactiveCard.ID).Update("is_active", false).Error; err != nil {
 		t.Fatalf("Failed to update inactive card IsActive: %v", err)
 	}
-	// 验证更新成功
+
 	var verifyCard model.DouyinCard
 	if err := database.First(&verifyCard, inactiveCard.ID).Error; err != nil {
 		t.Fatalf("Failed to verify inactive card: %v", err)

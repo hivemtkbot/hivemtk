@@ -6,7 +6,6 @@ import (
 	"hivemtk-user/internal/event"
 )
 
-
 // PublishCustomerMessage 发布客户消息事件
 //
 // 调用方:WebhookService.triggerSalesEngine / 各 Channel Adapter
@@ -69,4 +68,3 @@ func PublishCustomerMessageWithType(channelType, accountID, customerID, sessionI
 	event.Publish(event.TopicCustomerMessageReceived, payload)
 	return traceID
 }
-

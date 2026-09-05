@@ -319,8 +319,7 @@ func (s *InboxIngressService) PopPendingMessages(ctx context.Context, sessionID 
 		return nil, nil
 	}
 	key := InboxPendingKey + sessionID
-	// 二次审查 S2 修复：原子 PopAll 替代 LRange+Delete——两步之间存在
-	// 「新消息 LPush 落在 Delete 之后无法被取走、又被门闸拦截」的丢消息窗口
+
 	items, err := s.cache.PopAll(ctx, key)
 	if err != nil {
 		return nil, err
@@ -469,9 +468,7 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 	if s.hubRepo != nil {
 		unreplied, withinWindow, err := s.hubRepo.HasUnrepliedCustomerMessage(ctx, event.ConversationID, InboxReplyWindow)
 		if err != nil {
-			// 2026-08-25 修复：查询失败原先"保守不触发 AI"，导致 DB 抖动时用户消息静默无回复。
-			// 与本函数 interceptInbound 的"出错放行"约定对齐改为 fail-open：
-			// 上游 msg_id 去重/幂等已保证不会重复入库，宁可重复触发也不静默丢回复。
+
 			logger.Ctx(ctx).Warn().Err(err).
 				Str("conv_id", event.ConversationID).
 				Msg("[Inbox] 钩子3：查询最后一条消息方向失败，fail-open 放行本次 AI 触发")
@@ -496,8 +493,6 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 		}
 	}
 
-	// T5（ChatbotX 模式移植）：会话级防抖聚合——窗口内碎片消息合并为单次 AI 推理。
-	// 转人工关键词/非文本/禁用配置直接透传，语义不变。
 	s.triggerAIWithDebounce(ctx, event)
 	result.QueuedForAI = true
 	result.Reason = "trigger AI customer service"
@@ -714,7 +709,6 @@ func (s *InboxIngressService) HandleIngressBatch(ctx context.Context, events []*
 		return batchResult, nil
 	}
 
-	// 1. 按 conversation_id 分组（保留原索引以便回填 perEvent）
 	type indexedEvent struct {
 		idx   int
 		event *model.MessageEvent
@@ -790,11 +784,6 @@ func (s *InboxIngressService) HandleIngressBatch(ctx context.Context, events []*
 	return batchResult, nil
 }
 
-// handleIngressSingleForBatch 单条消息处理（batch 内部调用，跳过 AI 触发，由 batch 末尾统一合并触发）。
-//
-// 与 HandleIngressMessage 的区别：
-//   - 不触发 AI（返回 QueuedForAI=true 标记，由 HandleIngressBatch 末尾合并触发）
-//   - 保留 sender_type 过滤 / msg_id 去重 / 时序锚点 / 落库 等所有其他逻辑
 func (s *InboxIngressService) handleIngressSingleForBatch(ctx context.Context, event *model.MessageEvent) (*InboxIngressResult, error) {
 	result := &InboxIngressResult{
 		SessionID: event.SessionID,

@@ -247,7 +247,6 @@ func GetStatus() *Status {
 	return st
 }
 
-// probeDBAdmin 调用注入的 DB 探测；未注入或探测失败返回 ""（视为无超管）。
 func probeDBAdmin() string {
 	adminProbeMu.RLock()
 	fn := adminProbe
@@ -282,4 +281,3 @@ func newInstallID() string {
 	}
 	return "ins-" + hex.EncodeToString(b[:])
 }
-

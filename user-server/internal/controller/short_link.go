@@ -154,7 +154,6 @@ func (c *ShortLinkController) AccessShortLink(ctx *gin.Context) {
 	response.Success(ctx, resp, "访问成功")
 }
 
-// accessErrorStatus 将短链访问的业务错误映射到合适的 HTTP 状态码
 func accessErrorStatus(err error) int {
 	msg := err.Error()
 	switch {
@@ -184,4 +183,3 @@ func (c *ShortLinkController) GenerateShortCode(ctx *gin.Context) {
 
 	response.Success(ctx, resp, "生成成功")
 }
-

@@ -20,12 +20,6 @@ func approxEqualF32(a, b float32) bool {
 	return math.Abs(float64(a-b)) < 1e-6
 }
 
-// stubLLMDispatcher 测试用 LLM 调度器
-//
-// 行为：
-//   - responses 队列按调用顺序返回；耗尽后返回最后一条
-//   - failOn > 0 时第 N 次调用返回 err
-//   - 捕获所有调用的 prompt 供断言
 type stubLLMDispatcher struct {
 	mu                sync.Mutex
 	responses         []string
@@ -63,19 +57,12 @@ func (s *stubLLMDispatcher) Dispatch(ctx context.Context, scenario string, promp
 	return s.responses[idx], s.model, nil
 }
 
-// Calls 返回调用次数
 func (s *stubLLMDispatcher) Calls() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.calls
 }
 
-// stubEmbedder 测试用 Embedder
-//
-// 行为：
-//   - dimension 默认 8（测试用小维度，避免 1024 维开销）
-//   - 相同文本返回相同向量（基于简单哈希）
-//   - 不同文本返回不同向量（保证可聚类）
 type stubEmbedder struct {
 	dimension int
 	cache     map[string][]float32
@@ -92,10 +79,6 @@ func newStubEmbedder(dim int) *stubEmbedder {
 	}
 }
 
-// Embed 实现 Embedder 接口
-//
-// 哈希策略：每个字符 ASCII 值累加后取模，生成 dim 维向量
-// 同文本 → 同向量；相似文本 → 高余弦相似度
 func (s *stubEmbedder) Embed(text string) []float32 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -112,7 +95,7 @@ func (s *stubEmbedder) Embed(text string) []float32 {
 		idx := (int(r) + i) % s.dimension
 		vec[idx] += 1.0
 	}
-	// L2 归一化
+
 	var sum float64
 	for _, v := range vec {
 		sum += float64(v) * float64(v)
@@ -131,9 +114,6 @@ func (s *stubEmbedder) Dimension() int {
 	return s.dimension
 }
 
-// stubBanditAllocator 测试用 BanditAllocator
-//
-// 用于 SOPAutoOptimizer 测试，可控返回收敛结果与 PromoteArm 行为
 type stubBanditAllocator struct {
 	mu             sync.Mutex
 	convergenceMap map[string]string
@@ -169,14 +149,12 @@ func (s *stubBanditAllocator) PromoteArm(ctx context.Context, experimentID, winn
 	return s.promoteErr
 }
 
-// SetConverged 设置实验为已收敛
 func (s *stubBanditAllocator) SetConverged(experimentID, winnerKey string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.convergenceMap[experimentID] = winnerKey
 }
 
-// PromoteCalls 返回 PromoteArm 调用历史
 func (s *stubBanditAllocator) PromoteCalls() []promoteCall {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -185,15 +163,6 @@ func (s *stubBanditAllocator) PromoteCalls() []promoteCall {
 	return out
 }
 
-// setupFeedbackLoopTestDB 创建 测试 DB
-//
-// 行为：
-//   - 调用 testutil.NewTestDB 创建独立 PG 库（项目规则"不允许跳过"，连接失败时 t.Fatal）
-//
-// AutoMigrate 全部 6 张新表 + 关联表（sop_agents / optimization_suggestions）
-//   - testutil 已自动启用 pgvector 扩展（champion_dialogues.embedding 字段必需）
-//   - 注：champion_dialogues.embedding 的 GORM tag 为 type:vector(1024)，
-//     AutoMigrate 会创建为 vector(1024) 类型（pgvector 扩展已启用）
 func setupFeedbackLoopTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	return testutil.NewTestDB(t,

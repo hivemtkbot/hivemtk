@@ -21,7 +21,7 @@ func TestAgentLoopGuard_TokenBudgetTrips(t *testing.T) {
 	if r := g.check(); r != stopReasonNone {
 		t.Fatalf("未达上限不应触发，实际 %s", r)
 	}
-	g.charge(150, 0.01) // 累计 550 ≥ 500
+	g.charge(150, 0.01)
 	if r := g.check(); r != stopReasonTokenBudget {
 		t.Fatalf("期望 token_budget_exhausted，实际 %s", r)
 	}
@@ -30,7 +30,7 @@ func TestAgentLoopGuard_TokenBudgetTrips(t *testing.T) {
 func TestAgentLoopGuard_CostBudgetTrips(t *testing.T) {
 	g := newAgentLoopGuard(time.Minute, 0, 0.10)
 	g.charge(10, 0.06)
-	g.charge(10, 0.06) // 0.12 ≥ 0.10
+	g.charge(10, 0.06)
 	if r := g.check(); r != stopReasonCostBudget {
 		t.Fatalf("期望 cost_budget_exhausted，实际 %s", r)
 	}
@@ -45,7 +45,7 @@ func TestAgentLoopGuard_WallClockTrips(t *testing.T) {
 }
 
 func TestAgentLoopGuard_CostDriftTrips(t *testing.T) {
-	g := newAgentLoopGuard(time.Minute, 0, 0) // 关闭预算，仅测漂移
+	g := newAgentLoopGuard(time.Minute, 0, 0)
 	costs := []float64{0.01, 0.01, 0.01, 0.03, 0.04, 0.03}
 	for _, c := range costs {
 		if r := g.check(); r == stopReasonCostDrift {
@@ -60,7 +60,7 @@ func TestAgentLoopGuard_CostDriftTrips(t *testing.T) {
 
 func TestAgentLoopGuard_CostDriftNoFalsePositiveOnZeroBase(t *testing.T) {
 	g := newAgentLoopGuard(time.Minute, 0, 0)
-	// 首3轮成本为0（缓存命中），后3轮非零：不得误报（除零保护）
+
 	for _, c := range []float64{0, 0, 0, 0.5, 0.5, 0.5} {
 		g.charge(0, c)
 	}
@@ -70,7 +70,7 @@ func TestAgentLoopGuard_CostDriftNoFalsePositiveOnZeroBase(t *testing.T) {
 }
 
 func TestAgentLoopGuard_CheckPriorityOrder(t *testing.T) {
-	// 时间 > token > 美元：同时超限时返回时间维度
+
 	g := newAgentLoopGuard(20*time.Millisecond, 10, 0.01)
 	g.charge(1000, 1.0)
 	time.Sleep(50 * time.Millisecond)

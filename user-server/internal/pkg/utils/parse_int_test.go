@@ -12,7 +12,7 @@ func TestParseInt64OrZero(t *testing.T) {
 		{"zero", "0", 0},
 		{"positive", "12345", 12345},
 		{"negative", "-7", -7},
-		{"overflow_to_zero", "999999999999999999999999", 0}, // 超出 int64 范围 → fallback 0
+		{"overflow_to_zero", "999999999999999999999999", 0},
 		{"non_numeric", "abc", 0},
 		{"mixed", "12abc", 0},
 	}

@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"fmt"
@@ -57,20 +56,17 @@ func (r *BM25Retriever) SearchKeyword(ctx context.Context, kbID string, query st
 	return r.Retrieve(ctx, kbID, query, topK)
 }
 
-// allowedTSCols 允许的 tsvector 列白名单
 var allowedTSCols = map[string]string{
 	"contextual_tsv": "contextual_tsv",
 	"content_tsv":    "content_tsv",
 }
 
-// allowedTSConfigs 允许的文本搜索配置白名单
 var allowedTSConfigs = map[string]string{
 	"zh_rag":  "zh_rag",
 	"simple":  "simple",
 	"english": "english",
 }
 
-// tryTSQuery 尝试指定 tsvector 列 + 文本搜索配置
 func (r *BM25Retriever) tryTSQuery(ctx context.Context, productID string, query string, topK int, tsvCol, tsConfig string) ([]Chunk, error) {
 	safeCol, ok := allowedTSCols[tsvCol]
 	if !ok {
@@ -101,9 +97,6 @@ func (r *BM25Retriever) tryTSQuery(ctx context.Context, productID string, query 
 	return rowsToChunks(rows), nil
 }
 
-// ilikeFallback ILIKE 兜底（tsvector 列/配置不存在时）
-//
-// 简单按 query 子串匹配 content，score = 1.0（无 BM25 排序能力，仅保证有召回）
 func (r *BM25Retriever) ilikeFallback(ctx context.Context, productID string, query string, topK int) ([]Chunk, error) {
 	escaped := strings.NewReplacer("%", "\\%", "_", "\\_").Replace(query)
 	pattern := "%" + escaped + "%"
@@ -126,4 +119,3 @@ func (r *BM25Retriever) ilikeFallback(ctx context.Context, productID string, que
 	}
 	return rowsToChunks(rows), nil
 }
-

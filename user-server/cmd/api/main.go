@@ -51,11 +51,6 @@ const (
 	DefaultRedisPort = config.DefaultRedisPort
 )
 
-// buildRedisClient 依据环境变量构建 Redis 客户端。
-// 仅当 REDIS_HOST 显式配置时返回非 nil；否则返回 nil，
-// 此时保持进程内幂等守卫、健康检查 redis 显示 not_configured（与单实例默认行为一致）。
-// 配置：REDIS_HOST / REDIS_PORT(默认 8203) / REDIS_PASSWORD / REDIS_DB。
-// 多实例部署时，运维须将 REDIS_HOST 指向 Redis 服务，方能获得跨实例 exactly-once 保障。
 func buildRedisClient() *redis.Client {
 	host := os.Getenv("REDIS_HOST")
 	if host == "" {
@@ -78,8 +73,6 @@ func buildRedisClient() *redis.Client {
 	})
 }
 
-// redisPingerAdapter 适配 go-redis *redis.Client 以满足 router.Pinger 接口
-// （go-redis 的 Ping 返回 *redis.StatusCmd，需转译为 error）。
 type redisPingerAdapter struct {
 	client *redis.Client
 }
@@ -89,17 +82,15 @@ func (a redisPingerAdapter) Ping(ctx context.Context) error {
 }
 
 func main() {
-	// R48: .env 加载幂等兜底（utils 包 init 期已先行加载, 此处防未来时序变化）
+
 	utils.LoadDotEnv(".env")
 
 	logger.InitLogger(config.GetLoggingConfig())
 
-	// FeatureFlag 初始化：注册所有灰度开关（含 FF_ENABLE_SSE_BRIDGE）
 	featureflag.DefaultManager()
 	logger.Info("User Server Starting")
 	logger.Infof("IS_TEST_MODE env: %s", os.Getenv("IS_TEST_MODE"))
 
-	// NetworkExposureGuard：私域部署基线护栏（v3 审计 P0-S1）
 	if err := security.NewNetworkExposureGuard().Run(); err != nil {
 		log.Fatalf("[SECURITY] %v", err)
 	}
@@ -123,7 +114,6 @@ func main() {
 	db.InitDB()
 	db.AutoMigrate()
 
-	// [ConfigParam] 动态阈值参数表 — AutoMigrate + Seed 默认 59 条参数
 	if gdb := db.GetDB(); gdb != nil {
 		if err := service.SeedConfigParams(context.Background(), gdb); err != nil {
 			logger.Errorf("[ConfigParam] seed failed: %v", err)
@@ -132,7 +122,6 @@ func main() {
 		}
 	}
 
-	// [Storage] 启动时 seed 默认 local 存储配置（obs_config 表为空时自动写入，私有化零云依赖）
 	service.InitDefaultStorageIfEmpty(db.GetDB())
 
 	logger.Info("[DNC] customer_do_not_contact ready, sms_unsubscribes pending backfill via DoNotContactService.BackfillFromSMSUnsubscribe")
@@ -144,10 +133,7 @@ func main() {
 
 	appCfg := config.GetAppConfig()
 	service.SetAgentLoopTimeout(appCfg.Inference.LLM.TimeoutSeconds)
-	// T6（ChatbotX 负面教训应用）：LLM BYOK 密钥加密存储——MASTER_KEY 未配置时
-	// 降级明文（与仓库降级哲学一致），配置后存量明文在 LoadProvidersFromDB 内自动迁移
-	// T9(R55)：生产模式（GIN_MODE=release，默认）且 MASTER_KEY 缺失 → fail-fast。
-	// 私域营销系统凭据明文落库属不可接受风险，宁拒绝启动不降级。
+
 	if err := secrets.InitFromEnv(); err != nil {
 		if os.Getenv("GIN_MODE") == "debug" {
 			logger.Warnf("[secrets] MASTER_KEY 未配置（debug 模式降级明文存储）: %v", err)
@@ -211,7 +197,6 @@ func main() {
 	install.SetAdminProbe(service.NewSystemUserService().GetFirstAdminUsername)
 	platform.StartHeartbeat(context.Background())
 
-	// M8：生产模式默认 Release；启动期 Debug 由 ENV (GIN_MODE=debug) 覆盖
 	if os.Getenv("GIN_MODE") == "debug" {
 		gin.SetMode(gin.DebugMode)
 	} else {
@@ -219,8 +204,7 @@ func main() {
 	}
 	r := gin.New()
 	r.Use(gin.Recovery())
-	// 仅信任私网/回环反代（FRP/ 反向代理层 均部署在同机或内网），
-	// 防止公网客户端伪造 X-Forwarded-For 绕过限流与防爆破（ClientIP 伪造）
+
 	if err := r.SetTrustedProxies([]string{
 		"127.0.0.0/8", "::1/128",
 		"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
@@ -302,9 +286,6 @@ func main() {
 	defer traceLearningCron.Stop(context.Background())
 	logger.Info("[trace_learning] 自学习闭环已装配（cron 每小时评估新 trace 并调整知识库权重）")
 
-	// T1(R55) 自学习闭环真激活：此前 dispatcher 传 nil → PromptIterator 恒
-	// ErrDispatcherNotConfig，日度 prompt 迭代在生产空转；gateLLM 未注入 →
-	// 优化建议验证门 fail-closed。注入全局 Dispatcher 后两条链路恢复工作。
 	feedbackComponents := service.InitFeedbackLoopComponents(db.GetDB(), llm.GetGlobalDispatcher(), nil)
 	if feedbackComponents.Optimizer != nil {
 		feedbackComponents.Optimizer.SetGateLLM(llm.GetGlobalDispatcher())
@@ -321,31 +302,26 @@ func main() {
 
 	service.InitMemorySystem(db.GetDB())
 
-	// [R7] RFM 全量计算 cron：每日 04:00 CST（此前仅有手动端点，分层永不更新）
 	rfmCron := service.NewCustomerRFMCron(nil)
 	rfmCron.Start(context.Background())
 	defer rfmCron.Stop(context.Background())
 	logger.Info("[CustomerRFMCron] RFM 分层定时重算已装配")
 
-	// [T7-R55] RAG 自动评测 cron：每日 03:40 CST（真实生产查询采样 + 真实检索 hit 判定）
 	ragEvalCron := service.NewRagEvalCron()
 	ragEvalCron.Start(context.Background())
 	defer ragEvalCron.Stop(context.Background())
 	logger.Info("[RagEvalCron] RAG 自动评测每日已装配")
 
-	// [H4] 客户旅程沉睡自动检测 cron：每日 03:30 CST（此前 AutoDetectSleeping 零调用）
 	journeySleepCron := service.NewJourneySleepCron(nil)
 	journeySleepCron.Start(context.Background())
 	defer journeySleepCron.Stop(context.Background())
 	logger.Info("[JourneySleepCron] 沉睡客户自动检测已装配")
 
-	// [M1] 企微账号日配额重置 cron：每日 00:05 CST（此前仅有手动端点，需每日人工触发）
 	wecomQuotaResetCron := cronpkg.NewWeComQuotaResetCron(service.NewWeComAccountHealthService(db.GetDB()))
 	wecomQuotaResetCron.Start(context.Background())
 	defer wecomQuotaResetCron.Stop(context.Background())
 	logger.Info("[WeComQuotaResetCron] 企微日配额每日重置已装配")
 
-	// [R48 T3] 会话暂缓到期恢复 cron：每 5 分钟
 	snoozeCron := cronpkg.NewSnoozeRecoveryCron(func(ctx context.Context) (int64, error) {
 		return service.NewCustomerServicePlusServiceFromGlobal().RecoverSnoozed(ctx)
 	})
@@ -353,7 +329,6 @@ func main() {
 	defer snoozeCron.Stop()
 	logger.Info("[SnoozeCron] 会话暂缓到期恢复已装配")
 
-	// [R48 T9] 定时邮件报表：每日 08:00 窗口（复用调度骨架）
 	reportCron := cronpkg.NewSnoozeRecoveryCron(func(ctx context.Context) (int64, error) {
 		hm := time.Now().Format("15:04")
 		if hm >= "08:00" && hm < "08:30" {
@@ -366,7 +341,6 @@ func main() {
 	defer reportCron.Stop()
 	logger.Info("[ReportCron] 定时邮件报表已装配")
 
-	// [R53 A2] 自动解决 SLA cron：每 10 分钟扫描无活动超时会话
 	autoResolveCron := cronpkg.NewSnoozeRecoveryCron(func(ctx context.Context) (int64, error) {
 		n, err := service.NewSessionChainServiceFromGlobal().RunAutoResolve(ctx)
 		return int64(n), err
@@ -375,7 +349,6 @@ func main() {
 	defer autoResolveCron.Stop()
 	logger.Info("[AutoResolveCron] 自动解决 SLA 已装配")
 
-	// [R53 B] 自动化规则延迟执行复核 cron：每 2 分钟
 	ruleCron := cronpkg.NewSnoozeRecoveryCron(func(ctx context.Context) (int64, error) {
 		n, err := service.NewRuleEngineServiceFromGlobal().ProcessPendingRules(ctx)
 		return int64(n), err
@@ -384,16 +357,12 @@ func main() {
 	defer ruleCron.Stop()
 	logger.Info("[RuleEngineCron] 自动化规则延迟执行已装配")
 
-	// [P0-FIX A] SessionTTLCron 优雅停止（cron 在 service 包 init() 自动启动，main 需负责 Stop）
 	defer service.StopSessionTTLCron(context.Background())
 	logger.Info("[SessionTTLCron] 会话 TTL 自动关闭 cron 已装配（service 包 init 自动启动，这里只注册 defer Stop）")
 
-	// [GEO-AUTO] GEO 模块三定时任务（SOV 刷新 / 负面监控 / 信源同步）
 	cronpkg.InitCron()
 	logger.Info("[GEO InitCron] 定时任务已注册（SOV刷新/负面监控/信源同步/竞品爬虫，经 JobManager 统一管理）")
 
-	// [T8] 告警规则检查器：每 60s 扫描启用规则并比对阈值
-	//   默认 LogAlertNotifier；通过 env 追加 EmailAlertNotifier / WebhookAlertNotifier
 	alertNotifiers := []service.AlertNotifier{service.NewLogAlertNotifier()}
 	if os.Getenv("ALERT_EMAIL_ENABLED") == "true" {
 		if recps := os.Getenv("ALERT_EMAIL_RECIPIENTS"); recps != "" {
@@ -413,8 +382,8 @@ func main() {
 		60*time.Second,
 	)
 	alertChecker.Start()
-        defer alertChecker.Stop()
-        logger.Infof("[T8] alert checker started (interval=60s, notifiers=%d)", len(alertNotifiers))
+	defer alertChecker.Stop()
+	logger.Infof("[T8] alert checker started (interval=60s, notifiers=%d)", len(alertNotifiers))
 
 	registerEventSubscribers()
 
@@ -426,29 +395,17 @@ func main() {
 	}
 	addr := "0.0.0.0:" + port
 	logger.Infof("营销后端服务启动于 %s", addr)
-	// serveHTTP 按平台拆分：Unix 走 endless（零停机热重启），Windows 走标准 http
-	// （见 serve_unix.go / serve_windows.go）
+
 	if err := serveHTTP(addr, r); err != nil && !isGracefulShutdownErr(err) {
 		panic("服务启动失败：" + err.Error())
 	}
 }
 
-// isGracefulShutdownErr 判定 ListenAndServe 返回的错误是否为优雅关闭路径的正常产物。
-// endless 收到 SIGTERM/SIGINT 后关闭 listener，Serve() 会返回
-// "accept tcp ...: use of closed network connection"（endless 未包装为 ErrServerClosed），
-// 若不加区分地 panic，会把正常关停变成异常退出(exit≠0)并打印误导性 panic 栈。
 func isGracefulShutdownErr(err error) bool {
 	return errors.Is(err, http.ErrServerClosed) ||
 		strings.Contains(err.Error(), "use of closed network connection")
 }
 
-// registerEventSubscribers 注册 Event Bus 订阅者
-//
-// 启动阶段调用,两个订阅者开始监听:
-//   - agent_runtime.EventSubscriber   → customer.message.received（仅 AGENT_RUNTIME_BUS_ENABLED=true 时启用）
-//   - rag.IncrementalIndexer.Handle    → knowledge.document.changed
-//
-// 当前 loader / bridge 均为 nil,使用降级实现(后续任务 2/3 替换)
 func registerEventSubscribers() {
 	bus := event.GetGlobalBus()
 	if bus == nil {
@@ -469,7 +426,6 @@ func registerEventSubscribers() {
 	bus.Subscribe(event.TopicKnowledgeDocumentChanged, indexer.Handle)
 	logger.Info("[event] subscribed: knowledge.document.changed -> rag.IncrementalIndexer")
 
-	// v3 GEO 决策链化：inbox 侧思维链回填（仅对已绑定 OneID 的 GEO 归因链生效）
 	chainSync := geoservice.NewInboxChainSync(georepo.NewGeoQueryChainRepository(db.GetDB()))
 	bus.Subscribe(event.TopicCustomerMessageReceived, func(evt event.Event) error {
 		if p, ok := evt.Payload.(event.CustomerMessagePayload); ok {

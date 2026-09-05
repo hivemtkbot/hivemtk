@@ -34,7 +34,6 @@ type LiveCodeService interface {
 	UpdateQRCode(ctx context.Context, qrID string, req *dto.UpdateLiveCodeQRRequest) error
 }
 
-// liveCodeService 活码服务实现
 type liveCodeService struct {
 	liveCodeRepo repository.LiveCodeRepository
 	qrCodeRepo   repository.LiveCodeQRRepository
@@ -54,7 +53,6 @@ func NewLiveCodeService(db *gorm.DB) LiveCodeService {
 	}
 }
 
-// Create 创建活码
 func (s *liveCodeService) Create(ctx context.Context, req *dto.CreateLiveCodeRequest) (*dto.LiveCodeResponse, error) {
 	existingCode, _ := s.liveCodeRepo.GetByShortLink(ctx, req.ShortLink)
 	if existingCode != nil {
@@ -108,7 +106,6 @@ func (s *liveCodeService) Create(ctx context.Context, req *dto.CreateLiveCodeReq
 	return s.modelToResponse(ctx, liveCode), nil
 }
 
-// Update 更新活码
 func (s *liveCodeService) Update(ctx context.Context, id string, req *dto.UpdateLiveCodeRequest) (*dto.LiveCodeResponse, error) {
 	liveCode, err := s.liveCodeRepo.GetByID(ctx, id)
 	if err != nil {
@@ -180,7 +177,6 @@ func (s *liveCodeService) Update(ctx context.Context, id string, req *dto.Update
 	return s.modelToResponse(ctx, liveCode), nil
 }
 
-// Delete 删除活码
 func (s *liveCodeService) Delete(ctx context.Context, id string) error {
 	_, err := s.liveCodeRepo.GetByID(ctx, id)
 	if err != nil {
@@ -190,7 +186,6 @@ func (s *liveCodeService) Delete(ctx context.Context, id string) error {
 	return s.liveCodeRepo.Delete(ctx, id)
 }
 
-// RotateLiveCodes 轮询活码（每日200次，7天有效期）
 func (s *liveCodeService) RotateLiveCodes(ctx context.Context) error {
 	liveCodes, err := s.liveCodeRepo.GetAvailableLiveCodes(ctx)
 	if err != nil {
@@ -216,7 +211,6 @@ func (s *liveCodeService) RotateLiveCodes(ctx context.Context) error {
 	return nil
 }
 
-// RecordClick 记录点击统计
 func (s *liveCodeService) RecordClick(ctx context.Context, qrID string, ip, userAgent, referrer string) error {
 	qrCode, err := s.qrCodeRepo.GetByID(ctx, qrID)
 	if err != nil {
@@ -257,7 +251,6 @@ func (s *liveCodeService) RecordClick(ctx context.Context, qrID string, ip, user
 	return nil
 }
 
-// GetByID 根据ID获取活码
 func (s *liveCodeService) GetByID(ctx context.Context, id string) (*dto.LiveCodeResponse, error) {
 	liveCode, err := s.liveCodeRepo.GetByID(ctx, id)
 	if err != nil {
@@ -267,7 +260,6 @@ func (s *liveCodeService) GetByID(ctx context.Context, id string) (*dto.LiveCode
 	return s.modelToResponse(ctx, liveCode), nil
 }
 
-// GetByShortLink 根据短链获取活码
 func (s *liveCodeService) GetByShortLink(ctx context.Context, shortLink string) (*dto.LiveCodeResponse, error) {
 	liveCode, err := s.liveCodeRepo.GetByShortLink(ctx, shortLink)
 	if err != nil {
@@ -277,7 +269,6 @@ func (s *liveCodeService) GetByShortLink(ctx context.Context, shortLink string) 
 	return s.modelToResponse(ctx, liveCode), nil
 }
 
-// GetList 获取活码列表
 func (s *liveCodeService) GetList(ctx context.Context, page, pageSize int, name, status string) ([]*dto.LiveCodeResponse, int64, error) {
 	liveCodes, total, err := s.liveCodeRepo.GetList(ctx, page, pageSize, name, status)
 	if err != nil {
@@ -292,7 +283,6 @@ func (s *liveCodeService) GetList(ctx context.Context, page, pageSize int, name,
 	return responses, total, nil
 }
 
-// GetStats 获取活码统计
 func (s *liveCodeService) GetStats(ctx context.Context, id string) (*dto.LiveCodeStatsResponse, error) {
 	liveCode, err := s.liveCodeRepo.GetByID(ctx, id)
 	if err != nil {
@@ -333,7 +323,6 @@ func (s *liveCodeService) GetStats(ctx context.Context, id string) (*dto.LiveCod
 	}, nil
 }
 
-// GenerateQRCode 生成活码二维码
 func (s *liveCodeService) GenerateQRCode(ctx context.Context, id string, req *dto.GenerateQRCodeRequest) (*dto.LiveCodeQRResponse, error) {
 	_, err := s.liveCodeRepo.GetByID(ctx, id)
 	if err != nil {
@@ -358,7 +347,6 @@ func (s *liveCodeService) GenerateQRCode(ctx context.Context, id string, req *dt
 	return s.qrModelToResponse(ctx, qrCode), nil
 }
 
-// GetQRCodes 获取活码二维码列表
 func (s *liveCodeService) GetQRCodes(ctx context.Context, id string) ([]*dto.LiveCodeQRResponse, error) {
 	_, err := s.liveCodeRepo.GetByID(ctx, id)
 	if err != nil {
@@ -378,7 +366,6 @@ func (s *liveCodeService) GetQRCodes(ctx context.Context, id string) ([]*dto.Liv
 	return responses, nil
 }
 
-// GetQRStats 获取活码二维码统计
 func (s *liveCodeService) GetQRStats(ctx context.Context, qrID string) (*dto.LiveCodeQRStatsResponse, error) {
 	qrCode, err := s.qrCodeRepo.GetByID(ctx, qrID)
 	if err != nil {
@@ -420,14 +407,12 @@ func (s *liveCodeService) GetQRStats(ctx context.Context, qrID string) (*dto.Liv
 	}, nil
 }
 
-// Share 分享活码
 func (s *liveCodeService) Share(ctx context.Context, id string, req *dto.ShareLiveCodeRequest) (*dto.ShareLiveCodeResponse, error) {
 	liveCode, err := s.liveCodeRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, errors.New("活码不存在")
 	}
 
-	// 获取可用的二维码
 	var availableQR *model.LiveCodeQR
 	qrCodes, err := s.qrCodeRepo.GetByLiveCodeID(ctx, id)
 	if err != nil {
@@ -458,7 +443,6 @@ func (s *liveCodeService) Share(ctx context.Context, id string, req *dto.ShareLi
 	}, nil
 }
 
-// DeleteQRCode 删除二维码
 func (s *liveCodeService) DeleteQRCode(ctx context.Context, qrID string) error {
 	_, err := s.qrCodeRepo.GetByID(ctx, qrID)
 	if err != nil {
@@ -468,7 +452,6 @@ func (s *liveCodeService) DeleteQRCode(ctx context.Context, qrID string) error {
 	return s.qrCodeRepo.Delete(ctx, qrID)
 }
 
-// UpdateQRCode 更新二维码
 func (s *liveCodeService) UpdateQRCode(ctx context.Context, qrID string, req *dto.UpdateLiveCodeQRRequest) error {
 	qrCode, err := s.qrCodeRepo.GetByID(ctx, qrID)
 	if err != nil {
@@ -485,7 +468,6 @@ func (s *liveCodeService) UpdateQRCode(ctx context.Context, qrID string, req *dt
 	return s.qrCodeRepo.Update(ctx, qrCode)
 }
 
-// modelToResponse 将模型转换为响应
 func (s *liveCodeService) modelToResponse(ctx context.Context, liveCode *model.LiveCode) *dto.LiveCodeResponse {
 	response := &dto.LiveCodeResponse{
 		ID:              liveCode.ID,
@@ -546,7 +528,6 @@ func (s *liveCodeService) modelToResponse(ctx context.Context, liveCode *model.L
 	return response
 }
 
-// qrModelToResponse 将二维码模型转换为响应
 func (s *liveCodeService) qrModelToResponse(ctx context.Context, qrCode *model.LiveCodeQR) *dto.LiveCodeQRResponse {
 	viewCount := 0
 	clickCount := 0
@@ -572,7 +553,6 @@ func (s *liveCodeService) qrModelToResponse(ctx context.Context, qrCode *model.L
 	}
 }
 
-// liveCodeFullShortLink 获取完整的短链（从 model.LiveCode 迁出，五层架构合规）
 func liveCodeFullShortLink(l *model.LiveCode) string {
 	if l.ShortDomain != nil {
 		protocol := "http"
@@ -584,7 +564,6 @@ func liveCodeFullShortLink(l *model.LiveCode) string {
 	return ""
 }
 
-// liveCodeFullEntryLink 获取完整的入口链接（从 model.LiveCode 迁出）
 func liveCodeFullEntryLink(l *model.LiveCode) string {
 	if l.EntryDomain != nil {
 		protocol := "http"
@@ -596,7 +575,6 @@ func liveCodeFullEntryLink(l *model.LiveCode) string {
 	return ""
 }
 
-// liveCodeFullLandingLink 获取完整的落地链接（从 model.LiveCode 迁出）
 func liveCodeFullLandingLink(l *model.LiveCode) string {
 	if l.LandingDomain != nil {
 		protocol := "http"
@@ -608,7 +586,6 @@ func liveCodeFullLandingLink(l *model.LiveCode) string {
 	return ""
 }
 
-// calculateConversionRate 计算转化率
 func calculateConversionRate(shown, clicks int) float64 {
 	if shown == 0 {
 		return 0

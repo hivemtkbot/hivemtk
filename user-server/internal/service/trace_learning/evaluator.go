@@ -51,7 +51,6 @@ func Evaluate(ctx context.Context, dispatcher *llm.Dispatcher, cfg Config, agg *
 	return parseEvalResult(res.Content)
 }
 
-// parseEvalResult 解析 LLM 返回（兼容 ```json ``` 包裹或裸 JSON）
 func parseEvalResult(raw string) (*EvalResult, error) {
 	if raw == "" {
 		return nil, fmt.Errorf("LLM 返回空")

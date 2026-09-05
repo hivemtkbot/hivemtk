@@ -10,15 +10,15 @@ type MarketTemplate struct {
 	Name          string    `gorm:"type:varchar(100);not null" json:"name"`
 	Description   string    `gorm:"type:varchar(500)" json:"description"`
 	Category      string    `gorm:"type:varchar(50);index" json:"category"`
-	Type          string    `gorm:"type:varchar(20);index" json:"type"` 
-	Content       string    `json:"content"`                            
-	Preview       string    `gorm:"type:text" json:"preview"`           
+	Type          string    `gorm:"type:varchar(20);index" json:"type"`
+	Content       string    `json:"content"`
+	Preview       string    `gorm:"type:text" json:"preview"`
 	Author        string    `gorm:"type:varchar(50)" json:"author"`
 	DownloadCount int       `gorm:"default:0" json:"download_count"`
 	Rating        float64   `gorm:"type:decimal(3,2);default:0" json:"rating"`
 	IsOfficial    bool      `gorm:"default:false" json:"is_official"`
 	IsFree        bool      `gorm:"default:true" json:"is_free"`
-	Price         int64     `gorm:"type:bigint;default:0" json:"price"` 
+	Price         int64     `gorm:"type:bigint;default:0" json:"price"`
 	CreatedAt     time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt     time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
@@ -40,4 +40,3 @@ type MarketTemplateDownload struct {
 func (MarketTemplateDownload) TableName() string {
 	return "market_template_downloads"
 }
-

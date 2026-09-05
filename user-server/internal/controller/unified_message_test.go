@@ -91,4 +91,3 @@ func TestUnifiedMessageController_GetMessageByID_Success(t *testing.T) {
 		t.Errorf("Expected 200 or 404, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
-

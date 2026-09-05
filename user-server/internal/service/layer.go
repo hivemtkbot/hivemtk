@@ -129,7 +129,7 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 					decision.Intent = top.Entry.Intent
 				}
 				if top.Entry != nil {
-					// 最高标准审计 P1-3 修复：命中计数异步写改走 SafeGo
+
 					entryID := top.Entry.ID
 					utils.SafeGo(nil, "layer.faq_hit_count", func(_ context.Context) {
 						_ = r.faqRepo.IncrementHitCount(context.Background(), entryID)
@@ -155,7 +155,7 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 					if intentType(req.Intent) == "" {
 						decision.Intent = top.Intent
 					}
-					// 最高标准审计 P1-3 修复：命中计数异步写改走 SafeGo
+
 					faqID := top.ID
 					utils.SafeGo(nil, "layer.faq_hit_count", func(_ context.Context) {
 						_ = r.faqRepo.IncrementHitCount(context.Background(), faqID)
@@ -196,7 +196,7 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 					}
 					return decision
 				}
-				// 最高标准审计 P1-3 修复：命中计数异步写改走 SafeGo
+
 				sopID := top.ID
 				utils.SafeGo(nil, "layer.sop_hit_count", func(_ context.Context) {
 					_ = r.sopRepo.IncrementHitCount(context.Background(), sopID)
@@ -214,7 +214,6 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 	return decision
 }
 
-// record 落库 Layer 决策日志 (异步, 失败不阻塞主流程)
 func (r *LayerRouter) record(ctx context.Context, req *RouteRequest, d *dto.LayerDecision) {
 	if r.logRepo == nil {
 		return
@@ -237,7 +236,7 @@ func (r *LayerRouter) record(ctx context.Context, req *RouteRequest, d *dto.Laye
 		LLMSkipped: &llmSkipped,
 		Extra:      fmt.Sprintf("faq_id=%d sop_id=%d", d.FAQID, d.SOPID),
 	}
-	// 最高标准审计 P1-3 修复：Layer 决策日志异步落库改走 SafeGo
+
 	utils.SafeGo(nil, "layer.record", func(_ context.Context) {
 		bgCtx, cancel := context.WithTimeout(context.Background(), utils.ShortTimeout)
 		defer cancel()

@@ -1,6 +1,5 @@
 package dto
 
-
 // KnowledgeBaseType 知识库类型 (与 model.KnowledgeBaseType 保持一致)
 const (
 	KnowledgeBaseTypeFAQ = "faq"
@@ -31,10 +30,10 @@ func IsValidKBTypeDTO(t string) bool {
 type KnowledgeBase struct {
 	ID           uint   `json:"id"`
 	KBCode       string `json:"kb_code"`
-	Type         string `json:"type"` 
+	Type         string `json:"type"`
 	Name         string `json:"name"`
 	Description  string `json:"description"`
-	OwnerType    string `json:"owner_type"` 
+	OwnerType    string `json:"owner_type"`
 	OwnerAgentID *uint  `json:"owner_agent_id,omitempty"`
 	MemberCount  int    `json:"member_count"`
 	DocCount     int    `json:"doc_count"`
@@ -48,8 +47,8 @@ type AgentKBBinding struct {
 	ID        uint   `json:"id"`
 	AgentID   uint   `json:"agent_id"`
 	KBID      uint   `json:"knowledge_base_id"`
-	KBType    string `json:"kb_type"` 
-	Role      string `json:"role"`    
+	KBType    string `json:"kb_type"`
+	Role      string `json:"role"`
 	Priority  int    `json:"priority"`
 	Enabled   *bool  `json:"enabled,omitempty"`
 	CreatedAt string `json:"created_at,omitempty"`
@@ -78,4 +77,3 @@ const (
 	AgentKBBindingRolePrimary   = "primary"
 	AgentKBBindingRoleReference = "reference"
 )
-

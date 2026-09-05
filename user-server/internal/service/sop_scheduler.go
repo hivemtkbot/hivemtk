@@ -102,7 +102,6 @@ func (s *SOPScheduler) Stop(ctx context.Context) {
 	close(s.stopCh)
 }
 
-// loop 调度主循环
 func (s *SOPScheduler) loop(ctx context.Context) {
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
@@ -119,7 +118,6 @@ func (s *SOPScheduler) loop(ctx context.Context) {
 	}
 }
 
-// tick 单次调度
 func (s *SOPScheduler) tick(ctx context.Context) {
 	if s.agentRepo == nil || s.execRepo == nil {
 		return
@@ -134,7 +132,6 @@ func (s *SOPScheduler) tick(ctx context.Context) {
 	s.dispatchScheduledSOPs(ctx)
 }
 
-// cleanupStuckExecutions 清理卡死的执行
 func (s *SOPScheduler) cleanupStuckExecutions(ctx context.Context) {
 	if s.execRepo == nil {
 		return
@@ -148,7 +145,6 @@ func (s *SOPScheduler) cleanupStuckExecutions(ctx context.Context) {
 	}
 }
 
-// dispatchAutoSOPs 自动触发型 SOP
 func (s *SOPScheduler) dispatchAutoSOPs(ctx context.Context) {
 	if s.agentRepo == nil {
 		return
@@ -163,7 +159,6 @@ func (s *SOPScheduler) dispatchAutoSOPs(ctx context.Context) {
 	}
 }
 
-// dispatchScheduledSOPs 定时型 SOP
 func (s *SOPScheduler) dispatchScheduledSOPs(ctx context.Context) {
 	if s.agentRepo == nil {
 		return
@@ -196,10 +191,6 @@ func (s *SOPScheduler) dispatchScheduledSOPs(ctx context.Context) {
 	}
 }
 
-// tryExecute 尝试为该 SOP 启动一次执行
-// v3 审计 P1-36 修复：节流同 SOP 同一客户并发执行
-// 原：count > 0 return → 只挡一条；customers 含 100 人且 1 人 in running，仍启动剩下 99 个
-// 新：循环内查 running count，超阈值则跳过该客户
 func (s *SOPScheduler) tryExecute(ctx context.Context, agent model.SOPAgent) {
 	if s.execRepo == nil {
 		return
@@ -209,7 +200,7 @@ func (s *SOPScheduler) tryExecute(ctx context.Context, agent model.SOPAgent) {
 		logger.Errorf("[SOPScheduler] 检查运行中执行失败: %v", err)
 		return
 	}
-	// v3 审计 P1-36：阈值（同一 SOP 在跑数 > maxRunningPerSOP 则全部跳过）
+
 	const maxRunningPerSOP = 50
 	if count >= maxRunningPerSOP {
 		logger.Warnf("[SOPScheduler] SOP %d 已在跑 %d 个，超过阈值 %d，跳过本轮调度", agent.ID, count, maxRunningPerSOP)
@@ -222,7 +213,7 @@ func (s *SOPScheduler) tryExecute(ctx context.Context, agent model.SOPAgent) {
 	}
 
 	for _, cid := range customers {
-		// 按客户去重：同 SOP 对该客户已有 running 执行时跳过，防止重复触发
+
 		if running, derr := s.execRepo.CountRunningBySOPAndCustomer(ctx, agent.ID, cid, SOPStatusRunning); derr == nil && running > 0 {
 			logger.Infof("[SOPScheduler] SOP %d 客户 %s 已有 %d 个运行中执行，跳过本轮", agent.ID, cid, running)
 			continue
@@ -244,7 +235,6 @@ func (s *SOPScheduler) tryExecute(ctx context.Context, agent model.SOPAgent) {
 	}
 }
 
-// extractCustomerIDs 从 trigger_config 中抽取客户 ID 列表
 func extractCustomerIDs(cfg model.JSONMap) ([]string, error) {
 	if cfg == nil {
 		return nil, nil
@@ -266,7 +256,6 @@ func extractCustomerIDs(cfg model.JSONMap) ([]string, error) {
 	return nil, nil
 }
 
-// setJSONMapValue 设置 JSONMap 中的字符串值，返回 JSON 字符串
 func setJSONMapValue(m model.JSONMap, key, value string) string {
 	if m == nil {
 		m = model.JSONMap{}
@@ -276,7 +265,6 @@ func setJSONMapValue(m model.JSONMap, key, value string) string {
 	return string(b)
 }
 
-// fmtUintSafe 安全格式化 uint
 func fmtUintSafe(v uint) string {
 	return strconv.FormatUint(uint64(v), 10)
 }

@@ -13,7 +13,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 // ChatHistoryRedisAdapter 基于 Redis 的会话历史适配器
 //
 // 实现 portcontract.ChatHistoryPort 接口
@@ -37,7 +36,6 @@ func NewChatHistoryRedisAdapter(defaultLimit int) *ChatHistoryRedisAdapter {
 	}
 }
 
-// chatHistoryKey 构造 Redis key
 func chatHistoryKey(sessionID string) string {
 	return "chat_history:" + sessionID
 }
@@ -109,6 +107,4 @@ func (a *ChatHistoryRedisAdapter) AppendHistory(ctx context.Context, sessionID s
 	return nil
 }
 
-// 编译期断言：ChatHistoryRedisAdapter 实现 portcontract.ChatHistoryPort
 var _ portcontract.ChatHistoryPort = (*ChatHistoryRedisAdapter)(nil)
-

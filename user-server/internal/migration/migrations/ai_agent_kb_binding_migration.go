@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -67,6 +66,4 @@ func (m *AIAgentKBBindingMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// Ensure AIAgentKBBindingMigration implements Migration interface
 var _ migration.Migration = (*AIAgentKBBindingMigration)(nil)
-

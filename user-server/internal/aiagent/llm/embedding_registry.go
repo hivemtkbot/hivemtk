@@ -5,10 +5,6 @@ import (
 	"strings"
 )
 
-// N-4 嵌入可插拔：常见 embedding 模型原生输出维度 preset。
-// 校验语义（零行为变化）：模型不在表内 → 直通；在表内且维度不符 → error，
-// 由写入点 log 告警并跳过该条写入，不中断读路径。
-
 // EmbeddingPreset 模型 → 原生输出维度
 var EmbeddingPreset = map[string]int{
 	"bge-m3":                 1024,
@@ -17,7 +13,6 @@ var EmbeddingPreset = map[string]int{
 	"text-embedding-3-small": 1536,
 }
 
-// normalizeModelKey 归一化模型名：取 "/" 后的尾段（BAAI/bge-m3 → bge-m3）
 func normalizeModelKey(modelName string) string {
 	modelName = strings.TrimSpace(modelName)
 	if i := strings.LastIndex(modelName, "/"); i >= 0 {

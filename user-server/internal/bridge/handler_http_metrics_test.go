@@ -24,8 +24,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// metricCounterValue 读取 counter 指定 label 序列的当前值（不存在则 0）。
-// 桥接指标为懒初始化单例，读取前强制初始化注册。
 func metricCounterValue(t *testing.T, name string, labels ...string) uint64 {
 	t.Helper()
 	_ = metrics.GetBridge()
@@ -33,7 +31,6 @@ func metricCounterValue(t *testing.T, name string, labels ...string) uint64 {
 	return c.WithLabel(labels...).Value()
 }
 
-// metricHistogramCount 读取 histogram 指定 label 序列的 count 快照（不存在则 0）。
 func metricHistogramCount(t *testing.T, name string, labels ...string) uint64 {
 	t.Helper()
 	_ = metrics.GetBridge()
@@ -291,4 +288,3 @@ func TestAckMetrics_Success(t *testing.T) {
 		t.Errorf("ack 耗时直方图应 +1，实际 %d（before=%d）", got, beforeAckDur)
 	}
 }
-

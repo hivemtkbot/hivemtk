@@ -160,15 +160,6 @@ func ContentHashWithSender(channel, senderName, content string) string {
 	return fmt.Sprintf("mh:%08x", h.Sum32())
 }
 
-// isDuplicate 基于 eventID 的 TTL 幂等。
-// 业务需要：外部渠道事件必须「恰好一次」处理。多实例下若各持进程内去重表，
-// 重复投递会被不同实例各自放过 → 双处理。故改走全局缓存 SetNX：
-//   - REDIS_HOST 配置时为 Redis 共享后端（跨实例去重）
-//   - 否则为内存单例（单实例安全）
-//
-// TTL 内重复 key 已存在即命中返回 true；SetNX 异常时放行并告警（可用性优先）。
-// 使用 context.Background() 而非入参 ctx：Bridge WS 生命周期短（重连循环会 cancel ctx），
-// 而去重是基础设施功能，不应受连接生命周期影响。详见 trace ad589b80 双 orchestrator 根因。
 func (s *WebhookService) isDuplicate(ctx context.Context, eventID string) bool {
 	if eventID == "" {
 		return false
@@ -189,8 +180,7 @@ func (s *WebhookService) isDuplicate(ctx context.Context, eventID string) bool {
 
 func (s *WebhookService) allowRate(ctx context.Context, key string) bool {
 	s.rlMu.Lock()
-	// 零值构造的 WebhookService（如单测直接 &WebhookService{}）rlBuckets 为 nil，
-	// 读 nil map 安全但写入会 panic，此处惰性初始化兜底
+
 	if s.rlBuckets == nil {
 		s.rlBuckets = make(map[string]*tokenBucket)
 	}
@@ -210,10 +200,8 @@ func (s *WebhookService) allowRate(ctx context.Context, key string) bool {
 	return b.allow(context.Background())
 }
 
-// startRLJanitor 定期清理 idle 超过 5 分钟的限速桶（防内存泄漏）。
-// tokenBucket 按 (channel, accountID) 为 key，若无清理则永久增长。
 func (s *WebhookService) startRLJanitor(ctx context.Context) {
-	// 最高标准审计 P1-3 修复：限速桶清理 janitor 改走 SafeGo
+
 	utils.SafeGo(ctx, "webhook_dedup.rl_janitor", func(ctx context.Context) {
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
@@ -263,7 +251,7 @@ func (s *WebhookService) getAccountSecret(ctx context.Context, platform, account
 	if s.db == nil {
 		return "", nil
 	}
-	// v3 审计 P1-6：优先按 (platform, accountID) 精确匹配；查不到再回退平台级单账号
+
 	if acc, err := s.accountRepo.GetByPlatformAndAccount(ctx, platform, accountID); err == nil && acc != nil {
 		return acc.APISecret, nil
 	}
@@ -289,7 +277,6 @@ func (s *WebhookService) QueueLen(ctx context.Context) int { return len(s.queue)
 // ReadAll 读取请求体
 func ReadAll(r io.Reader) ([]byte, error) { return io.ReadAll(r) }
 
-// helpers
 func getString(m map[string]any, keys ...string) string {
 	for _, k := range keys {
 		if v, ok := m[k]; ok {

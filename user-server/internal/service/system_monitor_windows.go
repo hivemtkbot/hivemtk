@@ -10,8 +10,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// sampleCPUOnce Windows 实现：GetProcessTimes 采样进程用户态+内核态 CPU 时间，
-// 语义与 Unix getrusage 版本对齐（见 system_monitor_unix.go）。
 func sampleCPUOnce() float64 {
 	h := windows.CurrentProcess()
 	var creation, exit, kernel1, user1, kernel2, user2 windows.Filetime
@@ -30,7 +28,6 @@ func sampleCPUOnce() float64 {
 	return cpuUsagePercent(cpu1, cpu2, t1, t2)
 }
 
-// sampleDiskOnce Windows 实现：GetDiskFreeSpaceEx 统计工作目录所在卷的使用率。
 func sampleDiskOnce() float64 {
 	cwd, err := os.Getwd()
 	if err != nil {

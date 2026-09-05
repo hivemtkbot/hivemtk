@@ -40,7 +40,7 @@ func TestLoopGuard_RecordCost_BudgetTrip(t *testing.T) {
 	if r := guard.RecordCost("t1", 1.0); r != StopReasonNone {
 		t.Fatalf("round2 (total 2.0 < 3.0) should not trip, got %q", r)
 	}
-	// 边界：累计恰好等于预算（整数浮点无精度误差）→ 视为预算耗尽熔断
+
 	if r := guard.RecordCost("t1", 1.0); r != StopReasonCostLimit {
 		t.Fatalf("round3 (total == budget) should trip cost_limit, got %q", r)
 	}
@@ -51,7 +51,6 @@ func TestLoopGuard_RecordCost_BudgetTrip(t *testing.T) {
 		t.Fatalf("last stop reason = %q, want cost_limit", sr)
 	}
 
-	// 其他 trace 不受影响
 	if r := guard.RecordCost("t2", 1.0); r != StopReasonNone {
 		t.Fatalf("independent trace should not trip, got %q", r)
 	}
@@ -59,7 +58,7 @@ func TestLoopGuard_RecordCost_BudgetTrip(t *testing.T) {
 
 // TestLoopGuard_RecordCost_DriftDetection A-2 简化漂移：单轮成本 > 已有轮次均值 5x 即熔断
 func TestLoopGuard_RecordCost_DriftDetection(t *testing.T) {
-	// 边界：恰好 5x（0.10 == 0.02×5，严格大于才触发）→ 不触发
+
 	guard2 := NewLoopGuard(LoopGuardConfig{Enabled: true})
 	_ = guard2.RecordCost("b", 0.02)
 	_ = guard2.RecordCost("b", 0.02)
@@ -67,7 +66,6 @@ func TestLoopGuard_RecordCost_DriftDetection(t *testing.T) {
 		t.Fatalf("exactly 5x average should NOT trip (strict >), got %q", r)
 	}
 
-	// 超过 5x（均值仍为 0.02 的序列上叠加）→ 漂移熔断
 	guard3 := NewLoopGuard(LoopGuardConfig{Enabled: true})
 	_ = guard3.RecordCost("c", 0.02)
 	_ = guard3.RecordCost("c", 0.02)
@@ -89,7 +87,7 @@ func TestLoopGuard_RecordCost_DriftZeroBaseline(t *testing.T) {
 
 // TestLoopGuard_RecordCost_Disabled 预算未配置/未启用时零干预；非正成本忽略
 func TestLoopGuard_RecordCost_Disabled(t *testing.T) {
-	guard := NewLoopGuard(DefaultLoopGuardConfig()) // 无 CostBudgetUSD
+	guard := NewLoopGuard(DefaultLoopGuardConfig())
 	for i := 0; i < 10; i++ {
 		if r := guard.RecordCost("x", 100.0); r != StopReasonNone {
 			t.Fatalf("no budget configured should never trip, got %q", r)

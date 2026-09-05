@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-// newRealPipeline 构造一个绑定真实 InboxIngressService 的管道。
 func newRealPipeline(t *testing.T) (IngressPipeline, *cache.MemoryCache) {
 	t.Helper()
 	db := testutil.NewTestDB(t, &model.MessageHub{})

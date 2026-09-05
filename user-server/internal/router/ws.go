@@ -48,4 +48,3 @@ func RegisterWSRoutes(engine *gin.Engine, hub *controller.ChatWSHub, engine_ *se
 
 	engine.GET("/ws/chat", ctrl.HandleChatWS)
 }
-

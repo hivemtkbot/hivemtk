@@ -18,7 +18,7 @@ func TestGenerateVisitorToken(t *testing.T) {
 	if token == "" {
 		t.Fatal("token should not be empty")
 	}
-	// Verify format: should contain "."
+
 	if len(token) < 20 {
 		t.Fatalf("token too short: %s", token)
 	}
@@ -54,7 +54,6 @@ func TestGenerateAndValidate_RoundTrip(t *testing.T) {
 		t.Fatalf("generate failed: %v", err)
 	}
 
-	// Valid token should pass
 	if err := ValidateVisitorToken(secret, token, "channel-1", "visitor-42", "session-99"); err != nil {
 		t.Fatalf("validate failed: %v", err)
 	}
@@ -67,7 +66,6 @@ func TestValidateVisitorToken_WrongChannel(t *testing.T) {
 		t.Fatalf("generate failed: %v", err)
 	}
 
-	// Wrong channel should fail
 	if err := ValidateVisitorToken(secret, token, "channel-2", "visitor-42", "session-99"); err == nil {
 		t.Fatal("expected error for wrong channel")
 	}
@@ -80,7 +78,6 @@ func TestValidateVisitorToken_WrongVisitor(t *testing.T) {
 		t.Fatalf("generate failed: %v", err)
 	}
 
-	// Wrong visitor should fail
 	if err := ValidateVisitorToken(secret, token, "channel-1", "visitor-99", "session-99"); err == nil {
 		t.Fatal("expected error for wrong visitor")
 	}
@@ -93,7 +90,6 @@ func TestValidateVisitorToken_WrongSecret(t *testing.T) {
 		t.Fatalf("generate failed: %v", err)
 	}
 
-	// Wrong secret should fail
 	if err := ValidateVisitorToken("wrong-secret-key-here-32bytes!!", token, "channel-1", "visitor-42", "session-99"); err == nil {
 		t.Fatal("expected error for wrong secret")
 	}
@@ -101,7 +97,7 @@ func TestValidateVisitorToken_WrongSecret(t *testing.T) {
 
 func TestValidateVisitorToken_Expired(t *testing.T) {
 	secret := "test-secret-for-round-trip-32bytes!!"
-	// 手动构造一个已过期的 token（使用过去的时间戳）
+
 	pastExpireTS := time.Now().Add(-1 * time.Hour).Unix()
 	payload := fmt.Sprintf("channel-1|visitor-42|session-99|%d", pastExpireTS)
 	mac := hmac.New(sha256.New, []byte(secret))
@@ -133,7 +129,6 @@ func TestValidateVisitorToken_DefaultTTL(t *testing.T) {
 		t.Fatalf("generate failed: %v", err)
 	}
 
-	// Default TTL is 7 days, so it should pass validation
 	if err := ValidateVisitorToken(secret, token, "ch", "v", "s"); err != nil {
 		t.Fatalf("validate with default TTL failed: %v", err)
 	}
