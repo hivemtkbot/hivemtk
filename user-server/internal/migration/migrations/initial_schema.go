@@ -191,5 +191,6 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	register(NewEmbeddingSourceMigration(db))
 	register(NewHandoffOutcomeMigration(db))
 	register(NewAgentCheckpointMigration(db))
+	register(NewChurnScoreMigration(db))
 }
 

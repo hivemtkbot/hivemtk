@@ -328,6 +328,12 @@ func main() {
 	defer rfmCron.Stop(context.Background())
 	logger.Info("[CustomerRFMCron] RFM 分层定时重算已装配")
 
+	// [D22b] BG/NBD 流失评分 cron：每周一 05:00 CST（订单数据为空时幂等空跑）
+	churnCron := service.NewChurnScoreCron(service.NewChurnScoreService(db.GetDB()))
+	churnCron.Start(context.Background())
+	defer churnCron.Stop(context.Background())
+	logger.Info("[ChurnScoreCron] BG/NBD 流失评分周批已装配")
+
 	// [T7-R55] RAG 自动评测 cron：每日 03:40 CST（真实生产查询采样 + 真实检索 hit 判定）
 	ragEvalCron := service.NewRagEvalCron()
 	ragEvalCron.Start(context.Background())
