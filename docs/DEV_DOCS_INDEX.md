@@ -37,14 +37,14 @@ Go + Gin + GORM + PostgreSQL + Redis + pgvector，强制五层架构。
 
 | 文档 | 路径 |
 | --- | --- |
-| 架构图 | [user-server/docs/dev/ARCHITECTURE.md](user-server/docs/dev/ARCHITECTURE.md) |
-| 代码开发手册 | [user-server/docs/dev/DEVELOPMENT.md](user-server/docs/dev/DEVELOPMENT.md) |
-| 代码规范 | [user-server/docs/dev/CONVENTIONS.md](user-server/docs/dev/CONVENTIONS.md) |
-| 功能清单 | [user-server/docs/dev/FEATURES.md](user-server/docs/dev/FEATURES.md) |
+| 架构图 | [user-server/docs/dev/ARCHITECTURE.md](../user-server/docs/dev/ARCHITECTURE.md) |
+| 代码开发手册 | [user-server/docs/dev/DEVELOPMENT.md](../user-server/docs/dev/DEVELOPMENT.md) |
+| 代码规范 | [user-server/docs/dev/CONVENTIONS.md](../user-server/docs/dev/CONVENTIONS.md) |
+| 功能清单 | [user-server/docs/dev/FEATURES.md](../user-server/docs/dev/FEATURES.md) |
 
 关联架构文档：
-- [五层架构编码规范](docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md)
-- [系统架构图 C4](docs/architecture/ARCHITECTURE_DIAGRAM.md)
+- [五层架构编码规范](../docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md)
+- [系统架构图 C4](../docs/architecture/ARCHITECTURE_DIAGRAM.md)
 
 #### 2. user-web（Vue 3 前端）
 
@@ -52,10 +52,10 @@ Vue 3 + Vite + Element Plus + Pinia + Vue Router，用户端 SaaS 前端。
 
 | 文档 | 路径 |
 | --- | --- |
-| 架构图 | [user-web/docs/dev/ARCHITECTURE.md](user-web/docs/dev/ARCHITECTURE.md) |
-| 代码开发手册 | [user-web/docs/dev/DEVELOPMENT.md](user-web/docs/dev/DEVELOPMENT.md) |
-| 代码规范 | [user-web/docs/dev/CONVENTIONS.md](user-web/docs/dev/CONVENTIONS.md) |
-| 功能清单 | [user-web/docs/dev/FEATURES.md](user-web/docs/dev/FEATURES.md) |
+| 架构图 | [user-web/docs/dev/ARCHITECTURE.md](../user-web/docs/dev/ARCHITECTURE.md) |
+| 代码开发手册 | [user-web/docs/dev/DEVELOPMENT.md](../user-web/docs/dev/DEVELOPMENT.md) |
+| 代码规范 | [user-web/docs/dev/CONVENTIONS.md](../user-web/docs/dev/CONVENTIONS.md) |
+| 功能清单 | [user-web/docs/dev/FEATURES.md](../user-web/docs/dev/FEATURES.md) |
 
 #### 3. embed-sdk（嵌入式客服 SDK）
 
@@ -63,10 +63,10 @@ Vue 3 + Vite + Element Plus + Pinia + Vue Router，用户端 SaaS 前端。
 
 | 文档 | 路径 |
 | --- | --- |
-| 架构图 | [embed-sdk/docs/dev/ARCHITECTURE.md](embed-sdk/docs/dev/ARCHITECTURE.md) |
-| 代码开发手册 | [embed-sdk/docs/dev/DEVELOPMENT.md](embed-sdk/docs/dev/DEVELOPMENT.md) |
-| 代码规范 | [embed-sdk/docs/dev/CONVENTIONS.md](embed-sdk/docs/dev/CONVENTIONS.md) |
-| 功能清单 | [embed-sdk/docs/dev/FEATURES.md](embed-sdk/docs/dev/FEATURES.md) |
+| 架构图 | [embed-sdk/docs/dev/ARCHITECTURE.md](../embed-sdk/docs/dev/ARCHITECTURE.md) |
+| 代码开发手册 | [embed-sdk/docs/dev/DEVELOPMENT.md](../embed-sdk/docs/dev/DEVELOPMENT.md) |
+| 代码规范 | [embed-sdk/docs/dev/CONVENTIONS.md](../embed-sdk/docs/dev/CONVENTIONS.md) |
+| 功能清单 | [embed-sdk/docs/dev/FEATURES.md](../embed-sdk/docs/dev/FEATURES.md) |
 
 ---
 
