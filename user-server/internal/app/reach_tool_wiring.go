@@ -36,7 +36,8 @@ func NewReachToolDepsWithAdapter(db *gorm.DB, adapter tooluse.ReachAdapter) tool
 // 测试逃生开关：REACH_DISABLE_QUIET_HOURS=true 时禁用守卫（对齐 SMS_ALLOW_NIGHT_SEND 先例），
 // 否则夜间（22:00-8:00 CST）跑集成测试所有发送会被 defer 导致断言失败。
 func newReachSendPipeline(adapter tooluse.ReachAdapter) tooluse.ReachSendPipelinePort {
-	cfg := service.NewDefaultRateLimitedPipelineConfig(&reachChannelAdapterBridge{adapter: adapter})
+	// D14-T15b：全局缓存为 Redis 后端时 QPS 层走 GCRA 平滑限流，否则回退进程内存限流
+	cfg := service.NewDefaultRateLimitedPipelineConfigWithCache(&reachChannelAdapterBridge{adapter: adapter})
 	if os.Getenv("REACH_DISABLE_QUIET_HOURS") != "true" {
 		q := service.GetGlobalQuietHoursQueue()
 		cfg.QuietHoursEnabled = true
