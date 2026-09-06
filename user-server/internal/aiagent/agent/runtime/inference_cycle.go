@@ -168,17 +168,14 @@ func (c *InferenceCycle) RunOnce(ctx context.Context, payload CustomerMessagePay
 	}
 
 	var percepResult, alignResult *StageResult
-	var wg sync.WaitGroup
-	wg.Add(2)
 
-	go func() {
-		defer wg.Done()
-		if c.PerceptionStage == nil {
-			return
-		}
+	// 感知 → 对齐必须串行:对齐评分读取感知产出的 Sentiment/Intent,
+	// 此前并行执行曾造成数据竞争(race detector 实锤)与评分脏读;
+	// 感知为 LLM 调用、对齐为本地打分,串行无性能损失
+	if c.PerceptionStage != nil {
 		sctx, scancel := context.WithTimeout(tctx, c.StageTimeout)
-		defer scancel()
 		r := c.PerceptionStage.Execute(sctx, ic)
+		scancel()
 		if r.Error != nil {
 			logger.Warnf("[inference_cycle] stage=perception error=%v", r.Error)
 		}
@@ -188,16 +185,12 @@ func (c *InferenceCycle) RunOnce(ctx context.Context, payload CustomerMessagePay
 		if r.EarlyReturn {
 			percepResult = &r
 		}
-	}()
+	}
 
-	go func() {
-		defer wg.Done()
-		if c.AlignmentStage == nil {
-			return
-		}
+	if c.AlignmentStage != nil {
 		sctx, scancel := context.WithTimeout(tctx, c.StageTimeout)
-		defer scancel()
 		r := c.AlignmentStage.Execute(sctx, ic)
+		scancel()
 		if r.Error != nil {
 			logger.Warnf("[inference_cycle] stage=alignment error=%v", r.Error)
 		}
@@ -207,9 +200,7 @@ func (c *InferenceCycle) RunOnce(ctx context.Context, payload CustomerMessagePay
 		if r.EarlyReturn {
 			alignResult = &r
 		}
-	}()
-
-	wg.Wait()
+	}
 
 	if percepResult != nil || alignResult != nil {
 		earlyStageName := "perception"
