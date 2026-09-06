@@ -11,17 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// BackupDataRepository 备份数据仓储
-//
-// 用于 BackupService 跨表 dump / restore:
-//   - DumpClues:导出最近 sinceUnix 之后的线索
-//   - DumpUsers:导出 limit 个用户（从 offset 开始，用于分页全量 dump）
-//   - DumpShortLinks:导出 limit 个短链（从 offset 开始）
-//   - DumpTable:通用任意表全量导出（AD-P0-2 备份扩表：mfa / obs_config / email_accounts 等）
-//   - RestoreClue/RestoreUser/RestoreShortLink:按 ID 去重写入
-//   - RestoreTable:通用恢复（DELETE + INSERT），幂等重建
-//
-// 五层架构合规:封装对多张表的直接访问,避免 service 层持有 *gorm.DB。
 type BackupDataRepository interface {
 	DumpClues(ctx context.Context, sinceUnix int64) (json.RawMessage, error)
 	DumpUsers(ctx context.Context, limit, offset int) (json.RawMessage, error)

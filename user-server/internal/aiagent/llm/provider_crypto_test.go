@@ -8,7 +8,6 @@ import (
 
 const testMasterKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
-// T6 验收①：secrets 就绪时——写入加密（enc:v1: 前缀）、读取还原。
 func TestProviderCrypto_RoundTrip(t *testing.T) {
 	secrets.ResetForTest()
 	defer secrets.ResetForTest()
@@ -33,7 +32,6 @@ func TestProviderCrypto_RoundTrip(t *testing.T) {
 	}
 }
 
-// T6 验收②：幂等——已密文不再二次加密。
 func TestProviderCrypto_Idempotent(t *testing.T) {
 	t.Setenv("MASTER_KEY", testMasterKey)
 	secrets.ResetForTest()
@@ -47,7 +45,6 @@ func TestProviderCrypto_Idempotent(t *testing.T) {
 	}
 }
 
-// T6 验收③：secrets 未就绪 → 全链路明文降级（绝不产出不可恢复密文）。
 func TestProviderCrypto_PlaintextFallbackWhenNotReady(t *testing.T) {
 	secrets.ResetForTest()
 	defer secrets.ResetForTest()
@@ -61,7 +58,6 @@ func TestProviderCrypto_PlaintextFallbackWhenNotReady(t *testing.T) {
 	}
 }
 
-// T6 验收④：存量明文双轨——就绪状态下明文读库直通（迁移前读取不炸）。
 func TestProviderCrypto_LegacyPlaintextStillReadable(t *testing.T) {
 	t.Setenv("MASTER_KEY", testMasterKey)
 	secrets.ResetForTest()
@@ -73,8 +69,6 @@ func TestProviderCrypto_LegacyPlaintextStillReadable(t *testing.T) {
 	}
 }
 
-// T6 验收⑤：rowToProviderConfig → providerConfigToRow 全链路——内存态始终明文，
-// 落库态始终密文。
 func TestProviderCrypto_RowRoundTrip(t *testing.T) {
 	t.Setenv("MASTER_KEY", testMasterKey)
 	secrets.ResetForTest()

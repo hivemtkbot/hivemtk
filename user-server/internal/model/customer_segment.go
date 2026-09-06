@@ -2,7 +2,6 @@ package model
 
 import "time"
 
-// CustomerSegment 客户分群（R46：Builder/RfmMatrix"保存分群"此前为假按钮——真持久化落此表）
 type CustomerSegment struct {
 	ID          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name        string    `gorm:"type:varchar(100);not null" json:"name"`
@@ -16,7 +15,6 @@ type CustomerSegment struct {
 
 func (CustomerSegment) TableName() string { return "customer_segments" }
 
-// Macro 会话宏（R48 T4，对标 Chatwoot Macros）
 type Macro struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name      string    `gorm:"type:varchar(100);not null;uniqueIndex" json:"name"`
@@ -26,7 +24,6 @@ type Macro struct {
 
 func (Macro) TableName() string { return "macros" }
 
-// SessionAISummary AI 会话摘要（R48 T5）
 type SessionAISummary struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	SessionID string    `gorm:"type:varchar(120);uniqueIndex;not null" json:"session_id"`
@@ -38,7 +35,6 @@ type SessionAISummary struct {
 
 func (SessionAISummary) TableName() string { return "session_ai_summaries" }
 
-// WebhookSubscription 出站 Webhook 订阅（R48 T6）
 type WebhookSubscription struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	URL       string    `gorm:"type:varchar(500);not null" json:"url"`
@@ -50,7 +46,6 @@ type WebhookSubscription struct {
 
 func (WebhookSubscription) TableName() string { return "webhook_subscriptions" }
 
-// SavedView 保存的自定义视图（R48 T8）
 type SavedView struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	UserID    uint      `gorm:"index;not null" json:"user_id"`
@@ -62,7 +57,6 @@ type SavedView struct {
 
 func (SavedView) TableName() string { return "saved_views" }
 
-// ReportSubscription 定时邮件报表订阅（R48 T9）
 type ReportSubscription struct {
 	ID        uint       `gorm:"primaryKey;autoIncrement" json:"id"`
 	Email     string     `gorm:"type:varchar(200);not null;uniqueIndex" json:"email"`
@@ -74,7 +68,6 @@ type ReportSubscription struct {
 
 func (ReportSubscription) TableName() string { return "report_subscriptions" }
 
-// AutomationRule 轻量自动化规则（R53 B，Chatwoot automation_rules 精简版）
 type AutomationRule struct {
 	ID           uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name         string    `gorm:"type:varchar(100);not null" json:"name"`
@@ -91,7 +84,6 @@ type AutomationRule struct {
 
 func (AutomationRule) TableName() string { return "automation_rules" }
 
-// RulePendingExecution 自动化规则延迟执行队列（R53 B）
 type RulePendingExecution struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	RuleID    uint      `gorm:"index;not null" json:"rule_id"`

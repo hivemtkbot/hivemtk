@@ -239,13 +239,6 @@ func (r *SOPTemplateRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.SOPTemplate{}).Error
 }
 
-// SOPTemplateListParams SOP 模板查询参数（前端管理页面）。
-// 架构整改 P0-5 后续：仓储层原生定义查询参数，dto 过滤器由 service 层转换。
-//
-// AgentID 字段
-//   - nil:  不过滤 (兼容旧调用)
-//   - &0:   仅查共享 (agent_id IS NULL)
-//   - &X:   仅查该智能体 (agent_id = X)
 type SOPTemplateListParams struct {
 	Keyword  string
 	Intent   string

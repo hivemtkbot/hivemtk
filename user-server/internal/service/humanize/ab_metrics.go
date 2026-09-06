@@ -57,10 +57,6 @@ func (m *HumanizeABMetrics) AvgFirstReplyMsSec() float64 {
 	return float64(m.SumFirstReplyMs) / float64(m.SampleCount)
 }
 
-// ABRecorder A/B 指标记录器
-//
-// 线程安全：单例模式，多 goroutine 并发写
-// v3 审计 P1-#5 增强：增加 DB 持久化（异步落库 ab_test_metrics 表）
 type ABRecorder struct {
 	mu        sync.RWMutex
 	control   *HumanizeABMetrics

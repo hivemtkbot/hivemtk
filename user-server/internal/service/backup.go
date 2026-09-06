@@ -646,9 +646,6 @@ func NewScheduleBackupService() *ScheduleBackupService {
 	}
 }
 
-// CreateDailyBackup 创建每日备份
-// 独立部署模式:每个商户端为单租户,直接创建一个全局备份
-// v3 审计 P1-30 修复：加时间戳避免同日重名撞库
 func (s *ScheduleBackupService) CreateDailyBackup(ctx context.Context) error {
 	logger.Info("执行定时备份任务...")
 

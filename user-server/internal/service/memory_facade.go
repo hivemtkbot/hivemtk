@@ -59,8 +59,6 @@ type MemoryFact struct {
 	InvalidAt  *time.Time
 }
 
-// MemoryFacade L-3 统一记忆门面：持有既有 MemorySystem / DialogueMemoryService 实例引用，
-// Write 按 Scope 分流（复用 M-3 同步委托逻辑），Read 合并双库结果
 type MemoryFacade struct {
 	db *gorm.DB
 	ms *MemorySystem

@@ -30,12 +30,6 @@ func NewCSATService() *CSATService {
 	}
 }
 
-// Trigger 手动/自动触发调查（一会话一调查幂等；状态 pending→sent）
-//
-// 修复 CSAT Trigger P0 断点：落库后同步向访客所在渠道推送评分邀请消息。
-// WebWidget 等 bridge 渠道通过 DeliverBridgeOutbound 下发，前端会话关闭后即可收到；
-// 非 bridge 渠道暂不落渠道消息，仅落库 csat_surveys(state=sent) 并记录日志，
-// 后续前端/Webhook 可根据 sent 状态轮询展示评分 UI。
 func (s *CSATService) Trigger(ctx context.Context, sessionID, triggeredBy string) (*model.CSATSurvey, error) {
 	if triggeredBy == "" {
 		triggeredBy = "manual"

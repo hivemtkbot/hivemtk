@@ -10,19 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// EmailSmtpPasswordEncryptMigration R50 配套：email_smtp 存量明文密码一次性加密
-//
-// 背景：R50 UI 实测发现 CreateEmailSmtp 的 fail-open 分支在 FIELD_ENCRYPTION_KEY
-// 未配置时静默跳过加密，导致存量 email_smtp.password 以明文落库（25+ 行）。
-// R50 已将 Create/Update 收口为 fail-closed（加密失败拒绝写入）。
-//
-// 本迁移把存量明文密码一次性读-加密-写回：
-//   - 判定规则沿用读取侧双读契约：以 base64 解码 + 前缀非 "{" 的历史约定为准，
-//     更稳妥的判定 = 尝试 Decrypt 成功即为密文，失败视为明文
-//   - 密钥未配置 / 无效时整迁移失败（fail-closed，与 R50 语义一致）
-//   - 幂等安全：明文行才写回，密文行跳过
-//
-// ⚠️ 运维前置：必须先注入 FIELD_ENCRYPTION_KEY（≥32字节）再执行，否则 Up 返回错误。
 type EmailSmtpPasswordEncryptMigration struct {
 	db *gorm.DB
 }

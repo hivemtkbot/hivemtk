@@ -26,17 +26,6 @@ type HandoffRule struct {
 	Description string `json:"description,omitempty"`
 }
 
-// HandoffChainService 工单升级/转派链服务
-//
-// G14: 竞品标配功能 - 基于可配置规则的 SLA 升级链
-//
-// 规则示例（默认）：
-//  1. unresolved > 24h → 自动升级到 supervisor
-//  2. csat <= 2 && unresolved → 自动转派到 specialist
-//
-// 数据源：
-//   - system_config_kv (key = "handoff_rules")：规则 JSON
-//   - handoff_decisions：已有的转人工决策记录（G14 在其基础上增加规则驱动的升级）
 type HandoffChainService struct {
 	db *gorm.DB
 }

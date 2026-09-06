@@ -33,7 +33,7 @@ func NewAgentCheckpointRepository(db *gorm.DB) *AgentCheckpointRepository {
 // Save 阶段完成即落 checkpoint（upsert，幂等）
 func (r *AgentCheckpointRepository) Save(ctx context.Context, threadID, stage string, state json.RawMessage) error {
 	if r.db == nil {
-		return nil // 未注入 DB（测试/降级）时静默跳过——checkpoint 是增强不是依赖
+		return nil
 	}
 	if threadID == "" || stage == "" {
 		return nil
@@ -90,7 +90,7 @@ func ResumeStage(latest *AgentCheckpoint) string {
 	for i, name := range AgentStageNames {
 		if name == latest.Stage {
 			if i+1 >= len(AgentStageNames) {
-				return AgentStageNames[len(AgentStageNames)-1] // 全部完成，重跑最后阶段（复核幂等）
+				return AgentStageNames[len(AgentStageNames)-1]
 			}
 			return AgentStageNames[i+1]
 		}

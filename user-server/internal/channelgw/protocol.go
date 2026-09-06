@@ -1,29 +1,3 @@
-// Package channelgw 渠道网关：统一收件箱的唯一入站协议层与传输抽象。
-//
-// 架构定位（2026-08-10 统一收件箱 × Bridge 整合）：
-//
-//	渠道客户端（HTTP 扩展 / WS 客户端 / webhook bot）
-//	      │  唯一线路协议 channelgw.IngestMessage
-//	      ▼
-//	channelgw（本包）
-//	 ├─ protocol.go  统一协议类型 + 规范化转换器（ToEvent / HistoryToEvent）
-//	 ├─ registry.go  渠道注册表（每渠道声明支持的传输 http/websocket）
-//	 ├─ pipeline.go  IngressPipeline 接口（封装 InboxIngressService）
-//	 └─ ws.go        WebSocket 传输（与 HTTP 三通道共享同一管道与下发队列）
-//	      ▼
-//	InboxIngressService（去重 / 人工接管锁 / 落库 / AI 触发）← 所有渠道唯一入站管道
-//	      ▼
-//	message_hub + inbox_conversations → 统一收件箱
-//
-// 设计原则：
-//  1. 协议单源：本包类型是渠道侧与中台之间的唯一线路协议；
-//     bridge 包的 UnifiedMessage / HTTPIngestMessage 等均为本包类型的别名，
-//     消除多套结构重复定义与散落转换函数。
-//  2. 传输无关：入站统一收敛为 []*model.MessageEvent 交给 IngressPipeline；
-//     HTTP（请求-响应）与 WebSocket（帧流）仅是同一管道的两种传输呈现。
-//  3. 下发单源：message_hub(direction=outbound, status=pending) 是唯一事实源，
-//     HTTP 传输拉取（GET /api/bridge/outbox），WS 传输推帧（outbound_reply），
-//     两者共用 ClaimPendingOutbound 权威认领，断线未 ack 由惰性回收重回 pending。
 package channelgw
 
 import (
@@ -148,13 +122,6 @@ type IngestResult struct {
 	Reason    string `json:"reason,omitempty"`
 }
 
-// IngestResponse HTTP 上报响应。
-//
-// 2026-08-18 二次审核：移除 OutboundReplies 字段。该字段在历史 HTTP 长轮询时代
-// 用于在 ingest 响应中带出同会话待发 AI 回复（前端省一轮 outbox 轮询）。2026-08-06
-// 三通道架构后下行已走独立轮询（GET /api/bridge/outbox），此处恒空、保留字段只会让扩展端
-// 误以为可以省一次请求 → 文档与代码不一致。按 bridge.md §4.1 当前契约：ingest 仅
-// 报告入站结果 + 服务时间戳，下行由扩展主动轮询 outbox 拉取。
 type IngestResponse struct {
 	OK         bool            `json:"ok"`
 	Ingested   []*IngestResult `json:"ingested"`
@@ -177,10 +144,6 @@ type OutboundReply struct {
 	Truncated      bool   `json:"truncated,omitempty"`
 }
 
-// OutboxMessage 下发队列中的一条待发消息（HTTP GET /api/bridge/outbox 与 WS 推帧共用序列化）。
-//
-// 2026-08-14 新增 Extra：主动私信等出站元数据（dm_target / scenario / triggered_by /
-// agent_id / intent / confidence / handler_type）透传给前端 downlink.js 路由决策。
 type OutboxMessage struct {
 	MsgID          string         `json:"msg_id"`
 	ConversationID string         `json:"conversation_id"`

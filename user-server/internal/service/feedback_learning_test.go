@@ -995,7 +995,6 @@ func TestClassifyRepurchaseOperation(t *testing.T) {
 	}
 }
 
-// TestPRD_Acceptance_ExtractDimensionsFromDialog 验收：销冠对话可自动提取能力维度
 func TestPRD_Acceptance_ExtractDimensionsFromDialog(t *testing.T) {
 	db := setupFeedbackLearningDB(t)
 	svc := NewFeedbackLearningService(db)
@@ -1035,7 +1034,6 @@ func TestPRD_Acceptance_ExtractDimensionsFromDialog(t *testing.T) {
 	}
 }
 
-// TestPRD_Acceptance_NodeConversionStats 验收：SOP 节点转化率可统计
 func TestPRD_Acceptance_NodeConversionStats(t *testing.T) {
 	db := setupFeedbackLearningDB(t)
 	svc := NewFeedbackLearningService(db)
@@ -1068,7 +1066,6 @@ func TestPRD_Acceptance_NodeConversionStats(t *testing.T) {
 	}
 }
 
-// TestPRD_Acceptance_LowConversionSuggestion 验收：低转化节点自动生成优化建议
 func TestPRD_Acceptance_LowConversionSuggestion(t *testing.T) {
 	db := setupFeedbackLearningDB(t)
 	svc := NewFeedbackLearningService(db)

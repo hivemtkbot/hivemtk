@@ -11,10 +11,10 @@ import "math"
 
 // Params BG/NBD 四参数
 type Params struct {
-	R     float64 // Gamma shape（购买强度先验）
-	Alpha float64 // Gamma scale
-	A     float64 // Beta a（流失概率先验）
-	B     float64 // Beta b
+	R     float64
+	Alpha float64
+	A     float64
+	B     float64
 }
 
 // CustomerStats 客户统计量
@@ -25,7 +25,6 @@ type CustomerStats struct {
 	T  float64
 }
 
-// hyp2F1 超几何函数 2F1(a,b;c;z) 级数展开（z<1 收敛；此处 z=t/(α+T+t)<1 恒成立）
 func hyp2F1(a, b, c, z float64) float64 {
 	const tol = 1e-12
 	const maxIter = 10000
@@ -41,14 +40,10 @@ func hyp2F1(a, b, c, z float64) float64 {
 	return sum
 }
 
-// logRatioATx log( (α+T)/(α+tx) )^(r+x) —— 数值稳定形态
 func logRatioATx(p Params, x, tx, T float64) float64 {
 	return (p.R + x) * (math.Log(p.Alpha+T) - math.Log(p.Alpha+tx))
 }
 
-// PAlive 条件存活概率 P(alive | x, tx, T)（Fader-Hardie 2005 式 4）
-//
-//	P(alive) = 1 / (1 + (a/(b+x-1)) * ((α+T)/(α+tx))^(r+x))
 func PAlive(p Params, x, tx, T float64) float64 {
 	if p.B+x-1 == 0 {
 		return 0
@@ -67,13 +62,12 @@ func PAlive(p Params, x, tx, T float64) float64 {
 //	          ---------------------------------------------------------------
 //	                    1 + (a/(b+x-1)) · ((α+T)/(α+tx))^(r+x)
 func ConditionalExpectedPurchases(p Params, x, tx, T, t float64) float64 {
-	// 注意：a<1 完全合法（CDNOW 全局最优 a≈0.79），(a-1)<0 时分子分母同时变号结果不变号，
-	// 公式仍成立——不得加 a<=1 的守卫（CDNOW 对拍抓出的 bug，见 cdnow_parity_test.go）。
+
 	if t <= 0 {
 		return 0
 	}
 	if p.B+x-1 == 0 {
-		return 0 // P(alive) 分母退化
+		return 0
 	}
 	zt := t / (p.Alpha + T + t)
 	numeratorInner := 1 -

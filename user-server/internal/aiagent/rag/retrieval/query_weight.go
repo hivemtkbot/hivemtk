@@ -15,9 +15,6 @@ type QueryWeightProfile struct {
 	KeywordWeight float64
 }
 
-// identifierPatterns 标识符强模式（D17）：
-// 字母前缀 + 数字 ≥2 位（可带 -_ 连接），如 JGJ80-2003 / TS-999 / ABC123 / GB 50168（归一空格后命中）。
-// 刻意排除纯数字（电话/价格/流水号缺判别性字母前缀，ts_rank 分词难命中，更偏语义路——审核修正 2）。
 var identifierPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`[A-Za-z]{1,4}[-_ ]?\d{2,}`),
 }

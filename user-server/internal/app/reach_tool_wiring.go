@@ -30,7 +30,7 @@ func NewReachToolDepsWithAdapter(db *gorm.DB, adapter tooluse.ReachAdapter) tool
 }
 
 func newReachSendPipeline(adapter tooluse.ReachAdapter) tooluse.ReachSendPipelinePort {
-	// D14-T15b：全局缓存为 Redis 后端时 QPS 层走 GCRA 平滑限流，否则回退进程内存限流
+
 	cfg := service.NewDefaultRateLimitedPipelineConfigWithCache(&reachChannelAdapterBridge{adapter: adapter})
 	if os.Getenv("REACH_DISABLE_QUIET_HOURS") != "true" {
 		q := service.GetGlobalQuietHoursQueue()

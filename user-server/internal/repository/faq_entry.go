@@ -283,9 +283,6 @@ func (r *FAQRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.FAQEntry{}).Error
 }
 
-// FAQListParams FAQ 查询参数（前端管理页面）。
-// 架构整改 P0-5 后续：仓储层原生定义查询参数，dto 过滤器由 service 层转换，
-// 保持 repository 不引用 dto。
 type FAQListParams struct {
 	Keyword  string
 	Category string

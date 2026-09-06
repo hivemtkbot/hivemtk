@@ -154,10 +154,6 @@ func TestHybridSearcher_VectorRetrieve_EndToEnd(t *testing.T) {
 	}
 }
 
-// TestHybridSearcher_BM25Retrieve_Fallback 集成测试：BM25 召回（向量路失败时）
-//
-// 场景：向量 embedding 全部为 nil（mockEmbed 返回 error），但 BM25 路径应能召回
-// 期望：向量路失败，BM25 路成功，仍返回结果
 func TestHybridSearcher_BM25Retrieve_Fallback(t *testing.T) {
 	if os.Getenv("POSTGRES_TEST_DSN") == "" && os.Getenv("POSTGRES_TEST_HOST") == "" {
 		t.Skip("skipping PG integration test (no POSTGRES_TEST_DSN)")
@@ -348,7 +344,7 @@ func TestHybridSearcher_RerankerFailed_FallbackToFused(t *testing.T) {
 	if len(out) == 0 {
 		t.Error("expected results even when rerank fails")
 	}
-	// D17b: 降级路径分数必须已归一化到 (0,1]（RAGQual/门控按 0~1 语义消费）
+
 	for i, c := range out {
 		if c.Score <= 0 || c.Score > 1.0001 {
 			t.Errorf("out[%d] 分数量纲异常（RRF 未归一化）: %v", i, c.Score)

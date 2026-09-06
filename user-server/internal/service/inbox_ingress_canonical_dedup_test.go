@@ -9,16 +9,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// 2026-08-07 第六轮修复：服务端权威内容级去重（钩子2.5）。
-//
-// 实际案例（2026-08-07 16:36:30）：给小红薯69C69EDE 的 AI 回复 mh:eef526c5（algo2 hash）
-// 被前端 patrol 错乱上报为 mh:620ec4d5（algo1 hash，含 conv）。两者 msg_id 不同但内容相同：
-//   - 钩子2 GetByMsgID 漏检
-//   - 同内容 AI 回复被反复入库为 inbound（甚至入到其他客户会话）
-//   - 触发循环 AI 回复
-//
-// 修复：服务端以 canonical contentHash (algo2) 为权威 + 兜底按 platform+content 查重。
-// 无论 msg_id 算法如何变化，都视同"自/他回显"幂等跳过。
 func TestHandleIngress_CanonicalContentHash_AlreadyExists_Skipped(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	svc := NewInboxIngressServiceWithDB(db, nil)
@@ -70,15 +60,6 @@ func TestHandleIngress_CanonicalContentHash_AlreadyExists_Skipped(t *testing.T) 
 	}
 }
 
-// 2026-08-07 第八轮修复：GetByPlatformContent 限 direction='outbound'，避免跨会话客户
-// 发相同 content（如 XHS 系统提示"已连续聊天3天"）被误判为"自/他回显"跳过。
-//
-// 复现路径：17:59:07 小红薯 69C69EDE 上报"已连续聊天3天，解锁聊天状态去看看"，
-// 但 DB 中其他 4 个会话已有同 content 的 inbound（系统提示重复出现）→ 钩子2.5 第二道
-// GetByPlatformContent 命中（旧实现不限 direction）→ 跳过 → 用户消息未入库。
-//
-// 修复后：GetByPlatformContent 仅查 direction='outbound'，跨会话 inbound 同 content
-// 不再命中 → 客户消息正常入库。
 func TestHandleIngress_CrossConv_SameInboundContent_NotSkipped(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	svc := NewInboxIngressServiceWithDB(db, nil)
@@ -131,17 +112,6 @@ func TestHandleIngress_CrossConv_SameInboundContent_NotSkipped(t *testing.T) {
 	}
 }
 
-// 2026-08-07 第九轮修复：钩子2 GetByMsgID + 钩子2.5 第一道 GetByContentHash 限本会话。
-//
-// 背景：algo2 下同 channel+content 的 msg_id 相同（不含 conversation）。
-// 旧实现 GetByMsgID/GetByContentHash 不限 conversation → 跨会话命中同 msg_id →
-// 第二个会话的客户消息被误跳过（如 XHS 系统提示"已连续聊天3天"在每个新会话都会出现）。
-//
-// 复现：会话 A 入库 algo2 msg_id（由 ContentHashMsgID 计算，不含 conversationID），会话 B 上报同 content 同 event_id →
-// 旧实现钩子2 GetByMsgID 命中会话 A → duplicate=true → 会话 B 消息未入库。
-//
-// 修复后：钩子2/钩子2.5 第一道限本会话，跨会话不命中 → 各自入库。
-// AI 回环防护由钩子2.5 第二道 GetByPlatformContent（限 outbound，跨会话）兜底。
 func TestHandleIngress_CrossConv_SameAlgo2MsgID_NotSkipped(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	svc := NewInboxIngressServiceWithDB(db, nil)
@@ -231,17 +201,6 @@ func TestHandleIngress_NewContent_NotSkipped(t *testing.T) {
 	}
 }
 
-// 2026-08-07 第十轮修复：PersistBridgeHistory 路径补齐 GetByPlatformContentNormalized 钩子。
-//
-// 实际案例：DB 中 AI outbound content 含换行（"您好！\n\n- 🛍️"），patrol 采集 DOM 后
-// 换行变空格（"您好！ - 🛍️"）。精确 md5 不匹配，但去所有空白后 md5 一致。
-//   - 钩子2 GetByMsgID：msg_id 不同（contentHash 输入不同）→ 漏检
-//   - 钩子2.5 第一道 GetByContentHash：canonicalHash 不同 → 漏检
-//   - 钩子2.5 第二道 GetByPlatformContent：md5(content) 不同 → 漏检
-//   - 钩子2.5 第三道 GetByPlatformContentNormalized：去空白后 md5 一致 → 命中跳过 ✅
-//
-// 此前 PersistBridgeHistory 路径缺失第三道，导致 620+ 条 AI 话术被 patrol 回采为 inbound pending。
-// 本用例验证 PersistBridgeHistory 在 content 存在空白差异时仍能去重。
 func TestPersistBridgeHistory_NormalizedDedup_DOMWhitespaceVariance_Skipped(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	svc := NewInboxIngressServiceWithDB(db, nil)
@@ -296,7 +255,6 @@ func TestPersistBridgeHistory_NormalizedDedup_DOMWhitespaceVariance_Skipped(t *t
 	}
 }
 
-// 2026-08-07 第十轮补充：PersistBridgeHistory 对全新 content 仍正常入库（不误杀）。
 func TestPersistBridgeHistory_NewContent_Persisted(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	svc := NewInboxIngressServiceWithDB(db, nil)

@@ -327,9 +327,7 @@ func (f *ProviderFailover) checkOne(ctx context.Context, provider *ProviderConfi
 		}
 		return
 	}
-	// 审核修正（T05）：冷却期内健康检查成功不清 CircuitOpenUntil——
-	// 429 冷却 15s < 健康检查间隔 30s，Ping 通道 200（自建网关/代理常见）
-	// 会把真实业务流量的限流冷却提前解除。冷却解除只由真实流量 RecordSuccess 触发。
+
 	if time.Now().Before(h.CircuitOpenUntil) {
 		return
 	}
@@ -430,14 +428,8 @@ func (f *ProviderFailover) RecordSuccess(providerName string, latencyMs int64) {
 	}
 }
 
-// rateLimitCooldownFallback Retry-After 头缺失/不可解析时的兜底冷却时长。
-// 取值依据：LiteLLM 默认 cooldown_time=5s 偏短（对本地代理场景易反复穿透），
-// 取 15s 折中——限流窗口通常 ≥1s，15s 足够跨过一个典型限流周期。
 const rateLimitCooldownFallback = 15 * time.Second
 
-// recordRateLimitCooldown 429 特判（D05，对齐 LiteLLM "429 单次即冷却、绕过失败计数"）：
-// 限流不是健康问题而是配额问题——不增加 ConsecutiveFailures，
-// 直接置 CircuitOpenUntil = now + RetryAfter（头缺失/不可解析时取 rateLimitCooldownFallback）。
 func (f *ProviderFailover) recordRateLimitCooldown(h *ProviderHealth, rle *RateLimitError) {
 	dur := rle.RetryAfter
 	if dur <= 0 {
@@ -460,7 +452,7 @@ func (f *ProviderFailover) RecordFailure(providerName string, err error) {
 		h = &ProviderHealth{ProviderName: providerName, Status: ProviderStatusUp}
 		f.health[providerName] = h
 	}
-	// D05: 429 单次即冷却，绕过 ConsecutiveFailures 计数
+
 	var rle *RateLimitError
 	if errors.As(err, &rle) {
 		f.recordRateLimitCooldown(h, rle)

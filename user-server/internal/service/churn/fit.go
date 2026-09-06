@@ -20,17 +20,6 @@ type FitResult struct {
 	Converged bool
 }
 
-// logLikelihood BG/NBD 对数似然（Fader-Hardie 2005 附录 A；lifetimes 官方同款逐项展开）
-//
-//	A_1 = ln Γ(r+x)/Γ(r) + r·ln α
-//	A_2 = ln Γ(a+b) + ln Γ(b+x) − ln Γ(b) − ln Γ(a+b+x)
-//	A_3 = −(r+x)·ln(α+T)
-//	A_4 = ln a − ln(b+max(x,1)−1) − (r+x)·ln(α+tx)
-//	LL  = A_1 + A_2 + logsumexp(A_3, A_4·δ(x>0))
-//
-// 数值要点（CDNOW 对拍得出的教训）：A_4 必须用 log a − log(b+x−1) 的显式差形式，
-// 不能展开成 lgamma(a+1)+lgamma(b+x−1) 组合——后者在优化器探边时（b 大 x 大）落进
-// 浮点坍缩带，似然面出现假下降谷，Nelder-Mead 会滑向 a→0,b→∞ 的伪解。
 func (p Params) logLikelihood(stats []CustomerStats) float64 {
 	total := 0.0
 	lgR := lgamma(p.R)
@@ -67,7 +56,7 @@ func Fit(in FitInput) FitResult {
 	if len(in.Stats) == 0 {
 		return FitResult{}
 	}
-	init := []float64{1, 1, 1, 1} // log 空间 (r,α,a,b)=(1,1,1,1)，与 lifetimes 默认一致
+	init := []float64{1, 1, 1, 1}
 	if in.Init.R > 0 && in.Init.Alpha > 0 && in.Init.A > 0 && in.Init.B > 0 {
 		init = []float64{
 			math.Log(in.Init.R), math.Log(in.Init.Alpha),
@@ -82,7 +71,7 @@ func Fit(in FitInput) FitResult {
 				A:     math.Exp(x[2]),
 				B:     math.Exp(x[3]),
 			}
-			// log-param 下 |x| 无界时 Exp 上溢/下溢 → 返回大惩罚把单纯形推回
+
 			if math.IsInf(p.R, 0) || math.IsInf(p.Alpha, 0) || math.IsInf(p.A, 0) || math.IsInf(p.B, 0) ||
 				p.R == 0 || p.Alpha == 0 || p.A == 0 || p.B == 0 {
 				return math.Inf(1)
@@ -107,7 +96,6 @@ func Fit(in FitInput) FitResult {
 	}
 }
 
-// lgamma 对数伽马包装（math.Lgamma 返回 (lg, sign)，取对数值）
 func lgamma(x float64) float64 {
 	lg, _ := math.Lgamma(x)
 	return lg

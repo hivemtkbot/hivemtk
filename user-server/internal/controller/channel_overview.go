@@ -11,11 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ChannelOverviewController 渠道概览控制器
-//
-// 2026-08-16 严肃化：13 个真实渠道的统一配置入口。
-// 提供 GET /api/channels/overview 列出所有渠道的账号数 / 在线状态 / 配置入口 URL。
-// 解决"用户找不到入口"问题。
 type ChannelOverviewController struct {
 	svc *service.ChannelOverviewService
 }

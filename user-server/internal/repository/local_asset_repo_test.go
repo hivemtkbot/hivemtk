@@ -85,9 +85,6 @@ func TestAdvanceReportedUseCount_NonPositiveDelta(t *testing.T) {
 	}
 }
 
-// TestAdvanceReportedUseCount_ConcurrentSafe 二轮 BUG-1 核心回归测试：
-// 模拟"读取 use_count=10 → 上报 delta=5 → 期间 use_count 被其他 goroutine 累加"场景，
-// 验证 AdvanceReportedUseCount 仍能正确推进 reported_use_count（不像 CAS 那样失效）。
 func TestAdvanceReportedUseCount_ConcurrentSafe(t *testing.T) {
 	r := setupLocalAssetRepo(t)
 	ctx := context.Background()
@@ -146,10 +143,6 @@ func TestAdvanceReportedUseCount_Parallel(t *testing.T) {
 	}
 }
 
-// TestSetReportedUseCountIfMatch_LegacyCAS_BrokenBehavior 文档化旧 CAS 行为：
-// 当 use_count 已被并发累加时，CAS WHERE 条件不命中，reported_use_count 不推进。
-// 此测试用于确认 BUG-1 的根因，并防止有人误以为旧接口仍然可用。
-// 生产路径已切到 AdvanceReportedUseCount，本测试仅做行为基线。
 func TestSetReportedUseCountIfMatch_LegacyCAS_BrokenBehavior(t *testing.T) {
 	r := setupLocalAssetRepo(t)
 	ctx := context.Background()

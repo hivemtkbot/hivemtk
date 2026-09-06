@@ -9,7 +9,7 @@ import (
 // 复审补充：完整注册无版本冲突 + 新增迁移排序在末位（防版本回退误插）
 func TestRegisterMigrations_NoDuplicateVersions(t *testing.T) {
 	registry := migration.NewMigrationRegistry()
-	RegisterMigrations(registry, nil) // 重复版本会 panic——能走完即无冲突
+	RegisterMigrations(registry, nil)
 	if err := registry.Validate(); err != nil {
 		t.Fatalf("registry validate: %v", err)
 	}

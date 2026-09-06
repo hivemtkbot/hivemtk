@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestReachAlertHook_InvokedOnFire 验证 P1-8 告警钩子机制：
-// SetAlertHook 注入后，fireAlert 应同步调用该回调并透传终态与原因。
 func TestReachAlertHook_InvokedOnFire(t *testing.T) {
 	svc := &ReachPipelineService{}
 	called := false

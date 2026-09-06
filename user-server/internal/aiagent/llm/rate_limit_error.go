@@ -16,7 +16,7 @@ import (
 // Error() 文案保持与原 "LLM API error: status=..." 同构，日志与监控不破相容。
 type RateLimitError struct {
 	StatusCode int
-	RetryAfter time.Duration // 解析自 Retry-After 头；0 表示头缺失/不可解析
+	RetryAfter time.Duration
 	Body       string
 }
 
@@ -26,8 +26,6 @@ func (e *RateLimitError) Error() string {
 	return fmt.Sprintf("LLM API error: status=%d body=%s", e.StatusCode, e.Body)
 }
 
-// parseRetryAfterSeconds 解析 Retry-After 头的秒数形式。
-// 仅支持整数秒（业界主流）；HTTP-date 与非法值返回 0（由调用方兜底）。
 func parseRetryAfterSeconds(header string) time.Duration {
 	if header == "" {
 		return 0

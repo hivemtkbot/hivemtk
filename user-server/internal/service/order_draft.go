@@ -110,8 +110,6 @@ type OrderDraftService struct {
 	defaultExpiry time.Duration
 }
 
-// SetScriptConversionHook 注入话术 AB 转化归因 hook（R55 T5）
-// main.go 装配时指向 ScriptABService.RecordConversion，成单即自动归因。
 func (s *OrderDraftService) SetScriptConversionHook(hook func(ctx context.Context, oneID, conversationID, outcome string)) {
 	s.scriptConversionHook = hook
 }

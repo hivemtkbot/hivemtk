@@ -1,18 +1,3 @@
-// Package pagination 提供 cursor-based 分页工具（OPT-ARC-10）
-//
-// 背景：传统 offset+limit 在大表深翻页时性能差（OFFSET N 需要扫描前 N 行）
-// 解决：使用基于最后一条记录主键的 cursor-based 分页
-// 优势：
-//   - 性能稳定：O(log N) 索引扫描，与翻页深度无关
-//   - 一致性：避免 offset 期间新增数据导致的重复/漏读
-//   - 安全：避免 max(limit) 过大导致全表扫描
-//
-// 用法示例（service 层）：
-//
-//	func ListCustomer(ctx, req CursorReq) (*CursorResp, error) {
-//	    items, nextCursor, err := pagination.CursorQuery(ctx, db, ...)
-//	    return &CursorResp{Items: items, NextCursor: nextCursor}, nil
-//	}
 package pagination
 
 import (
@@ -24,7 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// CursorPageSize 单页最大行数（与原 MaxLimit 对齐 = 100，OPT-ARC-11）
 const CursorPageSize = 100
 
 // Cursor 编码后的游标（base64 + 时间戳 + ID）
@@ -173,7 +157,6 @@ type CursorQueryQuery struct {
 	Dest     any
 }
 
-// IsValidLimit 校验 limit 值（OPT-ARC-11）
 func IsValidLimit(limit int) bool {
 	return limit > 0 && limit <= CursorPageSize
 }

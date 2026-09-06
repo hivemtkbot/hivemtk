@@ -12,7 +12,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// runeTruncate 按 rune（字符）截断，不带省略号后缀 —— 用于 DB 字段值
 func runeTruncate(s string, n int) string {
 	r := []rune(s)
 	if len(r) <= n {
@@ -21,20 +20,12 @@ func runeTruncate(s string, n int) string {
 	return string(r[:n])
 }
 
-// ---- 任务体实现 ----
-// 每个 Job 只负责业务执行并返回 (summary, error)，
-// 调度/互斥/超时/历史记录由 JobManager 统一处理。
-
-// sovRefreshJob SOV 刷新：对已有关键词采样若干条重新做 search probe，
-// 结果写入 geo_probe_runs / 更新 daily_stats。
 func sovRefreshJob(ctx context.Context) (string, error) {
 	keywordRepo := repository.NewGeoKeywordRepository()
 	probeRepo := repository.NewGeoProbeRunRepository()
 	probes := NewEngineProbes()
 	probeSvc := NewProbeService(probes, probeRepo)
 
-	// 拉取关键词样本（分页取前 sovKeywordSample 条；全量 309×5 引擎串行探测
-	// 实测超 20 分钟任务超时，SOV 语义只需代表性采样，default 轮换保证每轮覆盖面不同）
 	const sovKeywordSample = 60
 	var allKW []string
 	page, limit := 1, sovKeywordSample
@@ -53,9 +44,6 @@ func sovRefreshJob(ctx context.Context) (string, error) {
 	}
 	logger.Info(fmt.Sprintf("[GEO Job sov_refresh] SOV 刷新覆盖关键词数=%d", len(allKW)))
 
-	// 对每个关键词跑 ProbeService.ProbeAllEngines：
-	// 引擎间并发（5 引擎本就独立端点，慢引擎 gpt4o 不再阻塞整轮），
-	// 关键词间仍串行，避免打爆免费端点配额。
 	success, failed := 0, 0
 	for i, kw := range allKW {
 		if ctx.Err() != nil {
@@ -74,7 +62,6 @@ func sovRefreshJob(ctx context.Context) (string, error) {
 		}
 	}
 
-	// === 聚合到 daily_stats ===
 	aggErr := aggregateDailyStats(ctx, probeRepo)
 	summary := fmt.Sprintf("覆盖关键词=%d 探针成功=%d 部分失败=%d", len(allKW), success, failed)
 	if aggErr != nil {
@@ -83,7 +70,6 @@ func sovRefreshJob(ctx context.Context) (string, error) {
 	return summary, nil
 }
 
-// aggregateDailyStats 聚合今日 probe_runs 到 daily_stats
 func aggregateDailyStats(ctx context.Context, probeRepo repository.GeoProbeRunRepository) error {
 	dailyRepo := repository.NewGeoDailyStatRepository()
 	today := time.Now().Format("2006-01-02")
@@ -94,7 +80,6 @@ func aggregateDailyStats(ctx context.Context, probeRepo repository.GeoProbeRunRe
 	}
 	agg := map[aggKey]*model.GeoDailyStat{}
 
-	// 拉今日全部 probe_runs（不限制数量），内存聚合
 	recentRuns, err := probeRepo.ListSince(ctx, todayStart, 0)
 	if err != nil {
 		return fmt.Errorf("拉取今日探针记录失败: %w", err)
@@ -118,7 +103,7 @@ func aggregateDailyStats(ctx context.Context, probeRepo repository.GeoProbeRunRe
 			agg[k].NegativeCount++
 		}
 		agg[k].ProbeCount++
-		// citations 计数
+
 		var cits []map[string]interface{}
 		if err := json.Unmarshal(r.Citations, &cits); err == nil {
 			agg[k].CitationCount += int(len(cits))
@@ -140,10 +125,8 @@ func aggregateDailyStats(ctx context.Context, probeRepo repository.GeoProbeRunRe
 	return nil
 }
 
-// negativeSeeds 负面种子词兜底（GeoConfig.NegativeKeywords 未配置时使用）
 var negativeSeeds = []string{"差评", "投诉", "骗局", "失败", "坑"}
 
-// loadNegativeKeywords 负面词优先取 GeoConfig.NegativeKeywords（逗号分隔），否则用默认种子
 func loadNegativeKeywords(config *model.GeoConfig) []string {
 	raw := strings.TrimSpace(config.NegativeKeywords)
 	if raw == "" {
@@ -161,9 +144,6 @@ func loadNegativeKeywords(config *model.GeoConfig) []string {
 	return out
 }
 
-// negativeMonitorJob 负面监控：读取配置中的品牌名 + 负面关键词，
-// 对每个 (品牌+负面词) 组合跑 search probe，
-// 命中写 geo_alerts（通知渠道由前端告警列表消费，Notified 状态流转）。
 func negativeMonitorJob(ctx context.Context) (string, error) {
 	cfgRepo := repository.NewGeoConfigRepository()
 	probeRepo := repository.NewGeoProbeRunRepository()
@@ -221,8 +201,6 @@ func negativeMonitorJob(ctx context.Context) (string, error) {
 	return fmt.Sprintf("品牌=%s 负面词=%d 检查查询=%d 命中=%d", brandName, len(negativeWords), len(queries), hit), nil
 }
 
-// sourceCatalogSyncJob 信源目录同步：对信源目录里的种子 URL 做一次可达性检查，
-// 刷新 last_checked 时间，并记录爬虫访问。
 func sourceCatalogSyncJob(ctx context.Context) (string, error) {
 	sourceRepo := repository.NewGeoSourceCatalogRepository()
 	crawlerSvc := NewCrawlerService(sourceRepo)
@@ -252,7 +230,6 @@ func sourceCatalogSyncJob(ctx context.Context) (string, error) {
 	return fmt.Sprintf("种子总数=%d 可达=%d 失败=%d", len(seeds), ok, fail), nil
 }
 
-// crawlerMonitorJob 竞品监控爬虫：关键词驱动抓取 HiveMTK 与竞品落地页
 func crawlerMonitorJob(ctx context.Context) (string, error) {
 	n, err := CrawlerMonitorCronWithContext(ctx)
 	if err != nil {

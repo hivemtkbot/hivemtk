@@ -1,4 +1,3 @@
-// r48_session_tools.go R48 T4/T5 控制器（宏 + AI 会话摘要）
 package controller
 
 import (

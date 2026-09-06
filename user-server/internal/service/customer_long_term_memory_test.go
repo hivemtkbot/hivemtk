@@ -181,8 +181,6 @@ func TestLongTermMemory_RememberWithSource(t *testing.T) {
 	}
 }
 
-// TestLongTermMemory_PRDAcceptance_BudgetRecall 对应 PRD §5.2 G5 验收：
-// "第一次对话客户说预算 5000，第二次对话 AI 主动提及预算"
 func TestLongTermMemory_PRDAcceptance_BudgetRecall(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)

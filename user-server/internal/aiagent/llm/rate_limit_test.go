@@ -7,13 +7,11 @@ import (
 	"time"
 )
 
-// D05: 429 单次即冷却——RateLimitError 特判路径
-
 func newD05Failover(t *testing.T) *ProviderFailover {
 	t.Helper()
 	return &ProviderFailover{
-		health:  map[string]*ProviderHealth{},
-		config:  DefaultFailoverConfig(),
+		health:     map[string]*ProviderHealth{},
+		config:     DefaultFailoverConfig(),
 		dispatcher: nil,
 	}
 }
@@ -88,12 +86,12 @@ func TestD05_HealthCheckRespectsCooldown(t *testing.T) {
 	if !f.IsCircuitOpen("p4") {
 		t.Fatal("前置：应在冷却中")
 	}
-	// 模拟 checkOne 成功路径
+
 	f.mu.Lock()
 	if h, ok := f.health["p4"]; ok {
 		h.LatencyP95Ms = 10
 		if time.Now().Before(h.CircuitOpenUntil) {
-			// 新逻辑：冷却期内不清 CircuitOpenUntil（Status 保持 Degraded）
+
 			h.Status = ProviderStatusDegraded
 		} else {
 			h.Status = ProviderStatusUp

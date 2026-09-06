@@ -10,10 +10,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// TestWithTransaction_Rollback_Participation 回归：OPT-ARC-06 假事务修复。
-// WithTransaction 写入 ctx 的 tx 必须被仓储方法（dbFromCtx）真实消费：
-// 事务内 Update 生效、fn 返回 error 后必须整体回滚（此前 tx 无人读取，
-// 所有写入逐条自动提交，回滚承诺完全失效）。
 func TestWithTransaction_Rollback_Participation(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.Customer{})
 	prev := dbUtil.GetDB()
@@ -60,7 +56,6 @@ func TestWithTransaction_Rollback_Participation(t *testing.T) {
 	}
 }
 
-// TestReassignCustomerID_Move 验证事件迁移为 UPDATE 移动语义（P1-2 修复）。
 func TestReassignCustomerID_Move(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.CustomerEvent{})
 	prev := dbUtil.GetDB()

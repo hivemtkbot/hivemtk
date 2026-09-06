@@ -1117,13 +1117,6 @@ func TestRecognize_MultiSession(t *testing.T) {
 	}
 }
 
-// ── D07 CI 校验：意图常量 ↔ 规则词典 完整性 ──
-// 防止再次出现 "常量定义了但词典无词条"（G3 greeting 悬空）的漂移。
-// 豁免：IntentUnknown（fail-closed 兜底，非规则可识别意图）、IntentClarify（由编排层产生，非识别目标）。
-// 别名（IntentStall/AskTrust/AskCompetitor）与目标意图同字符串值，随目标自动覆盖。
-
-// allIntentConstants 显式清单（与常量定义同文件维护）：新增意图常量时必须同步此处，
-// 从而强制作者决定"进词典 or 豁免"，堵住 G3 式悬空。
 func allIntentConstants() []string {
 	return []string{
 		IntentObjectionPrice, IntentObjectionNeed, IntentObjectionTrust, IntentObjectionTiming,

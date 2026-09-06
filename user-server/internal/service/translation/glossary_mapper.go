@@ -5,8 +5,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ToGlossaryModel DTO → Model 转换(GlossaryRequest → model.Glossary)
-// 转换属业务层职责（原位于 dto 包，P0-7 下沉至 service/translation，dto 保持纯数据结构）
 func ToGlossaryModel(r *dto.GlossaryRequest) *model.Glossary {
 	if r == nil {
 		return nil

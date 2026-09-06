@@ -47,9 +47,6 @@ func (r *IntegrationAccountRepository) GetByID(ctx context.Context, id uint) (*m
 	return &account, err
 }
 
-// GetByPlatformAndAccount 按 platform+account_id 精确取对接账号。
-// v3 审计 P1-6：多账号场景下 getAccountSecret 必须按 accountID 取 secret，
-// 防止用 A 账号 secret 验 B 账号请求（串签）。
 func (r *IntegrationAccountRepository) GetByPlatformAndAccount(ctx context.Context, platform, accountID string) (*model.IntegrationAccount, error) {
 	var account model.IntegrationAccount
 	q := r.db.Where("platform = ?", platform)

@@ -1,7 +1,3 @@
-// Package errhttp HTTP 错误响应辅助（中立包，供 controller 层各域复用）。
-//
-// P2-5 content/ops 双范式归位：原 internal/controller.HandleDBError /
-// HandleServiceError 下沉到本包，content/ops 垂直域不再 import 共享 controller。
 package errhttp
 
 import (

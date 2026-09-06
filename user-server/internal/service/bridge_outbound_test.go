@@ -24,14 +24,6 @@ func setupBridgeWhitelistForTest(t *testing.T, channels ...string) {
 	})
 }
 
-// TestDeliverBridgeOutbound_DirectToOutbox 2026-08-18 二次审核修复回归：
-// 主动外联（proactive_reach / douyin_integration / AI Agent reach.*.send）经
-// DeliverBridgeOutbound 必须直接落 message_hub(status=pending)，被 ListPendingOutbound
-// 拉取（GET /api/bridge/outbox 下发路径），并在 AckOutboundDelivered 后退出待下发队列。
-//
-// 回归：旧 EnqueueReply 仅推入已无人读取的 httpReplyBuffer，会导致主动外联消息
-// 静默丢失（httpReplyBuffer 的 Pull 没有任何生产调用方）。修复后 DeliverBridgeOutbound
-// 走 InboxIngressService.DeliverOutbound（与 AI 回复同队列），保证可靠投递。
 func TestDeliverBridgeOutbound_DirectToOutbox(t *testing.T) {
 	setupBridgeWhitelistForTest(t, "douyin")
 	db := testutil.NewTestDB(t, &model.MessageHub{})

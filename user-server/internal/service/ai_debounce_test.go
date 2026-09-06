@@ -67,7 +67,6 @@ func debounceEvent(sessionID, content string, seconds int) *model.MessageEvent {
 	}
 }
 
-// T5 验收①：窗口内 3 条消息仅触发 1 次 AI，且合并内容按时间序包含全部 3 条。
 func TestAIDebounce_CoalesceWindow(t *testing.T) {
 	svc, stub, session := newDebounceFixture(t, 1)
 	ctx := context.Background()
@@ -99,7 +98,6 @@ func TestAIDebounce_CoalesceWindow(t *testing.T) {
 	}
 }
 
-// T5 验收②：转人工关键词命中 → 立即触发（豁免防抖）。
 func TestAIDebounce_TransferKeywordExempt(t *testing.T) {
 	svc, stub, session := newDebounceFixture(t, 3)
 	svc.triggerAIWithDebounce(context.Background(), debounceEvent(session, "我要转人工客服", 3))
@@ -111,7 +109,6 @@ func TestAIDebounce_TransferKeywordExempt(t *testing.T) {
 	}
 }
 
-// T5 验收③：非文本（空内容媒体消息）→ 立即触发。
 func TestAIDebounce_MediaExempt(t *testing.T) {
 	svc, stub, session := newDebounceFixture(t, 3)
 	svc.triggerAIWithDebounce(context.Background(), debounceEvent(session, "", 3))
@@ -120,9 +117,6 @@ func TestAIDebounce_MediaExempt(t *testing.T) {
 	}
 }
 
-// T5 验收④：AI_DEBOUNCE_SECONDS=0 → 禁用，立即逐条触发（不经窗口延迟）。
-// 第二条同会话消息被既有 AI 排他锁（防重复回复）跳过——防重复是 triggerAIForEvent
-// 自带语义，与本防抖无关；本用例验证的是"禁用时不进窗口、即时到达 AI 触发层"。
 func TestAIDebounce_DisabledByEnv(t *testing.T) {
 	t.Setenv("AI_DEBOUNCE_SECONDS", "0")
 	svc, stub, session := newDebounceFixture(t, 0)
@@ -138,7 +132,6 @@ func TestAIDebounce_DisabledByEnv(t *testing.T) {
 	}
 }
 
-// T5 验收⑤：coalescePending —— LPush 逆序反转为时间序 + 超限截断。
 func TestCoalescePending(t *testing.T) {
 	got := coalescePending([]string{"第三条", "第二条", "第一条"})
 	if got[0] != "第一条" || got[2] != "第三条" {
@@ -154,7 +147,6 @@ func TestCoalescePending(t *testing.T) {
 	}
 }
 
-// T5 验收⑥：窗口关闭后新消息开启新窗口（门闸已释放）。
 func TestAIDebounce_NewWindowAfterClose(t *testing.T) {
 	svc, stub, session := newDebounceFixture(t, 1)
 	ctx := context.Background()

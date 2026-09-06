@@ -18,8 +18,7 @@ func TestD14_GlobalLimitCrossPipeline(t *testing.T) {
 	SeedConfigParams(context.Background(), db)
 
 	ctx := context.Background()
-	// 只测全局层（DailyQuota/PerUser=0 关闭其他层）
-	// 全局上限默认 3：同客户跨 3 个 channel 各一次后第 4 次拒绝
+
 	for i := 0; i < 3; i++ {
 		ch := "wx"
 		if i == 1 {
@@ -36,11 +35,11 @@ func TestD14_GlobalLimitCrossPipeline(t *testing.T) {
 	if svc.checkGlobalPerUserDaily(ctx, "cust-g1", false) {
 		t.Error("第 4 次应被全局上限拒绝")
 	}
-	// transactional 豁免
+
 	if !svc.checkGlobalPerUserDaily(ctx, "cust-g1", true) {
 		t.Error("transactional 应豁免")
 	}
-	// 其他客户不受影响
+
 	if !svc.checkGlobalPerUserDaily(ctx, "cust-g2", false) {
 		t.Error("其他客户不应受影响")
 	}
@@ -52,7 +51,7 @@ func TestD14_GlobalLimitDisabled(t *testing.T) {
 	svc := NewReachPipelineService(db)
 	svc.SetRateCache(cache.NewMemoryCache())
 	SeedConfigParams(context.Background(), db)
-	svc.globalLimitFn = func(ctx context.Context) int { return 0 } // 0=禁用层
+	svc.globalLimitFn = func(ctx context.Context) int { return 0 }
 
 	ctx := context.Background()
 	for i := 0; i < 10; i++ {

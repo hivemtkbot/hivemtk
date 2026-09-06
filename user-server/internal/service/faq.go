@@ -441,16 +441,6 @@ func (s *FAQService) InvalidateAllCache() {
 	s.mu.Unlock()
 }
 
-// WeekDecay 周度质量衰减 (: 修复 FAQ 无质量衰减)
-//
-// 每周定时任务调用一次。衰减规则:
-//   - 命中次数 < faqDecayMinHits (5)
-//   - LastHitAt 距今超过 faqDecayDays (7 天)
-//   - QualityScore -= faqDecayPerWeek (0.1), 下限 0
-//
-// 时钟通过 s.clock 注入, 单测可覆盖。
-// 候选列表由 ListDecayCandidates 查询, 最多 faqDecayMaxBatch 条。
-// 返回实际衰减条数, 用于定时任务埋点。
 func (s *FAQService) WeekDecay(ctx context.Context) (int, error) {
 	if s.repo == nil {
 		return 0, nil

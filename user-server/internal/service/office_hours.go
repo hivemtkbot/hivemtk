@@ -1,4 +1,3 @@
-// office_hours.go 办公时间与离开自动回复（R48 T2，对标 Chatwoot/Intercom Business Hours）
 package service
 
 import (

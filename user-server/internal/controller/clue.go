@@ -112,8 +112,6 @@ func (c *ClueController) GetClueStatistics(ctx *gin.Context) {
 	response.Success(ctx, statistics, "获取线索统计成功")
 }
 
-// ImportClues 导入线索
-// OPT-ARC-04：DTO→Model 转换下沉到 service（controller 仅做参数绑定）
 func (c *ClueController) ImportClues(ctx *gin.Context) {
 	var req []dto.ImportClueRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {

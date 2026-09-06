@@ -1,13 +1,3 @@
-// Package crypto 提供敏感字段加密工具（OPT-SEC-04）
-//
-// 背景：api_logs / audit_logs 中包含 merchant_key、phone、email 等敏感信息
-// 策略：应用层加密 + 字段级 AES-256-GCM
-// 密钥：从环境变量 FIELD_ENCRYPTION_KEY 加载（≥32 字节）
-//
-// 性能影响：
-//   - 加密：~1µs/字段（生产可接受）
-//   - 存储：每字段 +16~32 字节
-//   - 索引：加密字段不可建索引（业务上也不需要范围查询）
 package crypto
 
 import (
@@ -100,8 +90,6 @@ func Decrypt(ciphertextBase64 string) (string, error) {
 	return string(plaintext), nil
 }
 
-// MaskPhone 脱敏手机号（OPT-SEC-04 配套）
-// 例：13812345678 → 138****5678
 func MaskPhone(phone string) string {
 	if len(phone) < 7 {
 		return "****"

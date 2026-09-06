@@ -74,10 +74,6 @@ func (p *pipelineReachSender) SendReach(ctx context.Context, channel, accountID,
 	return "", fmt.Errorf("unsupported channel: %s", channel)
 }
 
-// RegisterAllReachServices 把全渠道 service 注册到 tooluse 全局注册中心
-//
-//	2026-08-16：之前 NewReachToolDeps 默认 NoOpReachAdapter，
-//	AI Agent 触发 reach.*.send 永远失败。现在改为启动时一次性注册所有真实 service。
 func RegisterAllReachServices(db *gorm.DB) {
 	registry := tooluse.GlobalServiceRegistry()
 

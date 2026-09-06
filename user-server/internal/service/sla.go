@@ -12,8 +12,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// SLAService SLA 监控服务（USR-WB-04）
-// 实时计算首响/解决 SLA 达标率、违规检测、看板聚合。
 type SLAService struct {
 	mu         sync.RWMutex
 	policies   map[uint]*model.SLAPolicy

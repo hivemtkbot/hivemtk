@@ -488,7 +488,6 @@ func TestConvertParameters(t *testing.T) {
 	}
 }
 
-// TestServer_ProtocolVersionCompliance 验证协议版本常量（TL-2：最新支持 2025-11-25）
 func TestServer_ProtocolVersionCompliance(t *testing.T) {
 	if ProtocolVersionLatest != "2025-11-25" {
 		t.Errorf("latest protocol version should be 2025-11-25 per spec, got %s", ProtocolVersionLatest)

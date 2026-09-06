@@ -8,12 +8,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// TestInboxIngress_DeliverOutbound_OutboxLifecycle 验证人工座席代发经 DeliverOutbound
-// 落库 message_hub(direction=outbound, status=pending)，被 ListPendingOutbound 拉取（GET /api/bridge/outbox 下发路径），
-// 并在 AckOutboundDelivered 后退出待下发队列。
-//
-// 回归：旧 EnqueueReply 仅推入已无人读取的 httpReplyBuffer，会导致人工回复静默丢失
-// （2026-08-06 三通道架构后 ingest 改为即时返回，buffer 长轮询路径已废弃）。
 func TestInboxIngress_DeliverOutbound_OutboxLifecycle(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.MessageHub{})
 	svc := NewInboxIngressServiceWithDB(db, nil)

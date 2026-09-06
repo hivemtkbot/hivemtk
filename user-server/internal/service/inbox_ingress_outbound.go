@@ -18,8 +18,6 @@ import (
 	"hivemtk-user/internal/pkg/tracing"
 )
 
-// ListFailedOutbound 查询某账号在某桥接渠道下"出站且失败"的消息（离线降级落库，待补发）。
-// 供桥接扩展重连时自动重投（P1-7 修复：离线消息不再永久 failed）。
 func (s *InboxIngressService) ListFailedOutbound(ctx context.Context, channel, accountID string) ([]*model.MessageHub, error) {
 	if s.hubRepo == nil {
 		return nil, nil
@@ -46,12 +44,6 @@ func (s *InboxIngressService) MarkOutboundDelivered(ctx context.Context, hub *mo
 	return s.hubRepo.Update(ctx, hub)
 }
 
-// DeliverOutbound 持久化一条出站消息（如人工座席经桥接代发）到 message_hub(direction=outbound, status=pending)，
-// 由桥接扩展 GET /api/bridge/outbox 拉取并转发到网页（2026-08-06 三通道架构）。
-//
-// 替代已废弃的内存 httpReplyBuffer 长轮询路径：ingest 改为即时返回后该 buffer 不再被读取，
-// 若人工回复仍走 buffer 会静默丢失。本方法直接落库为待下发消息，与 AI 回复（webhook.go sendOutbound 桥接分支）
-// 走同一下发队列，保证可靠投递。
 func (s *InboxIngressService) DeliverOutbound(ctx context.Context, h *model.MessageHub) error {
 	if h == nil {
 		return errors.New("nil hub message")
@@ -239,37 +231,12 @@ func (s *InboxIngressService) AckOutboundDelivered(ctx context.Context, channel,
 	return int(affected), nil
 }
 
-// AckOutboundItem 单条 msg_id 的 ack 处理结果（2026-08-15 P3-D + P0-2）。
-//
-// 状态语义：
-//   - "acked"          此前为 pending/inflight，本次已翻转为 delivered
-//   - "failed"         此前为 pending/inflight，本次标记为 failed（业务失败，需人工补发）
-//   - "duplicate"      此前已为 delivered，本次幂等跳过（前端应从本地重试队列移除并停止重发）
-//   - "not_found"      本渠道账号下不存在该 msg_id（前端应停止重发，可能被 GC 回收或归属错）
-//   - "not_in_scope"   存在但归属其他 (channel, account_id) 或 direction≠outbound
-//     （防越权探测：发现即告警，不告知具体归属）
-//
-// 错误码语义（Error 字段）：
-//   - ""                 无错误
-//   - "send_timeout"     扩展 sendOutbound 超时
-//   - "platform_reject"  平台侧拒收（黑名单/限频）
-//   - "client_error"     客户端未捕获的发送异常
 type AckOutboundItem struct {
 	MsgID  string `json:"msg_id"`
 	Status string `json:"status"`
 	Error  string `json:"error,omitempty"`
 }
 
-// AckOutboundResult 批量 ack 结果（P3-D 详细化 + P4 二次审核 6.2 区分 affected 与 acked_items + P0-2 Error 字段）。
-//
-// 字段语义（2026-08-15 P4 + 2026-08-15 P0-2）：
-//   - AffectedCount: SQL UPDATE 实际翻转为终态的行数（跨会话同名 msg_id 时可能 > AckedItemsCount）
-//   - AckedItemsCount: items 中 status='acked' 的元素数（= 真正"被本次 ack 命中"的 msg_id 数）
-//   - FailedItemsCount: items 中 status='failed' 的元素数（P0-3）
-//   - DuplicateCount: 此前已为 delivered 的 msg_id 数（幂等跳过）
-//   - NotFoundCount: 不存在的 msg_id 数
-//   - NotInScopeCount: 存在但归属其他 (channel, account_id) 或 direction≠outbound 的 msg_id 数
-//   - Items: 按入参 msgIDs 顺序逐条结果（顺序契约由代码保证并由 p3d-contract.test.js 验证）
 type AckOutboundResult struct {
 	AffectedCount    int               `json:"affected_count"`
 	AckedItemsCount  int               `json:"acked_items_count"`
@@ -280,40 +247,6 @@ type AckOutboundResult struct {
 	Items            []AckOutboundItem `json:"items"`
 }
 
-// AckOutboundDeliveredDetailed 批量 ack 详细版（P3-D + P4 二次审核修复 + P0 全面升级）。
-//
-// 2026-08-15 头脑风暴二次论证 P3-D：
-//
-//	服务端按 (channel, account, msg_id) 去重，按 per-msg-id 状态分类返回。
-//
-// 2026-08-15 P4 二次审核修复（修复 2.1 / 3.1 / 6.2 / 7.4 / 2.3 / 1.1）：
-//  1. hubRepo nil 直接返回 error（修复 3.1：原"全量空 result"会让前端误判为成功）
-//  2. 用 UPDATE ... RETURNING 单 SQL 原子"分类 + 翻转"（修复 2.1：原"先查后更"非原子，
-//     当其他 worker 在两步间抢先翻转为 delivered 时，本 worker 仍把 msg_id 标 acked，但
-//     SQL 实际 affected=0——acked 与 affected 矛盾）
-//  3. 增加 AckedItemsCount 字段，区分"行级 affected"与"msg_id 级 acked"（修复 6.2）
-//  4. msg_id 入参去重（修复 7.4：["m1","m1","m1"] 时只算 1 次）
-//  5. duplicate 状态记 StatusSkipped 而非 StatusOk（修复 2.3：tracing 监控失真）
-//  6. GetByMsgIDsInScope 已加 direction='outbound' 过滤（修复 1.1）
-//
-// 2026-08-15 P0 全面升级（10/10 任务清单）：
-//   - P0-1: 可选 conversationID 参数，非空时只 ack 该会话下的 msg_id（解决"跨会话同名 msg_id 一锅端"）
-//   - P0-3: 可选 terminalStatus（"delivered" | "failed"），决定翻转到的终态；缺省 delivered
-//   - P0-8: not_found 与 not_in_scope 区分——not_in_scope 表示行存在但归属其他 (channel, account_id)
-//     或 direction≠outbound（防越权探测：发现即告警但不告知具体归属）
-//   - P0-2: AckOutboundItem.Error 字段透传失败原因
-//
-// 协议契约（与前端 downlink.js 配套）：
-//
-//	响应：{ affected_count, acked_items_count, failed_items_count, duplicate_count,
-//	        not_found_count, not_in_scope_count,
-//	        items: [{msg_id, status, error?}] }
-//	items 顺序严格对齐入参 msgIDs 顺序（去重后）。
-//
-// 入参约定（2026-08-15 P0-1）：
-//   - conversationID == "" 时：按 (channel, account_id) 范围 ack 全部匹配 msg_id（v1 兼容）
-//   - conversationID != "" 时：仅 ack 该会话下匹配的 msg_id（v2 推荐）
-//   - perItem 来自 v2 协议 items[]，用于 P0-8 not_in_scope 检测 + Error 透传
 func (s *InboxIngressService) AckOutboundDeliveredDetailed(
 	ctx context.Context,
 	channel, accountID string,

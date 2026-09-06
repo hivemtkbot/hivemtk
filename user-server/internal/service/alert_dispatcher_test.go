@@ -62,9 +62,6 @@ func TestAlertDispatcher_ConcurrentExec(t *testing.T) {
 	d.Dispatch("panic_probe", func() { panic("boom") })
 	total++
 
-	// 等待条件必须覆盖 ExecutedCount==total：executed 到满时 panic 任务可能刚被取走
-	// 尚未走完 run 的 defer 计数（历史 flaky 根因），ExecutedCount 在 defer 里自增，
-	// 等它到 total 才能保证两个断言都确定性成立。
 	for i := 0; i < 500 && d.ExecutedCount.Load() < int64(total); i++ {
 		time.Sleep(10 * time.Millisecond)
 	}

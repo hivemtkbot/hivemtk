@@ -53,7 +53,7 @@ func (s *CustomerSessionService) TakeoverByAgent(ctx context.Context, req *Takeo
 		session.Status = model.SessionStatusHumanHandling
 		now := time.Now()
 		session.LastMessageAt = &now
-		// D20: 座席（重复）接管同一会话——首次接管打 outcome 起点
+
 		if session.HandoffAt == nil {
 			session.HandoffAt = &now
 			session.HandoffReason = "agent_takeover:" + req.Reason
@@ -82,7 +82,7 @@ func (s *CustomerSessionService) TakeoverByAgent(ctx context.Context, req *Takeo
 	updated.Status = model.SessionStatusHumanHandling
 	now := time.Now()
 	updated.LastMessageAt = &now
-	// D20: 首次接管打 outcome 起点（幂等：重复转人工/接管不覆盖首因）
+
 	if updated.HandoffAt == nil {
 		updated.HandoffAt = &now
 		updated.HandoffReason = "agent_takeover:" + req.Reason

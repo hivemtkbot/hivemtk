@@ -10,7 +10,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// T3 验收①：statuses 回执按 wamid 命中出站行，delivered/read/failed 正确翻转。
 func TestDispatchWhatsAppStatuses_AllStates(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	svc := &WebhookService{db: db}
@@ -72,7 +71,6 @@ func TestDispatchWhatsAppStatuses_AllStates(t *testing.T) {
 	}
 }
 
-// T3 验收②：wamid 未命中（未回写/旧占位）静默忽略；普通消息推送不受影响。
 func TestDispatchWhatsAppStatuses_MissAndPassthrough(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	svc := &WebhookService{db: db}
@@ -97,7 +95,6 @@ func TestDispatchWhatsAppStatuses_MissAndPassthrough(t *testing.T) {
 	}
 }
 
-// T3 验收③：未知 status 不写入；终态 send_failed 不被迟到回执回翻（二次审查 S4 修复）。
 func TestUpdateDeliveryStatus_TerminalStateGuard(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	repo := repository.NewMessageHubRepositoryWithDB(db)
@@ -126,7 +123,6 @@ func TestUpdateDeliveryStatus_TerminalStateGuard(t *testing.T) {
 	}
 }
 
-// T3 验收④（二次审查 S2 修复）：statuses+messages 混合推送——回执消费且消息放行主管线。
 func TestDispatchWhatsAppStatuses_MixedPayloadPassesMessages(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	svc := &WebhookService{db: db}

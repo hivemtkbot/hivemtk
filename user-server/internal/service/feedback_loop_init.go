@@ -71,11 +71,6 @@ func GetFeedbackCollector() *feedbackloop.FeedbackCollector {
 	return feedbackCollector
 }
 
-// InitFeedbackLoopComponents 构造所有反馈学习闭环组件（无状态，按需创建）
-//
-// R55 T1 修复：embedder 为 nil 时自动构造本地零依赖 Embedding 引擎（此前 nil 会导致
-// ChampionAnalyzer 恒 ErrEmbedderNotConfig，每周冠军对话挖掘空转）。
-// dispatcher 仍由调用方注入（全局 Dispatcher 就绪后传入；nil 时迭代任务返回明确错误而非静默）。
 func InitFeedbackLoopComponents(db *gorm.DB, dispatcher *llm.Dispatcher, embedder *embedding.LocalEmbedding) *FeedbackLoopComponents {
 	if embedder == nil {
 		embedder = embedding.NewLocalEmbedding(1024, 42)

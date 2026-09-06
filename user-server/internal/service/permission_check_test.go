@@ -4,7 +4,6 @@ import (
 	"testing"
 )
 
-// TestRequireRole_P1-6 服务层角色断言测试
 func TestRequireRole(t *testing.T) {
 	tests := []struct {
 		name         string

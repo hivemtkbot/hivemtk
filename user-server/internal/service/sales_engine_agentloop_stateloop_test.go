@@ -7,8 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// D09: 状态指纹循环检测（agentLoopGuard.ObserveState）
-
 // 同一状态连续 3 轮 → 触发 state_loop_detected
 func TestD09_StateLoopTriggers(t *testing.T) {
 	g := newAgentLoopGuard(0, 0, 0)
@@ -36,7 +34,8 @@ func TestD09_EvolvingStateNoTrip(t *testing.T) {
 
 // 换工具但结果内容不同（如不同数据源各查一次，内容互异）→ hash 每轮变化，不触发
 // （对比：内容完全相同时连续 3 次即触发，见 TestD09_StateLoopTriggers——
-//   这是本护栏与 LoopGuard 的差异点：LoopGuard 看工具+参数指纹，本护栏看结果局面）
+//
+//	这是本护栏与 LoopGuard 的差异点：LoopGuard 看工具+参数指纹，本护栏看结果局面）
 func TestD09_DifferentToolsSameOutcome(t *testing.T) {
 	g := newAgentLoopGuard(0, 0, 0)
 	for i := 0; i < 5; i++ {
@@ -82,7 +81,7 @@ func TestD09_MultiToolFirstToolLoop(t *testing.T) {
 	if r := g.ObserveState("", tools); r != stopReasonStateLoop {
 		t.Fatalf("N=3 全同结果第 3 轮应触发, got %q", r)
 	}
-	// 对照：N=3 中仅首工具相同、其余逐轮变化 → 状态真实不同，不触发
+
 	g2 := newAgentLoopGuard(0, 0, 0)
 	for i := 0; i < 4; i++ {
 		tools := []string{
@@ -104,4 +103,3 @@ func TestD09_HashStable(t *testing.T) {
 	g2.ObserveState("a", []string{"t1", "t2"})
 	assert.Equal(t, g1.stateHashes, g2.stateHashes)
 }
-

@@ -9,9 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// TestProactiveReachService_PickChannel_OutboundChannels 验证 sms/email/dingtalk 不依赖 accountID
-//
-// 2026-08-17 修复：之前这些渠道会被 FindActiveAccount 的 "unsupported channel" 错误跳过
 func TestProactiveReachService_PickChannel_OutboundChannels(t *testing.T) {
 	svc := NewProactiveReachService(nil, &mockAccountLookup{})
 	customer := &model.Customer{

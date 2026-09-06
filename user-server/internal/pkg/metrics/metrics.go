@@ -594,14 +594,6 @@ func Handler() http.HandlerFunc {
 	}
 }
 
-// Sample 注册表遍历时的指标采样（供落库 / SQL 巡检使用，2026-08-15 M3-P1-E4）。
-//
-//   - Name:      指标名（如 bridge_ingest_total）
-//   - Type:      指标类型（counter / gauge / histogram）
-//   - LabelKeys: 标签键（与 Labels 一一对应）
-//   - Labels:    标签值
-//   - Value:     当前值（counter/gauge 为原始值；histogram 为 count 或 sum）
-//   - Agg:       仅 histogram 使用："count" | "sum"；其余指标为空串
 type Sample struct {
 	Name      string
 	Type      string

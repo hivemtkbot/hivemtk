@@ -47,11 +47,6 @@ func New(db *gorm.DB, dispatcher *llm.Dispatcher, cfg Config) *Service {
 	return &Service{db: db, dispatcher: dispatcher, cfg: cfg}
 }
 
-// EvaluateTrace 评估单条 trace 并调整权重（幂等：同 trace_id 覆盖审计记录）。
-// dryRun=true 时仅评分+预览计划调整，不调权、不写审计（用于安全评估自学习质量）。
-//
-// 并发安全（2026-08-08 修复）：cron 批量评估与手动触发可能同时评估同一条 trace，
-// 用 pg_advisory_xact_lock 在事务内串行化，配合幂等检查，杜绝双重调权（权重乘算漂移）。
 func (s *Service) EvaluateTrace(ctx context.Context, traceID string, dryRun bool) (*model.TraceEvalLog, error) {
 	return s.evaluateTraceOn(ctx, s.db, traceID, dryRun)
 }
@@ -173,18 +168,6 @@ func (s *Service) persistAttemptedLog(ctx context.Context, db *gorm.DB, traceID 
 
 const runBatchLockKey int64 = 9173001
 
-// RunBatch 扫描所有「尚未评估」的 ai_dispatch trace 并批量打分+调权。
-// 返回处理结果（含 dryRun 时的预览列表）。
-//
-// 关键修复（2026-08-08 审查）：
-//   - 不再硬性 Limit(20)：按 batchSize 分批循环处理全部待评，消除高流量积压；
-//   - 加 pg_try_advisory_lock 全局锁：cron 与手动触发并发时只跑一个实例（专用连接获取+释放，防泄漏）。
-//   - sinceHours 现作为 opt-in 时间窗：>0 时仅评估该小时内的 trace；默认 0=评估全部未评估 trace（不漏评）。
-//
-// 性能优化（2026-08-09）：
-//   - 并发评估：LLM 打分为瓶颈，用有界 worker 池（cfg.Concurrency）并行打分；
-//   - 权重调整为快路径，由全局 adjustMu 串行化，避免跨 trace 召回同一 chunk 的丢失更新，且不损吞吐；
-//   - 每 trace 评估在独立事务（s.db 连接池）内进行，pg_advisory_xact_lock 随事务结束自动释放，安全并发。
 func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int, dryRun bool) (*BatchResult, error) {
 	ctx = ensureCtx(ctx)
 	if s.db == nil {

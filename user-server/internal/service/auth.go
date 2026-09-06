@@ -157,9 +157,6 @@ func (s *AuthService) loginWithUser(ctx context.Context, user *model.SystemUser)
 	return response, nil
 }
 
-// RefreshToken 刷新令牌（轮换语义）：
-// 已被拉黑的令牌拒绝刷新；刷新成功后立即吊销旧 token，
-// 被盗旧令牌无法借刷新通道无限续命（v3 审计 P1-1）。
 func (s *AuthService) RefreshToken(ctx context.Context, tokenString string) (string, error) {
 	if utils.IsJWTBlacklisted(tokenString) {
 		return "", errors.New("token 已失效")
@@ -173,7 +170,6 @@ func (s *AuthService) RefreshToken(ctx context.Context, tokenString string) (str
 	return newToken, nil
 }
 
-// Logout 登出：将当前令牌加入黑名单（v3 审计 P1-1 补齐缺失的注销能力）。
 func (s *AuthService) Logout(ctx context.Context, tokenString string) error {
 	utils.BlacklistJWT(tokenString)
 	return nil

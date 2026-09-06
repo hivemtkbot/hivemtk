@@ -1,11 +1,3 @@
-// kb_connector_pull.go 知识连接器一键拉取导入（R42，R40/R41 连接器链路收口）
-//
-// 诚实边界（用户视角论证结论）：
-//   - notion：完整实现（POST /v1/search 列页面 → GET /v1/blocks/{id}/children 提取纯文本 →
-//     走既有 KB Import 管线 text 类型入库，metadata.connector=notion, source_ref=页面 URL）
-//   - feishu/dingtalk/crm：返回明确 not_implemented 契约（这些源需要更复杂的
-//     OAuth/导出 API/私有协议，凭据+测试连接已就绪，自动拉取待后续迭代）
-//   - 限速：Notion 官方 3 rps → 串行请求 + max_pages 上限（默认 10，上限 20）
 package service
 
 import (

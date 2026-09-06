@@ -29,7 +29,6 @@ func (r *IntentRecordRepository) SetDB(ctx context.Context, db *gorm.DB) {
 	}
 }
 
-// GetDB 获取 db（OPT-ARC-01：service.withDB 走 repository 注入）
 func (r *IntentRecordRepository) GetDB(ctx context.Context) *gorm.DB {
 	return r.db
 }

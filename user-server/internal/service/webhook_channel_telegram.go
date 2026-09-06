@@ -41,8 +41,6 @@ const (
 
 	ChannelWeCom WebhookChannel = "wecom"
 
-	// ChannelDingTalk 钉钉企业内部应用机器人（2026-08-25 补齐出站分支：
-	// 原先 AI 回复落入 sendOutbound default 被静默丢弃）
 	ChannelDingTalk WebhookChannel = "dingtalk"
 
 	ChannelWhatsapp WebhookChannel = "whatsapp"

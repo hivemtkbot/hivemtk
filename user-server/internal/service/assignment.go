@@ -25,7 +25,6 @@ const (
 	StrategyManual     AssignmentStrategy = "manual"
 )
 
-// M5 分配策略错误：不再静默忽略非法/不支持的策略
 var (
 	// ErrManualAssignNotAllowed manual 策略不走自动分配——明确指引调用方使用指定坐席接口
 	ErrManualAssignNotAllowed = errors.New("手动分配请用指定坐席接口（action=assign + to_user_id）")
@@ -61,7 +60,6 @@ func ResolveAutoAssignMode(mode string) (AssignmentStrategy, error) {
 	return StrategyLeastBusy, nil
 }
 
-// AssignmentService 客服会话自动分配服务（USR-WB-03）
 type AssignmentService struct {
 	db *gorm.DB
 }
@@ -91,10 +89,6 @@ type AssignmentDecision struct {
 	Score     float64 `json:"score"`
 }
 
-// Assign 为入站会话选择坐席
-//
-// S-4 专属坐席定向路由（2026-08-26）：若会话客户的 owner_agent_id 对应坐席
-// 在线且有容量，则直接定向给该坐席；否则回退现有算法（技能匹配 + least_busy）。
 func (s *AssignmentService) Assign(ctx context.Context, sess *model.CustomerSession, candidates []AgentInfo) (*AssignmentDecision, error) {
 	ownerID := s.resolveOwnerAgentID(ctx, sess)
 	return s.AssignWithOwner(ctx, sess, candidates, ownerID)

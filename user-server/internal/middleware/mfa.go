@@ -27,11 +27,6 @@ var (
 	mfaRecentVerifyMutex sync.RWMutex
 )
 
-// MarkMFAVerified 标记用户在当前时刻通过 MFA 验证
-// OPT-ARC-12 + OPT-SEC-02：多副本兼容
-// 1) 写 Redis（多实例共享，TTL 5min）
-// 2) 写内存（Redis 不可达时回退）
-// 3) 异步清理过期内存项
 func MarkMFAVerified(userID uint) {
 	now := time.Now()
 
@@ -59,8 +54,6 @@ func mfaCleanupLoop() {
 	}
 }
 
-// IsMFAVerifiedRecently 检查用户最近 5 分钟内是否通过 MFA 验证
-// OPT-ARC-12：优先读 Redis（多副本共享），失败回退内存
 func IsMFAVerifiedRecently(userID uint) bool {
 
 	key := fmt.Sprintf(mfaRecentVerifyKeyFmt, userID)

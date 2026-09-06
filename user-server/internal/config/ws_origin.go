@@ -7,12 +7,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// DefaultAllowedWSOrigins 默认 WebSocket Origin 白名单
-//
-// 私域部署基线: 仅允许本地开发端口; 生产部署应通过 env / config.yaml 覆盖。
-// R41 修复: 补齐项目实际本地端口(user-server=8204 / 常用 vite 备选 5173)。
-// 本轮修复: user-web vite dev 实际端口为 8211（见 user-web/vite.config.js server.port，
-// 单一端口源），原默认值误写 8212 → 本地开发坐席工作台 WS 403 每 10s 刷屏。
 var DefaultAllowedWSOrigins = []string{
 	"http://localhost:3000",
 	"http://localhost:8080",

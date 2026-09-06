@@ -41,11 +41,11 @@ type CustomerRepository interface {
 	GetByXiaohongshuID(ctx context.Context, xhsID string) (*model.Customer, error)
 	SearchByFilter(ctx context.Context, filter CustomerSearchFilter) (items []*model.Customer, total int64, err error)
 	ReassignSessionOneID(ctx context.Context, oldOneID, newOneID string) error
-	// CS-P0-3: 通用 OneID 重定向（对普通表执行 UPDATE ... SET one_id = new WHERE one_id = old）
+
 	ReassignOneID(ctx context.Context, table, oldOneID, newOneID string) error
-	// CS-P0-3: DNC 重定向（处理唯一索引 (one_id, channel) 冲突：先删 primary 已有的 channel 再 UPDATE）
+
 	ReassignDNCOneID(ctx context.Context, oldOneID, newOneID string) error
-	// OPT-ARC-06：事务支持（OPT-ARC-06 全量写操作原子化）
+
 	WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error
 }
 

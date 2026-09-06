@@ -1,18 +1,3 @@
-// geo-run 真实执行 GEO 模块（v3：DB 为真相 + 工作流引擎自动化）
-//
-// 前置（密钥严禁硬编码，从 gitignored 的 .env.geo.local 注入）：
-//
-//	source ../../.env.geo.local && \
-//	export USER_JWT_SECRET="本地32字节以上测试密钥" && go run ./cmd/geo-run
-//
-// 流程：
-//
-//	A. 四厂商写入 llm_providers（铁律#20：DB 为真相；管理端可后续改配/轮换）
-//	B. Dispatcher 构造 → LoadProvidersFromDB 覆盖内存路由 → 场景路由指向 DB 主选
-//	C. 自动创建并运行 GEO 工作流：
-//	   content_generate(含意图矩阵注入) → content_score → eeat_enhance
-//	   → fact_density_enhance → verify
-//	D. 输出数据看板：关键词/文章/验证/工作流执行 统计与样本
 package main
 
 import (

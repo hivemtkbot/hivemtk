@@ -1,14 +1,3 @@
-// SSO 服务测试（2026-08-15 M3-P1-E3）
-//
-// 覆盖：
-//   - NewSSOServiceWithRepos：仅启用 client_id 非空的 provider
-//   - HandleCallback 完整流程（mock OIDC：discovery + jwks + token）
-//   - 自动 provisioning（首次登录创建本地用户并绑定）
-//   - 已有身份复用（幂等）
-//   - 未启用 / provider 不存在 / 缺 code 等错误分支
-//   - auto_provision=false 按邮箱关联已有本地用户
-//
-// mock 采用自定义 http.RoundTripper，全程无真实网络请求。
 package service
 
 import (

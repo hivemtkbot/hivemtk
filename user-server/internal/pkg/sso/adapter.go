@@ -1,8 +1,3 @@
-// SSO 适配器抽象（2026-08-15 M3-P1-E3）
-//
-// 在通用 OIDCProvider 之上，为各 IdP（飞书 / 钉钉 / 企微 / 通用 OIDC）
-// 提供统一接口：把 IdP 特有的 ID Token claims 归一化为标准用户信息，
-// 供 SSO 服务做本地用户关联 / 自动 provisioning。
 package sso
 
 import "fmt"

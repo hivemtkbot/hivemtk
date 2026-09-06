@@ -1,8 +1,5 @@
 package dto
 
-// FAQFilter FAQ 查询过滤器（前端管理页面）。
-// 架构整改 P0-5/P0-7：自 repository 迁入 dto，controller/service/repository
-// 统一引用本类型，controller 不再 import repository。
 type FAQFilter struct {
 	Keyword  string
 	Category string

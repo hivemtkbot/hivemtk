@@ -9,7 +9,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// mockBanditUpdater 记录 UpdateReward 调用
 type mockBanditUpdater struct {
 	calls []mockRewardCall
 }
@@ -28,8 +27,7 @@ func (m *mockBanditUpdater) UpdateReward(_ context.Context, experimentID, armKey
 
 // D04: 转化事件正确映射到 running 实验臂并回流；台账防重复
 func TestD04_RefluxOnceEndToEnd(t *testing.T) {
-	// 最小表集：feedback_events/prompt_ab_tests/bandit_arms/bandit_reflux_log
-	// （setupFeedbackLoopTestDB 含 vector 列表，本机 PG 无 pgvector 扩展会整体失败）
+
 	db := testutil.NewTestDB(t,
 		&model.FeedbackEvent{},
 		&model.PromptABTest{},
@@ -37,7 +35,6 @@ func TestD04_RefluxOnceEndToEnd(t *testing.T) {
 		&model.BanditRefluxLog{},
 	)
 
-	// 造 running sop_variant 实验 + 对照臂（arm.SOPID = event.SOPID）
 	exp := &model.PromptABTest{
 		ExperimentID:   "exp-d04-1",
 		ExperimentType: model.BanditExperimentTypeSOPVariant,
@@ -63,14 +60,14 @@ func TestD04_RefluxOnceEndToEnd(t *testing.T) {
 	r := NewBanditRewardReflux(db, mock)
 
 	ev := &model.FeedbackEvent{
-		EventID:     "evt-d04-1",
-		SessionID:   "sess-1",
-		CustomerID:  "c1",
-		SOPID:       42,
-		SignalKey:   "conversion",
-		Reward:      2.0,
-		Variant:     "A",
-		CreatedAt:   time.Now(),
+		EventID:    "evt-d04-1",
+		SessionID:  "sess-1",
+		CustomerID: "c1",
+		SOPID:      42,
+		SignalKey:  "conversion",
+		Reward:     2.0,
+		Variant:    "A",
+		CreatedAt:  time.Now(),
 	}
 	if err := db.Create(ev).Error; err != nil {
 		t.Fatal(err)
@@ -91,7 +88,6 @@ func TestD04_RefluxOnceEndToEnd(t *testing.T) {
 		t.Errorf("回流参数不符: %+v", call)
 	}
 
-	// 重扫同窗口：event_id 台账命中 → duped，不再入账
 	stats2, _ := r.RefluxOnce(context.Background(), time.Now().Add(-time.Minute), time.Now().Add(time.Minute))
 	if stats2.Refluxed != 0 || stats2.Duped != 1 {
 		t.Errorf("重扫应 duped=1 refluxed=0, got %+v", stats2)
@@ -103,8 +99,7 @@ func TestD04_RefluxOnceEndToEnd(t *testing.T) {
 
 // D04: 白名单外信号不入回流（tool_call 高频低值）
 func TestD04_SignalWhitelist(t *testing.T) {
-	// 最小表集：feedback_events/prompt_ab_tests/bandit_arms/bandit_reflux_log
-	// （setupFeedbackLoopTestDB 含 vector 列表，本机 PG 无 pgvector 扩展会整体失败）
+
 	db := testutil.NewTestDB(t,
 		&model.FeedbackEvent{},
 		&model.PromptABTest{},
@@ -115,12 +110,12 @@ func TestD04_SignalWhitelist(t *testing.T) {
 	r := NewBanditRewardReflux(db, mock)
 
 	ev := &model.FeedbackEvent{
-		EventID:   "evt-d04-tool",
-		SessionID: "sess-w",
+		EventID:    "evt-d04-tool",
+		SessionID:  "sess-w",
 		CustomerID: "c1",
-		SignalKey: "tool_call",
-		Reward:    0.3,
-		CreatedAt: time.Now(),
+		SignalKey:  "tool_call",
+		Reward:     0.3,
+		CreatedAt:  time.Now(),
 	}
 	if err := db.Create(ev).Error; err != nil {
 		t.Fatal(err)
@@ -136,8 +131,7 @@ func TestD04_SignalWhitelist(t *testing.T) {
 
 // D04: 负信号（complaint -2.0）→ success=false 且 reward 取绝对值
 func TestD04_NegativeSignal(t *testing.T) {
-	// 最小表集：feedback_events/prompt_ab_tests/bandit_arms/bandit_reflux_log
-	// （setupFeedbackLoopTestDB 含 vector 列表，本机 PG 无 pgvector 扩展会整体失败）
+
 	db := testutil.NewTestDB(t,
 		&model.FeedbackEvent{},
 		&model.PromptABTest{},
@@ -158,13 +152,13 @@ func TestD04_NegativeSignal(t *testing.T) {
 	mock := &mockBanditUpdater{}
 	r := NewBanditRewardReflux(db, mock)
 	db.Create(&model.FeedbackEvent{
-		EventID:   "evt-d04-neg",
-		SessionID: "sess-n",
+		EventID:    "evt-d04-neg",
+		SessionID:  "sess-n",
 		CustomerID: "c1",
-		SOPID:     7,
-		SignalKey: "complaint",
-		Reward:    -2.0,
-		CreatedAt: time.Now(),
+		SOPID:      7,
+		SignalKey:  "complaint",
+		Reward:     -2.0,
+		CreatedAt:  time.Now(),
 	})
 	stats, err := r.RefluxOnce(context.Background(), time.Now().Add(-time.Minute), time.Now().Add(time.Minute))
 	if err != nil {
@@ -180,8 +174,7 @@ func TestD04_NegativeSignal(t *testing.T) {
 
 // D04: 无运行中实验 → skip
 func TestD04_NoRunningExperimentSkips(t *testing.T) {
-	// 最小表集：feedback_events/prompt_ab_tests/bandit_arms/bandit_reflux_log
-	// （setupFeedbackLoopTestDB 含 vector 列表，本机 PG 无 pgvector 扩展会整体失败）
+
 	db := testutil.NewTestDB(t,
 		&model.FeedbackEvent{},
 		&model.PromptABTest{},
@@ -191,13 +184,13 @@ func TestD04_NoRunningExperimentSkips(t *testing.T) {
 	mock := &mockBanditUpdater{}
 	r := NewBanditRewardReflux(db, mock)
 	db.Create(&model.FeedbackEvent{
-		EventID:   "evt-d04-orphan",
-		SessionID: "sess-x",
+		EventID:    "evt-d04-orphan",
+		SessionID:  "sess-x",
 		CustomerID: "c1",
-		SOPID:     999,
-		SignalKey: "conversion",
-		Reward:    2.0,
-		CreatedAt: time.Now(),
+		SOPID:      999,
+		SignalKey:  "conversion",
+		Reward:     2.0,
+		CreatedAt:  time.Now(),
 	})
 	stats, _ := r.RefluxOnce(context.Background(), time.Now().Add(-time.Minute), time.Now().Add(time.Minute))
 	if stats.Skipped != 1 {

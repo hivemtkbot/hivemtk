@@ -243,22 +243,6 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 	return err
 }
 
-// PersistBridgeHistory 仅持久化历史/回填消息，不触发 AI 路由。
-//
-// 用途（需求⑤ 多用户历史 / 需求③ outbound 落库）：
-//   - 页面加载时回填的存量私信（客户侧 inbound / 自己侧 outbound）
-//   - 本扩展回写到网页的 AI 回复（outbound，标记为 AI 回复）
-//
-// 与 HandleIngressMessage 的关键区别：不获取 AI 锁、不投递 pending、不通知 AgentRuntime，
-// 从而避免「回填空历史误触发 AI」与「自己回复被再次推理造成自回环」。
-//
-// 钩子2（2026-08-07 审计修复，防「AI 回复被 patrol 回显入库为 inbound」循环触发 AI）：
-//
-//	前端 history 项 event_id = contentHash（mh:xxxxxxxx），与服务端 AI outbound 的 MsgID
-//	（= ContentHashMsgID）逐字节一致。命中 GetByMsgID → 跳过入库。
-//	旧实现历史上下文回填路径完全未做 msg_id 去重，扩展 patrol 把 AI 回复放进 history 重新
-//	上报时会被当作新 inbound 入库（direction 错乱），触发新 AI 回复 → 无限循环。
-//	与 handleIngressSingleForBatch 钩子2 同源：唯一差异是不触发 AI。
 func (s *InboxIngressService) PersistBridgeHistory(ctx context.Context, event *model.MessageEvent, direction string) error {
 	if err := s.NormalizeEvent(ctx, event); err != nil {
 		return err

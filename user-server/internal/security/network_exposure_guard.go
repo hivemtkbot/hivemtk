@@ -1,13 +1,3 @@
-// Package security 提供启动期安全护栏。
-//
-// NetworkExposureGuard 在 user-server 启动时校验：
-//  1. PUBLIC_BASE_URL（若设置）是否解析为公网 IP
-//  2. 若 REQUIRE_PRIVATE_NETWORK=true，公网暴露必须启动失败
-//  3. 公网 IP 段通过 IANA 私有地址表排除
-//
-// 设计依据：v3 审计 [P0-S1]。AppKey 软解析（私域部署基线）若被错配
-// 到公网 = 90% 业务 API 无鉴权 = 数据裸奔。此 guard 是"软解析"假设的
-// 硬护栏。
 package security
 
 import (

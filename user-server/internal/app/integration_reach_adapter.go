@@ -20,20 +20,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-// IntegrationReachAdapter 集成服务适配器
-//
-// 作用：把 reach_tools.go 中 ReachAdapter 接口的 SendTelegram/SendWhatsApp/SendFeishu
-// 三个新方法路由到 service 包中已有的 IntegrationService（TelegramIntegrationService /
-// WhatsAppCloudIntegrationService / FeishuIntegrationService）。
-//
-// 设计原则：
-//   - 仅转发参数，不做业务逻辑（业务逻辑在 IntegrationService 中）
-//   - 渠道特定错误透传（限流、token 过期等）
-//   - AccountHealth/ListAccounts 走模型层直接查询（参考已有 account controller 模式）
-//
-// 其他方法（SMS/Email/Weixin/Douyin/Kuaishou/XHS/Card/Recall/AccountHealth/ListAccounts）保持 NoOp，
-// 后续按需逐渠道补齐；DingTalk 已通过 DingTalkService 实现真实群机器人出站（补 #2）；
-// WeCom 已委托 WeComIntegrationService 统一出站（收敛）。
 type IntegrationReachAdapter struct {
 	tg       *service.TelegramIntegrationService
 	wa       *service.WhatsAppCloudIntegrationService
@@ -342,13 +328,6 @@ func (a *IntegrationReachAdapter) SendXianyu(ctx context.Context, accountID, ope
 	return "", fmt.Errorf("xianyu: %w", ErrChannelNotImplemented)
 }
 
-// SendDingTalk 通过钉钉群机器人 webhook 出站（补齐 todo.md #2 唯一未实现渠道）
-//
-// chatID 为 `reach.dingtalk.send` 工具传入的 recipient_id，语义：
-//   - 完整 webhook URL（含 access_token），或仅 access_token（自动拼接 base）
-//   - 若机器人开启「加签」，用 `webhook|secret` 形式携带签名密钥
-//
-// 支持 text / markdown / link / action_card 消息类型（msgType 默认 text）。
 func (a *IntegrationReachAdapter) SendDingTalk(ctx context.Context, chatID, msgType, content string) (string, error) {
 	ctx = logger.WithModule(ctx, "reach")
 	logger.Ctx(ctx).Debug().Str("channel", "dingtalk").Str("chat_id", chatID).Int("content_len", len(content)).Msg("reach send start")

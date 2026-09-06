@@ -16,7 +16,7 @@ func TestD17b_NormalizeRRFScores(t *testing.T) {
 	if chunks[2].Score != 0 {
 		t.Errorf("最低分应=0, got %v", chunks[2].Score)
 	}
-	// 单调性保持
+
 	if !(chunks[0].Score > chunks[1].Score && chunks[1].Score > chunks[2].Score) {
 		t.Error("归一化后应保持单调")
 	}

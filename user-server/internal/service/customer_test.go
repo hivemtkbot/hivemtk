@@ -277,8 +277,6 @@ func TestCustomerService_CreateOrUpdate_InvalidDTO(t *testing.T) {
 	}
 }
 
-// TestCustomerService_CreateOrUpdate_EmptyBody 验证空 body / 全部标识符为空 → 拒绝
-// 防止 P0 数据完整性：批量创建空记录污染 OneID 合并
 func TestCustomerService_CreateOrUpdate_EmptyBody(t *testing.T) {
 	service := setupCustomerService(t)
 

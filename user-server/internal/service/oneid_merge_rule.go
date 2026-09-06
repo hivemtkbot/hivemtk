@@ -1,12 +1,3 @@
-// Package service 提供 OneID 合并规则配置服务（OPT-UX-04 骨架）
-//
-// 业务定位：商户在 UI 配置「哪些身份标识应该被自动合并到同一 OneID」，
-// 后台 OneID merge worker 异步消费这些规则。
-//
-// 实施路线：
-//  1. v1: 内存存储 + 单机 worker（本期实施）
-//  2. v2: 数据库持久化（oneid_merge_rules 表）+ 分布式 worker
-//  3. v3: 跨租户规则共享 + 行业模板市场
 package service
 
 import (

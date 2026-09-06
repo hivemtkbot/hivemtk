@@ -9,12 +9,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// 2026-08-13 修复：桥接扩展把本账号 AI 出站回复从 DOM 抓取后恒标 sender_type='customer' 重发，
-// 旧自回显逻辑依赖 senderKey/SenderID 完全一致（桥接侧 senderKey=客户昵称、SenderID=会话ID，
-// 与出站落库的 accountID 永远不同）→ 漏判 → AI 话术以 inbound 污染统一收件箱并形成回环。
-//
-// 新增「层0·自回显权威检测」：入站消息若内容命中本账号同会话近期出站 outbound（归一化容差，
-// 容忍 DOM 抓取空白/零宽差异），即判定为自回显拦截，不落库、不触发 AI。
 func TestHandleIngress_SelfEcho_BridgeRelay_Blocked(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	svc := NewInboxIngressServiceWithDB(db, nil)

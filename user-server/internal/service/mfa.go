@@ -401,9 +401,6 @@ func (s *MFAService) VerifyMFALogin(ctx context.Context, tempToken, code string)
 	return 0, "", "", errors.New("验证码错误")
 }
 
-// GenerateBackupCodes 生成 10 个一次性恢复码
-// 返回明文（仅展示给用户一次）+ bcrypt 哈希（存储到数据库）
-// v3 审计 P2-15 修复：使用 const-dict 字符集（去除 0/O/1/l 等易混字符）
 func (s *MFAService) GenerateBackupCodes(ctx context.Context, userID uint) ([]string, error) {
 
 	const charset = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"

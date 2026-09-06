@@ -15,10 +15,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// EmailOpenPixel 1×1 透明 PNG 字节
-//
-// 最小可用 PNG：43 字节，所有邮件客户端 / 浏览器均能正确显示为透明像素。
-// 选 GIF43a / PNG8 会被部分安全软件识别为追踪器，PNG 透明像素兼容性最佳。
 var EmailOpenPixel = []byte{
 	0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
 	0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,

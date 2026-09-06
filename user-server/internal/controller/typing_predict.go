@@ -12,17 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// TypingPredictController 打字预回复 SSE 控制器
-// G15: 竞品标配功能 - 访客打字实时意图预测
-//
-// 工作模式：
-//  1. 前端打开 SSE 连接 GET /api/chat/typing-predict?session_id=xxx
-//  2. 前端每次用户输入（或 debounce 300ms 后）POST /api/chat/typing-predict/predict
-//     body: {"text": "用户正在输入的文字"}
-//  3. 后端计算意图预测 → 通过之前建立的 SSE 连接推送 "intent_prediction" 事件
-//
-// 这里实现为最简单的"每次 POST 后同步返回预测结果"模式，
-// 避免引入额外的 SSE hub / 连接管理复杂度（与既有 SSEHub 复用）。
 type TypingPredictController struct {
 	svc *service.TypingPredictService
 }

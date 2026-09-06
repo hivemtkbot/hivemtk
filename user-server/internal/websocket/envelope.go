@@ -12,7 +12,7 @@ func NewEnvelope(seq uint64, messageType string, payload any) (*Envelope, error)
 	env := &Envelope{
 		Seq:   seq,
 		TS:    time.Now().UnixMilli(),
-		Epoch: CurrentEpoch(), // D15: 自动填充，调用点零改动
+		Epoch: CurrentEpoch(),
 		Type:  messageType,
 	}
 	if payload != nil {

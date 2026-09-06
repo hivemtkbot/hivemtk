@@ -52,8 +52,6 @@ func (s *ClueService) GetClueAllList(ctx context.Context, clueType int64) ([]*mo
 	return s.repo.GetClueAllList(ctx, clueType)
 }
 
-// BatchImportClues 批量导入线索，返回成功数量和跳过数量
-// OPT-ARC-07：从 N+1（每条 1 SELECT + 1 INSERT）重构为 3 次 DB 往返
 func (s *ClueService) BatchImportClues(ctx context.Context, clues []*model.Clue) (successCount, skipCount int64, err error) {
 	return s.repo.BatchCreateWithDedup(ctx, clues)
 }

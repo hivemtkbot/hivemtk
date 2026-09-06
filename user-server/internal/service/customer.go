@@ -76,8 +76,7 @@ var ErrInvalidDTO = errors.New("无效的客戶 DTO")
 // 分页常量
 const (
 	DefaultLimit = 50
-	// OPT-ARC-11：MaxLimit 1000 → 100，防止恶意/误用全表扫描
-	// 大数据集查询请走 cursor-based 分页（OPT-ARC-10 二期）
+
 	MaxLimit    = 100
 	DefaultPage = 1
 )
@@ -275,8 +274,6 @@ func (s *CustomerService) RemoveTags(ctx context.Context, customerID string, tag
 	return s.repo.Update(ctx, customer)
 }
 
-// MergeCustomers 合并两个客户（将 secondary 合并到 primary）
-// OPT-ARC-06：全部写操作包在事务中，部分失败回滚避免孤儿数据
 func (s *CustomerService) MergeCustomers(ctx context.Context, primaryID, secondaryID string) error {
 	if primaryID == secondaryID {
 		return errors.New("不能合并同一个客户")

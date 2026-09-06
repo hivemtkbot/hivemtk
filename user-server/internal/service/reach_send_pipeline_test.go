@@ -1,22 +1,3 @@
-// reach_send_pipeline_test.go 触达消息发送 9 步 Pipeline 测试（PRD §5.2 G4）
-//
-// 验收标准（PRD §5.2 G4）：
-//   - 高并发下消息不丢失（限流 + 重试保障）
-//   - 敏感词消息被拦截并记录
-//   - 主渠道失败自动降级到备用渠道
-//   - 每条触达有完整审计记录
-//
-// 本测试文件覆盖：
-//  1. 9 步全部执行（happy path）
-//  2. 权限拒绝
-//  3. 限流拦截
-//  4. 重试（指数退避，FlakyAdapter 验证）
-//  5. 降级（AlwaysFailAdapter 主渠道 → FuncAdapter 备用渠道）
-//  6. 审计日志记录（成功 + 失败）
-//  7. 计费扣费 + 余额不足
-//  8. 客户轨迹记录
-//  9. countedSendPipeline 统计包装器
-//  10. MemorySendRateLimiter 令牌桶行为
 package service
 
 import (
@@ -383,8 +364,6 @@ func TestSendPipeline_AuditLogRecordsContent(t *testing.T) {
 	}
 }
 
-// TestSendPipeline_AuditLogOnFailure 验证 PRD §5.2 G4 "每条触达有完整审计记录"
-// 即失败时也必须记录审计日志
 func TestSendPipeline_AuditLogOnFailure(t *testing.T) {
 	adapter := newSuccessAdapter("msg")
 	auditLogger := NewMemorySendAuditLogger(100)

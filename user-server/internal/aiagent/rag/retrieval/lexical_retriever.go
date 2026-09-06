@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"fmt"
@@ -9,8 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// LexicalRetriever 词法召回器（PG tsvector + zhparser ts_rank）
-// 注意：ts_rank 非真 BM25（无 k1/b、无 IDF 饱和）——D17 命名纠正；真 BM25 见决策 D21 候选 pg_search
 type LexicalRetriever struct {
 	db *gorm.DB
 }
@@ -20,17 +17,6 @@ func NewLexicalRetriever(db *gorm.DB) *LexicalRetriever {
 	return &LexicalRetriever{db: db}
 }
 
-// Retrieve BM25 召回
-//
-// 参数:
-//   - productID != "" 时按产品过滤；= 0 时全产品检索
-//   - query 原始查询文本（zhparser 自动分词，无需手动 tokenize）
-//   - topK 返回结果数（<= 0 时使用默认值 50）
-//
-// 容错策略:
-//  1. 优先 contextual_tsv @@ plainto_tsquery('zh_rag', $1)
-//  2. 失败（列/配置不存在）→ fallback content_tsv @@ plainto_tsquery('simple', $1)
-//  3. 仍失败 → fallback content ILIKE '%query%'（保证召回不阻断主流程）
 func (r *LexicalRetriever) Retrieve(ctx context.Context, productID string, query string, topK int) ([]Chunk, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("bm25 retriever 未初始化")
@@ -58,20 +44,17 @@ func (r *LexicalRetriever) SearchKeyword(ctx context.Context, kbID string, query
 	return r.Retrieve(ctx, kbID, query, topK)
 }
 
-// allowedTSCols 允许的 tsvector 列白名单
 var allowedTSCols = map[string]string{
 	"contextual_tsv": "contextual_tsv",
 	"content_tsv":    "content_tsv",
 }
 
-// allowedTSConfigs 允许的文本搜索配置白名单
 var allowedTSConfigs = map[string]string{
 	"zh_rag":  "zh_rag",
 	"simple":  "simple",
 	"english": "english",
 }
 
-// tryTSQuery 尝试指定 tsvector 列 + 文本搜索配置
 func (r *LexicalRetriever) tryTSQuery(ctx context.Context, productID string, query string, topK int, tsvCol, tsConfig string) ([]Chunk, error) {
 	safeCol, ok := allowedTSCols[tsvCol]
 	if !ok {
@@ -102,9 +85,6 @@ func (r *LexicalRetriever) tryTSQuery(ctx context.Context, productID string, que
 	return rowsToChunks(rows), nil
 }
 
-// ilikeFallback ILIKE 兜底（tsvector 列/配置不存在时）
-//
-// 简单按 query 子串匹配 content，score = 1.0（无 BM25 排序能力，仅保证有召回）
 func (r *LexicalRetriever) ilikeFallback(ctx context.Context, productID string, query string, topK int) ([]Chunk, error) {
 	escaped := strings.NewReplacer("%", "\\%", "_", "\\_").Replace(query)
 	pattern := "%" + escaped + "%"
@@ -127,4 +107,3 @@ func (r *LexicalRetriever) ilikeFallback(ctx context.Context, productID string, 
 	}
 	return rowsToChunks(rows), nil
 }
-

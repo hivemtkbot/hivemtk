@@ -2,11 +2,6 @@ package model
 
 import "time"
 
-// 渠道标识（与消息中台 platform 白名单对齐）
-//
-// 2026-08-05 渠道编码统一：所有渠道统一为全名，去掉 xhs / *_web 等简写/后缀
-// （历史曾并存 xhs / xhs_web / xiaohongshu 三种命名，导致前端、后端、DB
-// 数据三方不一致；现已统一为以下 5 套：xiaohongshu / douyin / kuaishou / xianyu / tiktok）。
 const (
 	ChannelWeb       = "web"
 	ChannelTelegram  = "telegram"
@@ -37,10 +32,6 @@ const (
 	MsgTypeLocation = "location"
 )
 
-// 发送者类型（用于 InboxIngress 区分客户/平台/AI）
-//
-//	2026-08-17 引入：替代散落的魔法字符串 "customer"/"ai"/"system"/"agent"，
-//	统一消费方对 SenderType 的判定
 const (
 	SenderTypeCustomer = "customer"
 	SenderTypeAI       = "ai"

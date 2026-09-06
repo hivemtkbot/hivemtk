@@ -90,10 +90,6 @@ func (s *DingTalkAppService) VerifyCallback(ctx context.Context, accountID uint,
 	return plain, nil
 }
 
-// ReceiveMessage 钉钉回调收消息（POST）。
-// 安全约束（v3 审计 P0-3）：该端点公网可达且会触发 AI 管线，必须 fail-closed——
-// 未配置 AESKey 时拒绝明文信封（AES 解密成功即隐式认证：仅持有共享密钥方能构造合法密文）。
-// 明文为文本消息时结构：{"msgtype":"text","text":{"content":"..."},"senderId":"...","conversationId":"...","msgId":"...","createAt":...}
 func (s *DingTalkAppService) ReceiveMessage(ctx context.Context, accountID uint, raw []byte) error {
 	acc, err := s.GetAccount(ctx, accountID)
 	if err != nil {

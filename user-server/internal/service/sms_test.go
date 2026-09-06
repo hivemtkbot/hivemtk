@@ -948,7 +948,6 @@ func TestSmsService_GetSmsByID_NotFound(t *testing.T) {
 	}
 }
 
-// TestIsSMSNightRestricted 铁律#22: 夜间禁发窗口 22:00-8:00（北京时间）判定
 func TestIsSMSNightRestricted(t *testing.T) {
 	cst := time.FixedZone("CST", 8*3600)
 	cases := []struct {
@@ -966,7 +965,6 @@ func TestIsSMSNightRestricted(t *testing.T) {
 	}
 }
 
-// TestSendSms_NightGuard 铁律#22: 夜间禁发窗口内发送被拦截
 func TestSendSms_NightGuard(t *testing.T) {
 	database := setupSmsServiceTestDB(t)
 	repo := newTestSmsRepository(database)

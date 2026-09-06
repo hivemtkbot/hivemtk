@@ -9,14 +9,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// 回归测试（2026-08-07 审计修复）：
-// 桥接扩展 patrol 把已下发的 AI 回复（已落库 outbound，MsgID=contentHash）放进 history 重新
-// 上报时，PersistBridgeHistory 必须 GetByMsgID 命中 → 幂等跳过，不得重入库为 inbound，
-// 否则触发新一轮 AI 回复（"无新消息仍不断生成下发给用户"循环）。
-//
-// 关键差异（与 inbox_ingress_echo_test 对照）：
-//   - echo_test 测 HandleIngressMessage（实时消息 → 命中后 QueuedForAI=false）
-//   - 本测试测 PersistBridgeHistory（history 回填 → 命中后不入库、不落 inbound、不触发 AI）
 func TestPersistBridgeHistory_HistoryEchoDedupHit_Skipped(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	svc := NewInboxIngressServiceWithDB(db, nil)

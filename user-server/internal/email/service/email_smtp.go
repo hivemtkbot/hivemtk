@@ -116,9 +116,6 @@ func (s *EmailSmtpService) GetEmailSmtpDTO(ctx context.Context, id string) (*dto
 	return toEmailSmtpResponse(item), nil
 }
 
-// UpdateEmailSmtpDTO 通过请求 DTO 更新 SMTP 配置
-// R50：Password 为空 = 不修改密码，回读旧行继承（repo.Update 用 Save 全行覆盖，
-// 否则编辑表单密码留空提交会把密码清空）；非空则走 UpdateEmailSmtp 的 fail-closed 加密。
 func (s *EmailSmtpService) UpdateEmailSmtpDTO(ctx context.Context, req dto.UpdateEmailSmtpRequest) error {
 	if req.Password == "" {
 		old, err := s.GetEmailSmtp(ctx, req.ID)

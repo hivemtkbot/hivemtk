@@ -1,10 +1,3 @@
-// 2026-08-14 架构收敛修复点单元测试
-//
-// 覆盖：
-//
-//	P1-1: account_id 为空 → 400 拒绝（ingest / outbox / ack 三个端点）
-//	P0-2: OutboxMessage.Extra 字段序列化（前端主动私信路由能拿到 extra）
-//	P1-5: HandleIngressBatch mergedEvent.EventID 保留首条 event_id（用纯函数 factCheck）
 package bridge
 
 import (
@@ -21,7 +14,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// TestHTTPIngest_AccountIDRequired 验证 P1-1：account_id 为空时 400 拒绝（不写 default 兜底）
 func TestHTTPIngest_AccountIDRequired(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -70,7 +62,6 @@ func TestHTTPIngest_AccountIDRequired(t *testing.T) {
 	})
 }
 
-// TestBridgeOutboxMessage_ExtraField 验证 P0-2：OutboxMessage 序列化包含 Extra 字段
 func TestBridgeOutboxMessage_ExtraField(t *testing.T) {
 	t.Run("Extra map[string]any 能正确序列化到 JSON", func(t *testing.T) {
 		msg := channelgw.OutboxMessage{
@@ -115,7 +106,6 @@ func TestBridgeOutboxMessage_ExtraField(t *testing.T) {
 	})
 }
 
-// TestWriteOutboxJSON_PassesExtra 验证 P0-2 修复：writeOutboxJSON 序列化时从 hub.Extra 透传
 func TestWriteOutboxJSON_PassesExtra(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	now := time.Now()
@@ -147,7 +137,6 @@ func TestWriteOutboxJSON_PassesExtra(t *testing.T) {
 	}
 }
 
-// TestGetBridgeOutbox_AccountIDRequired 验证 P1-1：outbox 端点 account_id 空时 400
 func TestGetBridgeOutbox_AccountIDRequired(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := NewBridgeIngestHandler(nil)
@@ -170,7 +159,6 @@ func TestGetBridgeOutbox_AccountIDRequired(t *testing.T) {
 	}
 }
 
-// TestAckBridgeOutbox_AccountIDRequired 验证 P1-1：ack 端点 account_id 空时 400
 func TestAckBridgeOutbox_AccountIDRequired(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := NewBridgeIngestHandler(nil)

@@ -114,7 +114,6 @@ func getAuditDB() *gorm.DB {
 	return auditDB
 }
 
-// AttachAuditDB 注入审计 DB（公开 API，main.go 在 InitGlobalDispatcher 后调用）
 func AttachAuditDB(d *gorm.DB) {
 	setAuditDB(d)
 }
@@ -308,11 +307,6 @@ func updateMissingCounter(entry *LogEntry) {
 	}
 }
 
-// GetTokenSourceStats 获取 token_source 统计（供监控 API 查询）
-//
-// M12 修复：内存计数器为快速路径；进程重启后计数器归零，
-// 此时自动降级回源 llm_routing_logs 表聚合（排除 source=cache，与内存口径一致）。
-// DB 不可用时返回内存值（可能为 0）。
 func GetTokenSourceStats() (total, missing int64) {
 	total = atomic.LoadInt64(&totalCounter)
 	missing = atomic.LoadInt64(&missingCounter)
@@ -506,9 +500,6 @@ func (d *Dispatcher) StartCacheJanitor(ctx context.Context, interval time.Durati
 
 func (d *Dispatcher) sweepExpiredCache() {}
 
-// InitGlobalDispatcherWithDB 初始化全局 Dispatcher 并注入审计 DB
-//
-// main.go 启动期调用，把 gorm DB 注入以支持 SetRouteWithAudit / LogRoutingDecision。
 func InitGlobalDispatcherWithDB(d *Dispatcher, gormDB *gorm.DB) {
 	InitGlobalDispatcher(d)
 	setAuditDB(gormDB)

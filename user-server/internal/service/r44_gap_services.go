@@ -1,9 +1,3 @@
-// r44_gap_services.go R44 断链清欠服务层（R39 论证吸收但未实施的 K4/K9/K12/K14/K16 真正落地）
-//
-// 本文件一次补齐 21 条前端内联断链（views/*.vue 直连 /api/... 未被 api/*.js 覆盖的部分）：
-//
-//	backup stats/strategy、rag/eval 全套、analytics cohort/path、email 送达分析全套、
-//	user-segments/rfm 矩阵、message-hub dlq 批量重试、clue 导入建议应用、playground 预设。
 package service
 
 import (
@@ -199,7 +193,6 @@ func (s *RagEvalGapService) UploadCSV(ctx context.Context, r io.Reader, productI
 	return n, nil
 }
 
-// RunAsync 异步执行评测（R46 修正: 200条×检索同步必超时——先落 running 记录，后台计算后回填）
 func (s *RagEvalGapService) RunAsync(productID string) (*model.RagEvalRun, error) {
 	g := s.db
 	run := &model.RagEvalRun{Total: -1}

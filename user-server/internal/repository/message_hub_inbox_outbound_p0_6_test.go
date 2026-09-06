@@ -8,20 +8,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// TestAnyExistsByMsgIDs_AcrossAccount_P0_6
-// 验证 P0-6：AnyExistsByMsgIDs 在跨账号探测场景下正确识别"被其他账号持有"的 msg_id。
-//
-// 安全语义：
-//   - ack 端点：扩展用 (channel, account_id_A) 请求 ack msg_id=X
-//   - 若 X 在 channel 下被 account_id_B 持有（inbound 或 outbound），则调用方不能"看到归属"
-//   - AnyExistsByMsgIDs 仅返回"是否存在"布尔值，不返回归属账号（防越权）
-//
-// 测试矩阵：
-//   - same_account_pending        → 存在（自账号持 outbound）
-//   - cross_account_pending       → 存在（被探测：防越权关键）
-//   - cross_account_inbound       → 存在（customer 消息持有同 msg_id）
-//   - non_existent                → 不存在（真 GC 回收或伪造）
-//   - mixed list（4 条）           → 正确返回 3 true + 1 false
 func TestAnyExistsByMsgIDs_AcrossAccount_P0_6(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.MessageHub{})
 	if err := db.Exec("DELETE FROM message_hub WHERE platform = ?", "douyin_web").Error; err != nil {
@@ -60,12 +46,6 @@ func TestAnyExistsByMsgIDs_AcrossAccount_P0_6(t *testing.T) {
 	}
 }
 
-// TestAnyExistsByMsgIDs_ChannelIsolation_P0_6
-// 验证 P0-6：AnyExistsByMsgIDs 严格按 channel 隔离，不跨 channel 返回。
-//
-// 场景：
-//   - 同一 msg_id="m_shared" 在 douyin_web 和 xhs_web 下各 1 条
-//   - 探测 channel=douyin_web 时，仅 douyin_web 的存在性被返回（xhs 不应干扰）
 func TestAnyExistsByMsgIDs_ChannelIsolation_P0_6(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.MessageHub{})
 	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
@@ -112,8 +92,6 @@ func TestAnyExistsByMsgIDs_ChannelIsolation_P0_6(t *testing.T) {
 	}
 }
 
-// TestAnyExistsByMsgIDs_EmptyAndNil_P0_6
-// 验证 P0-6：边界条件（空 msgIDs / nil repo）安全返回。
 func TestAnyExistsByMsgIDs_EmptyAndNil_P0_6(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.MessageHub{})
 	repo := &MessageHubRepository{db: db}

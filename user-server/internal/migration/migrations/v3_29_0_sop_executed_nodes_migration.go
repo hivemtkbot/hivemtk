@@ -51,7 +51,7 @@ func (m *SOPExecutedNodesMigration) Up(ctx context.Context) error {
 	if err := m.db.WithContext(ctx).Exec(
 		`COMMENT ON COLUMN sop_executions.executed_nodes IS '已完成节点轨迹 JSON 数组（SAGA 补偿依据，元素含 node_id/node_type/status/attempt/finished_at 等）'`,
 	).Error; err != nil {
-		// 注释失败不影响列可用性（PG 之外的方言或权限受限场景），记录即可
+
 		return nil
 	}
 	return nil

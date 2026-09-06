@@ -10,9 +10,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// 回归测试（会话 9366 / P0-1 修复）：AI 出站后短时间内被桥接 patrol 抓回,因 outbound 的 sender_name
-// 经常为空,"三元组"(platform+sender_name+content) 检测漏判 → 必须由"本账号同会话近期 outbound 内容命中"
-// 兜底拦截,不允许 inbound 污染统一收件箱。
 func TestInboxIngress_SelfEcho_RecentOutboundByContent_Blocked(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	svc := NewInboxIngressServiceWithDB(db, nil)

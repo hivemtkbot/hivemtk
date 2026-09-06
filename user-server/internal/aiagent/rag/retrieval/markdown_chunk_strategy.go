@@ -7,9 +7,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// MarkdownChunkStrategy Markdown 结构感知分块（USR-AI-03）
-// 借鉴：https://github.com/asukhodko/dify-markdown-chunker
-// 保留 H1-H6 标题 / 列表 / 代码块结构
 type MarkdownChunkStrategy struct{}
 
 // CreateChunks 按 Markdown 结构分块

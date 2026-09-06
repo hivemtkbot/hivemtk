@@ -34,7 +34,6 @@ func backdateEvent(t *testing.T, repo *repository.WebhookEventRepository, evt *m
 	}
 }
 
-// T1 验收①：冷却期外 processed=false 事件被列出；冷却期内与已处理事件不列出。
 func TestRecoveryListStaleUnprocessed(t *testing.T) {
 	sc, repo := newRecoveryFixture(t)
 	ctx := context.Background()
@@ -69,7 +68,6 @@ func TestRecoveryListStaleUnprocessed(t *testing.T) {
 	}
 }
 
-// T1 验收②：存量无 account_id 的行不可重放且被终止（防无限重放）。
 func TestReplayLegacyRowWithoutAccountTerminates(t *testing.T) {
 	sc, repo := newRecoveryFixture(t)
 	ctx := context.Background()
@@ -89,7 +87,6 @@ func TestReplayLegacyRowWithoutAccountTerminates(t *testing.T) {
 	}
 }
 
-// T1 验收③：截断载荷（TruncateForStore 标记）不可重放且被终止。
 func TestReplayTruncatedPayloadTerminates(t *testing.T) {
 	sc, repo := newRecoveryFixture(t)
 	ctx := context.Background()
@@ -106,8 +103,6 @@ func TestReplayTruncatedPayloadTerminates(t *testing.T) {
 	}
 }
 
-// T1 验收④：毒丸事件达到重试上限后被跳过并标记 processed。
-// （GetGlobalCache 未初始化时回落内存缓存，进程内计数即可验证。）
 func TestReplayPoisonEventGivesUp(t *testing.T) {
 	sc, repo := newRecoveryFixture(t)
 	ctx := context.Background()
@@ -127,8 +122,6 @@ func TestReplayPoisonEventGivesUp(t *testing.T) {
 	}
 }
 
-// T1 验收⑤：disabled 时 startRecoveryScanner 静默跳过（不 panic、不加 wg）。
-// 注意：零值服务的 stopCh 为 nil（Stop 仅供完整构造的服务调用），此处不调 Stop。
 func TestRecoveryScannerDisabled(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.WebhookEvent{})
 	if db == nil {
@@ -139,8 +132,6 @@ func TestRecoveryScannerDisabled(t *testing.T) {
 	svc.startRecoveryScanner()
 }
 
-// T1 验收⑥：重放成功路径 —— handleFn 执行后事件被 markProcessed；
-// handleFn 返回即视为本链路已收敛（成功或由 handleJob 内部标记）。
 func TestReplayMarksProcessedOnUnknownPlatform(t *testing.T) {
 	sc, repo := newRecoveryFixture(t)
 	ctx := context.Background()
@@ -167,7 +158,6 @@ func TestReplayMarksProcessedOnUnknownPlatform(t *testing.T) {
 	}
 }
 
-// T1 验收⑦：scanOnce 端到端 —— 冷却期外的积压事件被批量重放。
 func TestScanOnceReplaysStaleBatch(t *testing.T) {
 	sc, repo := newRecoveryFixture(t)
 	ctx := context.Background()

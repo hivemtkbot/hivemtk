@@ -372,7 +372,7 @@ type LLMNodeExecutor struct {
 	nodeType   string
 	dispatcher *llm.Dispatcher
 	llmSem     chan struct{}
-	db         *gorm.DB // D03: 补偿需清 ExecutionData 落库
+	db         *gorm.DB
 }
 
 func (e *LLMNodeExecutor) NodeType() string { return e.nodeType }
@@ -491,13 +491,13 @@ func (e *LLMNodeExecutor) Compensate(ctx context.Context, execCtx *ExecutionCont
 	if e.db == nil || execCtx.Node == nil {
 		return nil
 	}
-	// execution_data 列为 text（JSONMap 序列化存储），不能 JSONB 路径赋值——读改写
+
 	var exec model.SOPExecution
 	if err := e.db.WithContext(ctx).First(&exec, execCtx.Execution.ID).Error; err != nil {
 		return err
 	}
 	if exec.ExecutionData == nil {
-		return nil // 无产物即无可回滚，幂等成功
+		return nil
 	}
 	changed := false
 	for _, k := range []string{"_llm_decision", "_llm_reason", "_llm_" + execCtx.Node.ID} {
@@ -507,7 +507,7 @@ func (e *LLMNodeExecutor) Compensate(ctx context.Context, execCtx *ExecutionCont
 		}
 	}
 	if !changed {
-		return nil // 幂等：已清过
+		return nil
 	}
 	return e.db.WithContext(ctx).
 		Model(&model.SOPExecution{}).

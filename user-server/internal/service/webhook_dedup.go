@@ -100,31 +100,6 @@ func sha1Hex(b []byte) string {
 	return hex.EncodeToString(h[:])
 }
 
-// ContentHashMsgID 基于「渠道 + 消息内容」生成稳定的消息ID（FNV-1a 32位 hex）。
-// conversationID 不参与哈希 —— 同一文本在不同会话被 patrol 捕获时哈希一致，实现全局去重。
-//
-// 2026-08-05 根因修复（用户指定方案：消息ID用内容hash）：
-//
-//	核心问题：前端 sender_type 判定可能错误（把 AI 回复的 outbound 误判为 customer）。
-//	正确方案：msg_id 只用稳定字段（channel + content），不含 sender_type/sender_id/conversationID/timestamp。
-//	前端 contentHash() 用相同算法生成 event_id → 后端 outbound 的 msg_id 与之一致 → 前端 patrol 扫描 AI 回复时
-//	生成的 event_id 与 DB msg_id 相同 → 钩子2 GetByMsgID 命中 → 跳过入库和 AI 触发，彻底解决回环。
-//
-// 2026-08-07 修正：去掉 conversationID。
-//
-//	同一 AI 回复可能被不同会话的 patrol 交叉捕获（DOM 切换残留），
-//	若 contentHash 含 conversationID 则不同会话算不同消息 → GetByMsgID 漏检 → 回环未完全切断。
-//
-// 算法：FNV-1a 32位（与前端 types.js contentHash 完全一致，保证前后端结果相同）
-//
-//   - 输入：`channel|content`（content 去首尾空白）
-//
-//   - 输出：`mh:${hex}`（8位hex字符串，带 mh: 前缀便于日志识别）
-//
-//   - 锚点：ContentHashMsgID("douyin", "c1", "你好") == "mh:00550fed"（输入不含 conversationID；与前端 types.js::contentHash 逐字节一致）
-//
-//     ⚠️ 严禁在输入中加入 conversationID：message_hub.MsgID 采用 (msg_id, conversation_id) 复合唯一索引，
-//     同一 AI 回复会被不同会话的 patrol 交叉捕获，含 conv 会让 GetByMsgID 漏检、回环去重失效（详见 commit 36509ab）。
 func ContentHashMsgID(channel, conversationID, content string) string {
 
 	s := channel + "|" + strings.TrimSpace(content)

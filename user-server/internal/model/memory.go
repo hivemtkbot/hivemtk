@@ -26,8 +26,7 @@ type MemoryItem struct {
 	Importance int         `gorm:"default:5" json:"importance"`
 	Metadata   JSONMap     `gorm:"type:text" json:"metadata"`
 	ExpiresAt  *time.Time  `gorm:"index" json:"expires_at"`
-	// M-6 双时间轴（Zep 模式）：ValidFrom=事件生效时间 t_valid，InvalidAt=软失效时间 t_invalid
-	// 均可空：老数据 NULL 时读取层兜底为 created_at；软失效不物理删
+
 	ValidFrom *time.Time `gorm:"index" json:"valid_from,omitempty"`
 	InvalidAt *time.Time `gorm:"index" json:"invalid_at,omitempty"`
 	CreatedAt time.Time  `gorm:"autoCreateTime;index" json:"created_at"`

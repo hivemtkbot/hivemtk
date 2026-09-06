@@ -1,8 +1,3 @@
-// Package cron 承载跨域装配的轻量定时任务。
-//
-// M1 修复：WeComAccountHealthService.ResetDailyQuota 此前仅有手动端点触发，
-// 现由 WeComQuotaResetCron 每日 00:05（CST）全量重置一次。
-// 惯例与 service.CustomerRFMCron 一致：幂等启动（startOnce）、panic 隔离、可 Stop。
 package cron
 
 import (

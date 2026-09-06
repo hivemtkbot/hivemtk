@@ -856,8 +856,6 @@ func TestPersonaEvaluationResult_ScoreByDimension(t *testing.T) {
 	}
 }
 
-// TestPersonaEvaluation_PRDAcceptance_RetryAndCollect PRD §5.2 G6 验收：
-// "重生成循环正确触发" + "低质样本自动收集用于后续训练"
 func TestPersonaEvaluation_PRDAcceptance_RetryAndCollect(t *testing.T) {
 	db := setupPersonaTestDB(t)
 	svc := NewPersonaEvaluationService(NewRuleBasedPersonaEvaluator()).
@@ -900,8 +898,6 @@ func TestPersonaEvaluation_PRDAcceptance_RetryAndCollect(t *testing.T) {
 	}
 }
 
-// TestPersonaEvaluation_PRDAcceptance_HighQualityPass PRD §5.2 G6 验收：
-// "综合分 ≥ 0.85 → 通过"
 func TestPersonaEvaluation_PRDAcceptance_HighQualityPass(t *testing.T) {
 	svc := NewPersonaEvaluationService(NewRuleBasedPersonaEvaluator())
 	input := &PersonaEvaluationInput{
@@ -922,8 +918,6 @@ func TestPersonaEvaluation_PRDAcceptance_HighQualityPass(t *testing.T) {
 	}
 }
 
-// TestPersonaEvaluation_PRDAcceptance_SixDimensions PRD §5.2 G6 验收：
-// "6 维度评分准确"
 func TestPersonaEvaluation_PRDAcceptance_SixDimensions(t *testing.T) {
 	e := NewRuleBasedPersonaEvaluator()
 	input := &PersonaEvaluationInput{

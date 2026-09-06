@@ -12,14 +12,13 @@ import (
 	"sync"
 	"time"
 
-	hivemodel "hivemtk-user/internal/model"
+	"gorm.io/gorm"
 	"hivemtk-user/internal/geo/model"
 	"hivemtk-user/internal/geo/repository"
+	hivemodel "hivemtk-user/internal/model"
 	"hivemtk-user/internal/pkg/db"
-	"gorm.io/gorm"
 )
 
-// urlRegexp 抽取 http(s):// 开头的 URL，用于从 LLM 回答中提取引用信源
 var urlRegexp = regexp.MustCompile(`https?://[^\s"'\)\]\}\>,;]+`)
 
 // Citation 单条被引信源
@@ -35,7 +34,7 @@ type ProbeResult struct {
 	Response  string     `json:"response"`
 	Citations []Citation `json:"citations"`
 	LatencyMs int64      `json:"latency_ms"`
-	Simulated bool       `json:"simulated"` // true = 模拟结果(仅历史数据兼容)
+	Simulated bool       `json:"simulated"`
 	Error     string     `json:"error,omitempty"`
 	BrandHit  bool       `json:"brand_hit"`
 	Sentiment string     `json:"sentiment"`
@@ -47,11 +46,8 @@ type SearchProbe interface {
 	Probe(ctx context.Context, query string) (*ProbeResult, error)
 }
 
-// ---- HTTP 基础客户端 ----
-
 var probeHTTPClient = &http.Client{Timeout: 60 * time.Second}
 
-// doJSON 通用 JSON POST 辅助
 func doJSON(ctx context.Context, endpoint, authHeader string, payload, out any) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -80,17 +76,12 @@ func doJSON(ctx context.Context, endpoint, authHeader string, payload, out any) 
 	return json.Unmarshal(rb, out)
 }
 
-// ---- llmEndpointProbe 通用 OpenAI 兼容端点探针 ----
-//
-// 统一处理所有 LLM provider（qwen/deepseek/doubao/local-llm 等），
-// 不再为每个 provider 写独立的 struct。配置完全从 llm_providers 表读取。
-
 type llmEndpointProbe struct {
-	name      string // 引擎名：qwen/deepseek/local-llm 等
-	endpoint  string // e.g. http://127.0.0.1:8207/v1
+	name      string
+	endpoint  string
 	model     string
 	apiKey    string
-	brandHint string // 品牌上下文提示，避免 LLM 把同名品牌搞混
+	brandHint string
 }
 
 func (p *llmEndpointProbe) Name() string {
@@ -100,7 +91,6 @@ func (p *llmEndpointProbe) Name() string {
 	return "local-llm"
 }
 
-// sentimentRegex 从 LLM 回答末尾抽取 [SENTIMENT: xxx] 标签
 var sentimentRegexp = regexp.MustCompile(`(?m)^\s*\[SENTIMENT:\s*(positive|neutral|negative)\]\s*$`)
 
 func (p *llmEndpointProbe) Probe(ctx context.Context, query string) (*ProbeResult, error) {
@@ -149,7 +139,7 @@ func (p *llmEndpointProbe) Probe(ctx context.Context, query string) (*ProbeResul
 		return nil, fmt.Errorf("%s: empty response", p.Name())
 	}
 	content := out.Choices[0].Message.Content
-	// 抽取 LLM 自己打的情感标签
+
 	sentiment := "neutral"
 	if m := sentimentRegexp.FindStringSubmatch(content); len(m) == 2 {
 		sentiment = m[1]
@@ -163,7 +153,6 @@ func (p *llmEndpointProbe) Probe(ctx context.Context, query string) (*ProbeResul
 	}, nil
 }
 
-// extractCitationsFromText 从 LLM 文本回答中抽取 URL 作为引用信源
 func extractCitationsFromText(text string) []Citation {
 	var cites []Citation
 	for _, m := range urlRegexp.FindAllString(text, -1) {
@@ -171,8 +160,6 @@ func extractCitationsFromText(text string) []Citation {
 	}
 	return cites
 }
-
-// ---- 工厂：全部从 llm_providers 表读取 ----
 
 // NewEngineProbes 装配所有可用真实引擎探针（统一从 DB 配置读取）。
 // 优先级：DB 中 enabled=true 的 provider 在前，本地 LLM 兜底在后。
@@ -193,7 +180,6 @@ func NewEngineProbesFromDB(g *gorm.DB) []SearchProbe {
 	probes := []SearchProbe{}
 	seen := make(map[string]bool)
 
-	// 从 geo_config 读取品牌上下文，注入到每个探针 prompt
 	brandHint := ""
 	if g != nil {
 		var cfg struct {
@@ -216,8 +202,7 @@ func NewEngineProbesFromDB(g *gorm.DB) []SearchProbe {
 				if row.BaseURL == "" || row.Model == "" {
 					continue
 				}
-				// 排除本地 LLM — 探针引擎只跑云端
-				// 例外：freeapi-proxy（端口 8787）虽然本地运行，但代理的是云端免费端点
+
 				isLocal := strings.HasPrefix(row.BaseURL, "http://127.0.0.1") ||
 					strings.HasPrefix(row.BaseURL, "http://localhost")
 				isFreeAPIProxy := strings.Contains(row.BaseURL, ":8787")
@@ -241,7 +226,6 @@ func NewEngineProbesFromDB(g *gorm.DB) []SearchProbe {
 	return probes
 }
 
-// checkProbeHealth 轻量健康检查（GET /v1/models）
 func checkProbeHealth(endpoint string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -260,7 +244,6 @@ func checkProbeHealth(endpoint string) error {
 	return fmt.Errorf("status %d", resp.StatusCode)
 }
 
-// detectLocalLLMModel 从本地 OpenAI 兼容端点 /v1/models 动态获取第一个可用模型 ID
 func detectLocalLLMModel(endpoint string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -287,8 +270,6 @@ func detectLocalLLMModel(endpoint string) string {
 	}
 	return ""
 }
-
-// ---- MultiEngineProbe ----
 
 // MultiEngineProbe 将多个 SearchProbe 包装成一个 SearchProbe：顺序尝试，首个成功即返回
 type MultiEngineProbe struct{ probes []SearchProbe }
@@ -318,8 +299,6 @@ func (m *MultiEngineProbe) Probe(ctx context.Context, query string) (*ProbeResul
 func NewDefaultSearchProbe() SearchProbe {
 	return &MultiEngineProbe{probes: NewEngineProbes()}
 }
-
-// ---- ProbeService ----
 
 // ProbeService 持有 []SearchProbe + ProbeRepository 的聚合服务
 type ProbeService struct {
@@ -399,7 +378,6 @@ func (s *ProbeService) ProbeAllEnginesConcurrent(ctx context.Context, query stri
 	return runs, errs
 }
 
-// buildProbeRun 将探针原始结果组装为落库记录（品牌命中判定 + 情感透传）
 func (s *ProbeService) buildProbeRun(ctx context.Context, p SearchProbe, pr *ProbeResult) *model.GeoProbeRun {
 	brandName := s.getBrandName(ctx)
 	brandHit := brandName != "" && strings.Contains(strings.ToLower(pr.Response), strings.ToLower(brandName))
@@ -428,7 +406,7 @@ func (s *ProbeService) TestSingle(ctx context.Context, engineName, query string)
 			}
 			brandName := s.getBrandName(ctx)
 			pr.BrandHit = brandName != "" && strings.Contains(strings.ToLower(pr.Response), strings.ToLower(brandName))
-			// sentiment 已由 Probe() 内部返回，不再硬编码关键词匹配
+
 			return pr, nil
 		}
 	}
@@ -451,7 +429,6 @@ func availableEngineNames(probes []SearchProbe) string {
 	return strings.Join(names, ",")
 }
 
-// getBrandName 从 GeoConfig 读取品牌名
 func (s *ProbeService) getBrandName(ctx context.Context) string {
 	cfgRepo := repository.NewGeoConfigRepository()
 	cfg, err := cfgRepo.Get()

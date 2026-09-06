@@ -789,15 +789,6 @@ func (s *WhatsAppCloudIntegrationService) SendMessage(ctx context.Context, accou
 	return nil
 }
 
-// DecryptFeishuEvent 解密飞书事件 payload。
-// 官方协议《事件订阅·加密事件》：
-//   - AES-256-CBC；Key = Base64Decode(EncryptKey)（43 位 key 解出 32 字节）
-//   - 密文 = Base64Decode(body.encrypt)；IV = 密文前 16 字节
-//   - 明文结构 = [16B 随机数][4B 大端 payload 长度][payload JSON]，再 PKCS7 去填充
-//
-// 2026-08-25 修复（交付阻断）：原实现 (a) 未 Base64Decode key、(b) 未剥离 20B 前缀，
-// 对真实飞书密文必解出乱码。兼容性：若长度前缀与实际不符（如旧测试数据无前缀），
-// 退回返回完整明文。
 func DecryptFeishuEvent(encryptKey, encrypted string) ([]byte, error) {
 	if encryptKey == "" {
 		return nil, errors.New("encrypt_key empty")

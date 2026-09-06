@@ -1,25 +1,3 @@
-// Package agent_runtime 的子包：单次推理闭环 (Inference Cycle)
-//
-// 设计依据：docs/企业级架构优化/认知决策大脑层.md
-//
-// 核心目标：把 AgentRuntime 的一次"客户消息 → AI 回复"完整推理过程
-// 拆成 6 个有序阶段 (Stage)，每个阶段独立可测、可替换、可观测。
-//
-// 阶段流（严格按文档）：
-//
-//	[1] Perception (感知)         - 情绪 + 意图识别
-//	[2] Alignment  (6维拟人度打分)  - 同理心/热情/专业度等
-//	[3] Gatekeeper (危机感门禁)    - 判定是否触发转人工
-//	[4a] Escalation (转人工门禁)   - 当危机 → 锁会话 + 通知坐席
-//	[4b] Planner    (任务规划器)   - 当正常 → 决定调什么工具/写什么回复
-//	[5] Action     (执行)         - LLM 调用 + 工具执行
-//	[6] Review     (复审)         - T10 三段式 Reviewer：合规/安全/拟人度终审
-//
-// 阶段之间通过 InferenceContext (不可变快照) 传递数据，
-// 编排器 (InferenceCycle) 负责串联、超时控制、错误隔离、可观测日志。
-//
-// 五层架构归位：本文件属于 aiagent/agent/runtime 子包，遵循
-// 的运行时隔离原则，不直接访问 db.GetDB()，通过 Repository / Bridge 访问。
 package agent_runtime
 
 import (

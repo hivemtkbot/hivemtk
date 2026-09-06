@@ -1595,7 +1595,6 @@ func TestShortLinkService_Create_WithAllFields(t *testing.T) {
 	}
 }
 
-// TestValidateTargetURL 铁律#24: 短链 target_url 必须 https 且格式有效
 func TestValidateTargetURL(t *testing.T) {
 	cases := []struct {
 		name    string

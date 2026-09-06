@@ -1,7 +1,3 @@
-// help_center.go 公开帮助中心门户（R48 T1，对标 Chatwoot/Libredesk Help Center）
-//
-// 安全边界：免登录路由仅暴露 public_visible=true 的知识文档白名单查询，
-// 不暴露草稿/未发布/内部文档，不暴露 embedding/文件路径等内部字段。
 package service
 
 import (
@@ -231,8 +227,6 @@ func (s *HelpCenterService) TopArticles(ctx context.Context, limit int) ([]map[s
 	return out, err
 }
 
-// Search 公开门户搜索（ILIKE 标题 + knowledge_chunks 正文）
-// [P0-FIX B] 新增公开搜索方法：复用 Articles 的 ILIKE 关联查询逻辑，关键词参数显式命名
 func (s *HelpCenterService) Search(ctx context.Context, keyword string, limit int) ([]*HCArticleRow, error) {
 	return s.Articles(ctx, "", keyword, limit)
 }

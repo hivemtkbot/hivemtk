@@ -86,23 +86,6 @@ func (s *ABTestStatsService) Compute(ctx context.Context, input *dto.ABTestStats
 	}, nil
 }
 
-// MannWhitneyUTest Mann-Whitney U 检验（非参数，不假设正态分布）
-//
-// 适用：5 维评分是序数型数据，天然非正态分布（天花板效应）
-//
-// 公式：
-//
-//	U_A = R_A - n_A*(n_A+1)/2
-//	U_B = R_B - n_B*(n_B+1)/2
-//	U = min(U_A, U_B)
-//	正态近似（n≥5 时）：z = (U - μ_U) / σ_U
-//	  μ_U = n_A * n_B / 2
-//	  σ_U = sqrt(n_A * n_B * (n_A + n_B + 1) / 12)  [无结情况]
-//	p 值 = 2 * (1 - Φ(|z|))  双侧
-//
-// 含结修正的方差：
-//
-//	σ_U² = (nA*nB/12) * [(nA+nB+1) - Σ(t³-t)/((nA+nB)(nA+nB-1))]
 func MannWhitneyUTest(groupA, groupB []float64) (uStat, pValue float64) {
 	nA := len(groupA)
 	nB := len(groupB)
@@ -270,23 +253,6 @@ func BootstrapCI(data []float64, nBoot int, alpha float64) (low, high float64) {
 	return means[lowIdx], means[highIdx]
 }
 
-// CohensD Cohen's d 效应量
-//
-// 公式：d = (M1 - M2) / SD_pooled
-//
-//	SD_pooled = sqrt(((n1-1)*var1 + (n2-1)*var2) / (n1+n2-2))
-//
-// 解读（Cohen 1988）：
-//
-//	|d| < 0.2  negligible
-//	|d| ∈ [0.2, 0.5)  small
-//	|d| ∈ [0.5, 0.8)  medium
-//	|d| ≥ 0.8  large
-//
-// 注意：Cohen's d 不随样本量变化（不像 p 值），是判断差异实际意义的标准工具
-//
-// 传入参数：(group1=control, group2=treatment)
-// 返回 d：d > 0 → control > treatment；d < 0 → treatment > control
 func CohensD(group1, group2 []float64) float64 {
 	n1 := len(group1)
 	n2 := len(group2)

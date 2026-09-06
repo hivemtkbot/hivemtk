@@ -16,7 +16,6 @@ type WebVitalRecord struct {
 
 func (WebVitalRecord) TableName() string { return "web_vital_records" }
 
-// RagEvalQuestion RAG 评测集条目（R44 断链清欠 + G4 自动评测扩展）
 type RagEvalQuestion struct {
 	ID        uint   `gorm:"primaryKey;autoIncrement" json:"id"`
 	RunID     uint   `gorm:"index" json:"run_id"`
@@ -24,7 +23,6 @@ type RagEvalQuestion struct {
 	Question  string `gorm:"type:text;not null" json:"question"`
 	Answer    string `gorm:"type:text" json:"answer"`
 
-	// G4: 自动评测扩展字段
 	SourceDocID     string  `gorm:"type:varchar(128);index" json:"source_doc_id"`
 	SourceChunkIdx  int     `gorm:"default:0" json:"source_chunk_idx"`
 	RelevantDocIDs  string  `gorm:"type:text" json:"relevant_doc_ids"`
@@ -38,7 +36,6 @@ type RagEvalQuestion struct {
 
 func (RagEvalQuestion) TableName() string { return "rag_eval_questions" }
 
-// RagEvalRun 一次 RAG 评测运行（R44 原始 + G4 自动评测扩展）
 type RagEvalRun struct {
 	ID          uint    `gorm:"primaryKey;autoIncrement" json:"id"`
 	Total       int     `json:"total"`
@@ -48,7 +45,6 @@ type RagEvalRun struct {
 	NDCG5       float64 `json:"ndcg5"`
 	EvalSetSize int     `json:"eval_set_size"`
 
-	// G4: 自动评测扩展字段
 	Name         string     `gorm:"type:varchar(128)" json:"name"`
 	Status       string     `gorm:"type:varchar(20);default:'completed';index" json:"status"`
 	AvgRecall    float64    `gorm:"type:decimal(6,4);default:0" json:"avg_recall"`

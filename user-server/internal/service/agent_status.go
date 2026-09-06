@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// S-3 心跳自动下线（MASTER_COMPETITIVE_DECISIONS.md M19/S-3，2026-08-26）
 const (
 	// HeartbeatOfflineTimeout 工作台连接断开判定窗口：last_active_at 超过该时长
 	// 未刷新的在线坐席视为失联，自动 offline 并释放在办会话。

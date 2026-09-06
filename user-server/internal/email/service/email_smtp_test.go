@@ -35,8 +35,6 @@ func TestNewEmailSmtpService(t *testing.T) {
 	}
 }
 
-// TestEmailSmtpService_CreateEmailSmtp 测试创建 SMTP 配置
-// R50: 密码须以 AES-GCM 密文落库（FIELD_ENCRYPTION_KEY 由 testmain 注入）
 func TestEmailSmtpService_CreateEmailSmtp(t *testing.T) {
 	database := setupEmailSmtpServiceTestDB(t)
 	service := NewEmailSmtpService()
@@ -323,9 +321,6 @@ func TestEmailSmtpService_GetRandEmailSmtp_WithLimit(t *testing.T) {
 	}
 }
 
-// TestEmailSmtpService_CreateEmailSmtp_EmptyFields 测试创建 SMTP 配置时字段为空
-// R50: Password 为空时 crypto.Encrypt 返回 ("", nil) 不报错 —— 空密码创建仍允许（DTO 层校验负责拦截），
-// 但 Name 等其它字段为空不构成加密层障碍。
 func TestEmailSmtpService_CreateEmailSmtp_EmptyFields(t *testing.T) {
 	setupEmailSmtpServiceTestDB(t)
 	service := NewEmailSmtpService()

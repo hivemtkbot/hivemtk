@@ -1,11 +1,3 @@
-// 指标落库 sink（2026-08-15 M3-P1-E4）。
-//
-// 私域部署约定：无外部监控，指标通过
-// 「应用层日志 + 数据库表查询」两条通道使用。本文件提供第二条通道：
-// 应用层定时（如每 60s）把注册表中各指标当前值追加写入 bridge_metrics 表，
-// 供 SQL 巡检按 (metric_name, ts) 范围查询趋势。
-//
-// 与 migrations/038_bridge_metrics.sql 严格对齐，零新增外部依赖（gorm 为项目既有依赖）。
 package metrics
 
 import (

@@ -1,4 +1,3 @@
-// macros.go 会话宏（R48 T4，对标 Chatwoot Macros：一键执行多动作）
 package service
 
 import (

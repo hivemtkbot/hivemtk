@@ -37,18 +37,17 @@ func TestSOPExecutedNodesMigration_NilDB(t *testing.T) {
 // 注意：需真实 PG（TEST_DATABASE_URL 或 POSTGRES_*，默认 127.0.0.1:8202），不可达时跳过。
 func TestSOPExecutedNodesMigration_UpAndIdempotent(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.SOPExecution{})
-	// 模拟存量库：AutoMigrate 建出的表缺 executed_nodes 时迁移也能加上（IF NOT EXISTS 语义）
+
 	m := NewSOPExecutedNodesMigration(db)
 
 	if err := m.Up(context.Background()); err != nil {
 		t.Fatalf("Up() failed: %v", err)
 	}
-	// 幂等：重复执行不报错
+
 	if err := m.Up(context.Background()); err != nil {
 		t.Fatalf("Up() idempotent failed: %v", err)
 	}
 
-	// 核心验收：model 全字段 Save（含 ExecutedNodes）在真实表上可落库
 	exec := &model.SOPExecution{
 		SOPID:         1,
 		CustomerID:    "c1",
@@ -72,7 +71,6 @@ func TestSOPExecutedNodesMigration_UpAndIdempotent(t *testing.T) {
 		t.Errorf("ExecutedNodes[0] mismatch: %T %+v", got.ExecutedNodes[0], got.ExecutedNodes[0])
 	}
 
-	// Down 后列消失（重跑 Up 恢复，验证双向幂等）
 	if err := m.Down(context.Background()); err != nil {
 		t.Fatalf("Down() failed: %v", err)
 	}

@@ -13,7 +13,6 @@ import (
 	"hivemtk-user/internal/pkg/tracing"
 )
 
-
 // ===== 可观测性 observer（与追踪系统解耦：默认 nil，由 router 在启动时接线） =====
 //
 // 设计意图：工具执行引擎暴露一个可选 observer 钩子，事件类型来自 tracing 包。
@@ -22,10 +21,9 @@ import (
 // 业务代码与工具调用点均无需手写追踪埋点。
 var ToolTraceSink func(ctx context.Context, ev tracing.ToolTraceEvent)
 
-// turnIndexKey / turnCounters 用于在单次 Agent Loop 内为每一轮 LLM 推理分配自增序号。
 type turnIndexKey struct{}
 
-var turnCounters sync.Map 
+var turnCounters sync.Map
 
 // WithTurnIndex 把当前 agent 轮次序号注入 context，供其下所有 tool_call 继承。
 func WithTurnIndex(ctx context.Context, idx int) context.Context {
@@ -40,8 +38,6 @@ func GetTurnIndex(ctx context.Context) int {
 	return 0
 }
 
-// nextTurnIndex 基于 trace_id 自增返回本轮序号（1-based）。
-// R58: 优先从 tracing.Carrier 取稳定 trace_id（tr-xxx），fallback logger context。
 func nextTurnIndex(ctx context.Context) int {
 	key := traceIDFromContext(ctx)
 	if key == "" {
@@ -51,9 +47,6 @@ func nextTurnIndex(ctx context.Context) int {
 	return int(atomic.AddInt64(v.(*int64), 1))
 }
 
-// traceIDFromContext R58: 双路获取 trace_id — Carrier 优先 → logger fallback。
-// 修复 AgentLoop tool_call/agent_turn trace_id 断链（此前只读 logger context key，
-// 当 Carrier 存在但 logger trace_id 为 UUID 时出现 mismatch）。
 func traceIDFromContext(ctx context.Context) string {
 	if c := tracing.CarrierFromContext(ctx); c != nil && c.TraceID != "" {
 		return c.TraceID
@@ -61,31 +54,27 @@ func traceIDFromContext(ctx context.Context) string {
 	return trace.TraceIDFromContext(ctx)
 }
 
-
 // ToolExecutorConfig 执行器全局配置
 type ToolExecutorConfig struct {
-	DefaultTimeout time.Duration
+	DefaultTimeout    time.Duration
 	PermissionChecker PermissionChecker
 	RateLimiter       RateLimiter
 	RetryPolicy       RetryPolicy
 	AuditLogger       AuditLogger
 	CostTracker       CostTracker
-	CircuitBreaker *CircuitBreakerRegistry
-	// FeedbackSink 反馈回流（可选，nil 时零开销跳过）。
-	// v7 审计修复：原 FeedbackCollectorDecorator 从未接入装配，反馈闭环首跳断链，
-	// feedback_events/signals 生产环境零写入，下游 Champion/PromptIterator/Bandit 全线饿死。
+	CircuitBreaker    *CircuitBreakerRegistry
+
 	FeedbackSink FeedbackSink
 }
 
 // ToolOverride 工具级别配置覆盖
 type ToolOverride struct {
-	ToolName   string        
-	Timeout    time.Duration 
-	MaxRetries int           
-	BaseDelay  time.Duration 
-	Disabled   bool          
+	ToolName   string
+	Timeout    time.Duration
+	MaxRetries int
+	BaseDelay  time.Duration
+	Disabled   bool
 }
-
 
 // ToolExecutor 工具执行引擎
 // 线程安全；缓存每个工具的装饰后 handler
@@ -95,8 +84,8 @@ type ToolExecutor struct {
 	retryPolicies *ToolRetryPolicies
 
 	mu        sync.RWMutex
-	overrides map[string]ToolOverride 
-	cache     map[string]ToolHandler  
+	overrides map[string]ToolOverride
+	cache     map[string]ToolHandler
 }
 
 // NewToolExecutor 创建工具执行器
@@ -161,12 +150,11 @@ func (e *ToolExecutor) Registry() *ToolRegistry {
 	return e.registry
 }
 
-
 // ExecuteRequest 执行请求
 type ExecuteRequest struct {
 	ToolName string         `json:"tool_name"`
 	Args     map[string]any `json:"args"`
-	ToolCtx *ToolContext `json:"-"`
+	ToolCtx  *ToolContext   `json:"-"`
 }
 
 // ExecuteResult 执行结果
@@ -256,7 +244,6 @@ func (e *ToolExecutor) Execute(ctx context.Context, req ExecuteRequest) ExecuteR
 	return ExecuteResult{ToolResult: result, Err: err}
 }
 
-// getOrBuildHandler 取出（或构造并缓存）装饰后 handler
 func (e *ToolExecutor) getOrBuildHandler(tool Tool) ToolHandler {
 	name := tool.Name()
 	e.mu.RLock()
@@ -276,7 +263,6 @@ func (e *ToolExecutor) getOrBuildHandler(tool Tool) ToolHandler {
 	return h
 }
 
-// buildHandler 构造装饰后 handler
 func (e *ToolExecutor) buildHandler(tool Tool) ToolHandler {
 	raw := func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		start := time.Now()
@@ -305,7 +291,7 @@ func (e *ToolExecutor) buildHandler(tool Tool) ToolHandler {
 		}
 		if o.MaxRetries >= 0 {
 			policy = NewExponentialBackoffPolicy(
-				o.MaxRetries+1, 
+				o.MaxRetries+1,
 				func() time.Duration {
 					if o.BaseDelay > 0 {
 						return o.BaseDelay
@@ -332,21 +318,20 @@ func (e *ToolExecutor) buildHandler(tool Tool) ToolHandler {
 	return chain
 }
 
-
 // BatchExecuteRequest 批量执行请求
 type BatchExecuteRequest struct {
-	Requests []ExecuteRequest `json:"requests"`
-	Parallel bool `json:"parallel"`
-	MaxConcurrency int `json:"max_concurrency,omitempty"`
-	StopOnError bool `json:"stop_on_error,omitempty"`
+	Requests       []ExecuteRequest `json:"requests"`
+	Parallel       bool             `json:"parallel"`
+	MaxConcurrency int              `json:"max_concurrency,omitempty"`
+	StopOnError    bool             `json:"stop_on_error,omitempty"`
 }
 
 // BatchExecuteResponse 批量执行响应
 type BatchExecuteResponse struct {
-	Results []ExecuteResult `json:"results"`
-	SuccessCount int `json:"success_count"`
-	FailedCount  int `json:"failed_count"`
-	TotalDurationMs int64 `json:"total_duration_ms"`
+	Results         []ExecuteResult `json:"results"`
+	SuccessCount    int             `json:"success_count"`
+	FailedCount     int             `json:"failed_count"`
+	TotalDurationMs int64           `json:"total_duration_ms"`
 }
 
 // BatchExecute 批量执行工具
@@ -360,7 +345,7 @@ func (e *ToolExecutor) BatchExecute(ctx context.Context, req BatchExecuteRequest
 	results := make([]ExecuteResult, n)
 
 	if req.Parallel {
-		// 并发模式
+
 		var sem chan struct{}
 		if req.MaxConcurrency > 0 {
 			sem = make(chan struct{}, req.MaxConcurrency)
@@ -409,25 +394,24 @@ func (e *ToolExecutor) BatchExecute(ctx context.Context, req BatchExecuteRequest
 	return resp
 }
 
-
 // LLMToolCall LLM 返回的 tool_call（OpenAI 兼容格式）
 type LLMToolCall struct {
-	ID       string          `json:"id"` 
+	ID       string          `json:"id"`
 	Function LLMToolFunction `json:"function"`
 }
 
 // LLMToolFunction LLM 工具调用 function 部分
 type LLMToolFunction struct {
 	Name      string `json:"name"`
-	Arguments string `json:"arguments"` 
+	Arguments string `json:"arguments"`
 }
 
 // LLMToolResult 工具执行结果（回传给 LLM 的格式）
 type LLMToolResult struct {
 	ToolCallID string          `json:"tool_call_id"`
-	Content    string          `json:"content"` 
+	Content    string          `json:"content"`
 	Success    bool            `json:"success"`
-	Card       *model.RichCard `json:"card,omitempty"` 
+	Card       *model.RichCard `json:"card,omitempty"`
 }
 
 // DispatchByLLMToolCall 根据 LLM 返回的 tool_call 调度执行
@@ -450,16 +434,15 @@ func (e *ToolExecutor) DispatchByLLMToolCall(ctx context.Context, toolCalls []LL
 	start := time.Now()
 	results := make([]LLMToolResult, len(toolCalls))
 
-	// semaphore 控制并发上限
 	const maxConcurrent = 5
 	sem := make(chan struct{}, maxConcurrent)
 	var wg sync.WaitGroup
 	for i, call := range toolCalls {
 		wg.Add(1)
-		sem <- struct{}{} 
+		sem <- struct{}{}
 		go func(idx int, c LLMToolCall) {
 			defer wg.Done()
-			defer func() { <-sem }() 
+			defer func() { <-sem }()
 			results[idx] = e.executeSingleLLMToolCall(dispatchCtx, c, toolCtx)
 		}(i, call)
 	}
@@ -503,8 +486,6 @@ func (e *ToolExecutor) DispatchByLLMToolCall(ctx context.Context, toolCalls []LL
 	return results
 }
 
-// extractToolError 从 LLMToolResult.Content（ToolResult 的 JSON 序列化）中提取 error 字段，
-// 供 agent_turn 异常 span 携带首个失败工具的错误详情，便于监控定位根因。
 func extractToolError(r LLMToolResult) string {
 	if r.Content == "" {
 		return ""
@@ -521,8 +502,6 @@ func extractToolError(r LLMToolResult) string {
 	return ""
 }
 
-// mustToolErrorJSON 构造带 error_code 的失败 Content（D08）。
-// Marshal map 保证 err 文案含引号/换行时仍是合法 JSON；Marshal 出错时退化为纯 error 字段。
 func mustToolErrorJSON(code, msg string) string {
 	b, err := json.Marshal(map[string]string{"error": msg, "error_code": code})
 	if err != nil {
@@ -536,15 +515,13 @@ func quoteJSON(s string) string {
 	return string(b)
 }
 
-// executeSingleLLMToolCall 执行单个 LLM tool_call
 func (e *ToolExecutor) executeSingleLLMToolCall(ctx context.Context, call LLMToolCall, toolCtx *ToolContext) LLMToolResult {
 	args := make(map[string]any)
 	if call.Function.Arguments != "" {
 		if err := json.Unmarshal([]byte(call.Function.Arguments), &args); err != nil {
 			return LLMToolResult{
 				ToolCallID: call.ID,
-				// D08: json.Marshal 构造（原 Sprintf 拼接在 err 含引号时产生非法 JSON，
-				// extractToolError 会静默丢弃 error），并带机器可读 error_code
+
 				Content: mustToolErrorJSON(ToolErrInvalidParams, fmt.Sprintf("arguments JSON 解析失败：%s", err.Error())),
 				Success: false,
 			}
@@ -565,9 +542,6 @@ func (e *ToolExecutor) executeSingleLLMToolCall(ctx context.Context, call LLMToo
 	content, _ := json.Marshal(execResult.ToolResult)
 	contentStr := string(content)
 
-	// 工具结果长度截断
-	// 设计依据：GPT-3.5 context 限制 4K-16K tokens，单个工具结果不应超过 4000 字符（约 1000 tokens）
-	// 截断后追加省略号 + 原始长度，让 LLM 知道数据被截断
 	const maxContentLen = 4000
 	if len(contentStr) > maxContentLen {
 		originalLen := len(contentStr)
@@ -580,7 +554,6 @@ func (e *ToolExecutor) executeSingleLLMToolCall(ctx context.Context, call LLMToo
 		Card:       execResult.ToolResult.Card,
 	}
 }
-
 
 // ExecuteByName 便捷执行：直接传 toolName + args
 func (e *ToolExecutor) ExecuteByName(ctx context.Context, toolName string, args map[string]any) (ToolResult, error) {
@@ -624,7 +597,6 @@ func (e *ToolExecutor) ListAvailableLLMFunctions() []LLMFunction {
 	return out
 }
 
-
 var (
 	globalExecutor     *ToolExecutor
 	globalExecutorOnce sync.Once
@@ -643,13 +615,6 @@ func GetGlobalExecutor() *ToolExecutor {
 	return globalExecutor
 }
 
-
-
-// preflightToolCall 工具调用只读预检（dry-run）
-// 校验项：
-//  1. 工具是否已注册
-//  2. 参数 JSON 是否合法（由调用方先做；这里作为二次保护）
-//  3. 工具是否被 disabled（override.Disabled）
 func (e *ToolExecutor) preflightToolCall(toolName string, args map[string]any) error {
 	if toolName == "" {
 		return fmt.Errorf("tool_name is empty")
@@ -664,6 +629,7 @@ func (e *ToolExecutor) preflightToolCall(toolName string, args map[string]any) e
 	_ = tool
 	return nil
 }
+
 // SetGlobalExecutor 替换全局执行器（用于测试 / 热重载）
 func SetGlobalExecutor(exec *ToolExecutor) {
 	globalExecutor = exec

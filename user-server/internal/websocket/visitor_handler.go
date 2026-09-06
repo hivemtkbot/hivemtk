@@ -107,17 +107,6 @@ func SetAllowedWSOrigins(origins []string) {
 	allowedWSOrigins = origins
 }
 
-// HandleVisitorWebSocket 处理访客 WebSocket 连接
-//
-// 安全修复（2026-08-18）：
-//   - 验证 visitor_token（HMAC-SHA256 签名），防止 IDOR 越权连接他人会话
-//   - 验证通过后才升级到 WebSocket 连接
-//
-// 鲁棒性加固（方向B）：
-//   - 接受 query `since_seq=N` 增量补发（断点续传）
-//   - readPump 处理 `{"type":"ack","seq":[N,...]}` 清理待 ACK
-//   - readPump 处理 `{"type":"resume","since_seq":N}` 拉取增量消息
-//   - onConnect 接受 sinceSeq 沿用 delivered_at 兜底补发
 func (h *VisitorWSHandler) HandleVisitorWebSocket(c *gin.Context) {
 	sessionID := strings.TrimSpace(c.Query("session_id"))
 	visitorID := strings.TrimSpace(c.Query("visitor_id"))
@@ -157,7 +146,7 @@ func (h *VisitorWSHandler) HandleVisitorWebSocket(c *gin.Context) {
 	}
 
 	sinceSeq := uint64(0)
-	// D15: query 入口 epoch 校验——客户端带旧 epoch 或缺 epoch → sinceSeq=0 全量补发
+
 	if c.Query("epoch") == CurrentEpoch() {
 		if s := strings.TrimSpace(c.Query("since_seq")); s != "" {
 			if n, err := strconv.ParseUint(s, 10, 64); err == nil {
@@ -374,7 +363,7 @@ func (h *VisitorWSHandler) readPump(client *Client, conn *websocket.Conn, ctx co
 			ackedCount := handleAckMessage(client, msg)
 			logger.Ctx(ctx).Debug().Str("session_id", client.sessionID).Int("acked", ackedCount).Msg("ack received")
 		case "resume":
-			// D15: epoch 不匹配/缺失 → sinceSeq=0 全量补发（旧 epoch 序列无意义）
+
 			sinceSeq := uint64(0)
 			if msgEpoch, _ := msg["epoch"].(string); msgEpoch == CurrentEpoch() {
 				sinceSeq = parseSinceSeq(msg)

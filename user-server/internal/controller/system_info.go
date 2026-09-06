@@ -36,15 +36,10 @@ func (c *SystemInfoController) GetSystemInfo(ctx *gin.Context) {
 	response.Success(ctx, info, "获取系统信息成功")
 }
 
-// Health 轻量级健康探针（/api/health），与根级 /health（全维度）区分，
-// 仅返回服务存活状态。
-// Router 层原内联 handler 已于 2026-09-02 抽到此处。
 func (c *SystemInfoController) Health(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"status": "ok"}, "ok")
 }
 
-// LicenseStatus 返回授权状态（开源版固定 open_source + licensed）。
-// Router 层原硬编码 JSON 已于 2026-09-02 抽到此处。
 func (c *SystemInfoController) LicenseStatus(ctx *gin.Context) {
 	response.Success(ctx, gin.H{
 		"edition":  "open_source",

@@ -1,10 +1,3 @@
-// 指标落库 sink 测试（2026-08-15 M3-P1-E4）
-//
-// 验证：
-//   - labelsToJSON 序列化（含/不含 agg 维度）
-//   - CollectSamples 快照（counter/gauge/histogram 的 count/sum）
-//   - BridgeMetricsSink.Flush 落库到 bridge_metrics 表（依赖真实 PG，不可达时跳过）
-//   - StartBridgeMetricsSink nil db 安全（不 panic、stop 可调用）
 package metrics
 
 import (

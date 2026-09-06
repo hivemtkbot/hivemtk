@@ -13,9 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// KBDocumentChunk 知识库文档切片模型
-// 实际生产环境可通过 kb_workspace / ai_agent_rag_repository 统一管理；
-// 此处为 G12 增量更新独立维护的最小切片结构（存 document_id 级别的增量变更）。
 type KBDocumentChunk struct {
 	ID            uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
 	DocumentID    uint      `gorm:"index;not null" json:"document_id"`
@@ -29,15 +26,6 @@ type KBDocumentChunk struct {
 
 func (KBDocumentChunk) TableName() string { return "kb_document_chunks" }
 
-// KnowledgeUpdateService 知识库增量更新服务
-//
-// G12: 竞品标配功能 - 文档更新时只重切片修改过的 chunk，
-// 不 rebuild 整个 KB。
-//
-// 核心逻辑：
-//  1. 将文档切分为 chunks（按 500 字窗口）
-//  2. 计算每个 chunk 的内容 hash（SHA256）
-//  3. 对比旧 chunks：hash 不同的 chunk 删除并重新索引；hash 相同的 chunk 保留
 type KnowledgeUpdateService struct {
 	db *gorm.DB
 }

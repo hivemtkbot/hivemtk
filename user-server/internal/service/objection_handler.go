@@ -23,15 +23,13 @@ type ScriptLibraryRepo interface {
 	IncrementUsageStats(ctx context.Context, templateID uint, success bool) error
 }
 
-// ObjectionHandlerService 异议处理服务
-// objectionDispatcher 分类兜底 LLM 的窄接口（审核修正③：便于 mock，解耦 llm.Dispatcher 具体类型）
 type objectionDispatcher interface {
 	Dispatch(ctx context.Context, req llm.DispatchRequest) (*llm.DispatchResult, error)
 }
 
 type ObjectionHandlerService struct {
 	scriptRepo ScriptLibraryRepo
-	// D10: LLM 兜底分类器；nil 时行为 = 纯规则（API 保持零依赖可用）
+
 	dispatcher objectionDispatcher
 }
 
@@ -174,14 +172,13 @@ type HandleResponse struct {
 	// LLMCategory 保留 LLM 原始分类（is_genuine=false 归 Other 后供运营分析）。
 	IsGenuine   *bool             `json:"is_genuine,omitempty"`
 	LLMCategory ObjectionCategory `json:"llm_category,omitempty"`
-	Source      string            `json:"source,omitempty"` // rule / llm
+	Source      string            `json:"source,omitempty"`
 }
 
 // Handle 处理异议
 func (s *ObjectionHandlerService) Handle(ctx context.Context, req HandleRequest) (*HandleResponse, error) {
 	category, name, confidence := s.classifyWithConfidence(ctx, req.Text)
-	// D10: 单词命中（conf=0.70）且注入了 dispatcher → LLM 兜底重判
-	//（多词命中 0.90 保持首中即返——审核修正⑤：不改规则表有序优先级语义）
+
 	var isGenuine *bool
 	var llmCategory ObjectionCategory
 	source := "rule"
@@ -193,7 +190,7 @@ func (s *ObjectionHandlerService) Handle(ctx context.Context, req HandleRequest)
 				category, name, confidence = cat2, s.categoryName(cat2), conf2
 				source = "llm"
 			} else {
-				// 拒绝伪装 → 归 Other 低置信（原 category 保留在 LLMCategory）
+
 				category, name, confidence = ObjectionOther, "其他异议", confidenceFallback
 				source = "llm"
 			}
@@ -496,7 +493,6 @@ func pickAcknowledge(cat ObjectionCategory, seedID uint, text string) string {
 	return tpls[idx]
 }
 
-// categoryName 类别中文名（LLM 兜底回填用）
 func (s *ObjectionHandlerService) categoryName(cat ObjectionCategory) string {
 	for _, def := range objectionRules {
 		if def.Category == cat {
@@ -506,9 +502,6 @@ func (s *ObjectionHandlerService) categoryName(cat ObjectionCategory) string {
 	return "其他异议"
 }
 
-// classifyByLLM D10 兜底分类：低置信关键词命中后用低成本 LLM 复判真伪与类别。
-// 复用 ScenarioIntentRecognize（同分类任务同成本档——审核修正③注）；
-// JSONMode temp=0；解析失败/未知类别返回 ok=false 走规则结果。
 func (s *ObjectionHandlerService) classifyByLLM(ctx context.Context, text string) (ObjectionCategory, float64, bool, bool) {
 	catList := make([]string, 0, len(objectionRules))
 	for _, r := range objectionRules {

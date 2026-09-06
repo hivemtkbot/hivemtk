@@ -194,9 +194,6 @@ func (s *IntentRecognizer) loadAnchorsFromDB(ctx context.Context) bool {
 	return true
 }
 
-// EnsureIntentExamplesIndexed 将 DefaultIntents 全部示例句向量化并幂等写入
-// intent_examples 表（M4 I-1 初始化方法；X-7 独立分表不污染 KB 语料）。
-// 返回本次新导入的条数。embedding 服务不可用或 DB 不可用时返回错误（调用方降级）。
 func (s *IntentRecognizer) EnsureIntentExamplesIndexed(ctx context.Context) (int, error) {
 	if s.embedSvc == nil {
 		return 0, fmt.Errorf("embedding service not injected")
@@ -485,11 +482,7 @@ var DefaultIntents = []IntentDef{
 		Description: "客户明确表示流失/反感",
 	},
 	{
-		// D07 (G3 修复)：greeting 此前不在词典，规则层永远无法产出（常量 :422 悬空），
-		// 问候语被 social 吸收。纯问候词归 greeting；追问式开场（"在吗/在?/你叫什么"）留 social，
-		// 避免 Examples 等值短路（:642-654 先于关键词层）造成同义消息意图分裂。
-		// 所有下游消费点（orchestrator safeIntent / playbook FriendlyChat / ai_tagger / sales_action_trigger）
-		// 均 greeting 与 social 同分支，行为兼容。
+
 		Type: IntentGreeting, Name: "打招呼问候",
 		Keywords:    []string{"你好", "您好", "hi", "hello", "哈喽", "早上好", "晚上好", "下午好", "嗨"},
 		Examples:    []string{"你好", "hello", "hi", "您好"},

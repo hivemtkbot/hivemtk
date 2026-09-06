@@ -1,4 +1,3 @@
-// SLO 测试（2026-08-15 M3-P1-E5）
 package sla
 
 import (

@@ -1,10 +1,3 @@
-// kb_connectors.go 知识库外部连接器凭据管理（R40，R39 遗留落地）
-//
-// 页面场景：知识工作台「外部系统接入」——Notion/飞书/钉钉/CRM 四源凭据配置 + 连通性测试。
-// 诚实边界：
-//   - 凭据保存到 system_config_kv（key=kb_connector.{source}），读取一律脱敏（密钥仅回显尾4位）
-//   - test 端点执行真实连通探测（各官方 API），外网不可达时返回明确的 unavailable 原因
-//   - 文档导入执行仍走既有 Import 管线（url/content），连接器凭据供后续拉取器消费
 package service
 
 import (
@@ -101,8 +94,6 @@ func (s *KBConnectorService) Get(ctx context.Context, source string) ConnectorSt
 	return st
 }
 
-// Save 保存凭据（写侧接受明文；仅存 KV，日志不落）
-// R46 语义修正: 密钥字段缺省/空串 = 保留原值（前端脱敏回显后不再回传掩码，避免掩码覆盖真凭据）
 func (s *KBConnectorService) Save(ctx context.Context, source string, req *SaveConnectorRequest) error {
 	if !kbConnectorSources[source] {
 		return fmt.Errorf("不支持的连接器: %s", source)

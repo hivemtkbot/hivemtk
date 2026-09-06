@@ -244,10 +244,6 @@ func (r *MessageHubRepository) GetOutgoingByPlatformMsgIDInConv(ctx context.Cont
 	return &existing, nil
 }
 
-// MarkOutboundSendFailed 标记出站行发送失败（T4 终态）。
-//
-// 必须用列级 Updates 而非 Save：Save 是全列覆盖，半空结构体会把
-// msg_id/platform/content/direction 等字段全部清零（二次审查 S1 发现）。
 func (r *MessageHubRepository) MarkOutboundSendFailed(ctx context.Context, id uint, extra model.JSONMap) error {
 	if r == nil || r.db == nil || id == 0 {
 		return nil

@@ -23,14 +23,6 @@ type IntentPrediction struct {
 	PredictedAt      time.Time `json:"predicted_at"`
 }
 
-// TypingPredictService 打字预回复服务
-//
-// G15: 竞品标配功能 - 访客输入部分文字时后端实时预测意图，
-// 推送 SSE 事件给前端，前端展示建议回复（不自动发送，仅推荐）。
-//
-// 内部机制：
-//   - 输入 hash 做防抖：相同 hash 500ms 内不重复调用（避免用户快速输入导致雪崩）
-//   - 预留接入点：接入已有的 intent_recognition service
 type TypingPredictService struct {
 	mu     sync.Mutex
 	cache  map[string]*IntentPrediction

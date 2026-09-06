@@ -9,16 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// CustomerIDStandardizeMigration OPT-DB-04: 收敛 customer_id 字段类型
-//
-// 现状：customer_id 在不同表中使用了 varchar(36)、varchar(64)、varchar(100)、size:128 等多种类型，
-// 导致 JOIN 查询时隐式类型转换，影响查询性能与可维护性。
-//
-// 统一标准：varchar(64) —— 覆盖绝大多数场景（UUID v4 36 字符 + 前缀冗余）。
-// 本迁移将非 varchar(64) 的 customer_id 列统一 ALTER 为 varchar(64)，
-// 并对已满足的列添加 COMMENT 标注统一标准。
-//
-// 幂等安全：information_schema 动态扫描，只对当前类型 ≠ varchar(64) 的列执行 ALTER。
 type CustomerIDStandardizeMigration struct {
 	db *gorm.DB
 }

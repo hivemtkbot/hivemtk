@@ -126,7 +126,6 @@ func TestHumanizePolisher_P2_5_RemoveFlattery(t *testing.T) {
 	}
 }
 
-// 反向回归：实际内容不应被误伤。验证 P2-5 修复不会把"可以的" 这种正常词全部干掉。
 func TestHumanizePolisher_P2_5_NormalContent_NotOverStripped(t *testing.T) {
 	p := NewHumanizePolisher()
 	ctx := context.Background()

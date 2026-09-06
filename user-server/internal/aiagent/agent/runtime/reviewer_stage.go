@@ -11,16 +11,6 @@ func NewDefaultReviewer() *DefaultReviewer {
 	return &DefaultReviewer{}
 }
 
-// DefaultReviewer 默认复审者（T10 三段式模式第三段 Reviewer）
-//
-// 设计目标：轻量、可替换、可在测试中注入 Mock。
-//   - 安全性：拦截明文敏感词（可扩展为子系统策略）
-//   - 合规性：回复长度不过短，不开空头支票
-//   - 拟人度：6 维 AlignmentScore 总分 < 阈值时提示降级
-//   - 置信度：Plan.Confidence < 阈值且未走 FAQ 快路 → 提示复核
-//
-// 结果写入 InferenceContext.Review 与 InferenceDecision.Review，
-// 并可在 AdjustedReply 中给出修正后的话术（若 AdjustReason != ""）。
 type DefaultReviewer struct {
 	MinReplyLength  int
 	MinConfidence   float64

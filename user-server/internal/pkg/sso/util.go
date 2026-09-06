@@ -1,4 +1,3 @@
-// SSO 工具函数（2026-08-15 M3-P1-E4）
 package sso
 
 import (

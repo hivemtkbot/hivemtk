@@ -8,13 +8,12 @@ import (
 	"hivemtk-user/internal/cache"
 )
 
-
 // PendingAck 待 ACK 跟踪表
 // key: 会话 ID（visitor/agent 都用）
 // value: seq -> 首次发送时间
 type PendingAck struct {
 	mu    sync.RWMutex
-	items map[string]map[uint64]time.Time 
+	items map[string]map[uint64]time.Time
 }
 
 // NewPendingAck 创建 ACK 跟踪表
@@ -33,7 +32,7 @@ func (p *PendingAck) Track(sessionID string, seq uint64) {
 		p.items[sessionID] = make(map[uint64]time.Time)
 	}
 	p.items[sessionID][seq] = time.Now()
-	// D15: 写穿 Redis（异步）
+
 	if snapshot, ok := p.items[sessionID]; ok {
 		pendingRedis.asyncSetJSON(sessionID, snapshot)
 	}
@@ -59,7 +58,7 @@ func (p *PendingAck) Ack(sessionID string, seqs ...uint64) int {
 			count++
 		}
 	}
-	// D15: 写穿 Redis（异步）
+
 	pendingRedis.asyncSetJSON(sessionID, pending)
 	if len(pending) == 0 {
 		delete(p.items, sessionID)
@@ -96,14 +95,14 @@ func (p *PendingAck) PendingSince(sessionID string, sinceSeq uint64) []uint64 {
 		merged[s] = ts
 	}
 	p.mu.RUnlock()
-	// D15: 合并远端 Redis 快照（他副本/重启前写入）
+
 	for s, ts := range pendingRedis.loadRemote(sessionID) {
 		if _, exists := merged[s]; !exists {
 			merged[s] = ts
 		}
 	}
 	if len(merged) == 0 {
-		return nil // 既有契约：未知 session 返回 nil（TestPendingAck_EmptySession）
+		return nil
 	}
 	out := make([]uint64, 0, len(merged))
 	for s := range merged {
@@ -124,7 +123,6 @@ func (p *PendingAck) Drop(sessionID string) {
 	delete(p.items, sessionID)
 }
 
-// globalAckTracker 全局 ACK 跟踪器
 var globalAckTracker = NewPendingAck()
 
 // GlobalPendingAck 获取全局 ACK 跟踪器（供 visitor_handler.go 使用）
@@ -132,10 +130,6 @@ func GlobalPendingAck() *PendingAck {
 	return globalAckTracker
 }
 
-
-// pendingRedisBacked D15：pending 写穿 Redis（单键 SetJSON map，接口无 Hash——审核修正 3）。
-// 同一 session 同一时刻仅活跃于一个副本，跨副本并发写竞态后果=丢一条 pending（少补发），可接受。
-// Track/Ack 热路径 fire-and-forget（goroutine），不阻塞。
 type pendingRedisBacked struct {
 	enabled func() bool
 	backend func() cache.Cache
@@ -148,7 +142,6 @@ var pendingRedis = &pendingRedisBacked{
 
 func pendingKey(sessionID string) string { return "mtk:ws:pending:" + sessionID }
 
-// asyncSetJSON fire-and-forget 写穿
 func (p *pendingRedisBacked) asyncSetJSON(sessionID string, snapshot map[uint64]time.Time) {
 	if !p.enabled() {
 		return
@@ -164,7 +157,6 @@ func (p *pendingRedisBacked) asyncSetJSON(sessionID string, snapshot map[uint64]
 	}()
 }
 
-// loadRemote 读远端 pending 快照（PendingSince 合并用）
 func (p *pendingRedisBacked) loadRemote(sessionID string) map[uint64]time.Time {
 	if !p.enabled() {
 		return nil

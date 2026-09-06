@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// T4 验收①：分类器表驱动——限速/鉴权/参数/网络/未知。
 func TestClassifyChannelError_TableDriven(t *testing.T) {
 	cases := []struct {
 		name       string
@@ -49,7 +48,6 @@ func TestClassifyChannelError_TableDriven(t *testing.T) {
 	}
 }
 
-// T4 验收②：retryDelaysFor——限速尊重 Retry-After；不可重试返回 nil。
 func TestRetryDelaysFor(t *testing.T) {
 	rl := &ChannelError{Category: CategoryRateLimited, Retryable: true, RetryAfter: 31 * time.Second}
 	d := retryDelaysFor(rl)
@@ -70,7 +68,6 @@ func TestRetryDelaysFor(t *testing.T) {
 	}
 }
 
-// T4 验收③：outboundSendFailed——不可重试落 send_failed 终态；可重试不落。
 func TestOutboundSendFailed_MarksTerminalState(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
 	repo := repository.NewMessageHubRepositoryWithDB(db)

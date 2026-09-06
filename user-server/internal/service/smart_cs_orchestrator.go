@@ -21,18 +21,13 @@ import (
 	confidencesvc "hivemtk-user/internal/service/confidence"
 )
 
-// faqPromptVersion FAQ 语义缓存 prompt 版本（RT-2 缓存 key 维度之一；
-// 答案生成 prompt 语义变更时必须递增，避免旧答案串新 prompt）
 const faqPromptVersion = "v1"
 
-// 全局 FAQ 语义缓存依赖（装配层经 SetGlobalFAQAnswerCache 注入，main.go 启动时）。
-// 未注入（nil）时 SmartCSOrchestrator 零影响直通，向后兼容硬要求。
 var (
 	globalFAQCache    *ragcache.FAQAnswerCacheService
 	globalFAQEmbedder llm.EmbeddingServiceInterface
 )
 
-// SetGlobalFAQAnswerCache 装配层注入 FAQ 答案语义缓存（M6 R-2 / RT-2 契约：仅 smart_cs FAQ 场景启用）
 func SetGlobalFAQAnswerCache(svc *ragcache.FAQAnswerCacheService, embedder llm.EmbeddingServiceInterface) {
 	globalFAQCache = svc
 	globalFAQEmbedder = embedder
@@ -50,20 +45,17 @@ type SmartCSOrchestrator struct {
 	kbRepo         *repository.KnowledgeBaseRepository
 
 	csAgentSvc  *CustomerServiceAgentService
-	identitySvc *CustomerIdentityService // 可选：自动补建 customer 档案
+	identitySvc *CustomerIdentityService
 
 	confidenceThreshold float64
 	enableAutoReply     bool
 	maxAIConsecutive    int
 
-	// D01: 五信号置信度聚合器（G4 打通）；nil 时 extractConfidence 回退启发式
 	confidenceAgg *confidencesvc.ConfidenceAggregator
 
-	// FAQ 语义缓存（M6 R-2）：构造时从全局装配读取；nil 时零影响直通
 	faqCache    *ragcache.FAQAnswerCacheService
 	faqEmbedder llm.EmbeddingServiceInterface
 
-	// dncChecker CS-P0-1: 全局退订检查器（nil 时跳过，向后兼容）
 	dncChecker DoNotContactChecker
 }
 
@@ -130,19 +122,10 @@ func (o *SmartCSOrchestrator) SetIdentityService(svc *CustomerIdentityService) {
 	o.identitySvc = svc
 }
 
-// SetDNCChecker CS-P0-1: 注入全局退订检查器
-//
-// 生产接线：sales_engine_factory.BuildSmartOrchestrator 在创建编排器后注入
-// DoNotContactService，使 checkDNCBlocked 能真正查 DB。
-// 测试 / 无 DB 环境可传 nil（向后兼容，DNC 检查被跳过）。
 func (o *SmartCSOrchestrator) SetDNCChecker(checker DoNotContactChecker) {
 	o.dncChecker = checker
 }
 
-// ensureCustomerForSession best-effort 补建 customer 档案。
-// 当 identitySvc 已注入且 sender 非空时，从 platform+open_id 构造 Identifiers
-// 调 IdentifyOrCreate，确保 session 创建后一定存在可关联的 customer。
-// 失败只记 warn 日志，不阻断 session 创建主流程（session 是核心，customer 是增强）。
 func (o *SmartCSOrchestrator) ensureCustomerForSession(ctx context.Context, platform model.Platform, senderID, userName string) {
 	if o.identitySvc == nil || senderID == "" {
 		return
@@ -245,19 +228,12 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 	}
 	result.SessionID = session.SessionID
 
-	// 全链路审查发现：ensureCustomerForSession 仅有定义无调用（d8d3cdf 半成品
-	// 接线），导致桥接渠道客户档案永不创建（api_verify_full.py S3.1 长期 FAIL）。
-	// 在 session 创建后补建 customer 档案，失败不阻断主流程（best-effort）。
 	o.ensureCustomerForSession(ctx, in.Platform, in.SenderID, in.SenderName)
 
 	if err := o.saveInboundMessage(ctx, session, in); err != nil {
 		return nil, fmt.Errorf("save inbound message failed: %w", err)
 	}
 
-	// P0-FIX: Bridge 渠道 message_count 长期为 0 — findOrCreateSession/UpsertByOneID
-	// 写死 message_count=0，后续没人 +1。Web Widget 链路（chat_visitor.go）会在
-	// saveInbound 后调 sessionRepo.UpdateLastMessage（内含 message_count+1）。
-	// 这里补齐：用户消息入站后 message_count +1 + 更新 last_message 元数据。
 	if err := o.sessionRepo.UpdateLastMessage(ctx, session.ID, in.Content, "user"); err != nil {
 		logger.Ctx(ctx).Warn().Err(err).
 			Str("session_id", session.SessionID).
@@ -281,7 +257,6 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		return result, nil
 	}
 
-	// P1g 情感分层：愤怒→补偿+高级客服；焦虑→进度可视化继续走 AI（不盲转）
 	emotionHint := ""
 	if o.isUrgentOrComplaint(ctx, in.Content) {
 		emoStrat := StrategyForEmotion(ClassifyEmotion(in.Content))
@@ -316,8 +291,6 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		}
 	}
 
-	// M6 R-2 FAQ 语义缓存 Lookup（RT-2 契约：仅知识库可答的 FAQ 场景）。
-	// 任一前提不满足（缓存未装配 / 座席未挂 KB / 向量化失败）即直通回源，零影响。
 	faqKBID, faqVec := "", []float32(nil)
 	if o.faqCache != nil && o.faqEmbedder != nil {
 		if faqKBID = o.resolveFAQKBID(ctx, finalAgentCtx); faqKBID != "" {
@@ -341,11 +314,10 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 	}
 	salesResp, err := o.engine.HandleWithAgent(ctx, salesReq, finalAgentCtx)
 	if err != nil || salesResp == nil {
-		// [P0-FIX C] AI 失败分级降级链：Level1→备用引擎→Level2→规则引擎→Level3→转人工兜底
+
 		logger.Ctx(ctx).Warn().Err(err).Str("session_id", session.SessionID).
 			Msg("[Orchestrator] HandleWithAgent 失败，进入降级链")
 
-		// Level 1: 用 SalesEngine.Handle() 做备用 LLM 链路重试（不走 agentCtx，默认配置兜底）
 		if err != nil {
 			logger.Ctx(ctx).Info().Str("session_id", session.SessionID).
 				Msg("[Orchestrator] 降级链 Level 1: 备用 Engine.Handle() 重试")
@@ -355,7 +327,7 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 			logger.Ctx(ctx).Info().Str("session_id", session.SessionID).
 				Msg("[Orchestrator] 降级链 Level 1 成功: 备用 Engine.Handle() 返回有效回复")
 		} else {
-			// Level 2: RuleEngine 规则匹配 — 触发自动化规则（自动回复/标签/通知）
+
 			logger.Ctx(ctx).Info().Str("session_id", session.SessionID).
 				Msg("[Orchestrator] 降级链 Level 2: RuleEngine 规则引擎触发")
 			func() {
@@ -370,7 +342,6 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 				)
 			}()
 
-			// Level 3: 最终兜底 → 转人工
 			logger.Ctx(ctx).Info().Str("session_id", session.SessionID).
 				Msg("[Orchestrator] 降级链 Level 3: 最终兜底 → 转人工")
 			result.HandlerType = model.HandlerTypeHuman
@@ -417,8 +388,6 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 	result.AIReplied = true
 	result.Reply = salesResp.Reply
 
-	// M6 R-2 FAQ 语义缓存 Store：答案来自知识库召回（RAGChunks 非空 = FromKnowledgeBase
-	// 等效标志）时异步入缓存。四道门（CanCache）由缓存服务内部把关；失败仅告警不影响主链路。
 	if faqKBID != "" && len(faqVec) > 0 && len(salesResp.RAGChunks) > 0 && salesResp.Reply != "" {
 		go func(answer string, vec []float32) {
 			defer func() {
@@ -444,7 +413,7 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		}
 		utils.WarnErrKV("smartcs.markSuggestionUsed", o.markSuggestionUsed(ctx, suggestionID), "session_id", session.SessionID, "suggestion_id", strconv.FormatUint(uint64(suggestionID), 10))
 		utils.WarnErrKV("smartcs.incrementAIReplyCount", o.incrementAIReplyCount(ctx, session), "session_id", session.SessionID, "ai_reply_count", strconv.Itoa(session.AIReplyCount+1))
-		// P0-FIX: AI 回复后也要 +1 message_count（Web Widget 链路 chat_visitor.go:523 会调）
+
 		if err := o.sessionRepo.UpdateLastMessage(ctx, session.ID, salesResp.Reply, "ai"); err != nil {
 			logger.Ctx(ctx).Warn().Err(err).
 				Str("session_id", session.SessionID).
@@ -455,8 +424,6 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 	return result, nil
 }
 
-// resolveFAQKBID 解析座席挂载的主 FAQ/RAG 知识库 ID（RT-2 缓存 key 的 kb_id 维度）。
-// 读不到（座席为空 / 无绑定 / DB 异常）返回空 = 本轮跳过缓存，零影响直通。
 func (o *SmartCSOrchestrator) resolveFAQKBID(ctx context.Context, agentCtx *AgentContext) string {
 	if agentCtx == nil || agentCtx.AgentID == 0 {
 		return ""
@@ -487,8 +454,6 @@ func (o *SmartCSOrchestrator) resolveFAQKBID(ctx context.Context, agentCtx *Agen
 	return fallback
 }
 
-// embedFAQQuery 把用户消息向量化（与知识库 chunk 同一 embedding 服务，保证同向量空间）。
-// 失败返回 nil = 跳过缓存直通。
 func (o *SmartCSOrchestrator) embedFAQQuery(ctx context.Context, text string) []float32 {
 	defer func() {
 		if r := recover(); r != nil {
@@ -502,8 +467,6 @@ func (o *SmartCSOrchestrator) embedFAQQuery(ctx context.Context, text string) []
 	return vec
 }
 
-// lookupFAQAnswerCache 查询语义缓存；TierExact/TierSemantic 命中时直接以缓存答案回复。
-// 未命中/异常一律返回 hit=false 回源生成（零影响直通）。
 func (o *SmartCSOrchestrator) lookupFAQAnswerCache(ctx context.Context, kbID string, vec []float32, result *HandleResult) (*HandleResult, bool) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -531,15 +494,13 @@ func (o *SmartCSOrchestrator) lookupFAQAnswerCache(ctx context.Context, kbID str
 		if session := o.sessionOfResult(result); session != nil {
 			utils.WarnErrKV("smartcs.saveOutboundMessage.hit", o.saveOutboundMessage(ctx, session, lr.Answer, true), "session_id", session.SessionID, "source", "ragcache")
 			utils.WarnErrKV("smartcs.incrementAIReplyCount.hit", o.incrementAIReplyCount(ctx, session), "session_id", session.SessionID, "source", "ragcache")
-			// P0-FIX: FAQ 缓存命中路径也需要 +1 message_count（AI 回复计入总消息数）
+
 			utils.WarnErrKV("smartcs.UpdateLastMessage.hit", o.sessionRepo.UpdateLastMessage(ctx, session.ID, lr.Answer, "ai"), "session_id", session.SessionID, "source", "ragcache")
 		}
 	}
 	return result, true
 }
 
-// sessionOfResult 按 result.SessionID 取会话（缓存命中路径的落库/计数用）；
-// 取不到返回 nil，调用方跳过后续会话级写操作（缓存命中回复本身不受影响）。
 func (o *SmartCSOrchestrator) sessionOfResult(result *HandleResult) *model.CustomerSession {
 	if result == nil || result.SessionID == "" {
 		return nil
@@ -551,17 +512,6 @@ func (o *SmartCSOrchestrator) sessionOfResult(result *HandleResult) *model.Custo
 	return session
 }
 
-// findOrCreateSession 查找或创建会话
-//
-// 匹配优先级（S3-1 OneID 跨渠道合并 + 兜底）：
-//  1. OneID（跨渠道合并辅助键）—— 同 OneID 视为同一人，跨平台 user_id 不同但 OneID
-//     相同则合并会话，避免冷启动
-//  2. user_id（单渠道内）—— 命中 user_id 索引，单点查
-//  3. 创建新会话时，若 OneID 为空，自动以 Platform:SenderID 拼接临时 OneID
-//
-// （兜底），保证同 Platform + SenderID 的用户在 TTL 内可被同会话合并
-//
-// 注释：S3-1 之前的实现只按 user_id 匹配，会导致 web → TG 切换时冷启动。
 func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *IncomingContext) (*model.CustomerSession, error) {
 	if in.IsGroup {
 		groupKey := in.GroupID
@@ -684,8 +634,6 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 	return session, nil
 }
 
-// checkDNCBlocked CS-P0-1: 检查 oneID 是否命中全局退订，命中时记 warn 日志并返回 true。
-// dncChecker 为 nil 或 oneID 为空时返回 false（跳过检查）。
 func (o *SmartCSOrchestrator) checkDNCBlocked(ctx context.Context, oneID string) bool {
 	if o.dncChecker == nil || oneID == "" {
 		return false
@@ -699,14 +647,6 @@ func (o *SmartCSOrchestrator) checkDNCBlocked(ctx context.Context, oneID string)
 	return false
 }
 
-// saveInboundMessage 保存入站消息
-//
-// 去重逻辑（修复 chat 访客端双保存 bug）：
-//
-//	chat_visitor_service.SendMessage 也保存了 user 消息，再调 HandleIncomingWithAgent
-//	会导致同一条用户消息被保存两次（数据库中 2 条 row，前端列表重复）。
-//	解决：在保存前查最近 5 秒内是否已存在同 (session, content, sender) 的消息，
-//	若有则跳过保存，返回已存在消息的引用。
 func (o *SmartCSOrchestrator) saveInboundMessage(ctx context.Context, session *model.CustomerSession, in *IncomingContext) error {
 	if existing, _ := o.messageRepo.FindRecentDuplicate(ctx, session.SessionID, "user", in.SenderID, in.Content, 5*time.Second); existing != nil {
 		return nil
@@ -723,7 +663,6 @@ func (o *SmartCSOrchestrator) saveInboundMessage(ctx context.Context, session *m
 	return o.messageRepo.Create(ctx, msg)
 }
 
-// saveOutboundMessage 保存出站消息（去重：避免与 visitor 端双保存）
 func (o *SmartCSOrchestrator) saveOutboundMessage(ctx context.Context, session *model.CustomerSession, content string, aiGenerated bool) error {
 	senderType := "agent"
 	if aiGenerated {
@@ -743,7 +682,6 @@ func (o *SmartCSOrchestrator) saveOutboundMessage(ctx context.Context, session *
 	return o.messageRepo.Create(ctx, msg)
 }
 
-// saveAISuggestion 保存 AI 建议供座席参考
 func (o *SmartCSOrchestrator) saveAISuggestion(ctx context.Context, sessionID string, resp *SalesResponse, userText string) uint {
 	if o.suggestionRepo == nil || resp == nil || resp.Reply == "" {
 		return 0
@@ -761,7 +699,6 @@ func (o *SmartCSOrchestrator) saveAISuggestion(ctx context.Context, sessionID st
 	return suggestion.ID
 }
 
-// markSuggestionUsed 标记建议被采用
 func (o *SmartCSOrchestrator) markSuggestionUsed(ctx context.Context, id uint) error {
 	if id == 0 || o.suggestionRepo == nil {
 		return nil
@@ -769,12 +706,11 @@ func (o *SmartCSOrchestrator) markSuggestionUsed(ctx context.Context, id uint) e
 	return o.suggestionRepo.MarkAsUsed(ctx, id, 0)
 }
 
-// transferToHuman 转人工（联动 SessionAssignmentService 真正分配在线座席）
 func (o *SmartCSOrchestrator) transferToHuman(ctx context.Context, session *model.CustomerSession, reason string) error {
 	session.Status = model.SessionStatusWaiting
 	session.HandlerType = model.HandlerTypeHuman
 	session.LastMessage = reason
-	// D20: outcome episode 起点（幂等：重复转人工不覆盖首因）
+
 	if session.HandoffAt == nil {
 		now := time.Now()
 		session.HandoffAt = &now
@@ -808,13 +744,6 @@ func (o *SmartCSOrchestrator) transferToHuman(ctx context.Context, session *mode
 	return nil
 }
 
-// incrementAIReplyCount 增加 AI 回复计数
-//
-// P0-FIX 2026-09-02：原来用 sessionRepo.Update(ctx, session) 会把内存里的
-// message_count=0（来自 UpsertByOneID INSERT 初始值）回写到 DB，覆盖掉此前
-// UpdateLastMessage 的原子 +1。拆成两个独立原子操作：
-//   1. IncrementAIReplyCount — 纯原子 +1，不碰其他列
-//   2. Updates(status, last_message_at) — 只改状态和时间戳
 func (o *SmartCSOrchestrator) incrementAIReplyCount(ctx context.Context, session *model.CustomerSession) error {
 	now := time.Now()
 	if err := o.sessionRepo.IncrementAIReplyCount(ctx, session.ID); err != nil {
@@ -826,14 +755,13 @@ func (o *SmartCSOrchestrator) incrementAIReplyCount(ctx context.Context, session
 	}); err != nil {
 		logger.Ctx(ctx).Warn().Err(err).Uint("id", session.ID).Msg("[Orchestrator] UpdateFields after AI increment failed (non-fatal)")
 	}
-	// 内存也更新，供后续链路读
+
 	session.AIReplyCount++
 	session.Status = model.SessionStatusAIHandling
 	session.LastMessageAt = &now
 	return nil
 }
 
-// isAgentOnline 座席是否在线
 func (o *SmartCSOrchestrator) isAgentOnline(ctx context.Context, agentID uint) (online bool) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -850,25 +778,20 @@ func (o *SmartCSOrchestrator) isAgentOnline(ctx context.Context, agentID uint) (
 	return agent.Status == "online" || agent.Status == "busy"
 }
 
-// isUrgentOrComplaint 是否紧急/投诉
 func (o *SmartCSOrchestrator) isUrgentOrComplaint(ctx context.Context, content string) bool {
 	return MatchUrgentKeywords(content)
 }
 
-// extractConfidence 提取置信度（D01/G4 打通）：
-// 优先走五信号校准链（ConfidenceAggregator.Aggregate——Temperature×Platt×Conformal），
-// 与转人工预检（sales_engine_transfer）、坐席分配（session_assignment）同一把尺子；
-// agg 未注入或 Aggregate 失败时回退启发式 fallbackConfidence（保留为降级路径）。
 func (o *SmartCSOrchestrator) extractConfidence(ctx context.Context, resp *SalesResponse, sessionID, userText string) float64 {
 	if resp == nil {
 		return 0
 	}
 	if o.confidenceAgg != nil {
 		in := &dto.SignalCollectionInput{
-			SessionID: sessionID,
-			Text:      userText,
+			SessionID:   sessionID,
+			Text:        userText,
 			RAGExecuted: len(resp.RAGChunks) > 0,
-			RAGChunks: resp.RAGChunks,
+			RAGChunks:   resp.RAGChunks,
 		}
 		if resp.Intent != nil {
 			in.IntentType = resp.Intent.IntentType
@@ -883,7 +806,6 @@ func (o *SmartCSOrchestrator) extractConfidence(ctx context.Context, resp *Sales
 	return o.fallbackConfidence(resp)
 }
 
-// fallbackConfidence 启发式降级路径（原 extractConfidence 固定加分逻辑，G4 修复前行为）
 func (o *SmartCSOrchestrator) fallbackConfidence(resp *SalesResponse) float64 {
 	if resp.Intent != nil && resp.Intent.Confidence > 0 {
 		return resp.Intent.Confidence
@@ -907,7 +829,6 @@ func (o *SmartCSOrchestrator) fallbackConfidence(resp *SalesResponse) float64 {
 	return score
 }
 
-// safeMessageID 安全截取 MessageID
 func safeMessageID(id string) string {
 	if len(id) >= 8 {
 		return id[:8]
@@ -964,7 +885,7 @@ func (o *SmartCSOrchestrator) AgentReply(ctx context.Context, sessionID string, 
 	now := time.Now()
 	session.LastMessageAt = &now
 	session.LastMessageBy = "agent"
-	// D20: outcome episode 终点——转人工后首条人工回复时间（幂等：仅首条打点）
+
 	if session.HandoffAt != nil && session.FirstHumanReplyAt == nil {
 		session.FirstHumanReplyAt = &now
 	}
