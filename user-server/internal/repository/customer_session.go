@@ -512,6 +512,14 @@ func (r *CustomerSessionRepository) IncrementHumanReplyCount(ctx context.Context
 		Update("human_reply_count", gorm.Expr("human_reply_count + 1")).Error
 }
 
+// UpdateFirstHumanReplyAt D20：转人工 episode 终点打点（幂等语义由调用方保证：
+// 仅在 handoff_at 非空且 first_human_reply_at 为空时调用；此处条件更新双保险防并发覆盖）
+func (r *CustomerSessionRepository) UpdateFirstHumanReplyAt(ctx context.Context, id uint, at time.Time) error {
+	return r.db.Model(&model.CustomerSession{}).
+		Where("id = ? AND handoff_at IS NOT NULL AND first_human_reply_at IS NULL", id).
+		Update("first_human_reply_at", at).Error
+}
+
 // UpdateFields 按主键原子更新部分字段（不覆盖全对象）
 //
 // 用于 incrementAIReplyCount 等场景：先 IncrementAIReplyCount 原子 +1，
