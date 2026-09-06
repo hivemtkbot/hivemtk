@@ -60,15 +60,20 @@ func (s *AccountService) GetAccountListDTO(ctx context.Context) (*dto.GetAccount
 // UpdateAccountDTO 根据请求 DTO 更新账户，并返回响应 DTO
 func (s *AccountService) UpdateAccountDTO(ctx context.Context, req dto.UpdateAccountRequest) (*dto.AccountResponse, error) {
 	account := model.Account{
-		ID:               req.ID,
-		TgName:           req.TgName,
-		TgBotToken:       req.TgBotToken,
-		Price:            req.Price,
-		GroupID:          req.GroupID,
-		ProxyEnableProxy: req.ProxyEnableProxy,
-		ProxyProtoclo:    req.ProxyProtoclo,
-		ProxyHost:        req.ProxyHost,
-		ProxyPort:        req.ProxyPort,
+		ID:            req.ID,
+		TgName:        req.TgName,
+		TgBotToken:    req.TgBotToken,
+		Price:         req.Price,
+		GroupID:       req.GroupID,
+		ProxyProtoclo: req.ProxyProtoclo,
+		ProxyHost:     req.ProxyHost,
+		ProxyPort:     req.ProxyPort,
+	}
+	// PATCH 语义：未传 proxy_enable_proxy 保留原值，防止漏字段把代理开关意外关闭
+	if req.ProxyEnableProxy != nil {
+		account.ProxyEnableProxy = *req.ProxyEnableProxy
+	} else if existing, err := s.GetAccount(ctx, req.ID); err == nil && existing != nil {
+		account.ProxyEnableProxy = existing.ProxyEnableProxy
 	}
 	if err := s.UpdateAccount(ctx, account); err != nil {
 		return nil, err

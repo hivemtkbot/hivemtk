@@ -88,6 +88,11 @@ func (c *CSATController) SaveTemplate(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误："+err.Error())
 		return
 	}
+	// 防御空 body {} 把模板配置清空
+	if len(req) == 0 {
+		response.Error(ctx, http.StatusBadRequest, "模板内容不能为空")
+		return
+	}
 	if err := c.svc.SaveTemplate(ctx.Request.Context(), req); HandleServiceError(ctx, err) {
 		return
 	}

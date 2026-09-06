@@ -553,7 +553,7 @@ func (s *CustomerRFMService) ListRFMRules(ctx context.Context, page, pageSize in
 // SaveRFMRuleRequest 保存 RFM 规则请求
 // 金额字段单位：分（前端展示时 / 100 转元）
 type SaveRFMRuleRequest struct {
-	Name     string `json:"name"`
+	Name     string `json:"name" binding:"required"`
 	RDays1   int    `json:"r_days_1"`
 	RDays2   int    `json:"r_days_2"`
 	RDays3   int    `json:"r_days_3"`
@@ -569,7 +569,9 @@ type SaveRFMRuleRequest struct {
 	MAmount3 int64  `json:"m_amount_3"`
 	MAmount4 int64  `json:"m_amount_4"`
 	MAmount5 int64  `json:"m_amount_5"`
-	IsActive bool   `json:"is_active"`
+	// IsActive 用 *bool 表达 PATCH 语义：nil = 未传 = 保留原值。
+	// 该接口当前无前端调用方，防御空 body/漏字段把激活状态意外翻转。
+	IsActive *bool `json:"is_active"`
 }
 
 // SaveRFMRule 保存 RFM 规则
@@ -591,7 +593,12 @@ func (s *CustomerRFMService) SaveRFMRule(ctx context.Context, req *SaveRFMRuleRe
 		MAmount3: req.MAmount3,
 		MAmount4: req.MAmount4,
 		MAmount5: req.MAmount5,
-		IsActive: req.IsActive,
+	}
+	// 创建口径：未显式传 is_active 时默认启用
+	if req.IsActive != nil {
+		rule.IsActive = *req.IsActive
+	} else {
+		rule.IsActive = true
 	}
 
 	if rule.RDays1 <= 0 {
@@ -629,7 +636,10 @@ func (s *CustomerRFMService) UpdateRFMRule(ctx context.Context, id uint, req *Sa
 	rule.MAmount3 = req.MAmount3
 	rule.MAmount4 = req.MAmount4
 	rule.MAmount5 = req.MAmount5
-	rule.IsActive = req.IsActive
+	// PATCH 语义：未传 is_active 保留原值，防止漏字段把规则意外停用
+	if req.IsActive != nil {
+		rule.IsActive = *req.IsActive
+	}
 
 	if err := s.ruleRepo().Update(ctx, rule); err != nil {
 		return nil, err

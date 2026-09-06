@@ -91,6 +91,13 @@ func (s *OpenAPIService) UpdateSource(ctx context.Context, src *model.KnowledgeO
 	if src.ID == 0 {
 		return errors.New("数据源 ID 不能为空")
 	}
+	// 先确认存在，避免 repo.Save 对不存在的 id 变成 INSERT（upsert 语义错误）
+	if _, err := s.srcRepo.GetByID(ctx, src.ID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) || strings.Contains(err.Error(), "not found") {
+			return fmt.Errorf("数据源不存在: id=%d", src.ID)
+		}
+		return err
+	}
 	if err := s.encryptAuthConfig(ctx, src); err != nil {
 		return fmt.Errorf("加密认证配置失败: %w", err)
 	}

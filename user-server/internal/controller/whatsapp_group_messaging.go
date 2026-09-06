@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -375,8 +376,13 @@ func (gmc *GroupMessagingController) CreateTemplate(c *gin.Context) {
 // 更新消息模板
 func (gmc *GroupMessagingController) UpdateTemplate(c *gin.Context) {
 	id := c.Param("id")
+	body, err := c.GetRawData()
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "参数错误", err.Error())
+		return
+	}
 	var req model.WhatsappMessageTemplate
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := json.Unmarshal(body, &req); err != nil {
 		response.Error(c, http.StatusBadRequest, "参数错误", err.Error())
 		return
 	}
@@ -386,10 +392,17 @@ func (gmc *GroupMessagingController) UpdateTemplate(c *gin.Context) {
 		return
 	}
 
+	// PATCH 语义：model 绑定的是非指针 bool，需按原始 key 判断 is_active 是否显式提供，
+	// 未提供时保留原值，防止漏字段把模板意外停用
+	var rawKeys map[string]json.RawMessage
+	_ = json.Unmarshal(body, &rawKeys)
+
 	existingTemplate.Name = req.Name
 	existingTemplate.Content = req.Content
 	existingTemplate.Category = req.Category
-	existingTemplate.IsActive = req.IsActive
+	if _, ok := rawKeys["is_active"]; ok {
+		existingTemplate.IsActive = req.IsActive
+	}
 	existingTemplate.Description = req.Description
 
 	updated, err := gmc.templateService.UpdateTemplate(context.Background(), existingTemplate)

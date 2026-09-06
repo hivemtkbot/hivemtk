@@ -36,12 +36,14 @@ type GetAccountListResponse struct {
 }
 
 type UpdateAccountRequest struct {
-	ID               string `json:"id" binding:"required"`
-	TgName           string `json:"tg_name"`
-	TgBotToken       string `json:"tg_bot_token"`
-	Price            string `json:"price"`
-	GroupID          int64  `json:"group_id"`
-	ProxyEnableProxy bool   `json:"proxy_enable_proxy"`
+	ID         string `json:"id" binding:"required"`
+	TgName     string `json:"tg_name"`
+	TgBotToken string `json:"tg_bot_token"`
+	Price      string `json:"price"`
+	GroupID    int64  `json:"group_id"`
+	// ProxyEnableProxy 用 *bool 表达 PATCH 语义：nil = 未传 = 保留原值。
+	// 该接口当前无前端调用方，防御漏字段把代理开关意外关闭。
+	ProxyEnableProxy *bool  `json:"proxy_enable_proxy"`
 	ProxyProtoclo    string `json:"proxy_protoclo"`
 	ProxyHost        string `json:"proxy_host"`
 	ProxyPort        int    `json:"proxy_port"`
