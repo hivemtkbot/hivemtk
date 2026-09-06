@@ -49,9 +49,7 @@ func (r *ConfidenceSignalRepository) ListBySession(ctx context.Context, sessionI
 	q := db.GetDB().WithContext(ctx).
 		Where("session_id = ?", sessionID).
 		Order("created_at DESC")
-	if limit > 0 {
-		q = q.Limit(limit)
-	}
+	q = applyListLimit(q, limit)
 	err := q.Find(&list).Error
 	return list, err
 }
@@ -96,9 +94,7 @@ func (r *ConfidenceCalibrationRepository) ListBySignalType(ctx context.Context, 
 	q := db.GetDB().WithContext(ctx).
 		Where("signal_type = ?", signalType).
 		Order("created_at DESC")
-	if limit > 0 {
-		q = q.Limit(limit)
-	}
+	q = applyListLimit(q, limit)
 	err := q.Find(&list).Error
 	return list, err
 }
@@ -147,9 +143,7 @@ func (r *HandoffDecisionRepository) ListBySession(ctx context.Context, sessionID
 	q := db.GetDB().WithContext(ctx).
 		Where("session_id = ?", sessionID).
 		Order("created_at DESC")
-	if limit > 0 {
-		q = q.Limit(limit)
-	}
+	q = applyListLimit(q, limit)
 	err := q.Find(&list).Error
 	return list, err
 }
@@ -258,9 +252,7 @@ func (r *ABTestRepository) ListByStatus(ctx context.Context, status string, limi
 		q = q.Where("status = ?", status)
 	}
 	q = q.Order("created_at DESC")
-	if limit > 0 {
-		q = q.Limit(limit)
-	}
+	q = applyListLimit(q, limit)
 	err := q.Find(&list).Error
 	return list, err
 }

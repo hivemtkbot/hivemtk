@@ -41,9 +41,7 @@ func (r *ScriptLibraryRepository) ListObjectionTemplates(ctx context.Context, ob
 		Where("(status IN ('', 'active'))").
 		Where("(expires_at IS NULL OR expires_at > NOW())").
 		Order("usage_count DESC")
-	if limit > 0 {
-		q = q.Limit(limit)
-	}
+	q = applyListLimit(q, limit)
 	var scripts []model.ScriptLibrary
 	if err := q.Find(&scripts).Error; err != nil {
 		return nil, err

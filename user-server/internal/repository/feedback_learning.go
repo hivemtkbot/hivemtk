@@ -32,9 +32,7 @@ func (r *FeedbackLearningRepository) ListAIMessagesByPeriod(ctx context.Context,
 	q := r.db.WithContext(ctx).Model(&model.SessionMessage{}).
 		Where("sender_type = ? AND created_at BETWEEN ? AND ?", "ai", start, end).
 		Order("created_at ASC")
-	if limit > 0 {
-		q = q.Limit(limit)
-	}
+	q = applyListLimit(q, limit)
 	var messages []model.SessionMessage
 	if err := q.Find(&messages).Error; err != nil {
 		return nil, err

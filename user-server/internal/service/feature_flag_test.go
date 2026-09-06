@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 )
 
 type mockFlagRepo struct {
+	mu    sync.Mutex
 	flags map[string]*model.FeatureFlag
 	logs  []model.FeatureFlagEvalLog
 }
@@ -56,10 +58,15 @@ func (m *mockFlagRepo) ListAudit(ctx context.Context, flagID uint, limit int) ([
 	return nil, nil
 }
 func (m *mockFlagRepo) CreateEvalLog(ctx context.Context, e *model.FeatureFlagEvalLog) error {
+	// logEvalAsync 为异步 goroutine 写入,mock 必须并发安全(race detector 要求)
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.logs = append(m.logs, *e)
 	return nil
 }
 func (m *mockFlagRepo) ListEvalLogs(ctx context.Context, flagKey string, limit int) ([]model.FeatureFlagEvalLog, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.logs, nil
 }
 func (m *mockFlagRepo) TouchEvaluated(ctx context.Context, id uint) error { return nil }

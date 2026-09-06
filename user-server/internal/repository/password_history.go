@@ -37,9 +37,7 @@ func (r *passwordHistoryRepo) ListRecent(ctx context.Context, userID uint, limit
 	q := r.db.WithContext(ctx).
 		Where("user_id = ?", userID).
 		Order("changed_at DESC")
-	if limit > 0 {
-		q = q.Limit(limit)
-	}
+	q = applyListLimit(q, limit)
 	if err := q.Find(&list).Error; err != nil {
 		return nil, err
 	}

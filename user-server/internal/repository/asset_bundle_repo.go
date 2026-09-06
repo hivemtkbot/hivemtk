@@ -20,6 +20,15 @@ import (
 	"gorm.io/gorm"
 )
 
+// applyListLimit 统一"可选 limit"查询语义:limit<=0 时默认 500,防止增长型表无界全表载入。
+// 函数调用方几乎都显式传参;该兜底仅封顶 cron/旧调用方的不设防路径。
+func applyListLimit(q *gorm.DB, limit int) *gorm.DB {
+	if limit > 0 {
+		return q.Limit(limit)
+	}
+	return q.Limit(500)
+}
+
 // AssetBundleFilter 列表过滤
 type AssetBundleFilter struct {
 	Keyword  string
@@ -143,9 +152,7 @@ func (r *assetBundleRepo) List(ctx context.Context, f AssetBundleFilter) ([]*mod
 func (r *assetBundleRepo) ListByAuthor(ctx context.Context, author string, limit int) ([]*model.AssetBundle, error) {
 	var list []*model.AssetBundle
 	q := r.db.WithContext(ctx).Where("author = ?", author).Order("updated_at DESC")
-	if limit > 0 {
-		q = q.Limit(limit)
-	}
+	q = applyListLimit(q, limit)
 	err := q.Find(&list).Error
 	return list, err
 }
@@ -153,9 +160,7 @@ func (r *assetBundleRepo) ListByAuthor(ctx context.Context, author string, limit
 func (r *assetBundleRepo) ListActive(ctx context.Context, limit int) ([]*model.AssetBundle, error) {
 	var list []*model.AssetBundle
 	q := r.db.WithContext(ctx).Where("status = ?", model.AssetBundleStatusActive).Order("use_count DESC, updated_at DESC")
-	if limit > 0 {
-		q = q.Limit(limit)
-	}
+	q = applyListLimit(q, limit)
 	err := q.Find(&list).Error
 	return list, err
 }

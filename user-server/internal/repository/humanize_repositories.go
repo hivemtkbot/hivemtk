@@ -49,9 +49,7 @@ func (r *HumanizeScoreRepository) ListBySession(ctx context.Context, sessionID s
 	q := db.GetDB().WithContext(ctx).
 		Where("session_id = ?", sessionID).
 		Order("created_at DESC")
-	if limit > 0 {
-		q = q.Limit(limit)
-	}
+	q = applyListLimit(q, limit)
 	err := q.Find(&list).Error
 	return list, err
 }
@@ -62,9 +60,7 @@ func (r *HumanizeScoreRepository) ListByPersona(ctx context.Context, persona, in
 	q := db.GetDB().WithContext(ctx).
 		Where("persona = ? AND industry = ? AND intent = ?", persona, industry, intent).
 		Order("created_at DESC")
-	if limit > 0 {
-		q = q.Limit(limit)
-	}
+	q = applyListLimit(q, limit)
 	err := q.Find(&list).Error
 	return list, err
 }
@@ -180,9 +176,7 @@ func (r *ChampionBaselineRepositoryImpl) ListPhrases(ctx context.Context, baseli
 	q := db.GetDB().WithContext(ctx).
 		Where("baseline_id = ?", baselineID).
 		Order("rank ASC")
-	if limit > 0 {
-		q = q.Limit(limit)
-	}
+	q = applyListLimit(q, limit)
 	err := q.Find(&list).Error
 	return list, err
 }

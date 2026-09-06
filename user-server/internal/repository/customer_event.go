@@ -81,10 +81,8 @@ func (r *customerEventRepository) ReassignCustomerID(ctx context.Context, fromCu
 func (r *customerEventRepository) GetByCustomerID(ctx context.Context, customerID string, limit int) ([]*model.CustomerEvent, error) {
 	var events []*model.CustomerEvent
 
-	query := dbFromCtx(ctx).Where("customer_id = ?", customerID)
-	if limit > 0 {
-		query = query.Order("occurred_at DESC").Limit(limit)
-	}
+	query := dbFromCtx(ctx).Where("customer_id = ?", customerID).Order("occurred_at DESC")
+	query = applyListLimit(query, limit)
 	if err := query.Find(&events).Error; err != nil {
 		return nil, err
 	}

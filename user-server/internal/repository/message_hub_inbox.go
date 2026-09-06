@@ -863,9 +863,7 @@ func (r *InboxConversationRepository) FindOverdueConversations(ctx context.Conte
 		Where("last_message_from = ?", "customer").
 		Where("last_message_at IS NOT NULL AND last_message_at < ?", threshold).
 		Where("status IN ?", []string{"unread", "open", "assigned"})
-	if limit > 0 {
-		q = q.Limit(limit)
-	}
+	q = applyListLimit(q, limit)
 	if err := q.Order("last_message_at ASC").Find(&list).Error; err != nil {
 		return nil, err
 	}
