@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -184,6 +185,11 @@ func TestResolveLogPath_AllowLegitimate(t *testing.T) {
 		"/var/log/marketing/app.log",
 	}
 	for _, c := range cases {
+		// 绝对路径白名单(/var/log/...)是 Unix 部署语义,Windows 下 IsAbs 对无盘符路径恒 false,
+		// 该类用例仅在非 Windows 平台有意义
+		if runtime.GOOS == "windows" && strings.HasPrefix(c, "/var/") {
+			continue
+		}
 		resolved, err := resolveLogPath(c)
 		if err != nil {
 			t.Errorf("expected %q to pass, got error: %v", c, err)
