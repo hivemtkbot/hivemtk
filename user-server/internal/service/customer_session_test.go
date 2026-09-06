@@ -766,7 +766,7 @@ func TestQuickReplyService_CreateReply_Success(t *testing.T) {
 		Title:     "你好",
 		Content:   "您好，有什么可以帮助您的吗？",
 		SortOrder: 1,
-		IsPublic:  true,
+		IsPublic:  boolPtr(true),
 	}
 
 	reply, err := replyService.CreateReply(context.Background(), 123, req)
@@ -794,7 +794,7 @@ func TestQuickReplyService_UpdateReply_Success(t *testing.T) {
 		Category: "问候语",
 		Title:    "你好",
 		Content:  "您好",
-		IsPublic: true,
+		IsPublic: boolPtr(true),
 	}
 	created, _ := replyService.CreateReply(context.Background(), 123, createReq)
 
@@ -802,7 +802,7 @@ func TestQuickReplyService_UpdateReply_Success(t *testing.T) {
 		Category: "常用语",
 		Title:    "您好！",
 		Content:  "您好，有什么可以帮助您的吗？",
-		IsPublic: true,
+		IsPublic: boolPtr(true),
 	}
 	updated, err := replyService.UpdateReply(context.Background(), created.ID, updateReq)
 	if err != nil {
@@ -826,7 +826,7 @@ func TestQuickReplyService_DeleteReply_Success(t *testing.T) {
 		Category: "问候语",
 		Title:    "你好",
 		Content:  "您好",
-		IsPublic: true,
+		IsPublic: boolPtr(true),
 	}
 	created, _ := replyService.CreateReply(context.Background(), 123, req)
 
@@ -851,7 +851,7 @@ func TestQuickReplyService_GetReplies_Success(t *testing.T) {
 			Category: "问候语",
 			Title:    "问候 " + string(rune('0'+i)),
 			Content:  "内容",
-			IsPublic: true,
+			IsPublic: boolPtr(true),
 		}
 		replyService.CreateReply(context.Background(), 123, req)
 	}
@@ -875,13 +875,13 @@ func TestQuickReplyService_GetCategories_Success(t *testing.T) {
 		Category: "问候语",
 		Title:    "你好",
 		Content:  "您好",
-		IsPublic: true,
+		IsPublic: boolPtr(true),
 	}
 	req2 := &CreateReplyRequest{
 		Category: "结束语",
 		Title:    "再见",
 		Content:  "再见",
-		IsPublic: true,
+		IsPublic: boolPtr(true),
 	}
 	replyService.CreateReply(context.Background(), 123, req1)
 	replyService.CreateReply(context.Background(), 123, req2)

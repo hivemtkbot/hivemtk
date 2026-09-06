@@ -18,29 +18,31 @@ func NewQuickReplyService() *QuickReplyService {
 	}
 }
 
-// CreateReplyRequest 创建快捷回复请求
+// CreateReplyRequest 创建/更新快捷回复请求
+//
+// IsPublic 用 *bool 表达 PATCH 语义：nil = 未传 = 保留原值。
+// 前端编辑表单不含 is_public 字段，若用 bool 零值会把已有记录打成私有、
+// 使其从 is_public=true 的列表查询中消失（R2-1）。
 type CreateReplyRequest struct {
 	Category  string `json:"category" binding:"required"`
 	Title     string `json:"title" binding:"required"`
 	Content   string `json:"content" binding:"required"`
 	Channel   string `json:"channel"`
 	SortOrder int    `json:"sort_order"`
-	IsPublic  bool   `json:"is_public"`
+	IsPublic  *bool  `json:"is_public"`
 }
 
 // CreateReply 创建快捷回复
 func (s *QuickReplyService) CreateReply(ctx context.Context, createdBy uint, req *CreateReplyRequest) (*model.QuickReply, error) {
+	// 创建口径保持既有行为：无论显式传什么，新建回复一律公开
 	reply := &model.QuickReply{
 		Category:  req.Category,
 		Title:     req.Title,
 		Content:   req.Content,
 		Channel:   req.Channel,
 		SortOrder: req.SortOrder,
-		IsPublic:  req.IsPublic,
+		IsPublic:  true,
 		CreatedBy: createdBy,
-	}
-	if !reply.IsPublic {
-		reply.IsPublic = true
 	}
 
 	if err := s.replyRepo.Create(ctx, reply); err != nil {
@@ -62,7 +64,10 @@ func (s *QuickReplyService) UpdateReply(ctx context.Context, id uint, req *Creat
 	reply.Content = req.Content
 	reply.Channel = req.Channel
 	reply.SortOrder = req.SortOrder
-	reply.IsPublic = req.IsPublic
+	// PATCH 语义：未传 is_public 保留原值，防止编辑把公开模板打成私有
+	if req.IsPublic != nil {
+		reply.IsPublic = *req.IsPublic
+	}
 
 	if err := s.replyRepo.Update(ctx, reply); err != nil {
 		return nil, err
