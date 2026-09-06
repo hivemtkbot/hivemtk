@@ -13,7 +13,21 @@
     <el-row :gutter="12">
       <el-col :span="6">
         <el-card class="palette">
-          <template #header><span>组件库</span></template>
+          <template #header><span>组件库</span>  <el-dialog v-model="saveDialogVisible" title="保存看板" width="420px">
+    <el-form label-width="80px">
+      <el-form-item label="看板名称">
+        <el-input v-model="saveName" placeholder="请输入看板名称" maxlength="60" @keyup.enter="confirmSave" />
+      </el-form-item>
+      <el-form-item label="公开访问">
+        <el-switch v-model="screenPublic" active-text="公开投屏链接" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="saveDialogVisible = false">取消</el-button>
+      <el-button type="primary" :loading="saving" @click="confirmSave">保存</el-button>
+    </template>
+  </el-dialog>
+</template>
           <div
             v-for="b in blockTypes"
             :key="b.type"
@@ -47,11 +61,25 @@
       </el-col>
     </el-row>
   </div>
+  <el-dialog v-model="saveDialogVisible" title="保存看板" width="420px" append-to-body>
+    <el-form label-width="80px">
+      <el-form-item label="看板名称">
+        <el-input v-model="saveName" placeholder="请输入看板名称" maxlength="60" @keyup.enter="confirmSave" />
+      </el-form-item>
+      <el-form-item label="公开访问">
+        <el-switch v-model="screenPublic" active-text="公开投屏链接" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="saveDialogVisible = false">取消</el-button>
+      <el-button type="primary" :loading="saving" @click="confirmSave">保存</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
 import { ref, reactive, markRaw } from 'vue';
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   DataLine, PieChart, Document, Histogram, TrendCharts, LocationInformation
 } from '@element-plus/icons-vue'
@@ -69,6 +97,10 @@ const blockTypes = [
 ]
 
 const blocks = ref([])
+const saveDialogVisible = ref(false)
+const saveName = ref('')
+const saving = ref(false)
+const screenPublic = ref(true)
 let _id = 1
 
 function onPaletteDragStart(e, b) {
@@ -129,8 +161,30 @@ function resize(i) {
 function removeBlock(i) { blocks.value.splice(i, 1) }
 
 async function save() {
-  await http.post('/api/dashboards', { blocks: blocks.value })
-  ElMessage.success('看板已保存')
+  // R5-2 修复：CreateScreenRequest 需要 name（required），且布局字段是 layout
+  try {
+    // R5-4：本页面内 ElMessageBox.prompt 触发 Vue 挂载崩溃（parent.provides undefined），
+    // 改用 confirm + 自动命名绕开；名称含时间戳保证可辨识
+    const autoName = `看板-${new Date().toISOString().slice(0, 16).replace('T', ' ')}`
+    await ElMessageBox.confirm(`保存为「${autoName}」？（公开投屏语义，保存后即可通过公开链接访问）`, '保存看板', { type: 'info' })
+    await http.post('/api/dashboards', {
+      name: autoName,
+      layout: { blocks: blocks.value },
+      theme: 'light',
+      is_public: screenPublic.value // 大屏语义=公开投屏；false 会使公开路由 404（R5-3）
+    })
+    // 注意：不持有响应对象引用——拦截器返回的对象进入响应式链会触发
+    // Vue Object.create(undefined)（R5-4，堆栈 vue Object.create cf/ae/Q）
+    ElMessage.success(`看板「${autoName}」已保存（公开可访问）`, { duration: 5000 })
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') {
+      // 非 HTTP 错误（如 JSON 序列化失败）兜底提示；HTTP 错误由拦截器统一 toast
+      if (!String(e).includes('Request failed')) {
+        localStorage.setItem('r5_save_err', JSON.stringify({msg: e?.message || String(e), stack: e?.stack || ''}))
+        ElMessage.error('保存失败：' + (e?.message || e))
+      }
+    }
+  }
 }
 </script>
 

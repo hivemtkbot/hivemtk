@@ -47,7 +47,9 @@
             <span class="downloads">↓ {{ a.download_count || 0 }}</span>
           </div>
           <el-tag v-if="a.purchased" type="success" size="small">已购</el-tag>
-          <el-button v-else type="primary" size="small" @click.stop="handlePurchase(a)">免费试用</el-button>
+          <el-button v-else type="primary" size="small" @click.stop="handlePurchase(a)">
+            {{ (a.price > 0) ? `${a.price} 积分购买` : '免费试用' }}
+          </el-button>
         </div>
       </el-card>
     </div>
@@ -107,17 +109,17 @@ const fetchList = async () => {
 }
 
 const handlePurchase = async (asset) => {
+  const paid = (asset.price > 0)
+  const confirmMsg = paid
+    ? `确认以 ${asset.price} 积分购买资产「${asset.name}」？购买后将自动同步到本地（积分余额不足将被拒绝）。`
+    : `确认「免费试用」资产「${asset.name}」？试用后将自动同步到本地。`
   try {
-    await ElMessageBox.confirm(
-      `确认「免费试用」资产「${asset.name}」？试用后将自动同步到本地。`,
-      '免费试用',
-      { type: 'info' }
-    )
+    await ElMessageBox.confirm(confirmMsg, paid ? '积分购买' : '免费试用', { type: 'warning' })
   } catch {
     return
   }
   await purchaseAsset({ asset_id: asset.asset_id })
-  ElMessage.success('试用并同步成功，请到「我的资产」查看')
+  ElMessage.success(paid ? '购买并同步成功，积分已从账户扣款，请到「我的资产」查看' : '试用并同步成功，请到「我的资产」查看')
   fetchList()
 }
 
