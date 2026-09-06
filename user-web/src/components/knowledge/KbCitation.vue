@@ -32,6 +32,7 @@
 </template>
 
 <script setup>
+import DOMPurify from 'dompurify'
 import { ref } from 'vue';
 import { ElMessage } from 'element-plus'
 import { Pointer, View, CaretTop, CaretBottom } from '@element-plus/icons-vue'
@@ -50,28 +51,30 @@ function scoreTag(score) {
   return 'info'
 }
 
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
 function highlightedContent(cite) {
-  // 安全:知识库内容可能来自外部导入,必须先 HTML 转义再进 v-html,
-  // 高亮针对转义后的文本匹配(查询词同样转义),否则构成存储型 XSS
+  // XSS 加固：cite.content 来自知识库文档（可能含外部/用户输入），
+  // 必须先 HTML 转义再注入高亮 <mark>，最后 DOMPurify 兜底——
+  // 与 ChatMessages/BulkMessaging 的 v-html 处理口径一致。
   let content = escapeHtml(cite.content || '')
-  if (!props.query) return content
+  if (!props.query) return sanitize(content)
   const tokens = props.query.split(/\s+/).filter((t) => t.length > 1);
   tokens.forEach((t) => {
-    const re = new RegExp(`(${escape(escapeHtml(t))})`, 'gi')
+    const re = new RegExp(`(${escapeRegExp(t)})`, 'gi')
     content = content.replace(re, '<mark>$1</mark>')
   })
-  return content
+  return sanitize(content)
 }
 
-function escape(s) {
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
+function sanitize(html) {
+  return DOMPurify.sanitize(html, { ALLOWED_TAGS: ['mark', 'br', 'b', 'i', 'strong', 'em'] })
+}
+
+function escapeRegExp(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 

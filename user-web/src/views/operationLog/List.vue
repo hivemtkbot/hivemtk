@@ -6,6 +6,7 @@
         <p class="subtitle">{{ $t('审计追踪所有用户操作记录') }}</p>
       </div>
       <div>
+        <el-button @click="$router.push('/operationLog/enhanced')">增强视图</el-button>
         <el-button @click="exportLogs">
           <el-icon><Download /></el-icon>
           {{ $t('导出') }}

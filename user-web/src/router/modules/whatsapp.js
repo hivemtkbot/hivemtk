@@ -34,5 +34,11 @@ export default [
     name: 'BulkMessaging',
     component: () => import('@/views/whatsappBot/BulkMessaging.vue'),
     meta: { title: '批量消息发送', group: 'community', icon: 'ChatLineRound', requiresAuth: true }
+  },
+  {
+    path: '/whatsapp/bulk-matrix',
+    name: 'WhatsappBulkMatrix',
+    component: () => import('@/views/whatsapp/BulkMatrix.vue'),
+    meta: { title: '群发矩阵', group: 'community', icon: 'Grid', requiresAuth: true }
   }
 ]

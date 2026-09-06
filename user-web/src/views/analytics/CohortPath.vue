@@ -3,12 +3,14 @@
     <el-tabs v-model="activeTab">
       <el-tab-pane label="Cohort 留存" name="cohort">
         <el-card>
-          <div ref="cohortChartRef" class="chart" />
+          <el-empty v-if="cohortEmpty" description="暂无留存数据 — 有客户访问后将按周聚合展示" :image-size="80" />
+          <div v-show="!cohortEmpty" ref="cohortChartRef" class="chart" />
         </el-card>
       </el-tab-pane>
       <el-tab-pane label="行为路径" name="path">
         <el-card>
-          <div ref="pathChartRef" class="chart" />
+          <el-empty v-if="pathEmpty" description="暂无行为路径数据 — 需要更多会话行为积累" :image-size="80" />
+          <div v-show="!pathEmpty" ref="pathChartRef" class="chart" />
         </el-card>
       </el-tab-pane>
     </el-tabs>
@@ -24,12 +26,15 @@ import { http } from '@/utils/request'
 const activeTab = ref('cohort')
 const cohortChartRef = ref()
 const pathChartRef = ref()
+const cohortEmpty = ref(false)
+const pathEmpty = ref(false)
 
 async function loadCohort() {
   const data = await http.get('/api/analytics/cohort', { period: 'weekly' })
   const days = data.periods || []
   const cohorts = data.cohorts || []
-  if (!cohortChartRef.value) return
+  cohortEmpty.value = cohorts.every((c) => !c.size)
+  if (cohortEmpty.value || !cohortChartRef.value) return
   const chart = safeInit(cohortChartRef.value)
   chart.setOption({
     tooltip: { trigger: 'item' },
@@ -46,7 +51,8 @@ async function loadCohort() {
 
 async function loadPath() {
   const data = await http.get('/api/analytics/path', { limit: 5 })
-  if (!pathChartRef.value) return
+  pathEmpty.value = !(data.nodes || []).length
+  if (pathEmpty.value || !pathChartRef.value) return
   const chart = safeInit(pathChartRef.value)
   chart.setOption({
     tooltip: {},

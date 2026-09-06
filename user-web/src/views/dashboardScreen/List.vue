@@ -4,6 +4,7 @@
       <h1>{{ $t('营销数据大屏') }}</h1>
       <div class="header-info">
         <span class="time">{{ currentTime }}</span>
+        <el-button type="primary" @click="$router.push('/dashboardScreen/builder')">大屏构建</el-button>
         <el-button type="primary" @click="toggleFullscreen">
           <el-icon><FullScreen /></el-icon>
           {{ isFullscreen ? '退出全屏' : '全屏' }}

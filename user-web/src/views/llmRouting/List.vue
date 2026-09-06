@@ -10,6 +10,7 @@
           <el-icon><Plus /></el-icon>
           新增模型
         </el-button>
+        <el-button @click="$router.push('/llmRouting/cost')">成本看板</el-button>
         <el-button @click="refreshAll">
           <el-icon><Refresh /></el-icon>
           刷新
