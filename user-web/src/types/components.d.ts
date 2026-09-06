@@ -27,7 +27,6 @@ declare module 'vue' {
     CrossPlatformPublisher: typeof import('./../components/cards/CrossPlatformPublisher.vue')['default']
     Document: typeof import('@element-plus/icons-vue')['Document']
     DouyinCardPreview: typeof import('./../components/DouyinCardPreview.vue')['default']
-    Download: typeof import('@element-plus/icons-vue')['Download']
     Edit: typeof import('@element-plus/icons-vue')['Edit']
     ElAlert: typeof import('element-plus/es')['ElAlert']
     ElAside: typeof import('element-plus/es')['ElAside']

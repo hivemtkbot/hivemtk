@@ -1,8 +1,8 @@
 package tooluse
 
 import (
-	"runtime"
 	"context"
+	"runtime"
 	"strings"
 	"testing"
 	"time"

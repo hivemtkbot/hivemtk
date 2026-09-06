@@ -6,7 +6,7 @@
         <p class="subtitle">统一管理多渠道客户对话 · 集成坐席状态 / 快捷回复 / 标签 / AI 建议 / 三栏看板</p>
       </div>
       <div class="header-actions">
-        
+
         <el-select
           v-model="myStatus"
           size="default"
@@ -23,7 +23,7 @@
             <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#94A3B8;margin-right:8px;vertical-align:middle;"></span>{{ $t('离线') }}
           </el-option>
         </el-select>
-        
+
         <el-button @click="openBlacklistDialog">
           <el-icon><Warning /></el-icon>
           黑名单管理
@@ -36,7 +36,7 @@
     </el-card>
 
     <div class="main-content">
-      
+
       <div class="session-list">
         <el-card>
           <template #header>
@@ -69,7 +69,7 @@
               </div>
               <div class="preview">{{ session.lastMessage }}</div>
               <div class="session-meta">
-                
+
                 <el-tag
                   :type="session.handlerType === 'human' ? 'success' : 'info'"
                   size="small"
@@ -81,7 +81,7 @@
                   {{ session.handlerType === 'human' ? '人工' : 'AI' }}
                 </el-tag>
                 <el-tag size="small" effect="plain">{{ getChannelLabel(session.channel) }}</el-tag>
-                
+
                 <el-tag
                   v-if="blacklistedSessionIds.includes(session.id)"
                   size="small"
@@ -96,16 +96,16 @@
         </el-card>
       </div>
 
-      
+
       <div class="chat-area">
         <el-card v-if="currentSession">
-          
+
           <template #header>
             <div class="chat-header">
               <div class="customer-info">
                 <h3>{{ currentSession.customerName }}</h3>
                 <span class="channel">{{ getChannelLabel(currentSession.channel) }}</span>
-                
+
                 <el-tag
                   :type="currentHandler === 'human' ? 'success' : 'info'"
                   size="small"
@@ -118,7 +118,7 @@
                   </el-icon>
                   {{ currentHandler === 'human' ? '人工接管' : 'AI 托管' }}
                 </el-tag>
-                
+
                 <div class="session-tags">
                   <el-tag
                     v-for="tag in sessionTags"
@@ -151,7 +151,7 @@
                 </div>
               </div>
               <div class="header-actions">
-                
+
                 <el-button
                   v-if="currentHandler === 'ai'"
                   type="success"
@@ -177,7 +177,7 @@
             </div>
           </template>
 
-          
+
           <div v-if="aiSuggestions.length > 0" class="ai-suggestion-bar">
             <div class="ai-bar-title">
               <el-icon style="color: #4F46E5"><MagicStick /></el-icon>
@@ -230,7 +230,7 @@
             </div>
           </div>
 
-          
+
           <div class="input-area">
             <div v-if="quickReplies.length > 0" class="quick-replies-bar">
               <el-dropdown
@@ -269,7 +269,7 @@
               />
             </div>
 
-            
+
             <el-alert
               v-if="currentHandler === 'ai'"
               type="info"
@@ -305,416 +305,98 @@
         <el-empty v-else description="请从左侧选择会话" />
       </div>
 
-      
-      <div v-if="currentSession" class="customer-profile">
-        <el-card>
-          <template #header>
-            <div class="profile-header">
-              <span><el-icon><UserFilled /></el-icon> 客户 360°</span>
-              <el-button link size="small" @click="loadCustomerProfile">刷新</el-button>
-            </div>
-          </template>
 
-          
-          <div class="profile-section">
-            <div class="profile-row">
-              <span class="label">客户ID</span>
-              <span class="value">{{ currentSession.customerId || currentSession.sessionId }}</span>
-            </div>
-            <div class="profile-row">
-              <span class="label">渠道</span>
-              <span class="value">{{ getChannelLabel(currentSession.channel) }}</span>
-            </div>
-            <div class="profile-row">
-              <span class="label">首次接入</span>
-              <span class="value">{{ formatTime(currentSession.createdAt) }}</span>
-            </div>
-            <div class="profile-row">
-              <span class="label">消息数</span>
-              <span class="value">{{ profileStats.messageCount || 0 }}</span>
-            </div>
-            <div class="profile-row">
-              <span class="label">历史会话</span>
-              <span class="value">{{ profileStats.sessionCount || 0 }}</span>
-            </div>
-            <div class="profile-row">
-              <span class="label">AI 回复</span>
-              <span class="value">{{ profileStats.aiReplyCount || 0 }}</span>
-            </div>
-          </div>
-
-          
-          <div class="profile-section">
-            <div class="section-title">长期画像</div>
-            <div v-if="profileTags.length === 0" class="empty-hint">暂无画像标签</div>
-            <div class="tag-cloud">
-              <el-tag
-                v-for="t in profileTags"
-                :key="t.id || t.name"
-                size="small"
-                effect="plain"
-                style="margin: 2px 4px 2px 0"
-              >
-                {{ t.name || t }}
-              </el-tag>
-            </div>
-          </div>
-
-          
-          <div class="profile-section">
-            <div class="section-title">当前 SOP 阶段</div>
-            <el-radio-group v-model="sopStage" size="small" style="display: flex; flex-direction: column; gap: 6px">
-              <el-radio value="presale">售前询价</el-radio>
-              <el-radio value="lead">引导留资</el-radio>
-              <el-radio value="aftersale">售后查单</el-radio>
-              <el-radio value="refund">投诉退款</el-radio>
-            </el-radio-group>
-            <el-button
-              size="small"
-              type="primary"
-              style="margin-top: 8px; width: 100%"
-              :disabled="!sopStage"
-              @click="saveSopStage"
-            >
-              保存阶段
-            </el-button>
-          </div>
-
-          
-          <div class="profile-section">
-            <div class="section-title">快捷操作</div>
-            <el-button-group style="width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 6px">
-              <el-button size="small" @click="sendCoupon">
-                <el-icon><Ticket /></el-icon> 发券
-              </el-button>
-              <el-button size="small" @click="sendProductCard">
-                <el-icon><Goods /></el-icon> 发商品卡
-              </el-button>
-              <el-button size="small" @click="blacklist">
-                <el-icon><CircleClose /></el-icon> 拉黑
-              </el-button>
-              <el-button size="small" type="danger" @click="closeSession">
-                <el-icon><SwitchButton /></el-icon> 结束
-              </el-button>
-              <el-button size="small" type="primary" plain @click="aiSummaryCurrent">
-                <el-icon><MagicStick /></el-icon> AI摘要
-              </el-button>
-              <el-button size="small" @click="exportTranscriptCurrent">
-                <el-icon><Download /></el-icon> 转录
-              </el-button>
-              <el-button size="small" @click="snoozeCurrent">
-                <el-icon><Clock /></el-icon> 暂缓2h
-              </el-button>
-              <el-button size="small" @click="setPriorityCurrent">
-                <el-icon><Top /></el-icon> 优先级
-              </el-button>
-            </el-button-group>
-          </div>
-        </el-card>
-      </div>
+      <CustomerProfilePanel
+        v-if="currentSession"
+        :current-session="currentSession"
+        :profile-stats="profileStats"
+        :profile-tags="profileTags"
+        v-model:sop-stage="sopStage"
+        @refresh="loadCustomerProfile"
+        @save-sop-stage="saveSopStage"
+        @send-coupon="sendCoupon"
+        @send-product-card="sendProductCard"
+        @blacklist="blacklist"
+        @close-session="closeSession"
+        @ai-summary="aiSummaryCurrent"
+        @export-transcript="exportTranscriptCurrent"
+        @snooze="snoozeCurrent"
+        @set-priority="setPriorityCurrent"
+      />
     </div>
 
-    
-    <el-dialog
+
+    <BlacklistDialog
       v-model="blacklistDialogVisible"
-      title="黑名单管理"
-      width="680px"
-      :close-on-click-modal="false"
-    >
-      <div class="blacklist-toolbar">
-        <span class="count">共 {{ blacklistItems.length }} 条记录</span>
-        <el-button size="small" :loading="blacklistLoading" @click="loadBlacklist">刷新</el-button>
-      </div>
-      <el-table
-        v-loading="blacklistLoading"
-        :data="blacklistItems"
-        size="small"
-        max-height="420"
-        empty-text="暂无黑名单记录"
-      >
-        <el-table-column label="访客ID" min-width="130">
-          <template #default="{ row }">{{ row.user_id ?? row.UserID ?? row.userId ?? '-' }}</template>
-        </el-table-column>
-        <el-table-column label="平台" width="100">
-          <template #default="{ row }">{{ getChannelLabel(row.platform ?? row.Platform) }}</template>
-        </el-table-column>
-        <el-table-column label="拉黑原因" min-width="160" show-overflow-tooltip>
-          <template #default="{ row }">{{ row.reason ?? row.Reason ?? '-' }}</template>
-        </el-table-column>
-        <el-table-column label="来源" width="90">
-          <template #default="{ row }">
-            <el-tag size="small" :type="(row.source ?? row.Source) === 'auto' ? 'warning' : 'info'">
-              {{ row.source ?? row.Source ?? 'manual' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="拉黑时间" width="140">
-          <template #default="{ row }">{{ formatTime(row.created_at ?? row.CreatedAt) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="90" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" type="danger" link @click="handleUnblacklist(row)">解除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <template #footer>
-        <el-button @click="blacklistDialogVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
+      :blacklist-items="blacklistItems"
+      :blacklist-loading="blacklistLoading"
+      @reload="loadBlacklist"
+      @unblacklist="handleUnblacklist"
+    />
   </div>
 </template>
 
 <script setup>
-import i18n from '@/i18n'
-import { http } from '@/utils/request'
-
-import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import {
-  Plus, MagicStick, ChatLineSquare, User, UserFilled,
-  Ticket, Goods, CircleClose, SwitchButton, Warning, Top } from '@element-plus/icons-vue'
-import {
-  getSessions,
-  getSessionMessages,
-  sendMessage as sendMsg,
-  createSession,
-  closeSession as closeSess,
-  switchSessionHandler,
-  blacklistSession,
-  unblacklistUser,
-  listBlacklist,
-  getCustomerStats,
-  getCustomerTags
-} from '@/api/customerSession.js'
-import {
-  getOnlineAgents,
-  getMyAgent,
-  goOnline,
-  goOffline,
-  updateAgentStatus,
-  getSessionTags,
-  getQuickReplies,
-  getQuickReplyCategories,
-  getAISuggestions,
-  useAISuggestion
-} from '@/api/customerService.js'
-import AgentSocket from '@/utils/agentSocket'
+// 客户会话列表 · 容器组件:负责组装 composables 与子组件、生命周期编排。
+// 数据流/操作逻辑拆分至 ./composables/{useSessionFilters,useSessionList,useSessionActions}.js
+// 右栏客户 360° 与黑名单弹窗拆分至 ./components/{CustomerProfilePanel,BlacklistDialog}.vue
+import { ref, onMounted, watch } from 'vue'
+import { MagicStick, User, ChatLineSquare, Warning } from '@element-plus/icons-vue'
+import { getMyAgent, getOnlineAgents } from '@/api/customerService.js'
+import { getSessions } from '@/api/customerSession.js'
 import { getChannelLabel } from '@/constants/channel'
+import { formatTime } from './composables/useSessionFilters'
+import { useSessionFilters } from './composables/useSessionFilters'
+import { useSessionList } from './composables/useSessionList'
+import { useSessionActions } from './composables/useSessionActions'
+import CustomerProfilePanel from './components/CustomerProfilePanel.vue'
+import BlacklistDialog from './components/BlacklistDialog.vue'
 
-const sessions = ref([]);
-const currentSession = ref(null)
-const messages = ref([])
+// —— 共享状态:会话数据源 + 输入框内容(列表/操作/聊天多个职责共同读写) ——
+const sessions = ref([])
 const inputMsg = ref('')
-const filterStatus = ref('')
-const messagesRef = ref()
 
-const currentHandler = computed(() => {
-  return currentSession.value?.handlerType === 'human' ? 'human' : 'ai'
-});
-const handlerSwitching = ref(false)
+// —— 会话列表与筛选 ——
+const { filterStatus, filteredSessions, findSession, upsertSession } = useSessionFilters(sessions)
 
-const profileStats = ref({ messageCount: 0, sessionCount: 0, aiReplyCount: 0 });
-const profileTags = ref([])
-const sopStage = ref('')
+// —— 会话数据流(消息/标签/快捷回复/AI 建议/坐席 socket) ——
+const list = useSessionList({ sessions, inputMsg, findSession, upsertSession })
+const {
+  currentSession, messages, messagesRef, currentHandler,
+  allTags, sessionTags, tagToAdd,
+  quickReplies, quickReplySearch,
+  aiSuggestions, myAgentId, profileStats, profileTags,
+  setActions, setupAgentSocket,
+  selectSession, sendMessage,
+  loadAllTags, addSessionTag, removeSessionTag,
+  loadQuickReplies, onQuickReplySearch, insertQuickReply,
+  loadAiSuggestions, useAiSuggestion, loadCustomerProfile
+} = list
 
-const myStatus = ref('offline');
-const myAgentId = ref(null)
+// —— 操作类逻辑(接管/释放/结束/拉黑/黑名单/坐席状态/SOP/话术) ——
+const actions = useSessionActions({ currentSession, currentHandler, inputMsg, myAgentId })
+const {
+  myStatus, sopStage, handlerSwitching, blacklistedSessionIds,
+  blacklistDialogVisible, blacklistItems, blacklistLoading,
+  setReload,
+  aiSummaryCurrent, exportTranscriptCurrent, snoozeCurrent, setPriorityCurrent,
+  showCreateSession, closeSession, handleTakeover, handleRelease,
+  saveSopStage, sendCoupon, sendProductCard, blacklist,
+  openBlacklistDialog, loadBlacklist, handleUnblacklist, handleStatusChange
+} = actions
 
-const allTags = ref([]);
-const sessionTags = ref([]);
-const tagToAdd = ref(null)
-
-const quickReplies = ref([]);
-const allQuickReplies = ref([]);
-const quickReplySearch = ref('')
-
-const aiSuggestions = ref([]);
-
-const blacklistDialogVisible = ref(false);
-const blacklistItems = ref([])
-const blacklistLoading = ref(false)
-const blacklistedSessionIds = ref([])
-
-const SESSION_STATUS_META = {
-  pending: { label: '待处理', tagType: 'info' },
-  ai_handling: { label: 'AI处理', tagType: 'primary' },
-  human_handling: { label: '人工', tagType: 'success' },
-  waiting: { label: '等待', tagType: 'warning' },
-  resolved: { label: '已解决', tagType: 'success' },
-  closed: { label: '已关闭', tagType: 'info' }
-};
-
-const getSessionStatusLabel = (status) => SESSION_STATUS_META[status]?.label || status
-const getSessionStatusTagType = (status) => SESSION_STATUS_META[status]?.tagType || 'info'
-
-const ACTIVE_STATUSES = ['pending', 'ai_handling', 'human_handling', 'waiting'];
-
-const filteredSessions = computed(() => {
-  if (!filterStatus.value) return sessions.value
-  if (filterStatus.value === '__active__') {
-    return sessions.value.filter((s) => ACTIVE_STATUSES.includes(s.status))
-  }
-  return sessions.value.filter((s) => s.status === filterStatus.value)
+// 依赖回填:操作成功后刷新会话列表 / 选中会话后加载客户画像(与原实现调用点一致)
+setActions({
+  loadCustomerProfile
 })
+setReload(loadSessions)
 
-const formatTime = (time) => {
-  if (!time) return ''
-  const d = new Date(time)
-  const now = new Date()
-  if (d.toDateString() === now.toDateString()) {
-    return d.toTimeString().substring(0, 5)
-  }
-  return `${d.getMonth() + 1}/${d.getDate()}`
-};
-
-let agentSocketInst = null;
-
-const mapSession = (s) => {
-  if (!s) return null
-  return {
-    id: s.ID ?? s.id,
-    sessionId: s.SessionID ?? s.session_id,
-    customerId: s.UserID ?? s.user_id,
-    customerName: s.UserName ?? s.user_name ?? '访客',
-    channel: s.Platform ?? s.platform ?? '',
-    status: s.Status ?? s.status ?? 'waiting',
-    handlerType: s.HandlerType ?? s.handler_type ?? 'ai',
-    lastMessage: s.LastMessage ?? s.last_message ?? '',
-    lastTime: s.LastMessageAt ?? s.last_message_at ?? s.CreatedAt ?? s.created_at ?? '',
-    createdAt: s.CreatedAt ?? s.created_at,
-    unread: s.unread_count ?? s.unread ?? 0,
-    tags: s.Tags ?? s.tags ?? []
-  };
+// 话术模板:填充输入框(原实现保留在容器层)
+const insertTemplate = () => {
+  inputMsg.value = '您好，请问有什么可以帮您？'
 }
 
-const findSession = (sessionId) => {
-  if (sessionId == null) return null
-  return sessions.value.find(s => s.sessionId === sessionId || String(s.id) === String(sessionId))
-}
-
-const upsertSession = (s) => {
-  const item = mapSession(s)
-  if (!item) return
-  const idx = sessions.value.findIndex(x => x.sessionId === item.sessionId || String(x.id) === String(item.id))
-  if (idx >= 0) {
-    sessions.value[idx] = { ...sessions.value[idx], ...item }
-  } else {
-    sessions.value.unshift(item)
-  }
-}
-
-const mapMessage = (m) => {
-  const st = m.SenderType ?? m.sender_type
-  const isVisitor = st === 'visitor' || st === 'user'
-  return {
-    id: m.ID ?? m.id,
-    direction: isVisitor ? 'in' : 'out',
-    senderType: st,
-    from: m.SenderName ?? (st === 'ai' ? 'AI 助手' : isVisitor ? '访客' : '客服'),
-    content: m.Content ?? m.content,
-    createdAt: formatTime(m.CreatedAt ?? m.created_at)
-  }
-}
-
-const onAgentNewSession = (payload) => {
-  const session = mapSession(payload.session)
-  if (!session) return
-  const isCurrent = currentSession.value &&
-    (currentSession.value.sessionId === session.sessionId || String(currentSession.value.id) === String(session.id))
-  upsertSession(session)
-  if (!isCurrent) ElMessage.info(`新会话接入：${session.customerName || '访客'}`)
-}
-
-const onAgentNewMessage = (payload) => {
-  const sid = payload.session_id
-  const session = findSession(sid)
-  const raw = payload.message
-  const msg = raw ? mapMessage(raw) : null
-  if (session) {
-    session.lastMessage = msg ? msg.content : (payload.content || session.lastMessage)
-    session.lastTime = msg ? (raw.CreatedAt ?? raw.created_at) : new Date().toISOString()
-  }
-  const isCurrent = currentSession.value &&
-    (currentSession.value.sessionId === sid || String(currentSession.value.id) === String(sid))
-  if (isCurrent && msg) {
-    messages.value.push(msg)
-    nextTick(scrollToBottom)
-  } else if (session) {
-    session.unread = (session.unread || 0) + 1
-  }
-}
-
-const onAgentSessionUpdate = (payload) => {
-  const session = findSession(payload.session_id)
-  if (!session) return
-  if (payload.handler_type) session.handlerType = payload.handler_type
-  if (payload.handlerType) session.handlerType = payload.handlerType
-  if (payload.status) session.status = payload.status
-  if (payload.transferred) session.transferred = payload.transferred
-  if (currentSession.value && (currentSession.value.sessionId === payload.session_id || String(currentSession.value.id) === String(payload.session_id))) {
-    if (payload.handler_type) currentSession.value.handlerType = payload.handler_type
-    if (payload.handlerType) currentSession.value.handlerType = payload.handlerType
-    if (payload.status) currentSession.value.status = payload.status
-  }
-};
-
-const onAgentAISuggestion = () => {
-  if (currentSession.value) loadAiSuggestions()
-}
-
-const setupAgentSocket = () => {
-  if (!myAgentId.value || agentSocketInst) return
-  agentSocketInst = new AgentSocket(myAgentId.value, undefined, {
-    onNewSession: onAgentNewSession,
-    onNewMessage: onAgentNewMessage,
-    onSessionUpdate: onAgentSessionUpdate,
-    onAISuggestion: onAgentAISuggestion,
-    onError: (e) => { console.warn('[agentSocket]', e) }
-  })
-  agentSocketInst.connect()
-}
-
-const aiSummaryCurrent = async () => {
-  if (!currentSession.value) return ElMessage.warning('请先选择会话')
-  const sid = currentSession.value.sessionId || currentSession.value.session_id
-  try {
-    loading.value = true
-    const res = await http.post(`/api/customer-sessions/${sid}/ai-summary`)
-    const d = res?.data || {}
-    ElMessage.alert(d.summary || '摘要生成完成', 'AI 会话摘要（' + (d.sentiment || 'neutral') + '）', { confirmButtonText: '知道了' })
-  } catch (e) {
-    ElMessage.error(e?.message || '摘要生成失败')
-  } finally { loading.value = false }
-};
-
-const exportTranscriptCurrent = () => {
-  if (!currentSession.value) return ElMessage.warning('请先选择会话')
-  const sid = currentSession.value.sessionId || currentSession.value.session_id
-  window.open(`/api/customer-sessions/${sid}/transcript?format=csv`, '_blank')
-}
-
-const snoozeCurrent = async () => {
-  if (!currentSession.value) return ElMessage.warning('请先选择会话')
-  const sid = currentSession.value.sessionId || currentSession.value.session_id
-  try {
-    await http.post(`/api/customer-sessions/${sid}/snooze`, { hours: 2 })
-    ElMessage.success('会话已暂缓 2 小时')
-  } catch (e) { ElMessage.error(e?.message || '暂缓失败') }
-}
-
-const setPriorityCurrent = async () => {
-  if (!currentSession.value) return ElMessage.warning('请先选择会话')
-  const sid = currentSession.value.sessionId || currentSession.value.session_id
-  try {
-    const { value } = await ElMessageBox.prompt('输入优先级 0 普通 / 1 低 / 2 高 / 3 紧急', '设置优先级', { inputValue: String(currentSession.value.priority ?? 0) })
-    await http.put(`/api/customer-sessions/${sid}/priority`, { level: Number(value) })
-    currentSession.value.priority = Number(value)
-    ElMessage.success('优先级已更新')
-  } catch (e) {
-    if (e !== 'cancel' && e !== 'close') ElMessage.error(e?.message || '设置失败')
-  }
-}
-
+// 会话列表加载(容器层保留:多个 composables 通过回调依赖此函数)
 const loadSessions = async () => {
   try {
     const res = await getSessions()
@@ -738,370 +420,6 @@ const loadSessions = async () => {
     sessions.value = []
   }
 };
-
-const selectSession = async (session) => {
-  currentSession.value = session
-  try {
-    const res = await getSessionMessages(session.id)
-    const list = Array.isArray(res) ? res : (res?.list || [])
-    messages.value = list.map((m) => ({
-      id: m.id,
-      direction: m.sender_type === 'user' ? 'in' : 'out',
-      senderType: m.sender_type,
-      from: m.sender_name || (m.sender_type === 'user' ? '访客' : m.sender_type === 'ai' ? 'AI 助手' : '客服'),
-      content: m.content,
-      createdAt: formatTime(m.created_at)
-    }))
-    await Promise.all([loadSessionTags(), loadAiSuggestions(), loadCustomerProfile()]);
-    await nextTick()
-    scrollToBottom()
-  } catch (e) {
-    console.error('加载会话消息失败:', e)
-    ElMessage.error(i18n.global.t('加载会话消息失败'))
-  }
-}
-
-const sendMessage = async () => {
-  if (!inputMsg.value.trim() || !currentSession.value) return
-  if (currentHandler.value === 'ai') {
-    ElMessage.warning('AI 托管中，请先接管会话')
-    return
-  }
-  const content = inputMsg.value.trim()
-  inputMsg.value = ''
-  try {
-    await sendMsg({
-      sessionId: currentSession.value.id,
-      content,
-      sender_type: 'agent',
-      sender_name: '客服',
-      sender_id: String(myAgentId.value || '')
-    })
-    messages.value.push({
-      id: Date.now(),
-      direction: 'out',
-      senderType: 'agent',
-      from: 'me',
-      content,
-      createdAt: new Date().toLocaleTimeString()
-    })
-    await nextTick()
-    scrollToBottom()
-  } catch (e) {
-    inputMsg.value = content;
-    ElMessage.error('发送失败：' + (e?.message || ''))
-  }
-}
-
-const scrollToBottom = () => {
-  if (messagesRef.value) {
-    messagesRef.value.scrollTop = messagesRef.value.scrollHeight
-  }
-}
-
-const insertTemplate = () => {
-  inputMsg.value = '您好，请问有什么可以帮您？'
-}
-
-const showCreateSession = async () => {
-  try {
-    const { value } = await ElMessageBox.prompt('请输入客户ID', '新建会话')
-    if (value) {
-      await createSession({
-        platform: 'web',
-        account_id: 'default',
-        user_id: value,
-        user_name: value
-      })
-      ElMessage.success(i18n.global.t('会话已创建'))
-      loadSessions()
-    }
-  } catch (e) {}
-}
-
-const closeSession = async () => {
-  try {
-    await ElMessageBox.confirm('确定结束该会话？', '确认', { type: 'warning' })
-    await closeSess(currentSession.value.id)
-    ElMessage.success(i18n.global.t('会话已结束'))
-    currentSession.value = null
-    loadSessions()
-  } catch (e) {
-    if (e !== 'cancel') ElMessage.error(i18n.global.t('操作失败'))
-  }
-}
-
-const handleTakeover = async () => {
-  if (!currentSession.value) return
-  if (currentHandler.value === 'human') {
-    ElMessage.warning('该会话已由人工接管')
-    return
-  }
-  try {
-    handlerSwitching.value = true
-    await switchSessionHandler(currentSession.value.id, 'human', '坐席主动接管')
-    currentSession.value.handlerType = 'human';
-    if (currentSession.value.status !== 'human_handling') {
-      currentSession.value.status = 'human_handling'
-    }
-    ElMessage.success('已接管会话，现在可以与客户对话')
-  } catch (e) {
-    ElMessage.error('接管失败：' + (e?.message || ''))
-  } finally {
-    handlerSwitching.value = false
-  }
-};
-
-const handleRelease = async () => {
-  if (!currentSession.value) return
-  if (currentHandler.value === 'ai') {
-    ElMessage.warning('该会话已由 AI 托管')
-    return
-  }
-  try {
-    await ElMessageBox.confirm('释放后会话将交回 AI 托管，确定吗？', '确认释放', { type: 'warning' })
-    handlerSwitching.value = true
-    await switchSessionHandler(currentSession.value.id, 'ai', '')
-    currentSession.value.handlerType = 'ai'
-    currentSession.value.status = 'waiting'
-    ElMessage.success('已释放回 AI 托管')
-  } catch (e) {
-    if (e !== 'cancel') ElMessage.error('释放失败：' + (e?.message || ''))
-  } finally {
-    handlerSwitching.value = false
-  }
-};
-
-const loadCustomerProfile = async () => {
-  if (!currentSession.value) return
-  const uid = currentSession.value.customerId || currentSession.value.sessionId
-  try {
-    const [statsRes, tagsRes] = await Promise.all([
-      getCustomerStats(uid).catch(() => null),
-      getCustomerTags(uid).catch(() => null)
-    ])
-    profileStats.value = statsRes || profileStats.value
-    const tagsData = Array.isArray(tagsRes) ? tagsRes : (tagsRes?.list || [])
-    profileTags.value = tagsData
-  } catch (e) {
-    console.warn('[profile] load failed:', e)
-  }
-};
-
-const saveSopStage = async () => {
-  if (!currentSession.value || !sopStage.value) return
-  ElMessage.success(`已标记 SOP 阶段：${sopStage.value}`);
-};
-
-const sendCoupon = () => {
-  if (!currentSession.value) return
-  inputMsg.value = '【优惠券】新人专享 8 折，输入 COUPON8 立减';
-  ElMessage.success('已准备优惠券话术，可直接发送')
-};
-const sendProductCard = () => {
-  if (!currentSession.value) return
-  inputMsg.value = '【商品卡片】热卖推荐：XXX 蓝莓味爆款 ¥99'
-  ElMessage.success('已准备商品卡话术，可直接发送')
-}
-const blacklist = async () => {
-  if (!currentSession.value) return
-  let reason = ''
-  try {
-    const promptRes = await ElMessageBox.prompt('请输入拉黑原因（选填）', '拉黑访客', {
-      type: 'warning',
-      confirmButtonText: '确认拉黑',
-      cancelButtonText: '取消',
-      inputPlaceholder: '例如：恶意刷屏 / 辱骂客服 / 欺诈风险'
-    });
-    reason = promptRes?.value || ''
-  } catch (e) {
-    return;
-  }
-  try {
-    await blacklistSession(currentSession.value.id, reason, 0);
-    if (!blacklistedSessionIds.value.includes(currentSession.value.id)) {
-      blacklistedSessionIds.value = [...blacklistedSessionIds.value, currentSession.value.id]
-    }
-    currentSession.value.status = 'closed'
-    ElMessage.success('已加入黑名单，该会话已关闭')
-    loadSessions()
-  } catch (e) {
-    ElMessage.error('拉黑失败：' + (e?.message || ''))
-  }
-}
-
-const openBlacklistDialog = async () => {
-  blacklistDialogVisible.value = true
-  await loadBlacklist()
-};
-
-const loadBlacklist = async () => {
-  blacklistLoading.value = true
-  try {
-    const res = await listBlacklist({ page: 1, page_size: 50 })
-    const list = Array.isArray(res) ? res : (res?.list || res?.data || []);
-    blacklistItems.value = list
-  } catch (e) {
-    blacklistItems.value = []
-    ElMessage.error('加载黑名单失败：' + (e?.message || ''))
-  } finally {
-    blacklistLoading.value = false
-  }
-}
-
-const handleUnblacklist = async (item) => {
-  const userId = item.user_id ?? item.UserID ?? item.userId
-  const platform = item.platform ?? item.Platform ?? 'web'
-  if (!userId) {
-    ElMessage.warning('缺少 user_id，无法解除')
-    return
-  }
-  try {
-    await ElMessageBox.confirm(`确定解除 ${userId} 的黑名单？`, '解除拉黑', { type: 'warning' })
-    await unblacklistUser(userId, platform)
-    ElMessage.success('已解除拉黑')
-    await loadBlacklist()
-  } catch (e) {
-    if (e !== 'cancel') ElMessage.error('解除失败：' + (e?.message || ''))
-  }
-};
-
-const handleStatusChange = async (newStatus) => {
-  try {
-    if (myAgentId.value) {
-      if (newStatus === 'online') {
-        await goOnline(myAgentId.value)
-      } else if (newStatus === 'offline') {
-        await goOffline(myAgentId.value)
-      } else {
-        await updateAgentStatus(myAgentId.value, { status: newStatus })
-      }
-      ElMessage.success(`已切换至${newStatus === 'online' ? '在线' : newStatus === 'busy' ? '忙碌' : '离线'}`)
-    } else {
-      ElMessage.info(i18n.global.t('未检测到坐席身份，状态仅本地保存'))
-    }
-  } catch (e) {
-    ElMessage.error('状态切换失败：' + (e?.message || ''))
-    myStatus.value = 'offline';
-  }
-};
-
-const loadAllTags = async () => {
-  try {
-    const res = await getSessionTags()
-    const data = res || [];
-    allTags.value = Array.isArray(data) ? data : data.list || []
-  } catch (e) {
-    allTags.value = []
-  }
-};
-
-const loadSessionTags = () => {
-  if (!currentSession.value) {
-    sessionTags.value = []
-    return
-  }
-  const raw = currentSession.value.tags
-  let ids = []
-  try {
-    ids = typeof raw === 'string' ? JSON.parse(raw || '[]') : raw || []
-  } catch {
-    ids = []
-  }
-  sessionTags.value = (allTags.value || []).filter((t) => ids.includes(t.id))
-};
-
-const addSessionTag = async (tagId) => {
-  if (!tagId || !currentSession.value) return
-  const exists = sessionTags.value.find((t) => t.id === tagId)
-  if (exists) {
-    ElMessage.warning(i18n.global.t('标签已存在'))
-    return
-  }
-  const tag = allTags.value.find((t) => t.id === tagId)
-  if (tag) {
-    sessionTags.value.push(tag)
-    await persistSessionTags()
-    ElMessage.success(i18n.global.t('标签已添加'))
-  }
-  tagToAdd.value = null
-}
-
-const removeSessionTag = async (tag) => {
-  sessionTags.value = sessionTags.value.filter((t) => t.id !== tag.id)
-  await persistSessionTags()
-}
-
-const persistSessionTags = async () => {
-  const tagService = await import('@/api/customerService.js');
-  const ids = sessionTags.value.map((t) => t.id)
-  try {
-    await tagService.tagSession(currentSession.value.id, { tags: ids })
-  } catch (e) {}
-}
-
-const loadQuickReplies = async () => {
-  try {
-    const [rRes] = await Promise.all([
-      getQuickReplies().catch(() => ({ data: [] })),
-      getQuickReplyCategories().catch(() => ({ data: [] }))
-    ])
-    const data = Array.isArray(rRes) ? rRes : (rRes?.data || rRes?.list || [])
-    allQuickReplies.value = Array.isArray(data) ? data : data.list || []
-    quickReplies.value = allQuickReplies.value
-  } catch (e) {
-    allQuickReplies.value = []
-    quickReplies.value = []
-  }
-};
-
-const onQuickReplySearch = () => {
-  const kw = quickReplySearch.value.trim().toLowerCase()
-  if (!kw) {
-    quickReplies.value = allQuickReplies.value
-    return
-  }
-  quickReplies.value = allQuickReplies.value.filter(
-    (r) =>
-      r.title?.toLowerCase().includes(kw) ||
-      r.content?.toLowerCase().includes(kw) ||
-      r.category?.toLowerCase().includes(kw)
-  );
-}
-
-const insertQuickReply = (reply) => {
-  if (!reply) return
-  inputMsg.value = reply.content
-  ElMessage.success(`已插入：${reply.title}`)
-}
-
-const loadAiSuggestions = async () => {
-  if (!currentSession.value) {
-    aiSuggestions.value = []
-    return
-  }
-  try {
-    const res = await getAISuggestions(currentSession.value.sessionId || currentSession.value.id)
-    const data = res || [];
-    aiSuggestions.value = Array.isArray(data) ? data : data.list || []
-  } catch (e) {
-    aiSuggestions.value = []
-  }
-};
-
-const useAiSuggestion = async (suggestion) => {
-  if (!suggestion || suggestion.is_used) return
-  try {
-    if (useAISuggestion) {
-      await useAISuggestion(suggestion.id)
-    }
-    inputMsg.value = suggestion.suggestion;
-    suggestion.is_used = true
-    ElMessage.success(i18n.global.t('已采纳，可直接发送'))
-  } catch (e) {
-    ElMessage.error(i18n.global.t('采纳失败'))
-  }
-}
 
 onMounted(async () => {
   await loadSessions()
@@ -1134,10 +452,6 @@ watch(currentSession, (newVal, oldVal) => {
     loadCustomerProfile()
   }
 });
-
-onUnmounted(() => {
-  if (agentSocketInst) { agentSocketInst.close(); agentSocketInst = null }
-})
 </script>
 
 <style scoped lang="scss">
@@ -1166,14 +480,13 @@ onUnmounted(() => {
   gap: 16px;
   min-height: 0;
 }
-.session-list, .chat-area, .customer-profile {
+.session-list, .chat-area {
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 .session-list :deep(.el-card),
-.chat-area :deep(.el-card),
-.customer-profile :deep(.el-card) {
+.chat-area :deep(.el-card) {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1379,60 +692,6 @@ onUnmounted(() => {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-}
-/* 方向10：右栏 客户 360° 样式 */
-.customer-profile {
-  :deep(.el-card__body) {
-    padding: 12px 16px;
-    overflow-y: auto;
-  }
-  .profile-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-weight: 600;
-    .el-icon { vertical-align: middle; margin-right: 4px; }
-  }
-  .profile-section {
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px dashed #ebeef5;
-    &:last-child { border-bottom: none; margin-bottom: 0; }
-  }
-  .section-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #303133;
-    margin-bottom: 8px;
-  }
-  .profile-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 4px 0;
-    font-size: 13px;
-    .label { color: #909399; }
-    .value { color: #303133; font-weight: 500; }
-  }
-  .tag-cloud {
-    display: flex;
-    flex-wrap: wrap;
-  }
-  .empty-hint {
-    color: #c0c4cc;
-    font-size: 12px;
-    padding: 4px 0;
-  }
-}
-/* C2：黑名单管理弹窗工具栏 */
-.blacklist-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  .count {
-    font-size: 13px;
-    color: #606266;
   }
 }
 </style>
