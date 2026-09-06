@@ -54,7 +54,8 @@ func LoadDotEnv(path string) {
 }
 
 func isTestProcess() bool {
-	return strings.HasSuffix(os.Args[0], ".test")
+	// Windows 下 go test 编译产物为 xxx.test.exe，需同时兼容两种后缀
+	return strings.HasSuffix(os.Args[0], ".test") || strings.HasSuffix(os.Args[0], ".test.exe")
 }
 
 func loadJWTSecret() string {

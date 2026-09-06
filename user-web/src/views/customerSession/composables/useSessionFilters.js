@@ -1,7 +1,7 @@
 // 客户会话 · 会话列表数据与前端筛选(纯客户端过滤)
 // 由 views/customerSession/List.vue 原样迁出(零行为变更拆分)
 // 同时导出跨组件复用的纯工具函数: mapSession / formatTime
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 // 纯工具:相对时间格式化(今天显示 HH:MM,否则显示 M/D)
 export const formatTime = (time) => {
@@ -37,6 +37,24 @@ export const mapSession = (s) => {
 export function useSessionFilters(sessions) {
   const filterStatus = ref('')
 
+  // 纯工具:按 sessionId 或 id 匹配会话(socket 推送与本地列表的桥梁)
+  const findSession = (sessionId) => {
+    if (sessionId == null) return null
+    return sessions.value.find((s) => s.sessionId === sessionId || String(s.id) === String(sessionId))
+  }
+
+  // 纯工具:存在则合并更新,不存在则置顶插入
+  const upsertSession = (s) => {
+    const item = mapSession(s)
+    if (!item) return
+    const idx = sessions.value.findIndex((x) => x.sessionId === item.sessionId || String(x.id) === String(item.id))
+    if (idx >= 0) {
+      sessions.value[idx] = { ...sessions.value[idx], ...item }
+    } else {
+      sessions.value.unshift(item)
+    }
+  }
+
   const SESSION_STATUS_META = {
     pending: { label: '待处理', tagType: 'info' },
     ai_handling: { label: 'AI处理', tagType: 'primary' },
@@ -62,6 +80,8 @@ export function useSessionFilters(sessions) {
   return {
     filterStatus,
     filteredSessions,
+    findSession,
+    upsertSession,
     SESSION_STATUS_META,
     getSessionStatusLabel,
     getSessionStatusTagType,

@@ -31,6 +31,9 @@ export function useSessionActions({ currentSession, currentHandler, inputMsg, my
   // —— 接管/释放 loading(与 useSessionList 中的 handlerSwitching 同源,由容器传入) ——
   const handlerSwitching = currentHandler ? ref(false) : ref(false)
 
+  // —— AI 摘要生成 loading(独立于 handlerSwitching,仅控制摘要按钮状态) ——
+  const summaryLoading = ref(false)
+
   const currentHandlerComputed = currentHandler ||
     computed(() => (currentSession.value?.handlerType === 'human' ? 'human' : 'ai'))
 
@@ -42,13 +45,13 @@ export function useSessionActions({ currentSession, currentHandler, inputMsg, my
     if (!currentSession.value) return ElMessage.warning('请先选择会话')
     const sid = currentSession.value.sessionId || currentSession.value.session_id
     try {
-      loading.value = true
+      summaryLoading.value = true
       const res = await http.post(`/api/customer-sessions/${sid}/ai-summary`)
       const d = res?.data || {}
-      ElMessage.alert(d.summary || '摘要生成完成', 'AI 会话摘要（' + (d.sentiment || 'neutral') + '）', { confirmButtonText: '知道了' })
+      ElMessageBox.alert(d.summary || '摘要生成完成', 'AI 会话摘要（' + (d.sentiment || 'neutral') + '）', { confirmButtonText: '知道了' })
     } catch (e) {
       ElMessage.error(e?.message || '摘要生成失败')
-    } finally { loading.value = false }
+    } finally { summaryLoading.value = false }
   };
 
   const exportTranscriptCurrent = () => {

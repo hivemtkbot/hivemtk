@@ -7,7 +7,9 @@ import { ElMessage } from 'element-plus'
 import i18n from '@/i18n'
 import {
   getSessionMessages,
-  sendMessage as sendMsg
+  sendMessage as sendMsg,
+  getCustomerStats,
+  getCustomerTags
 } from '@/api/customerSession.js'
 import {
   getSessionTags,
