@@ -26,11 +26,11 @@ fi
 nohup "$BIN" -m "$MODEL" --host 127.0.0.1 --port "$PORT" \
   --alias bge-reranker-v2-m3 --embedding --pooling rank \
   -c 4096 -np 1 > /tmp/rerank-8209.log 2>&1 &
-echo "[rerank] 启动中 pid=$! port=$PORT（日志 /tmp/rerank-8209.log）"
+echo "[rerank] 启动中 pid=$! port=${PORT} 日志=/tmp/rerank-8209.log"
 for i in $(seq 1 15); do
   sleep 2
   if nc -z 127.0.0.1 "$PORT" 2>/dev/null; then
-    echo "[rerank] 就绪: http://127.0.0.1:$PORT/v1/rerank"
+    echo "[rerank] 就绪: http://127.0.0.1:${PORT}/v1/rerank"
     exit 0
   fi
 done
