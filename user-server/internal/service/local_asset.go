@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 	"time"
 
@@ -81,6 +82,21 @@ type UpdateAssetInput struct {
 }
 
 // PurchaseAndSync 购买并同步
+// purchaseFailMsg 从平台购买错误中提取商户可读的业务原因。
+// 优先取 "platform error <code>: <msg>" 里的平台侧 msg（如积分余额不足），
+// 兜底用完整错误串。
+func purchaseFailMsg(err error) string {
+	msg := err.Error()
+	if i := strings.Index(msg, "platform error "); i >= 0 {
+		if j := strings.Index(msg[i:], ": "); j >= 0 {
+			if reason := strings.TrimSpace(msg[i+j+2:]); reason != "" {
+				return "平台购买失败: " + reason
+			}
+		}
+	}
+	return "平台购买失败: " + msg
+}
+
 func (s *LocalAssetService) PurchaseAndSync(ctx context.Context, platformAssetID string) error {
 	existing, err := s.assetRepo.FindByAssetID(ctx, platformAssetID)
 	if err == nil && existing != nil {
@@ -88,7 +104,9 @@ func (s *LocalAssetService) PurchaseAndSync(ctx context.Context, platformAssetID
 	}
 
 	if err := s.platformClient.Purchase(ctx, platformAssetID); err != nil {
-		return bizerr.Wrap(bizerr.CodePlatformUnavail, "平台购买失败", err)
+		// 商用化走查修复: 平台侧业务原因 (如"积分余额不足…请线下联系平台充值")
+		// 必须透传到商户端, 否则商户只看到"平台购买失败"不知道要线下充值。
+		return bizerr.New(bizerr.CodePlatformUnavail, purchaseFailMsg(err))
 	}
 
 	payload, err := s.platformClient.PullData(ctx, platformAssetID)
