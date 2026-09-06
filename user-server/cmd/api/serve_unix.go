@@ -16,5 +16,7 @@ func serveHTTP(addr string, r *gin.Engine) error {
 	srv := endless.NewServer(addr, r)
 	srv.ReadHeaderTimeout = 10 * time.Second
 	srv.IdleTimeout = 120 * time.Second
-	return srv.Serve()
+	// ListenAndServe 会创建 EndlessListener 后调 Serve;
+	// 直接调 Serve 时 EndlessListener 为 nil → Accept 空指针 panic
+	return srv.ListenAndServe()
 }
