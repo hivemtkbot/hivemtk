@@ -4,25 +4,25 @@
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-label">总成本（30 天）</div>
-          <div class="stat-value">¥{{ stats.totalCost?.toFixed(2) || '0.00' }}</div>
+          <div class="stat-value">¥{{ Number(stats.total_cost || 0).toFixed(2) }}</div>
         </el-card>
       </el-col>
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-label">总 Token</div>
-          <div class="stat-value">{{ formatNumber(stats.totalTokens) }}</div>
+          <div class="stat-value">{{ formatNumber(stats.total_tokens) }}</div>
         </el-card>
       </el-col>
       <el-col :span="6">
         <el-card class="stat-card warning">
-          <div class="stat-label">异常调用</div>
-          <div class="stat-value">{{ stats.anomalyCount || 0 }}</div>
+          <div class="stat-label">失败调用</div>
+          <div class="stat-value">{{ stats.total_failed || 0 }}</div>
         </el-card>
       </el-col>
       <el-col :span="6">
         <el-card class="stat-card success">
-          <div class="stat-label">成本节省（vs 默认）</div>
-          <div class="stat-value">¥{{ stats.savedCost?.toFixed(2) || '0.00' }}</div>
+          <div class="stat-label">调用成功率</div>
+          <div class="stat-value">{{ stats.total_calls ? Math.round(stats.total_success / stats.total_calls * 100) : 0 }}%</div>
         </el-card>
       </el-col>
     </el-row>
@@ -55,16 +55,12 @@
       </template>
       <el-table :data="breakdownData" v-loading="loading">
         <el-table-column prop="name" :label="breakdownName" />
-        <el-table-column prop="calls" label="调用次数" width="120" />
-        <el-table-column prop="tokens" label="Token" width="120">
-          <template #default="{ row }">{{ formatNumber(row.tokens) }}</template>
+        <el-table-column prop="call_count" label="调用次数" width="120" />
+        <el-table-column prop="total_tokens" label="Token" width="120">
+          <template #default="{ row }">{{ formatNumber(row.total_tokens) }}</template>
         </el-table-column>
-        <el-table-column prop="cost" label="成本(¥)" width="120">
-          <template #default="{ row }">{{ row.cost?.toFixed(4) }}</template>
-        </el-table-column>
-        <el-table-column prop="avgLatency" label="平均延迟(ms)" width="140" />
-        <el-table-column prop="errorRate" label="错误率" width="100">
-          <template #default="{ row }">{{ (row.errorRate * 100).toFixed(1) }}%</template>
+        <el-table-column prop="total_cost" label="成本(¥)" width="120">
+          <template #default="{ row }">{{ Number(row.total_cost || 0).toFixed(4) }}</template>
         </el-table-column>
       </el-table>
     </el-card>
@@ -96,33 +92,36 @@ const formatNumber = formatCompactNumber
 async function load() {
   loading.value = true
   try {
-    const [s, b, t] = await Promise.all([
+    const [cs, u] = await Promise.all([
       http.get('/api/llm/cost-stats', { window: 'month' }),
-      http.get('/api/llm/usage', { window: 'month', group_by: breakdown.value }),
-      http.get('/api/llm/usage', { window: 'month', group_by: 'day' })
+      http.get('/api/llm/usage', { window: 'month', group_by: breakdown.value })
     ])
-    stats.value = s || {}
-    breakdownData.value = b || []
-    renderTrend(t || [])
-    renderDist(b || [])
+    // 后端 cost-stats 返回 by_model/by_provider 分组、usage 返回汇总+by_* —— 前端做映射
+    stats.value = u || {}
+    const rows = (breakdown.value === 'model' ? (cs?.by_model || (u.by_provider || [])) : (u['by_' + breakdown.value] || []))
+    breakdownData.value = rows.map((r) => ({ ...r, name: r.provider || r.scenario || r.agent || '-' }))
+    renderTrend(breakdownData.value)
+    renderDist(breakdownData.value)
   } finally {
     loading.value = false
   }
 }
 
-function renderTrend(days) {
+function renderTrend(rows) {
   if (!trendRef.value) return
+  const top = (rows || []).slice(0, 8)
+  if (!top.length) return
   const chart = safeInit(trendRef.value)
   chart.setOption({
     tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', data: days.map((d) => d.date) },
+    xAxis: { type: 'category', data: top.map((d) => d.name) },
     yAxis: [
       { type: 'value', name: '¥' },
-      { type: 'value', name: 'Token', position: 'right' }
+      { type: 'value', name: '调用次数', position: 'right' }
     ],
     series: [
-      { name: '成本', type: 'line', smooth: true, areaStyle: {}, data: days.map((d) => d.cost) },
-      { name: 'Token', type: 'line', yAxisIndex: 1, smooth: true, data: days.map((d) => d.tokens) }
+      { name: '成本', type: 'bar', data: top.map((d) => Number(d.total_cost || 0)) },
+      { name: '调用次数', type: 'bar', yAxisIndex: 1, data: top.map((d) => Number(d.call_count || 0)) }
     ]
   })
 }
@@ -135,7 +134,7 @@ function renderDist(data) {
     series: [{
       type: 'pie',
       radius: '70%',
-      data: data.slice(0, 8).map((d) => ({ name: d.name, value: d.cost }))
+      data: (data || []).slice(0, 8).map((d) => ({ name: d.name || '-', value: Number(d.total_cost || 0) }))
     }]
   })
 }
