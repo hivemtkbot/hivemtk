@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"hivemtk-user/internal/cache"
 	"hivemtk-user/internal/model"
 )
 
@@ -43,12 +45,34 @@ func (s *stubAITrigger) last() stubAICall {
 	return s.calls[len(s.calls)-1]
 }
 
+// debounceFixtureSeq 单调递增的 fixture 序号。
+// sessionID 不能取 time.Now().UnixNano():Windows 墙钟粒度粗(亚毫秒级),
+// 全量套件中相邻的快速测试极易取到相同时间戳,进而得到相同 conversationID。
+var debounceFixtureSeq atomic.Int64
+
 func newDebounceFixture(t *testing.T, seconds int) (*InboxIngressService, *stubAITrigger, string) {
 	t.Helper()
-	svc := NewInboxIngressServiceWithDB(nil, nil)
+	// 每个 fixture 使用独立内存缓存,而非 cache.GetGlobalCache() 的进程级单例:
+	// triggerAIForEvent 触发前会对 hivemtk:ai_processing:<conv> 做 SetNX(TTL 2 分钟),
+	// 防抖链路自身不释放该排他锁(生产中由 AI 完成回调释放)。若与其他测试共享
+	// 全局缓存,前序测试遗留的排他锁会静默跳过本次触发,导致偶发失败。
+	memCache := cache.NewMemoryCache()
+	t.Cleanup(memCache.Close)
+	svc := NewInboxIngressServiceWithDB(nil, memCache)
 	stub := &stubAITrigger{}
 	svc.aiTrigger = stub
-	return svc, stub, fmt.Sprintf("debounce-test-%d", time.Now().UnixNano())
+	seq := debounceFixtureSeq.Add(1)
+	return svc, stub, fmt.Sprintf("debounce-test-%s-%d-%d", t.Name(), seq, seconds)
+}
+
+// waitForAICalls 轮询等待 stub 收到至少 n 次 AI 触发,用于与防抖窗口关闭后的
+// time.AfterFunc 异步触发链同步;超时即返回,由调用方按精确断言判定失败。
+func waitForAICalls(t *testing.T, stub *stubAITrigger, n int, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for stub.count() < n && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
 }
 
 func debounceEvent(sessionID, content string, seconds int) *model.MessageEvent {
