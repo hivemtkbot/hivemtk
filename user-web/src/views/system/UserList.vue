@@ -193,6 +193,7 @@ import {
   updateSystemUser,
   deleteSystemUser
 } from '@/api/systemUser.js'
+import { resetUserPassword as resetUserPasswordApi } from '@/api/permission.js'
 import PageState from '@/components/PageState.vue'
 import { getRoleLabel, getRoleTagType } from '@/constants/role'
 import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled'
@@ -346,13 +347,21 @@ const submitForm = async () => {
 }
 
 const resetPassword = async (row) => {
+  // R3-2 修复：原实现 PUT /users/:id {reset_password:true}——后端无此字段，
+  // 密码从未被重置（假成功）。现走权限模块专用接口（带密码策略+审计+历史）。
   try {
-    await ElMessageBox.confirm(
-      t('systemUser.resetConfirmMessage', { 0: row.username }),
+    const { value } = await ElMessageBox.prompt(
+      t('systemUser.resetConfirmMessage', [row.username]),
       t('systemUser.resetConfirmTitle'),
-      { type: 'warning' }
+      {
+        type: 'warning',
+        inputType: 'password',
+        inputPlaceholder: t('systemUser.resetPasswordPlaceholder') || '请输入新密码（至少 8 位，含大小写字母/数字）',
+        inputPattern: /^.{8,}$/,
+        inputErrorMessage: t('systemUser.resetPasswordPlaceholder') || '密码至少 8 位'
+      }
     )
-    await updateSystemUser(row.id, { reset_password: true });
+    await resetUserPasswordApi(row.id, value)
     ElMessage.success(t('systemUser.resetPasswordSuccess'))
   } catch (e) {
     if (e !== 'cancel' && e !== 'close') ElMessage.error(t('systemUser.resetFailed'))
@@ -362,7 +371,7 @@ const resetPassword = async (row) => {
 const deleteUser = async (row) => {
   try {
     await ElMessageBox.confirm(
-      t('systemUser.deleteConfirmMessage', { 0: row.username }),
+      t('systemUser.deleteConfirmMessage', [row.username]),
       t('systemUser.deleteConfirmTitle'),
       { type: 'warning' }
     )

@@ -1801,7 +1801,8 @@
     "validEmail": "请输入有效的邮箱",
     "save": "保存",
     "cancel": "取消",
-    "confirm": "确认"
+    "confirm": "确认",
+    "resetPasswordPlaceholder": "请输入新密码（至少 8 位）"
   },
   "roleName": {
     "owner": "所有者",
