@@ -18,4 +18,9 @@ export default [{
   name: 'AISuggestion',
   component: () => import('@/views/customerService/AISuggestion.vue'),
   meta: { title: 'AI 建议', group: 'community', icon: 'MagicStick', requiresAuth: true }
+}, {
+  path: '/customerService/csat',
+  name: 'CsatDashboard',
+  component: () => import('@/views/customerService/CsatDashboard.vue'),
+  meta: { title: 'CSAT 看板', group: 'community', icon: 'Star', requiresAuth: true }
 }];
