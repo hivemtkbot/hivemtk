@@ -138,8 +138,9 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 // 统一枚举：系统级来源/启用状态
 import { getSourceLabel, getSourceTagType } from '@/constants/source'
 import { getEnabledTagType } from '@/constants/enabled'
+import { INDUSTRY_VALUES } from '@/constants/industry'
 
-const industries = ['美妆', '教培', '医美', '汽车', '金融']
+const industries = INDUSTRY_VALUES
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)

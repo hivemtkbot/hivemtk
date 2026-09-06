@@ -67,9 +67,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { listAssets, purchaseAsset } from '@/api/assetMarket'
+import { INDUSTRY_VALUES } from '@/constants/industry'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-const industries = ['美妆', '教培', '医美', '汽车', '金融']
+const industries = INDUSTRY_VALUES
 const filter = ref({ asset_type: '', industry: '', page: 1, size: 20 })
 const list = ref([])
 const total = ref(0)

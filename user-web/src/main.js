@@ -70,6 +70,7 @@ app.mount('#app')
 
 const SW_VERSION_KEY = 'hivemtk-build-id'
 const SW_REGISTERED_KEY = 'hivemtk-sw-registered'
+const SW_RELOAD_COUNT_KEY = 'hivemtk-sw-reload-count'
 
 async function manageServiceWorker() {
   // SW 不可用 (HTTP、隐私模式、老浏览器) — 跳过, 不影响功能
@@ -96,7 +97,17 @@ async function manageServiceWorker() {
       // 版本变化 —— 用户正在用旧 SW, 里面 precache 了旧 index.html
       // 这个旧 SW 会拦截导航 → 返回旧 index.html → 引用被删的旧 chunk → 404
       // 所以必须: 先干掉旧 SW + 清所有 caches, 再 reload 拿新版本
+      // 防御: 最多自动 reload 1 次 — 若 reload 后版本再次不匹配
+      // (说明部署目录被回写/不一致), 直接写入远端 buildId 并继续注册,
+      // 绝不循环刷新把用户页面打死
       // ----------------------------------------------------------
+      const reloadCount = Number(localStorage.getItem(SW_RELOAD_COUNT_KEY) || '0')
+      if (reloadCount >= 1) {
+        console.warn(`[SW] 清理 reload 后版本仍不匹配 (local=${localBuildId} remote=${remoteBuildId}), 不再刷新, 直接采用远端版本`)
+        localStorage.setItem(SW_VERSION_KEY, remoteBuildId)
+        localStorage.removeItem(SW_RELOAD_COUNT_KEY)
+        // fall through 到下面的注册逻辑
+      } else {
       console.warn(`[SW] 检测到新版本: ${localBuildId} → ${remoteBuildId}, 正在清理...`)
 
       // 1. unregister 所有 SW
@@ -111,13 +122,18 @@ async function manageServiceWorker() {
       await Promise.all(cacheNames.map(name => caches.delete(name)))
 
       // 3. 清 localStorage 里的版本标记
+      //    关键: SW_VERSION_KEY 也必须清掉, 否则 reload 后 localBuildId 仍是旧值,
+      //    永远走不进注册分支 → 无限 reload 循环
       localStorage.removeItem(SW_REGISTERED_KEY)
+      localStorage.removeItem(SW_VERSION_KEY)
+      localStorage.setItem(SW_RELOAD_COUNT_KEY, String(reloadCount + 1))
 
       // 4. 等 1 帧让 unregister 生效, 然后 reload (绕过 HTTP 缓存)
       await new Promise(r => setTimeout(r, 100))
       console.info('[SW] 旧版本已清理, 即将 reload 到新版本')
       location.reload()
       return // reload 后就不会执行下面的注册逻辑了
+      }
     }
 
     // [3] 版本没变, 正常注册/更新 SW
@@ -129,6 +145,7 @@ async function manageServiceWorker() {
     // 标记已注册 (帮助判断是否首次访问)
     localStorage.setItem(SW_VERSION_KEY, remoteBuildId)
     localStorage.setItem(SW_REGISTERED_KEY, '1')
+    localStorage.removeItem(SW_RELOAD_COUNT_KEY)
 
     // [4] 监听 SW 更新事件 — 新 SW 下载完成后 skipWaiting 立即激活
     registration.addEventListener('updatefound', () => {
