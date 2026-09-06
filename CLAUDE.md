@@ -82,8 +82,6 @@ Router → Handler → Service → Repository → Model
 
 ---
 
-## 🏆 graphify 知识图谱
+## 🏆 工程文档索引
 
-- 项目在 `graphify-out/` 维护知识图谱
-- 回答架构问题前先读 `graphify-out/GRAPH_REPORT.md`
-- 修改代码后运行重建命令保持图谱最新
+- 工程开发文档总索引见 `docs/DEV_DOCS_INDEX.md`;架构决策记录见 `docs/architecture/adr/`

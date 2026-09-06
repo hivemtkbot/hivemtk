@@ -7,6 +7,13 @@ import (
 )
 
 func TestLoadPlatform(t *testing.T) {
+	// 环境隔离:LoadPlatform 的环境变量覆盖优先级高于配置文件,
+	// 部署环境(.env)注入 PLATFORM_API_HOST/PLATFORM_API_URL/PLATFORM_CONFIG_PATH 时
+	// 若不隔离,本测试在任何真实部署机上必然失败(断言文件值而非环境值)
+	t.Setenv("PLATFORM_CONFIG_PATH", "")
+	t.Setenv("PLATFORM_API_HOST", "")
+	t.Setenv("PLATFORM_API_URL", "")
+
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "platform.yaml")
 

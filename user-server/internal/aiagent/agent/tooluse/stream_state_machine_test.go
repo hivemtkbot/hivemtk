@@ -1,6 +1,7 @@
 package tooluse
 
 import (
+	"runtime"
 	"context"
 	"strings"
 	"testing"
@@ -535,7 +536,9 @@ func TestDoubleIntercept_Stats(t *testing.T) {
 	if stats.ToolExecutions != 1 {
 		t.Errorf("tool executions = %d, want 1", stats.ToolExecutions)
 	}
-	if stats.TotalDuration <= 0 {
+	// Windows 时钟粒度约 15ms,亚毫秒完成的 Run 会让 time.Since(start) 记为 0,
+	// 该断言仅在非 Windows 平台有意义(与业务正确性无关,属计时精度平台差异)
+	if runtime.GOOS != "windows" && stats.TotalDuration <= 0 {
 		t.Error("total duration should be > 0")
 	}
 }
