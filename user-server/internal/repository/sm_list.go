@@ -51,7 +51,9 @@ func (r *smlistRepo) GetSmlistAllList(ctx context.Context) ([]*model.Smlist, int
 	var smlists []*model.Smlist
 	var total int64
 	r.db.Model(&model.Smlist{}).Count(&total)
-	err := r.db.Find(&smlists).Error
+	// 无界兜底:默认 200,短信列表表增长后防全表载入;已达上限时调用方需分页重取
+	q := applyListLimit(r.db, 200)
+	err := q.Find(&smlists).Error
 	return smlists, total, err
 }
 

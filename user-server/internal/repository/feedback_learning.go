@@ -90,7 +90,9 @@ func (r *FeedbackLearningRepository) ListNodeTransitionsBySOPAndVariant(ctx cont
 		q = q.Where("variant = ?", variant)
 	}
 	var transitions []model.SOPNodeTransition
-	if err := q.Order("created_at ASC").Find(&transitions).Error; err != nil {
+	// 无界兜底:默认 500,节点迁移记录随 SOP 执行持续增长;已达上限时调用方需分页重取
+	q = applyListLimit(q.Order("created_at ASC"), 500)
+	if err := q.Find(&transitions).Error; err != nil {
 		return nil, err
 	}
 	return transitions, nil

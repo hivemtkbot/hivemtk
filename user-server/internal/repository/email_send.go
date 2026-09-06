@@ -42,13 +42,19 @@ func (r *emailSendRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.Email
 func (r *emailSendRepo) GetPendingEmails(ctx context.Context) ([]*model.EmailSend, error) {
 	var emails []*model.EmailSend
 	now := time.Now()
-	err := r.db.WithContext(ctx).Where("status = 0 AND send_time <= ?", now).Find(&emails).Error
-	return emails, err
+	// ProcessPendingEmails 为定时循环调用,默认每轮 100 封防无界载入;本轮已达上限时下一轮定时周期继续处理
+	q := applyListLimit(r.db.WithContext(ctx).Where("status = 0 AND send_time <= ?", now), 100)
+	if err := q.Find(&emails).Error; err != nil {
+		return nil, err
+	}
+	return emails, nil
 }
 
 func (r *emailSendRepo) List(ctx context.Context) ([]*model.EmailSend, error) {
 	var emails []*model.EmailSend
-	if err := r.db.WithContext(ctx).Find(&emails).Error; err != nil {
+	// 默认 50 兜底;已达上限时调用方需分页重取
+	q := applyListLimit(r.db.WithContext(ctx), 50)
+	if err := q.Find(&emails).Error; err != nil {
 		return nil, err
 	}
 	return emails, nil

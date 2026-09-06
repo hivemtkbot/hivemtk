@@ -255,10 +255,13 @@ func (r *CustomerSessionRepository) ListByUserIDsBatch(ctx context.Context, user
 // GetPendingSessions 获取等待处理的会话
 func (r *CustomerSessionRepository) GetPendingSessions(ctx context.Context) ([]*model.CustomerSession, error) {
 	var sessions []*model.CustomerSession
-	err := r.db.Where("status IN ?", []model.SessionStatus{
+	q := r.db.Where("status IN ?", []model.SessionStatus{
 		model.SessionStatusPending,
 		model.SessionStatusAIHandling,
-	}).Order("priority DESC, last_message_at ASC").Find(&sessions).Error
+	}).Order("priority DESC, last_message_at ASC")
+	// 无界兜底:默认 200,防止会话表增长后定时分配任务全表载入;已达上限时调用方需分页重取
+	q = applyListLimit(q, 200)
+	err := q.Find(&sessions).Error
 	return sessions, err
 }
 

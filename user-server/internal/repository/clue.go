@@ -193,7 +193,10 @@ func (r *clueRepo) GetClueAllList(ctx context.Context, clueType int64) ([]*model
 	if err != nil {
 		return nil, 0, err
 	}
-	err = db.Where("type = ?", clueType).Find(&cluelists).Error
+	// 无界兜底:默认 500,线索表持续增长后防全表载入;已达上限时调用方需分页重取(如群发场景需全量)
+	q := db.Where("type = ?", clueType)
+	q = applyListLimit(q, 500)
+	err = q.Find(&cluelists).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -208,7 +211,10 @@ func (r *clueRepo) GetWhatsappClues(ctx context.Context) ([]*model.Clue, int64, 
 	if err != nil {
 		return nil, 0, err
 	}
-	err = db.Where("type IN (?)", []int64{5, 7}).Find(&cluelists).Error
+	// 无界兜底:默认 1000,WhatsApp 线索批量处理防全表载入;已达上限时调用方需分页重取
+	wq := db.Where("type IN (?)", []int64{5, 7})
+	wq = applyListLimit(wq, 1000)
+	err = wq.Find(&cluelists).Error
 	if err != nil {
 		return nil, 0, err
 	}

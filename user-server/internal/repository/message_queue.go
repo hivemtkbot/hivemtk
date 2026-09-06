@@ -63,12 +63,15 @@ func (r *MessageQueueRepository) DeleteQueueStatusByQueueID(ctx context.Context,
 }
 
 // ListMessagesByQueueID 按 queue_id 拉取队列消息（按 id 升序）
+//
+// 默认 500 兜底防无界载入;单队列消息已达上限时调用方需按 id 分页重取。
 func (r *MessageQueueRepository) ListMessagesByQueueID(ctx context.Context, queueID string) ([]model.WhatsAppMessageQueue, error) {
 	if r == nil || r.db == nil {
 		return nil, nil
 	}
 	var rows []model.WhatsAppMessageQueue
-	if err := r.db.WithContext(ctx).Where("queue_id = ?", queueID).Order("id ASC").Find(&rows).Error; err != nil {
+	q := applyListLimit(r.db.WithContext(ctx).Where("queue_id = ?", queueID).Order("id ASC"), 500)
+	if err := q.Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	return rows, nil
@@ -119,12 +122,15 @@ func (r *MessageQueueRepository) GetQueueStatusByQueueID(ctx context.Context, qu
 }
 
 // ListAllQueueStatuses 列出全部队列状态（按 created_at DESC）
+//
+// 默认 500 兜底防无界载入;已达上限时调用方需分页重取。
 func (r *MessageQueueRepository) ListAllQueueStatuses(ctx context.Context) ([]model.WhatsAppQueueStatus, error) {
 	if r == nil || r.db == nil {
 		return nil, nil
 	}
 	var rows []model.WhatsAppQueueStatus
-	if err := r.db.WithContext(ctx).Order("created_at DESC").Find(&rows).Error; err != nil {
+	q := applyListLimit(r.db.WithContext(ctx).Order("created_at DESC"), 500)
+	if err := q.Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	return rows, nil
