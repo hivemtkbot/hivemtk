@@ -49,7 +49,7 @@ var geoJobDefs = []geoJobDef{
 		Name:        JobSOVRefresh,
 		Description: "SOV 刷新：采样关键词跑多引擎探针并聚合 daily_stats",
 		DefaultSpec: "0 0 2 * * *",
-		Timeout:     20 * time.Minute,
+		Timeout:     30 * time.Minute,
 		Fn:          sovRefreshJob,
 	},
 	{

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	hivemodel "hivemtk-user/internal/model"
@@ -345,21 +346,7 @@ func (s *ProbeService) ProbeAllEngines(ctx context.Context, query string) ([]*mo
 			errs = append(errs, fmt.Errorf("probe %s: %w", p.Name(), err))
 			continue
 		}
-		brandName := s.getBrandName(ctx)
-		pr.BrandHit = brandName != "" && strings.Contains(strings.ToLower(pr.Response), strings.ToLower(brandName))
-		// sentiment 已由 llmEndpointProbe.Probe() 内部通过 LLM 自判返回，这里直接使用
-		run := &model.GeoProbeRun{
-			Engine:         pr.Engine,
-			Query:          pr.Query,
-			Response:       pr.Response,
-			LatencyMs:      pr.LatencyMs,
-			Sentiment:      pr.Sentiment,
-			BrandMentioned: pr.BrandHit,
-		}
-		if len(pr.Citations) > 0 {
-			b, _ := json.Marshal(pr.Citations)
-			run.Citations = b
-		}
+		run := s.buildProbeRun(ctx, p, pr)
 		if err := s.repo.Create(ctx, run); err != nil {
 			errs = append(errs, fmt.Errorf("persist probe %s: %w", p.Name(), err))
 			continue
@@ -367,6 +354,68 @@ func (s *ProbeService) ProbeAllEngines(ctx context.Context, query string) ([]*mo
 		runs = append(runs, run)
 	}
 	return runs, errs
+}
+
+// ProbeAllEnginesConcurrent 并发调用所有引擎（慢引擎不再阻塞整轮），结果写入 geo_probe_runs。
+// 每个引擎独立失败互不影响；返回值语义与 ProbeAllEngines 一致。
+func (s *ProbeService) ProbeAllEnginesConcurrent(ctx context.Context, query string) ([]*model.GeoProbeRun, []error) {
+	probes := s.probes
+	if len(probes) == 0 {
+		probes = NewEngineProbes()
+	}
+	type probeOutcome struct {
+		run *model.GeoProbeRun
+		err error
+	}
+	outcomes := make([]probeOutcome, len(probes))
+	var wg sync.WaitGroup
+	for i, p := range probes {
+		wg.Add(1)
+		go func(i int, p SearchProbe) {
+			defer wg.Done()
+			pr, err := p.Probe(ctx, query)
+			if err != nil {
+				outcomes[i] = probeOutcome{err: fmt.Errorf("probe %s: %w", p.Name(), err)}
+				return
+			}
+			outcomes[i] = probeOutcome{run: s.buildProbeRun(ctx, p, pr)}
+		}(i, p)
+	}
+	wg.Wait()
+
+	runs := make([]*model.GeoProbeRun, 0, len(probes))
+	errs := []error{}
+	for _, oc := range outcomes {
+		if oc.err != nil {
+			errs = append(errs, oc.err)
+			continue
+		}
+		if err := s.repo.Create(ctx, oc.run); err != nil {
+			errs = append(errs, fmt.Errorf("persist probe %s: %w", oc.run.Engine, err))
+			continue
+		}
+		runs = append(runs, oc.run)
+	}
+	return runs, errs
+}
+
+// buildProbeRun 将探针原始结果组装为落库记录（品牌命中判定 + 情感透传）
+func (s *ProbeService) buildProbeRun(ctx context.Context, p SearchProbe, pr *ProbeResult) *model.GeoProbeRun {
+	brandName := s.getBrandName(ctx)
+	brandHit := brandName != "" && strings.Contains(strings.ToLower(pr.Response), strings.ToLower(brandName))
+	run := &model.GeoProbeRun{
+		Engine:         pr.Engine,
+		Query:          pr.Query,
+		Response:       pr.Response,
+		LatencyMs:      pr.LatencyMs,
+		Sentiment:      pr.Sentiment,
+		BrandMentioned: brandHit,
+	}
+	if len(pr.Citations) > 0 {
+		b, _ := json.Marshal(pr.Citations)
+		run.Citations = b
+	}
+	return run
 }
 
 // TestSingle 测试单个引擎

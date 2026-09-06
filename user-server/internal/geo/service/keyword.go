@@ -52,7 +52,7 @@ func (s *KeywordService) MineKeywords(ctx context.Context, seedWords []string, m
 		prompt = KeywordMiningPrompt(brandName, advantagesStr, seedWordsJSON)
 	}
 
-	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 2000)
+	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 8000)
 	if err != nil {
 		return nil, fmt.Errorf("关键词挖掘失败: %w", err)
 	}
@@ -264,7 +264,7 @@ func (s *KeywordService) SemanticExpand(ctx context.Context, keywords []string, 
 	keywordsJSON := KeywordsToJSON(keywordsToExpand)
 	prompt := SemanticExpandPrompt(brandName, keywordsJSON)
 
-	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 2000)
+	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 8000)
 	if err != nil {
 		return nil, fmt.Errorf("语义扩展失败: %w", err)
 	}
@@ -360,7 +360,7 @@ func (s *KeywordService) TopicCluster(ctx context.Context, keywords []string, br
 	keywordsJSON := KeywordsToJSON(keywordsToCluster)
 	prompt := TopicClusterPrompt(brandName, keywordsJSON)
 
-	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 3000)
+	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 8000)
 	if err != nil {
 		return nil, fmt.Errorf("话题聚类失败: %w", err)
 	}

@@ -357,7 +357,7 @@ func (s *GeoDecisionAnalyticsService) DetectInaccurateClaims(ctx context.Context
 [{"claim":"AI 的原话","correction":"正确表述","severity":"high|medium|low"}]
 如果没有发现问题返回 []`, brandName)
 
-	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 2000)
+	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 8000)
 	if err != nil {
 		return nil, err
 	}

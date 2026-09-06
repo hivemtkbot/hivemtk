@@ -73,7 +73,7 @@ func (s *VerificationService) VerifyArticle(ctx context.Context, req dto.VerifyR
 	// 2. 探针真实结果 + 品牌名 → LLM 做品牌提及分析
 	prompt := VerifySearchPrompt(req.BrandName, req.Query, probeResponse)
 
-	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 2000)
+	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 8000)
 	if err != nil {
 		return nil, fmt.Errorf("AI 搜索验证失败: %w", err)
 	}
@@ -92,7 +92,7 @@ func (s *VerificationService) VerifyArticle(ctx context.Context, req dto.VerifyR
 		if strings.TrimSpace(extraModel) == "" || extraModel == resp.Model {
 			continue
 		}
-		extraResp, err := s.llm.GenerateJSON(ctx, "", prompt, 2000)
+		extraResp, err := s.llm.GenerateJSON(ctx, "", prompt, 8000)
 		if err != nil {
 			continue
 		}
@@ -230,7 +230,7 @@ func (s *VerificationService) MonitorNegative(ctx context.Context, brandName str
 	// 3. 真实探针结果 + 品牌名 → LLM 汇总分析
 	prompt := NegativeMonitorPrompt(brandName, probeResults.String())
 
-	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 3000)
+	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 8000)
 	if err != nil {
 		return nil, fmt.Errorf("负面监控失败: %w", err)
 	}

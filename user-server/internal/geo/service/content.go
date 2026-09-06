@@ -157,7 +157,7 @@ func extractOptimizedContent(response string) string {
 func (s *ContentService) ScoreContent(ctx context.Context, articleID, content, brandName, keyword string) (map[string]any, error) {
 	prompt := ContentScorePrompt(brandName, keyword, content)
 
-	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 2000)
+	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 8000)
 	if err != nil {
 		return nil, fmt.Errorf("内容评分失败: %w", err)
 	}
@@ -264,7 +264,7 @@ func (s *ContentService) EnhanceEEAT(ctx context.Context, articleID, content, br
 func (s *ContentService) GenerateSchema(ctx context.Context, articleID, brandName, description, domain string) (map[string]any, error) {
 	prompt := SchemaGeneratePrompt(brandName, description, domain)
 
-	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 2000)
+	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 8000)
 	if err != nil {
 		return nil, fmt.Errorf("Schema 生成失败: %w", err)
 	}

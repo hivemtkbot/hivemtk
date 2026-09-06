@@ -33,50 +33,36 @@ func sovRefreshJob(ctx context.Context) (string, error) {
 	probes := NewEngineProbes()
 	probeSvc := NewProbeService(probes, probeRepo)
 
-	// 拉取所有关键词（分页，每次 100，最多 1000 个，避免过载）
-	const sovKeywordCap = 1000
+	// 拉取关键词样本（分页取前 sovKeywordSample 条；全量 309×5 引擎串行探测
+	// 实测超 20 分钟任务超时，SOV 语义只需代表性采样，default 轮换保证每轮覆盖面不同）
+	const sovKeywordSample = 60
 	var allKW []string
-	var truncated bool
-	page, limit := 1, 100
-	for len(allKW) < sovKeywordCap {
-		list, _, err := keywordRepo.GetList("", "", "", "", "", page, limit)
-		if err != nil {
-			return "", fmt.Errorf("拉取关键词失败(页=%d): %w", page, err)
+	page, limit := 1, sovKeywordSample
+	list, _, err := keywordRepo.GetList("", "", "", "", "", page, limit)
+	if err != nil {
+		return "", fmt.Errorf("拉取关键词失败(页=%d): %w", page, err)
+	}
+	for _, k := range list {
+		if strings.TrimSpace(k.Keyword) == "" {
+			continue
 		}
-		if len(list) == 0 {
-			break
-		}
-		for _, k := range list {
-			if strings.TrimSpace(k.Keyword) == "" {
-				continue
-			}
-			if len(allKW) >= sovKeywordCap {
-				truncated = true
-				break
-			}
-			allKW = append(allKW, k.Keyword)
-		}
-		if truncated {
-			break
-		}
-		page++
+		allKW = append(allKW, k.Keyword)
 	}
 	if len(allKW) == 0 {
 		return "无关键词可探测，跳过本轮", nil
 	}
-	if truncated {
-		logger.Warn(fmt.Sprintf("[GEO Job sov_refresh] 关键词超过上限 %d，超出部分本轮未覆盖", sovKeywordCap))
-	}
 	logger.Info(fmt.Sprintf("[GEO Job sov_refresh] SOV 刷新覆盖关键词数=%d", len(allKW)))
 
-	// 对每个关键词跑 ProbeService.ProbeAllEngines（串行，避免爆 API 配额）
+	// 对每个关键词跑 ProbeService.ProbeAllEngines：
+	// 引擎间并发（5 引擎本就独立端点，慢引擎 gpt4o 不再阻塞整轮），
+	// 关键词间仍串行，避免打爆免费端点配额。
 	success, failed := 0, 0
 	for i, kw := range allKW {
 		if ctx.Err() != nil {
 			return fmt.Sprintf("超时中止，进度 %d/%d (成功=%d, 部分失败=%d)", i, len(allKW), success, failed),
 				fmt.Errorf("执行超时中止")
 		}
-		_, errs := probeSvc.ProbeAllEngines(ctx, kw)
+		_, errs := probeSvc.ProbeAllEnginesConcurrent(ctx, kw)
 		if len(errs) > 0 {
 			failed++
 			logger.Error(fmt.Errorf("%v", errs[0]), fmt.Sprintf("[GEO Job sov_refresh] SOV 刷新关键词 %q 探针部分失败", kw))
@@ -91,9 +77,6 @@ func sovRefreshJob(ctx context.Context) (string, error) {
 	// === 聚合到 daily_stats ===
 	aggErr := aggregateDailyStats(ctx, probeRepo)
 	summary := fmt.Sprintf("覆盖关键词=%d 探针成功=%d 部分失败=%d", len(allKW), success, failed)
-	if truncated {
-		summary += "（超上限截断）"
-	}
 	if aggErr != nil {
 		return summary, fmt.Errorf("daily_stats 聚合失败: %w", aggErr)
 	}

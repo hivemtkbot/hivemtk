@@ -87,7 +87,7 @@ func (s *ConfigService) OptimizeConfig(ctx context.Context, brandName, advantage
 	competitorsStr := strings.Join(competitors, "、")
 	prompt := ConfigOptimizePrompt(brandName, advantages, competitorsStr)
 
-	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 3000)
+	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 8000)
 	if err != nil {
 		return nil, fmt.Errorf("配置优化失败: %w", err)
 	}
