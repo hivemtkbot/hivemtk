@@ -13,7 +13,7 @@ import (
 func TestD06_CheckpointSaveResume(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.ConfigParam{})
 	_ = db
-	// 建表（迁移 v3.33.0 原生 SQL）
+
 	if err := db.Exec(`CREATE TABLE IF NOT EXISTS agent_checkpoints (
 		id BIGSERIAL PRIMARY KEY,
 		thread_id VARCHAR(120) NOT NULL,
@@ -28,12 +28,10 @@ func TestD06_CheckpointSaveResume(t *testing.T) {
 	repo := NewAgentCheckpointRepository(db)
 	ctx := context.Background()
 
-	// 无 checkpoint → 从感知起跑
 	if stage := ResumeStage(nil); stage != "perception" {
 		t.Fatalf("无 checkpoint 应从 perception, got %s", stage)
 	}
 
-	// 完成前 3 阶段（planner 重试写两次）
 	state, _ := json.Marshal(map[string]any{"reply": "draft"})
 	for _, st := range []string{"perception", "alignment", "gatekeeper", "planner"} {
 		if err := repo.Save(ctx, "thr-1", st, state); err != nil {
@@ -51,7 +49,6 @@ func TestD06_CheckpointSaveResume(t *testing.T) {
 		t.Errorf("应从 reviewer 续跑, got %s", stage)
 	}
 
-	// 幂等：重复 Save 同 stage 不产生重复行
 	var cnt int64
 	db.Table("agent_checkpoints").Where("thread_id = ?", "thr-1").Count(&cnt)
 	if cnt != 4 {

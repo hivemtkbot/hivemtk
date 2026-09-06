@@ -65,7 +65,7 @@ func TestD08_ErrorResultHasCode(t *testing.T) {
 
 // D08: executeSingleLLMToolCall 的手写失败 Content 合法且带码
 func TestD08_LLMToolResultContentValidJSON(t *testing.T) {
-	e := &ToolExecutor{} // args JSON 解析失败发生在 registry 访问之前，无需完整依赖
+	e := &ToolExecutor{}
 	res := e.executeSingleLLMToolCall(context.Background(), LLMToolCall{
 		ID: "call-1",
 		Function: LLMToolFunction{

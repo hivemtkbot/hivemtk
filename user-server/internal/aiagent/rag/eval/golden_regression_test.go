@@ -10,7 +10,7 @@ import (
 // 完整回归（检索行为变化 → 分数变化）由 rag_eval_cron 每日真实检索链路承担；
 // 本测试锁"评测集本身不被污染/删减"。
 func TestD18_GoldenSetIntegrity(t *testing.T) {
-	db := testutil.NewTestDB(t) // 确保 testutil 初始化（部分字段校验依赖 logger）
+	db := testutil.NewTestDB(t)
 	_ = db
 	cases, err := LoadGoldenSet("golden_set.json")
 	if err != nil {
@@ -24,7 +24,7 @@ func TestD18_GoldenSetIntegrity(t *testing.T) {
 			t.Errorf("case[%d] schema 不完整: q/a/gt/contexts 必填", i)
 		}
 	}
-	// 指标健康：当前 golden set 跑 RunEval，关键指标低于阈值即失败（变更导致塌方可立刻发现）
+
 	report := RunEval(cases)
 	if report.AvgFaithfulness < 0.5 {
 		t.Errorf("Faithfulness 塌方: %.3f < 0.5", report.AvgFaithfulness)

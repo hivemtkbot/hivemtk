@@ -155,7 +155,7 @@ func NewPermissionService() *PermissionService {
 // 独立部署版本：仅根据 role 检查权限，移除 merchantID 作用域参数。
 //
 // D13：权限矩阵外置——优先读 ConfigParam "permission.role_permissions_json"
-//（运营可改，TTL 60s 生效）；admin 恒全权不走配置（防自锁）；
+// （运营可改，TTL 60s 生效）；admin 恒全权不走配置（防自锁）；
 // 解析失败回退内置 defaultRolePermissions（fail-safe）；
 // role 不在配置表 = 运营显式删除 → fail-closed 拒绝（不回退内置，否则复活被删权限）；
 // 非 admin 角色的 "*" 项解析时剥除并告警（防整体提权）。
@@ -167,7 +167,7 @@ func (s *PermissionService) CheckPermission(ctx context.Context, roleCode, permi
 	if cfg := GlobalConfigParam(); cfg != nil {
 		if rolePerms, ok := cfg.rolePermissionsFor(ctx, roleCode); ok {
 			if rolePerms == nil {
-				// role 显式不在配置表 → fail-closed
+
 				logger.Ctx(ctx).Warn().Str("role", roleCode).
 					Msg("[Permission] role missing from external matrix, denied (fail-closed)")
 				return false
@@ -183,14 +183,10 @@ func (s *PermissionService) CheckPermission(ctx context.Context, roleCode, permi
 	return matchPermission(rolePerms, permission)
 }
 
-// rolePermissionsFor 从配置读取角色权限列表。
-// 返回 (nil, true)  = 配置表存在但该角色未列 → fail-closed；
-// 返回 (nil, false) = 配置未就绪（空串/坏 JSON）→ 调用方回退内置；
-// 返回 (list, true) = 配置生效。
 func (s *ConfigParamService) rolePermissionsFor(ctx context.Context, roleCode string) ([]string, bool) {
 	raw := s.GetString(ctx, "permission", "role_permissions_json", "")
 	if strings.TrimSpace(raw) == "" {
-		return nil, false // 未配置 → 内置
+		return nil, false
 	}
 	var m map[string][]string
 	if err := json.Unmarshal([]byte(raw), &m); err != nil {
@@ -199,9 +195,9 @@ func (s *ConfigParamService) rolePermissionsFor(ctx context.Context, roleCode st
 	}
 	perms, ok := m[roleCode]
 	if !ok {
-		return nil, true // 显式缺失 → fail-closed
+		return nil, true
 	}
-	// 安全：strip 非 admin 角色的 "*"（防整体提权）
+
 	filtered := make([]string, 0, len(perms))
 	for _, p := range perms {
 		if p == "*" {
@@ -214,8 +210,6 @@ func (s *ConfigParamService) rolePermissionsFor(ctx context.Context, roleCode st
 	return filtered, true
 }
 
-// defaultRolePermissions 返回内置角色权限列表
-// 取自原 model.SystemRoles 中 3 个内置角色的 Permissions JSON。
 func defaultRolePermissions(roleCode string) []string {
 	switch roleCode {
 	case SystemUserRoleAdmin:
@@ -233,7 +227,6 @@ func defaultRolePermissions(roleCode string) []string {
 	}
 }
 
-// matchPermission 权限匹配（支持通配符 *.x）
 func matchPermission(allowed []string, target string) bool {
 	for _, p := range allowed {
 		if p == "*" {

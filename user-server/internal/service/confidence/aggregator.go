@@ -13,15 +13,15 @@ import (
 )
 
 type ConfidenceAggregator struct {
-	collector  *SignalCollector
-	calibrator *Calibrator
-	platt      *PlattScaling
-	conformal  *ConformalPredictor
-	conformalCalib *ConformalCalibrator // D19: 在线校准器（AddScore 回流）
-	aggregator *WeightedAggregator
-	vetoChain  *VetoChain
-	calc       *DynamicThresholdCalculator
-	signalRepo *repository.ConfidenceSignalRepository
+	collector      *SignalCollector
+	calibrator     *Calibrator
+	platt          *PlattScaling
+	conformal      *ConformalPredictor
+	conformalCalib *ConformalCalibrator
+	aggregator     *WeightedAggregator
+	vetoChain      *VetoChain
+	calc           *DynamicThresholdCalculator
+	signalRepo     *repository.ConfidenceSignalRepository
 }
 
 // NewConfidenceAggregator 创建总聚合器
@@ -90,16 +90,10 @@ func (a *ConfidenceAggregator) Aggregate(ctx context.Context, in *dto.SignalColl
 		}
 	}
 
-	// v3 审计 P0-#3 增强：Platt 二分类校准（与 Temperature 并行）
-	//   - Temperature：多分类 softmax 缩放（已在 calibrator 处理）
-	//   - Platt：二分类 sigmoid 缩放（"是否转人工""意图是否正确"）
-	//   - 两者择一或并存：本实现保留 Temperature 结果，Platt 在 IntentConf 之上叠加（乘法混合）
-	//   - 实际生产中应基于 labels 评估哪种更优（calibration_set / holdout_set）
 	if a.platt != nil {
 		plattCalibrated := a.platt.Predict(calibratedIntentConf)
 		if plattCalibrated > 0 && plattCalibrated <= 1 {
-			// Platt 输出已是 [0,1] 概率；与 Temperature 混合（取加权平均）
-			// 默认 0.5 / 0.5 混合（业界推荐：校准后等权重）
+
 			mixed := 0.5*calibratedIntentConf + 0.5*plattCalibrated
 			if mixed > 0 {
 				calibratedIntentConf = mixed
@@ -135,20 +129,14 @@ func (a *ConfidenceAggregator) Aggregate(ctx context.Context, in *dto.SignalColl
 		band = dto.BandHandoff
 	}
 
-	// v3 审计 P0-#3 增强：Conformal 覆盖率保证
-	//   - 业界依据：单一 confidence 阈值是「点估计」，无法承诺覆盖率
-	//   - Conformal 给出有限样本保证：P(Y 在预测集中) ≥ 1-δ
-	//   - 本实现在聚合决策上叠加「预测不确定性」标记：
-	//     - 当 1 - aggregatedConf > Conformal 阈值时，标记为「高不确定性」→ 转人工
-	//   - 这样业务方可以承诺"95% 情况下我们的 AI 是有把握的"
 	conformalUncertain := false
 	if a.conformal != nil {
-		// 1-aggregatedConf 视为「非一致性分数」：越大越不确信
+
 		nonConformity := 1.0 - aggregatedConf
 		conformalThreshold := a.conformal.Quantile()
 		if SelectivePredict(conformalThreshold, nonConformity) {
 			conformalUncertain = true
-			// 仅在「自动」或「review」时升级为转人工（已被否决或已 handoff 时不再升级）
+
 			if !vetoTriggered && (band == dto.BandAuto || band == dto.BandReview) {
 				band = dto.BandHandoff
 				logger.Ctx(ctx).Info().
@@ -169,21 +157,17 @@ func (a *ConfidenceAggregator) Aggregate(ctx context.Context, in *dto.SignalColl
 		Signals:          *signals,
 		CalculatedAt:     time.Now(),
 	}
-	// D19: non-conformity 回流在线校准器（滑动窗口 AddScore），
-	// BackgroundRunner 周期 Recalibrate 分位数——通道已建未通的最后一公里
+
 	if a.conformalCalib != nil {
 		a.conformalCalib.AddScore(1.0 - aggregatedConf)
 	}
-	// conformalUncertain：当前决策已 band 表达；保留供未来扩展
+
 	_ = conformalUncertain
 
 	a.saveSignalAsync(ctx, in, decision, signals, calibratedIntentConf)
 	return decision, nil
 }
 
-// saveSignalAsync 异步保存信号快照（不阻塞主链路）
-//
-// 失败仅记录日志，不影响主流程
 func (a *ConfidenceAggregator) saveSignalAsync(
 	_ context.Context,
 	in *dto.SignalCollectionInput,
@@ -227,10 +211,6 @@ func (a *ConfidenceAggregator) saveSignalAsync(
 	}()
 }
 
-// inferCustomerLevel 推断客户等级
-//
-// 优先用 input.CustomerLevel（外部注入）
-// 否则返回 "normal"
 func inferCustomerLevel(in *dto.SignalCollectionInput) string {
 	if in.CustomerLevel != "" {
 		return in.CustomerLevel
@@ -238,10 +218,6 @@ func inferCustomerLevel(in *dto.SignalCollectionInput) string {
 	return "normal"
 }
 
-// inferAgentAvailability 推断座席空闲比例
-//
-// 优先用 input.AgentAvailability（外部注入）
-// 否则返回 0.5（中性值）
 func inferAgentAvailability(in *dto.SignalCollectionInput) float64 {
 	if in.AgentAvailability > 0 {
 		return in.AgentAvailability
@@ -252,7 +228,6 @@ func inferAgentAvailability(in *dto.SignalCollectionInput) float64 {
 // ErrAggregatorNotInitialized 聚合器未初始化
 var ErrAggregatorNotInitialized = &aggError{"confidence aggregator not initialized"}
 
-// aggError 简单错误类型
 type aggError struct{ msg string }
 
 func (e *aggError) Error() string { return e.msg }

@@ -7,8 +7,6 @@ import (
 	"hivemtk-user/internal/cache"
 )
 
-// D15: seq Redis/降级语义
-
 // 降级路径：seqIsRedis=false → 本地 atomic 递增
 func TestD15_FallbackLocalSeq(t *testing.T) {
 	oldIsRedis, oldCache := seqIsRedis, seqCache
@@ -52,14 +50,14 @@ func TestD15_RecoverySkipsLocalPeak(t *testing.T) {
 	seqCache = mc
 	redisDegraded.Store(false)
 
-	redisN := NextSeq() // Redis 到 1
-	// 模拟降级：本地连发 5 个
+	redisN := NextSeq()
+
 	redisDegraded.Store(true)
 	local := NextSeq()
 	for i := 0; i < 4; i++ {
 		local = NextSeq()
 	}
-	// 恢复：INCR 返回 2 <= 本地峰值 6 → 自动跳到 7
+
 	got := NextSeq()
 	if got <= uint64(redisN) || got <= local {
 		t.Errorf("恢复后应跳过本地峰值, redis=%d local=%d got=%d", redisN, local, got)
@@ -92,13 +90,13 @@ func TestD15_PendingSinceMergesRemote(t *testing.T) {
 	p := NewPendingAck()
 	p.Track("s1", 5)
 	p.Track("s1", 7)
-	// 模拟他副本写入远端
+
 	pendingRedis.asyncSetJSON("s1", map[uint64]time.Time{9: time.Now()})
-	// async goroutine 需要时间——同步写一份保证可见
+
 	_ = seqCache.SetJSON(nil, pendingKey("s1"), map[uint64]time.Time{5: time.Now(), 9: time.Now()}, 0)
 
 	got := p.PendingSince("s1", 6)
-	// 本地 7（>6）+ 远端 9（合并自他副本）= 2 条
+
 	if len(got) != 2 {
 		t.Errorf("应合并本地 7 + 远端 9 共 2 条, got %v", got)
 	}

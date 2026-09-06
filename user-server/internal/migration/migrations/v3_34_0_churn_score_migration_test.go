@@ -38,7 +38,7 @@ func TestChurnScoreMigration_UpAndIdempotent(t *testing.T) {
 	if err := m.Up(ctx); err != nil {
 		t.Fatalf("Up() failed: %v", err)
 	}
-	// 幂等
+
 	if err := m.Up(ctx); err != nil {
 		t.Fatalf("二次 Up() 应幂等: %v", err)
 	}
@@ -46,14 +46,14 @@ func TestChurnScoreMigration_UpAndIdempotent(t *testing.T) {
 	if err := db.Raw(`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='churn_scores')`).Scan(&exists).Error; err != nil || !exists {
 		t.Fatalf("churn_scores 表应存在: %v", err)
 	}
-	// 唯一约束在位
+
 	if err := db.Exec(`INSERT INTO churn_scores (customer_key, p_alive) VALUES ('k1', 0.5) ON CONFLICT (customer_key) DO NOTHING`).Error; err != nil {
 		t.Fatalf("customer_key 唯一约束应可用: %v", err)
 	}
 	if err := m.Down(ctx); err != nil {
 		t.Fatalf("Down() failed: %v", err)
 	}
-	// Down 幂等
+
 	if err := m.Down(ctx); err != nil {
 		t.Fatalf("二次 Down() 应幂等: %v", err)
 	}

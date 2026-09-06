@@ -5,15 +5,14 @@ import (
 	"testing"
 )
 
-// Fader-Hardie 2005 论文示例参数（CDNOW 校准后典型值量级）
 var refParams = Params{R: 0.24, Alpha: 4.41, A: 0.79, B: 2.43}
 
 // P(alive) 语义边界：
 //   - x=0（新客，tx=0）→ ratio=(a/(b-1))*((α+T)/α)^r，T 越大 P 越低
 //   - 频繁购买（x 大、tx≈T）→ P(alive)→高
 func TestD22_PAliveSemantics(t *testing.T) {
-	frequent := PAlive(refParams, 10, 38, 39) // 高频近期
-	churned := PAlive(refParams, 1, 1, 39)    // 早购后沉寂
+	frequent := PAlive(refParams, 10, 38, 39)
+	churned := PAlive(refParams, 1, 1, 39)
 	if frequent <= churned {
 		t.Errorf("高频近期客户 P(alive)=%.3f 应高于沉寂客户 %.3f", frequent, churned)
 	}
@@ -28,7 +27,7 @@ func TestD22_Hyp2F1Converges(t *testing.T) {
 	if math.IsNaN(got) || math.IsInf(got, 0) {
 		t.Fatalf("2F1 应收敛, got %v", got)
 	}
-	// 2F1(a,b;c;0)=1
+
 	if got0 := hyp2F1(2.5, 1.2, 3.3, 0); got0 != 1 {
 		t.Errorf("2F1(...;0)=1, got %v", got0)
 	}
@@ -45,8 +44,8 @@ func TestD22_CondExpectationMonotonic(t *testing.T) {
 
 // MLE 拟合：合成数据（已知参数采样近似）应收敛至同量级
 func TestD22_FitConverges(t *testing.T) {
-	_ = Params{R: 0.5, Alpha: 5.0, A: 1.2, B: 2.0} // 参考：合成数据非严格 BG/NBD 过程，只验证收敛性
-	// 造 200 个"伪客户"统计量（确定性伪随机，避免引入随机库）
+	_ = Params{R: 0.5, Alpha: 5.0, A: 1.2, B: 2.0}
+
 	stats := make([]CustomerStats, 0, 200)
 	seed := uint64(42)
 	next := func() float64 {
@@ -66,7 +65,7 @@ func TestD22_FitConverges(t *testing.T) {
 	if !res.Converged {
 		t.Fatal("拟合应收敛")
 	}
-	// 收敛即可（合成数据生成非严格 BG/NBD 过程，只锁"参数有限+似然>初始"）
+
 	if math.IsNaN(res.Params.R) || math.IsInf(res.Params.R, 0) {
 		t.Errorf("参数应有限: %+v", res.Params)
 	}

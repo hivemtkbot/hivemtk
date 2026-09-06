@@ -7,7 +7,6 @@ import (
 	"hivemtk-user/internal/aiagent/llm"
 )
 
-// D10 mock：窄接口注入
 type mockObjectionDispatcher struct {
 	content string
 	err     error

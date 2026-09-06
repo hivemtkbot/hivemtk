@@ -11,8 +11,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// D03: Saga 补偿试点——LLM 清产物键 + Wait 删 pending 定时器
-
 func newD03Graph(nodeID, nodeType string) *dto.SOPGraph {
 	return &dto.SOPGraph{
 		Nodes: []dto.SOPNode{{ID: nodeID, Type: nodeType}},
@@ -46,7 +44,7 @@ func TestD03_LLMCompensateClearsKeys(t *testing.T) {
 	if err := e.Compensate(context.Background(), execCtx); err != nil {
 		t.Fatalf("Compensate: %v", err)
 	}
-	// 幂等：二次补偿无错
+
 	if err := e.Compensate(context.Background(), execCtx); err != nil {
 		t.Fatalf("Compensate idempotent: %v", err)
 	}
@@ -92,7 +90,7 @@ func TestD03_WaitCompensateDeletesPendingTimers(t *testing.T) {
 	if err := e.Compensate(context.Background(), execCtx); err != nil {
 		t.Fatalf("Compensate: %v", err)
 	}
-	// 幂等二次
+
 	if err := e.Compensate(context.Background(), execCtx); err != nil {
 		t.Fatalf("Compensate idempotent: %v", err)
 	}

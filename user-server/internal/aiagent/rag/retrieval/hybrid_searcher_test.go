@@ -344,7 +344,7 @@ func TestHybridSearcher_RerankerFailed_FallbackToFused(t *testing.T) {
 	if len(out) == 0 {
 		t.Error("expected results even when rerank fails")
 	}
-	// D17b: 降级路径分数必须已归一化到 (0,1]（RAGQual/门控按 0~1 语义消费）
+
 	for i, c := range out {
 		if c.Score <= 0 || c.Score > 1.0001 {
 			t.Errorf("out[%d] 分数量纲异常（RRF 未归一化）: %v", i, c.Score)

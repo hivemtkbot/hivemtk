@@ -14,7 +14,7 @@ type ConformalCalibrator struct {
 	predictor      *ConformalPredictor
 	scores         []float64
 	maxRetained    int
-	recalibrateSec int // 重算间隔（默认 60s）
+	recalibrateSec int
 	lastRecalibAt  int64
 }
 
@@ -29,7 +29,7 @@ func NewConformalCalibrator(maxRetained, recalibrateSec int) *ConformalCalibrato
 	if recalibrateSec <= 0 {
 		recalibrateSec = 60
 	}
-	// 空集 + delta=0.1 → quantile=+Inf（永远 abstention）
+
 	cp := NewConformalPredictor(nil, 0.1)
 	cc := &ConformalCalibrator{
 		predictor:      cp,
@@ -63,11 +63,11 @@ func (c *ConformalCalibrator) AddScore(score float64) {
 	c.mu.Lock()
 	c.scores = append(c.scores, score)
 	if len(c.scores) > c.maxRetained {
-		// 滑动窗口：淘汰最早的
+
 		c.scores = c.scores[len(c.scores)-c.maxRetained:]
 	}
-	// 检查是否需要重算
-	shouldRecalib := len(c.scores)%100 == 0 // 每 100 条重算一次
+
+	shouldRecalib := len(c.scores)%100 == 0
 	c.mu.Unlock()
 
 	if shouldRecalib {
@@ -86,7 +86,6 @@ func (c *ConformalCalibrator) Recalibrate() {
 	delta := c.predictor.delta
 	c.mu.Unlock()
 
-	// 构造新预测器
 	newCP := NewConformalPredictor(scores, delta)
 	c.mu.Lock()
 	c.predictor = newCP
@@ -149,8 +148,7 @@ func (c *ConformalCalibrator) BackgroundRunner(ctx context.Context) {
 	if c == nil {
 		return
 	}
-	// D19: 周期重算分位数（间隔=recalibrateSec）；AddScore 回流的新样本
-	// 经 Recalibrate 生效为 Quantile() 新阈值。
+
 	ticker := time.NewTicker(time.Duration(c.recalibrateSec) * time.Second)
 	defer ticker.Stop()
 	for {

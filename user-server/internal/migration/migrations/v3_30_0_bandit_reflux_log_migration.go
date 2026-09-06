@@ -14,9 +14,9 @@ import (
 // 背景：BanditAllocator.UpdateReward 生产零调用——转化信号（feedback_events.reward）
 // 落库后从不回流 bandit_arms，臂的后验不更新（自学习三重断链之一）。
 // 回流 worker（service/feedback_loop/bandit_reward_reflux.go）需要两个防重复入账保证：
-//   1. event 级：唯一索引 (event_id)——worker 重启/重扫同窗口时同事件只入账一次；
-//   2. conversion 级：唯一索引 (session_id, sop_id, signal_key)——同会话同 SOP
-//      重复成交去重（决策 D04"转化去重"防线，跨进程安全）。
+//  1. event 级：唯一索引 (event_id)——worker 重启/重扫同窗口时同事件只入账一次；
+//  2. conversion 级：唯一索引 (session_id, sop_id, signal_key)——同会话同 SOP
+//     重复成交去重（决策 D04"转化去重"防线，跨进程安全）。
 type BanditRefluxLogMigration struct {
 	db *gorm.DB
 }

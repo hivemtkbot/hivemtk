@@ -23,8 +23,6 @@ type SOPAutoOptimizer struct {
 	gateLLM gateLLM
 	config  SOPAutoOptimizerConfig
 
-	// D04: GEPA 失败归因台账（内存态；生产无 DB 落库前重启即丢——
-	// TopLessons 反思注入 PromptIterator 的血缘数据源）
 	ledger *FailureLedger
 }
 
@@ -90,7 +88,7 @@ func (o *SOPAutoOptimizer) ProcessPendingSuggestions(ctx context.Context) (*dto.
 		o.recordGateResult(ctx, autoApply[i].ID, gateRes)
 		if !gateRes.Passed {
 			logger.Warnf("[sop_gate] 建议 %d 未过验证门，转人工审核: %s", autoApply[i].ID, gateRes.Reason)
-			// D04: 失败归因入 GEPA 台账（建议无 LineageID 字段，合成血缘键）
+
 			o.ledger.RecordFailure(FailureAttribution{
 				LineageID:   fmt.Sprintf("sop%d_sug%d", autoApply[i].SOPID, autoApply[i].ID),
 				SampleScore: autoApply[i].CurrentScore,
@@ -205,11 +203,11 @@ func (o *SOPAutoOptimizer) checkAndRollback(ctx context.Context, report *dto.Opt
 				report.Errors = append(report.Errors, fmt.Sprintf("rollback test %d (conversion_drop): %v", t.ID, err))
 				continue
 			}
-			// D04: 回滚归因入 GEPA 台账（血缘=实验 ID）
+
 			o.ledger.RecordFailure(FailureAttribution{
-				LineageID: t.ExperimentID,
+				LineageID:   t.ExperimentID,
 				JudgeReason: "conversion_drop",
-				Decision:  "rolled_back",
+				Decision:    "rolled_back",
 			})
 			report.RolledBackCount++
 			continue
@@ -221,9 +219,9 @@ func (o *SOPAutoOptimizer) checkAndRollback(ctx context.Context, report *dto.Opt
 				continue
 			}
 			o.ledger.RecordFailure(FailureAttribution{
-				LineageID: t.ExperimentID,
+				LineageID:   t.ExperimentID,
 				JudgeReason: "complaint_spike",
-				Decision:  "rolled_back",
+				Decision:    "rolled_back",
 			})
 			report.RolledBackCount++
 		}

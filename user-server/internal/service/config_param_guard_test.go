@@ -15,28 +15,28 @@ import (
 // D12 守卫：禁止新增对两套遗留 KV 的直查（新配置一律走 ConfigParamService）。
 // 白名单 = 既有合法引用（model/repo 定义、遗留 seed/读取、迁移、测试文件）。
 func TestD12_NoNewLegacyKVDirectQuery(t *testing.T) {
-	// 存量合法引用面（D12 v2 冻结：只许存量、禁止新增文件/新增直查点）
+
 	whitelist := map[string]bool{
-		"provider_failover.go":        true, // 遗留 system_kv_config 专用读取（迁移挂期外）
-		"config_param.go":             true, // 本文件含守卫自身与遗留声明注释
-		"intent.go":                   true, // controller 存量
-		"bridge_ingress_guard.go":     true, // middleware 存量
-		"aftersale.go":                true,
-		"agent_co_pilot.go":           true,
-		"agent_settings_config.go":    true,
-		"asset_bundle.go":             true,
-		"bridge_token.go":             true,
-		"handoff_chain.go":            true,
-		"intent_recognition.go":       true,
-		"kb_connectors.go":            true,
-		"password_policy.go":          true,
-		"reach_pipeline.go":           true,
-		"sales_engine.go":             true,
-		"script_ab.go":                true,
-		"tool_integration_config.go":  true,
+		"provider_failover.go":       true,
+		"config_param.go":            true,
+		"intent.go":                  true,
+		"bridge_ingress_guard.go":    true,
+		"aftersale.go":               true,
+		"agent_co_pilot.go":          true,
+		"agent_settings_config.go":   true,
+		"asset_bundle.go":            true,
+		"bridge_token.go":            true,
+		"handoff_chain.go":           true,
+		"intent_recognition.go":      true,
+		"kb_connectors.go":           true,
+		"password_policy.go":         true,
+		"reach_pipeline.go":          true,
+		"sales_engine.go":            true,
+		"script_ab.go":               true,
+		"tool_integration_config.go": true,
 	}
 	skipDirs := map[string]bool{
-		"migration": true, // 迁移建表/seed 合法
+		"migration": true,
 	}
 	root := "../"
 	var violations []string
@@ -61,7 +61,7 @@ func TestD12_NoNewLegacyKVDirectQuery(t *testing.T) {
 		content := string(data)
 		if strings.Contains(content, "FROM system_kv_config") || strings.Contains(content, "system_config_kv") {
 			if strings.Contains(content, "禁止新增") || strings.Contains(content, "D12") {
-				return nil // 含声明注释的引用视为已知
+				return nil
 			}
 			violations = append(violations, path)
 		}
@@ -105,13 +105,11 @@ func TestD12_TTLExpiryReloads(t *testing.T) {
 		t.Fatalf("首读应 v1, got %s", got)
 	}
 
-	// DB 直改（绕过 invalidate）→ 未过期仍读旧值
 	putParam("v2")
 	if got := svc.GetString(context.Background(), group, key, "fallback"); got != "v1" {
 		t.Fatalf("未过期应读缓存 v1, got %s", got)
 	}
 
-	// 推进时钟 61s → 过期回源 → 读到 v2
 	now = now.Add(61 * time.Second)
 	if got := svc.GetString(context.Background(), group, key, "fallback"); got != "v2" {
 		t.Fatalf("过期后应回源 v2, got %s", got)

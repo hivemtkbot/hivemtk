@@ -26,7 +26,7 @@ func setupD13(t *testing.T, matrix string) (*ConfigParamService, *gorm.DB) {
 		}
 	}
 	svc.invalidate("permission", "role_permissions_json")
-	// CheckPermission 走全局实例——测试替换全局指向测试实例（用例间互斥由同包串行保证）
+
 	prev := GlobalConfigParam()
 	SetGlobalForTest(svc)
 	t.Cleanup(func() {
@@ -56,7 +56,7 @@ func TestD13_MatrixOverridesBuiltin(t *testing.T) {
 func TestD13_MissingRoleFailClosed(t *testing.T) {
 	ps := &PermissionService{}
 	_, _ = setupD13(t, d13Matrix)
-	// staff 在表中 → 命中；manager 不在表中 → 拒绝（内置里 manager 有权限）
+
 	if !ps.CheckPermission(context.Background(), SystemUserRoleStaff, "cards.view") {
 		t.Error("staff cards.view 应命中")
 	}
@@ -103,9 +103,9 @@ func TestD13_TTLReloadAfterUpdate(t *testing.T) {
 	if !ps.CheckPermission(context.Background(), SystemUserRoleCustomerService, "autoreply.edit") {
 		t.Fatal("前置：默认矩阵 cs 应有 autoreply.*")
 	}
-	// 运营收权（直写 DB 模拟他实例）
+
 	db.Exec(`UPDATE config_params SET param_value = '{"customer_service":["cards.*"]}' WHERE param_group = 'permission' AND key = 'role_permissions_json'`)
-	// 未过期 → 读到旧矩阵（true=旧值仍生效，正确行为）
+
 	if !ps.CheckPermission(context.Background(), SystemUserRoleCustomerService, "autoreply.edit") {
 		t.Error("未过期应仍读旧矩阵（autoreply.edit=true）")
 	}

@@ -35,7 +35,7 @@ import (
 
 // KnowledgeService 知识库服务(V2.0 统一入口)
 type KnowledgeService struct {
-	db            *gorm.DB // R-3 Contextual Retrieval enhancer 需要原生句柄
+	db            *gorm.DB
 	processor     *etl.DocumentProcessor
 	vectorizer    *ragretrieval.Vectorizer
 	indexer       ragretrieval.IndexManagerInterface
@@ -233,9 +233,6 @@ func (s *KnowledgeService) ListImportLogs(ctx context.Context, filter repository
 	return s.importLogRepo.List(ctx, filter)
 }
 
-// resolveProductByID 通过 RAG 产品 UUID(string) 反查知识库。
-// 知识库 product_id 现已统一为 RagProduct.ID(string UUID)，与 RAG 产品直接对应。
-// 用于 ingestion / 分段编辑阶段读取 per-product embedding 配置，避免与检索侧向量空间不一致。
 func (s *KnowledgeService) resolveProductByID(ctx context.Context, productID string) *model.RagProduct {
 	if s.ragRepo == nil {
 		return nil
@@ -252,13 +249,12 @@ func (s *KnowledgeService) resolveProductByID(ctx context.Context, productID str
 	return nil
 }
 
-// resolveEmbeddingConfig 返回用于指定知识库向量化的 embedding 服务与配置。
-// per-product EmbeddingProviderConfig 优先；否则回退全局默认配置（与检索侧 QueryKnowledgeBase 一致）。
 func (s *KnowledgeService) resolveEmbeddingConfig(ctx context.Context, numericProductID string) (*llm.EmbeddingService, *llm.EmbeddingConfig) {
 	if prod := s.resolveProductByID(ctx, numericProductID); prod != nil && prod.EmbeddingProviderConfig.BaseURL != "" {
 		dim := prod.EmbeddingProviderConfig.Dimension
 		if dim == 0 {
-                    dim = EmbeddingDim()		}
+			dim = EmbeddingDim()
+		}
 		cfg := &llm.EmbeddingConfig{
 			APIType:        prod.EmbeddingProviderConfig.APIType,
 			BaseURL:        prod.EmbeddingProviderConfig.BaseURL,
@@ -274,12 +270,10 @@ func (s *KnowledgeService) resolveEmbeddingConfig(ctx context.Context, numericPr
 	return s.embeddingSvc, nil
 }
 
-// persistChunkEmbeddings 委托给 chunkRepo 持久化 embedding（默认 tei 来源）
 func (s *KnowledgeService) persistChunkEmbeddings(ctx context.Context, chunks []model.KnowledgeChunk, embeddings [][]float32) error {
 	return s.persistChunkEmbeddingsWithSource(ctx, chunks, embeddings, llm.EmbedSourceTEI)
 }
 
-// persistChunkEmbeddingsWithSource D16：带来源标记持久化
 func (s *KnowledgeService) persistChunkEmbeddingsWithSource(ctx context.Context, chunks []model.KnowledgeChunk, embeddings [][]float32, source string) error {
 	return s.chunkRepo.UpdateEmbeddingsBatchWithSource(ctx, chunks, embeddings, source)
 }
@@ -296,28 +290,25 @@ func (s *KnowledgeService) EmbedAndPersistChunks(ctx context.Context, numericPro
 	if err != nil {
 		return fmt.Errorf("向量化失败: %w", err)
 	}
-	// N-4 维度守卫：preset 不符条目剔除（log+跳过），不中断批量写入
+
 	chunks, embeddings = filterValidEmbeddings(embService, embCfg, chunks, embeddings)
 	return s.persistChunkEmbeddingsWithSource(ctx, chunks, embeddings, source)
 }
 
 // Search 检索知识库
 func (s *KnowledgeService) Search(ctx context.Context, productID string, query string, topK int, threshold float64) ([]model.KnowledgeChunk, error) {
-	// R43 修复：原为半成品桩（_ = queryVec; return nil,nil）恒空，检索 API 全线失效。
-	// 接线到 RagSearcher 的 HybridSearcher（向量+BM25 混合），命中分片按阈值过滤。
+
 	if s.ragSearcher == nil {
 		return nil, errors.New("rag searcher 未初始化")
 	}
-	// RagSearcher.Search 内部：hybrid(向量+BM25+RRF+重排) → legacy 降级链全托管
+
 	ragChunks, err := s.ragSearcher.Search(ctx, query, topK)
 	if err != nil {
 		return nil, fmt.Errorf("混合检索失败: %w", err)
 	}
 	out := make([]model.KnowledgeChunk, 0, len(ragChunks))
 	for _, c := range ragChunks {
-		// 注意：RankRAGChunks 后的 Score 是加权排序分（含 chunk 权重），不是
-		// 0-1 余弦相似度，不能用绝对阈值截断。阈值语义由 RagSearcher 内部的
-		// 相似度门控承担，这里只做归属映射。
+
 		docID, _ := strconv.ParseUint(strings.TrimPrefix(c.DocID, "kb_doc_"), 10, 64)
 		out = append(out, model.KnowledgeChunk{
 			DocumentID: docID,

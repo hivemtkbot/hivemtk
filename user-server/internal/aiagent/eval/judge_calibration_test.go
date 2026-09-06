@@ -7,7 +7,7 @@ func TestD18_CalibrateJudgePerfect(t *testing.T) {
 	gold := []bool{true, true, false, false, true}
 	got := CalibrateJudge(gold, gold)
 	if got.Kappa != 1.0 || !got.Qualified && got.N >= MinCalibrationSamples {
-		// N<30 不 Qualified 属预期
+
 		if got.Kappa != 1.0 {
 			t.Errorf("完全一致 κ 应=1, got %v", got.Kappa)
 		}
@@ -20,7 +20,7 @@ func TestD18_CalibrateJudgeDisagreement(t *testing.T) {
 	judge := make([]bool, 40)
 	for i := range gold {
 		gold[i] = i%2 == 0
-		judge[i] = i%2 != 0 // 完全相反
+		judge[i] = i%2 != 0
 	}
 	got := CalibrateJudge(gold, judge)
 	if got.Kappa > 0 {
@@ -33,7 +33,7 @@ func TestD18_CalibrateJudgeDisagreement(t *testing.T) {
 
 // precision/recall 分开报
 func TestD18_PrecisionRecallSeparate(t *testing.T) {
-	// gold: 20 pass 20 fail；judge 判 25 pass（20 对 + 5 误报），15 fail（漏 5）
+
 	gold := make([]bool, 40)
 	judge := make([]bool, 40)
 	for i := range gold {

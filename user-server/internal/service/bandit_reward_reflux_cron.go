@@ -11,9 +11,6 @@ import (
 	"hivemtk-user/internal/service/feedback_loop"
 )
 
-// runBanditRewardReflux cron worker：每小时回流一次（D04，挂载于 FeedbackLoopCron 第 6 worker）。
-// 起始 cursor = 启动时间-1h；重启后 cursor 归零重扫由 bandit_reflux_log 幂等兜底
-// （event_id 唯一索引 + session/sop/signal 转化去重唯一索引，迁移 v3.30.0）。
 func (c *FeedbackLoopCron) runBanditRewardReflux(ctx context.Context, db *gorm.DB) {
 	defer c.wg.Done()
 	cursor := time.Now().Add(-time.Hour)

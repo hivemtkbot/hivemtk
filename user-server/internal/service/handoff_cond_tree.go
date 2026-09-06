@@ -19,14 +19,12 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// 条件树约束
 const (
 	condTreeMaxDepth = 3
 )
 
-// conditionOperators 叶子算子白名单（Chatwoot 10 种收敛为 6 种起步）
 var conditionOperators = map[string]func(actual, value any) bool{
-	"eq": func(a, v any) bool { return fmt.Sprint(a) == fmt.Sprint(v) },
+	"eq":  func(a, v any) bool { return fmt.Sprint(a) == fmt.Sprint(v) },
 	"neq": func(a, v any) bool { return fmt.Sprint(a) != fmt.Sprint(v) },
 	"in": func(a, v any) bool {
 		list, ok := v.([]any)
@@ -45,7 +43,6 @@ var conditionOperators = map[string]func(actual, value any) bool{
 	"lt":       func(a, v any) bool { return !condCompare(a, v) && fmt.Sprint(a) != fmt.Sprint(v) },
 }
 
-// condCompare 数值比较（浮点容错；非数值按字符串比较）
 func condCompare(a, v any) bool {
 	af, aok := condToFloat(a)
 	vf, vok := condToFloat(v)
@@ -72,17 +69,17 @@ func condToFloat(v any) (float64, bool) {
 
 // CondNode 条件树节点（group 或 leaf 二选一）
 type CondNode struct {
-	Op         string         `json:"op,omitempty"`      // group: and/or
-	Conditions []*CondNode    `json:"conditions,omitempty"` // group: 子节点
-	Attr       string         `json:"attr,omitempty"`    // leaf: 会话/客户字段名
-	Operator   string         `json:"operator,omitempty"` // leaf: 算子
-	Value      any            `json:"value,omitempty"`    // leaf: 比较值
+	Op         string      `json:"op,omitempty"`
+	Conditions []*CondNode `json:"conditions,omitempty"`
+	Attr       string      `json:"attr,omitempty"`
+	Operator   string      `json:"operator,omitempty"`
+	Value      any         `json:"value,omitempty"`
 }
 
 // ParseCondTree 解析并校验条件树 JSON（深度/算子白名单）
 func ParseCondTree(raw string) (*CondNode, error) {
 	if strings.TrimSpace(raw) == "" {
-		return nil, nil // 未配置 = 条件树不参与决策
+		return nil, nil
 	}
 	var root CondNode
 	if err := json.Unmarshal([]byte(raw), &root); err != nil {
@@ -101,7 +98,7 @@ func validateCondNode(n *CondNode, depth int) error {
 	if n == nil {
 		return fmt.Errorf("cond node nil")
 	}
-	if n.Op != "" { // group
+	if n.Op != "" {
 		if n.Op != "and" && n.Op != "or" {
 			return fmt.Errorf("invalid group op: %s", n.Op)
 		}
@@ -115,7 +112,7 @@ func validateCondNode(n *CondNode, depth int) error {
 		}
 		return nil
 	}
-	// leaf
+
 	if n.Attr == "" {
 		return fmt.Errorf("leaf node requires attr")
 	}
@@ -130,7 +127,7 @@ func (n *CondNode) Evaluate(attrs map[string]any) bool {
 	if n == nil {
 		return false
 	}
-	if n.Op != "" { // group
+	if n.Op != "" {
 		if n.Op == "and" {
 			for _, c := range n.Conditions {
 				if !c.Evaluate(attrs) {
@@ -146,7 +143,7 @@ func (n *CondNode) Evaluate(attrs map[string]any) bool {
 		}
 		return false
 	}
-	// leaf
+
 	fn, ok := conditionOperators[n.Operator]
 	if !ok {
 		return false
@@ -158,7 +155,6 @@ func (n *CondNode) Evaluate(attrs map[string]any) bool {
 	return fn(actual, n.Value)
 }
 
-// sessionCondAttrs 会话字段快照（条件树可引用的 attr 集合）
 func sessionCondAttrs(session *model.CustomerSession, aiReplyCount int) map[string]any {
 	if session == nil {
 		return nil

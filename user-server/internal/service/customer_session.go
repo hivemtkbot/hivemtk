@@ -268,12 +268,11 @@ func (s *CustomerSessionService) SendMessage(ctx context.Context, req *SendMessa
 		s.sessionRepo.IncrementAIReplyCount(ctx, session.ID)
 	} else if req.SenderType == "agent" {
 		s.sessionRepo.IncrementHumanReplyCount(ctx, session.ID)
-		// D20: 转人工后首条人工回复（管理端发送路径）——outcome episode 终点
-		//（与 orchestrator.AgentReply 同语义；handoff 起点 nil 时仅记回复不打点，避免把普通会话误标）
+
 		if session.HandoffAt != nil && session.FirstHumanReplyAt == nil {
 			now := time.Now()
 			if err := s.sessionRepo.UpdateFirstHumanReplyAt(ctx, session.ID, now); err != nil {
-				// 打点失败不阻断消息发送（观测数据）
+
 			} else {
 				session.FirstHumanReplyAt = &now
 			}

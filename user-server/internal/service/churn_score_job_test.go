@@ -14,7 +14,6 @@ func TestD22b_ChurnWeeklyJob(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.ChurnScore{})
 	svc := NewChurnScoreService(db)
 
-	// 注入合成订单统计：3 个高频客户 + 2 个沉寂客户（确定性）
 	base := time.Now().Add(-40 * 24 * time.Hour)
 	svc.statsFn = func(ctx context.Context) ([]ChurnCustomerStats, error) {
 		return []ChurnCustomerStats{
@@ -34,7 +33,6 @@ func TestD22b_ChurnWeeklyJob(t *testing.T) {
 		t.Fatalf("应写入 5 行, got %d", n)
 	}
 
-	// 高流失（沉寂）客户应排前
 	rows, err := svc.repo.ListByPAliveBelow(context.Background(), 1.0, 10)
 	if err != nil {
 		t.Fatalf("ListByPAliveBelow 失败: %v", err)
@@ -45,7 +43,7 @@ func TestD22b_ChurnWeeklyJob(t *testing.T) {
 	if rows[0].PAlive > rows[len(rows)-1].PAlive {
 		t.Fatalf("ListByPAliveBelow 应按 p_alive ASC 排序")
 	}
-	// gone_* 两个沉寂客户（x=1, tx≈1 天, T≈40 天）应比 freq_*（近期有购买）p_alive 更低
+
 	paByKey := map[string]float64{}
 	for _, r := range rows {
 		paByKey[r.CustomerKey] = r.PAlive
@@ -54,7 +52,6 @@ func TestD22b_ChurnWeeklyJob(t *testing.T) {
 		t.Fatalf("沉寂客户 gone_1 P(alive)=%.3f 应低于近期活跃 freq_1 %.3f", paByKey["gone_1"], paByKey["freq_1"])
 	}
 
-	// 幂等：重跑仍 5 行（upsert 不重复）
 	n2, err := svc.ComputeAll(context.Background())
 	if err != nil {
 		t.Fatalf("二次 ComputeAll 失败: %v", err)

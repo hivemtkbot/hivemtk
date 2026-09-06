@@ -482,11 +482,7 @@ var DefaultIntents = []IntentDef{
 		Description: "客户明确表示流失/反感",
 	},
 	{
-		// D07 (G3 修复)：greeting 此前不在词典，规则层永远无法产出（常量 :422 悬空），
-		// 问候语被 social 吸收。纯问候词归 greeting；追问式开场（"在吗/在?/你叫什么"）留 social，
-		// 避免 Examples 等值短路（:642-654 先于关键词层）造成同义消息意图分裂。
-		// 所有下游消费点（orchestrator safeIntent / playbook FriendlyChat / ai_tagger / sales_action_trigger）
-		// 均 greeting 与 social 同分支，行为兼容。
+
 		Type: IntentGreeting, Name: "打招呼问候",
 		Keywords:    []string{"你好", "您好", "hi", "hello", "哈喽", "早上好", "晚上好", "下午好", "嗨"},
 		Examples:    []string{"你好", "hello", "hi", "您好"},

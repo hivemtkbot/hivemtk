@@ -9,12 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// EmbeddingSourceMigration D16：knowledge_chunks 向量来源标记列
-//
-// 背景：HashEmbedding（FNV-1a）兜底向量与 BGE-M3 真实向量写入同一 embedding 列，
-// 无来源标记——兜底开启时两种向量混写同一检索空间（隐性质量债）。
-// 本迁移加 embedding_source 列（'tei'/'hash'），存量行回填 'tei'；
-// 读路径按 source='tei' 过滤；重嵌 job（另立任务）按 source='hash' 圈定回填范围。
 type EmbeddingSourceMigration struct {
 	db *gorm.DB
 }

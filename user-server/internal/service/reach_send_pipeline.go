@@ -520,8 +520,6 @@ func NewDefaultRateLimitedPipelineConfig(adapter ChannelAdapter) SendPipelineCon
 	return cfg
 }
 
-// NewDefaultRateLimitedPipelineConfigWithCache D14-T15b：优先 GCRA（redis_rate）限流，
-// 全局缓存非 Redis 后端时回退进程内 MemorySendRateLimiter（语义与 T15 全局频控降级一致）。
 func NewDefaultRateLimitedPipelineConfigWithCache(adapter ChannelAdapter) SendPipelineConfig {
 	cfg := DefaultSendPipelineConfig(adapter)
 	if gl := NewGCRARateLimiterFromGlobalCache(); gl != nil {

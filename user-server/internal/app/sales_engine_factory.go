@@ -18,7 +18,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 // buildSalesEngine 构建智能体销冠引擎（真实依赖注入）
 // 调用方：router.Setup()
 //
@@ -63,13 +62,11 @@ func BuildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 	if confidenceAgg == nil {
 		confidenceAgg = service.InitConfidenceAggregator(gormDB, dispatcher, nil)
 	}
-	// D01 (G4) 修复：agg 此前被 `_ =` 丢弃——engine 的转人工预检链
-	// shouldTransferByConfidence 恒走 nil 短路。此处注入使其真正生效。
+
 	engine.SetConfidenceAggregator(context.Background(), confidenceAgg)
-	// D19: Conformal 在线重校准后台任务（每 60s Recalibrate）
+
 	confidenceAgg.StartConformalBackground(context.Background())
 
-	// D11: vote 策略开关接线（KV fanout_vote_enabled，默认关）
 	llm.SetFanoutVoteEnabledGetter(func() bool {
 		return service.GlobalConfigParam().GetBool(context.Background(), "agent_llm", "fanout_vote_enabled", false)
 	})
@@ -118,12 +115,9 @@ func BuildSmartOrchestrator(engine *service.SalesEngine, kbRepo *repository.Know
 	cfg.ConfidenceThreshold = 0.5
 	o := service.NewSmartCSOrchestrator(engine, cfg, kbRepo)
 	o.SetIdentityService(service.NewCustomerIdentityService())
-	// D01: orchestrator ⑧ 步与 engine 转人工预检共用同一校准分（G4 打通）
+
 	o.SetConfidenceAggregator(engine.ConfidenceAggregator())
 
-	// CS-P0-1: 注入 DNC（Do-Not-Contact）全局退订检查器
-	// 修复前 dncChecker 恒为 nil → Bridge/WebSocket/AI 回复等所有入站链路的
-	// checkDNCBlocked 都直接返回 false，DNC 黑名单形同虚设。
 	if gormDB != nil {
 		dncRepo := repository.NewCustomerDoNotContactRepository(gormDB)
 		dncSvc := service.NewDoNotContactService(dncRepo)
@@ -157,4 +151,3 @@ func RegisterAgentPrivateMessageTools(gormDB *gorm.DB) {
 	}
 	logger.Info("[agent] ✅ 私信工具（pm.session.open/read/message.send）已接入全局注册中心")
 }
-
