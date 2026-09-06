@@ -43,7 +43,6 @@ func DefaultToolIntegrationConfig() *ToolIntegrationConfig {
 	}
 }
 
-// credentialFields 返回所有需加解密的凭证字段指针。
 func (c *ToolIntegrationConfig) credentialFields() []*string {
 	return []*string{
 		&c.Logistics.Key,
@@ -53,7 +52,6 @@ func (c *ToolIntegrationConfig) credentialFields() []*string {
 	}
 }
 
-// hasPlaintextCredentials 判断是否存在非空的明文凭据。
 func (c *ToolIntegrationConfig) hasPlaintextCredentials() bool {
 	for _, p := range c.credentialFields() {
 		if *p != "" && !secrets.IsCiphertextFormat(*p) {
@@ -118,7 +116,6 @@ func SaveToolIntegrationConfig(ctx context.Context, cfg *ToolIntegrationConfig) 
 	return saveEncryptedToolIntegrationConfig(ctx, repo, cfg)
 }
 
-// saveEncryptedToolIntegrationConfig 序列化并落库。写库的是加密后的副本，不改入参 cfg。
 func saveEncryptedToolIntegrationConfig(ctx context.Context, repo repository.SystemConfigKVRepository, cfg *ToolIntegrationConfig) error {
 	store := *cfg
 	if secrets.Ready() {
@@ -136,7 +133,6 @@ func saveEncryptedToolIntegrationConfig(ctx context.Context, repo repository.Sys
 	return err
 }
 
-// encryptCredentialFields 就地加密 cfg 中所有非空、非密文状态的凭证字段。
 func encryptCredentialFields(cfg *ToolIntegrationConfig) error {
 	for _, p := range cfg.credentialFields() {
 		if *p == "" || secrets.IsCiphertextFormat(*p) {

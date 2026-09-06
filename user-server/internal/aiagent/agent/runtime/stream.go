@@ -8,18 +8,17 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 // StreamEventType 流式事件类型
 type StreamEventType string
 
 const (
-	StreamEventToolCall   StreamEventType = "tool_call"   
-	StreamEventToolResult StreamEventType = "tool_result" 
-	StreamEventMessage    StreamEventType = "message"     
-	StreamEventError      StreamEventType = "error"       
-	StreamEventComplete   StreamEventType = "complete"    
-	StreamEventStageStart StreamEventType = "stage_start" 
-	StreamEventStageEnd   StreamEventType = "stage_end"   
+	StreamEventToolCall   StreamEventType = "tool_call"
+	StreamEventToolResult StreamEventType = "tool_result"
+	StreamEventMessage    StreamEventType = "message"
+	StreamEventError      StreamEventType = "error"
+	StreamEventComplete   StreamEventType = "complete"
+	StreamEventStageStart StreamEventType = "stage_start"
+	StreamEventStageEnd   StreamEventType = "stage_end"
 )
 
 // StreamEvent 流式事件
@@ -40,7 +39,6 @@ type StreamHandler interface {
 	OnError(err error)
 	OnComplete()
 }
-
 
 // BufferedStreamHandler 缓冲流式处理器
 type BufferedStreamHandler struct {
@@ -102,7 +100,6 @@ func (h *BufferedStreamHandler) Clear() {
 	h.events = make([]StreamEvent, 0)
 }
 
-
 // ChannelStreamHandler 通道流式处理器
 type ChannelStreamHandler struct {
 	channel chan StreamEvent
@@ -153,7 +150,6 @@ func (h *ChannelStreamHandler) Done() <-chan struct{} {
 	return h.done
 }
 
-
 // CompositeStreamHandler 组合流式处理器
 type CompositeStreamHandler struct {
 	handlers []StreamHandler
@@ -203,7 +199,6 @@ func (h *CompositeStreamHandler) OnComplete() {
 		handler.OnComplete()
 	}
 }
-
 
 // RunOnceStream 执行一次完整推理闭环（支持流式输出）
 //
@@ -352,4 +347,3 @@ func (c *InferenceCycle) RunOnceStream(ctx context.Context, payload CustomerMess
 
 	return &ic.Decision, nil
 }
-

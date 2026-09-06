@@ -1,9 +1,3 @@
-/**
- * 统一通用枚举：消息类型（msg_type）
- *
- * 跨业务复用：messageHub 中台 / wecomAccount 企微消息 / chat 嵌入客服
- */
-
 export const MSG_TYPE_OPTIONS = Object.freeze([
   { value: 'text',     label: '文本',   tagType: 'info',    icon: 'ChatDotRound', description: '纯文本消息' },
   { value: 'image',    label: '图片',   tagType: 'success', icon: 'Picture',      description: '图片消息' },
@@ -15,7 +9,7 @@ export const MSG_TYPE_OPTIONS = Object.freeze([
   { value: 'card',     label: '卡片',   tagType: 'warning', icon: 'Postcard',     description: '卡片消息' },
   { value: 'event',    label: '事件',   tagType: '',        icon: 'Bell',         description: '事件通知' },
   { value: 'system',   label: '系统',   tagType: 'info',    icon: 'Setting',      description: '系统消息' }
-])
+]);
 
 export const MSG_TYPE_LABEL_MAP = Object.freeze(
   MSG_TYPE_OPTIONS.reduce((acc, o) => { acc[o.value] = o.label; return acc }, {})

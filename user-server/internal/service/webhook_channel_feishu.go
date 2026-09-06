@@ -20,10 +20,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// getFeishuEncryptKey 获取飞书账号 EncryptKey。
-// 数据源断链修复（2026-08-25）：管理端只往 feishu_accounts.encrypt_key 写值，
-// 而 integration_accounts.api_secret 通常无记录，导致 POST 事件验签/加密事件解密恒失败。
-// 统一走本函数取键；账号不存在或 ID 非法返回空串（调用方自行决定 fail 策略）。
 func (s *WebhookService) getFeishuEncryptKey(ctx context.Context, accountID string) string {
 	if s.db == nil || s.feishuRepo == nil {
 		return ""
@@ -52,7 +48,7 @@ func (s *WebhookService) HandleFeishuURLVerification(ctx context.Context, accoun
 		Type      string `json:"type"`
 	}
 	if err := json.Unmarshal(raw, &probe); err != nil {
-		return "", false, nil // 非 JSON，交给常规链路报错
+		return "", false, nil
 	}
 	isVerification := probe.Type == "url_verification"
 	if !isVerification && probe.Encrypt == "" {
@@ -79,8 +75,7 @@ func (s *WebhookService) HandleFeishuURLVerification(ctx context.Context, accoun
 	}
 	if req.Type != "url_verification" || req.Challenge == "" {
 		if isVerification {
-			// 声明为验证请求但缺少 challenge：显式报错而非静默放行，
-			// 避免飞书控制台拿到 200 空响应后无法定位配置失败原因
+
 			return "", true, fmt.Errorf("url_verification missing challenge")
 		}
 		return "", false, nil
@@ -93,7 +88,7 @@ func (s *WebhookService) HandleFeishuURLVerification(ctx context.Context, accoun
 	if gerr != nil || acc == nil {
 		return "", true, errors.New("feishu account not found")
 	}
-	// 空 token 一律拒绝（与 GET FeishuVerify 的 v3 审计口径一致）
+
 	if acc.VerificationToken == "" || subtle.ConstantTimeCompare([]byte(req.Token), []byte(acc.VerificationToken)) != 1 {
 		return "", true, errors.New("feishu verification token mismatch")
 	}
@@ -106,9 +101,6 @@ func (s *WebhookService) dispatchFeishu(ctx context.Context, accountID string, p
 	}
 	s.ensureReposFromDB(ctx)
 
-	// 2026-08-25 修复（交付阻断）：租户开启 Encrypt Key 时事件体为 {"encrypt":"..."} 信封，
-	// 原实现直接按明文 JSON 解析 → Header/Event 为 nil 被静默丢弃（消息收不到且无任何日志）。
-	// 现检测到信封先用账号 EncryptKey 解密再继续。
 	var envProbe struct {
 		Encrypt string `json:"encrypt"`
 	}
@@ -168,7 +160,7 @@ func (s *WebhookService) dispatchFeishu(ctx context.Context, accountID string, p
 		return nil, nil
 	}
 	m := fsPayload.Event.Message
-	// 解析 content JSON 字符串
+
 	var contentObj struct {
 		Text string `json:"text"`
 	}
@@ -207,7 +199,6 @@ func (s *WebhookService) dispatchFeishu(ctx context.Context, accountID string, p
 	}
 	s.upsertInboxFromHub(ctx, hub, "")
 
-	// 2026-08-19：接入通用线索发现（所有渠道复用）
 	MineUnifiedLead(ctx, s, hub, FeishuLeadAdapter{}, accountID, m.ChatID, "", senderID, "", "", content)
 
 	p.Content = content

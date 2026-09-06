@@ -10,45 +10,45 @@ package dto
 
 // Layer 取值
 const (
-	Layer1 = "layer1" 
-	Layer2 = "layer2" 
+	Layer1 = "layer1"
+	Layer2 = "layer2"
 )
 
 // LayerDecisionReason 取值
 const (
-	ReasonFAQHit            = "faq_hit"             
-	ReasonSOPHit            = "sop_hit"             
-	ReasonConfidenceHigh    = "confidence_high"     
-	ReasonConfidenceLow     = "confidence_low"      
-	ReasonFallback          = "fallback"            
-	ReasonLayer1Disabled    = "layer1_disabled"     
-	ReasonNoFAQ             = "no_faq"              
-	ReasonNoSOP             = "no_sop"              
-	ReasonIntentUnknown     = "intent_unknown"      
-	ReasonLowConfidenceSkip = "low_confidence_skip" 
+	ReasonFAQHit            = "faq_hit"
+	ReasonSOPHit            = "sop_hit"
+	ReasonConfidenceHigh    = "confidence_high"
+	ReasonConfidenceLow     = "confidence_low"
+	ReasonFallback          = "fallback"
+	ReasonLayer1Disabled    = "layer1_disabled"
+	ReasonNoFAQ             = "no_faq"
+	ReasonNoSOP             = "no_sop"
+	ReasonIntentUnknown     = "intent_unknown"
+	ReasonLowConfidenceSkip = "low_confidence_skip"
 )
 
 // LayerDecision 双层架构路由决策
 type LayerDecision struct {
-	Layer      string  `json:"layer"`      
-	SkipLLM    bool    `json:"skip_llm"`   
-	Reply      string  `json:"reply"`      
-	Reason     string  `json:"reason"`     
-	Confidence float64 `json:"confidence"` 
-	FAQID      uint    `json:"faq_id"`     
-	SOPID      uint    `json:"sop_id"`     
-	Intent     string  `json:"intent"`     
-	WallMs     int     `json:"wall_ms"`    
-	Metadata   string  `json:"metadata"`   
+	Layer      string  `json:"layer"`
+	SkipLLM    bool    `json:"skip_llm"`
+	Reply      string  `json:"reply"`
+	Reason     string  `json:"reason"`
+	Confidence float64 `json:"confidence"`
+	FAQID      uint    `json:"faq_id"`
+	SOPID      uint    `json:"sop_id"`
+	Intent     string  `json:"intent"`
+	WallMs     int     `json:"wall_ms"`
+	Metadata   string  `json:"metadata"`
 }
 
 // FAQMatchResult FAQ 匹配结果
 type FAQMatchResult struct {
 	Entry     *FAQEntry `json:"entry,omitempty"`
-	Score     float64   `json:"score"`      
-	Rank      int       `json:"rank"`       
-	HitCount  int64     `json:"hit_count"`  
-	MatchType string    `json:"match_type"` 
+	Score     float64   `json:"score"`
+	Rank      int       `json:"rank"`
+	HitCount  int64     `json:"hit_count"`
+	MatchType string    `json:"match_type"`
 }
 
 // FAQEntry FAQ 简短 DTO (避免直接暴露 model)
@@ -61,10 +61,10 @@ type FAQEntry struct {
 	Intent     string   `json:"intent"`
 	Confidence float64  `json:"confidence"`
 	HitCount   int64    `json:"hit_count"`
-	Enabled    *bool    `json:"enabled,omitempty"` 
-	AgentID   *uint  `json:"agent_id,omitempty"`
-	CreatedAt string `json:"created_at,omitempty"`
-	UpdatedAt string `json:"updated_at,omitempty"`
+	Enabled    *bool    `json:"enabled,omitempty"`
+	AgentID    *uint    `json:"agent_id,omitempty"`
+	CreatedAt  string   `json:"created_at,omitempty"`
+	UpdatedAt  string   `json:"updated_at,omitempty"`
 }
 
 // SOPTemplate SOP 模板 DTO (: 前端 SOP 模板管理页面)
@@ -85,11 +85,11 @@ type SOPTemplate struct {
 
 // StreamChunkType 取值
 const (
-	ChunkTypeStart  = "start"  
-	ChunkTypeDelta  = "delta"  
-	ChunkTypeFinal  = "final"  
-	ChunkTypeError  = "error"  
-	ChunkTypeCancel = "cancel" 
+	ChunkTypeStart  = "start"
+	ChunkTypeDelta  = "delta"
+	ChunkTypeFinal  = "final"
+	ChunkTypeError  = "error"
+	ChunkTypeCancel = "cancel"
 )
 
 // StreamChunk WebSocket 流式输出
@@ -100,17 +100,16 @@ const (
 //   - {"type":"final", "text":"完整回复", "steps":[...], "wall_ms":1234} -> 结束
 //   - {"type":"error", "msg":"llm_timeout"} -> 错误
 type StreamChunk struct {
-	Type     string         `json:"type"`           
-	TraceID  string         `json:"trace_id"`       
-	Text     string         `json:"text,omitempty"` 
+	Type     string         `json:"type"`
+	TraceID  string         `json:"trace_id"`
+	Text     string         `json:"text,omitempty"`
 	Intent   string         `json:"intent,omitempty"`
-	Step     string         `json:"step,omitempty"` 
+	Step     string         `json:"step,omitempty"`
 	Steps    []SalesStepLog `json:"steps,omitempty"`
 	WallMs   int            `json:"wall_ms,omitempty"`
-	Layer    string         `json:"layer,omitempty"`    
-	Model    string         `json:"model,omitempty"`    
-	Tokens   int            `json:"tokens,omitempty"`   
-	Error    string         `json:"error,omitempty"`    
-	Metadata string         `json:"metadata,omitempty"` 
+	Layer    string         `json:"layer,omitempty"`
+	Model    string         `json:"model,omitempty"`
+	Tokens   int            `json:"tokens,omitempty"`
+	Error    string         `json:"error,omitempty"`
+	Metadata string         `json:"metadata,omitempty"`
 }
-

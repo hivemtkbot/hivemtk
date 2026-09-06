@@ -10,8 +10,8 @@ type XiaohongshuCardActivity struct {
 	CardID       uint      `gorm:"not null;index" json:"card_id"`
 	UserID       uint      `gorm:"not null;index" json:"user_id"`
 	Username     string    `gorm:"size:100" json:"username"`
-	ActivityType string    `gorm:"size:20;not null" json:"activity_type"` 
-	Content      string    `gorm:"size:500" json:"content"`               
+	ActivityType string    `gorm:"size:20;not null" json:"activity_type"`
+	Content      string    `gorm:"size:500" json:"content"`
 	IPAddress    string    `gorm:"size:45" json:"ip_address"`
 	UserAgent    string    `gorm:"size:500" json:"user_agent"`
 	ExtraData    string    `gorm:"type:text" json:"extra_data"`
@@ -25,4 +25,3 @@ type XiaohongshuCardActivity struct {
 func (XiaohongshuCardActivity) TableName() string {
 	return "xiaohongshu_card_activities"
 }
-

@@ -7,12 +7,12 @@ import (
 
 func TestClassifyIntentCategories(t *testing.T) {
 	cases := map[string]string{
-		"哪家公司好":   "疑问",
+		"哪家公司好":    "疑问",
 		"两款机型参数对比": "对比",
-		"2026推荐排行":  "推荐",
+		"2026推荐排行": "推荐",
 		"如何安装配置":   "教程",
-		"真实体验评测":    "评测",
-		"行业市场规模":    "信息",
+		"真实体验评测":   "评测",
+		"行业市场规模":   "信息",
 	}
 	for kw, want := range cases {
 		if got := classifyIntent(kw); got != want {
@@ -42,7 +42,7 @@ func TestEnhancePromptWithIntent(t *testing.T) {
 			t.Errorf("增强 prompt 缺少策略要素 %q", want)
 		}
 	}
-	// 不同意图产生不同指令
+
 	outQ := EnhancePromptWithIntent(base, "如何安装")
 	if strings.Contains(outQ, "对照表") {
 		t.Error("教程意图不应携带对比类策略")

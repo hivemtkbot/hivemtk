@@ -452,7 +452,6 @@ func (c *Customer360Controller) GetCustomerCommunications(ctx *gin.Context) {
 		return
 	}
 
-	// 使用 GetCustomer360ByCustomerID 按客户档案主键查询
 	dto, err := c.customer360Service.GetCustomer360ByCustomerID(context.Background(), customerID)
 	if err != nil {
 		if errors.Is(err, service.ErrCustomerNotFound) {
@@ -469,7 +468,6 @@ func (c *Customer360Controller) GetCustomerCommunications(ctx *gin.Context) {
 	}, "获取成功")
 }
 
-
 // ListTagRules 获取自动标签规则列表
 // GET /api/customer-360/tag-rules
 func (c *Customer360Controller) ListTagRules(ctx *gin.Context) {
@@ -484,7 +482,6 @@ func (c *Customer360Controller) ListTagRules(ctx *gin.Context) {
 	}, "获取成功")
 }
 
-// saveTagRuleRequest 创建/更新自动标签规则请求
 type saveTagRuleRequest struct {
 	ID       string         `json:"id"`
 	Name     string         `json:"name" binding:"required"`
@@ -571,4 +568,3 @@ func (c *Customer360Controller) GetTagStats(ctx *gin.Context) {
 	}
 	response.Success(ctx, stats, "获取成功")
 }
-

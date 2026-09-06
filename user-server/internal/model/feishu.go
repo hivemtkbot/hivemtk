@@ -2,10 +2,9 @@ package model
 
 import "time"
 
-
 // FeishuAccount 飞书账号（机器人应用）
 type FeishuAccount struct {
-	ID                uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	ID uint `gorm:"primaryKey;autoIncrement" json:"id"`
 	// OwnerUserID 创建者（归属 staff）ID；0 表示存量共享账号（P1-5 归属校验向后兼容）
 	OwnerUserID       uint       `gorm:"default:0;index" json:"owner_user_id"`
 	AccountName       string     `gorm:"type:varchar(100);not null" json:"account_name"`
@@ -20,7 +19,7 @@ type FeishuAccount struct {
 	LastSyncAt        *time.Time `json:"last_sync_at"`
 	LastErrorAt       *time.Time `json:"last_error_at"`
 	LastErrorMsg      string     `gorm:"type:text" json:"last_error_msg"`
-	Status            int        `gorm:"default:1" json:"status"` 
+	Status            int        `gorm:"default:1" json:"status"`
 	CreatedAt         time.Time  `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt         time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 }
@@ -51,34 +50,33 @@ type FeishuMessage struct {
 	AccountID uint      `gorm:"index;not null" json:"account_id"`
 	MsgID     string    `gorm:"type:varchar(100);unique" json:"msg_id"`
 	ChatID    string    `gorm:"type:varchar(100);index" json:"chat_id"`
-	ChatType  string    `gorm:"type:varchar(20)" json:"chat_type"` 
+	ChatType  string    `gorm:"type:varchar(20)" json:"chat_type"`
 	SenderID  string    `gorm:"type:varchar(200);index" json:"sender_id"`
-	MsgType   string    `gorm:"type:varchar(20)" json:"msg_type"` 
+	MsgType   string    `gorm:"type:varchar(20)" json:"msg_type"`
 	Content   string    `gorm:"type:text" json:"content"`
-	Direction string    `gorm:"type:varchar(10);index" json:"direction"` 
+	Direction string    `gorm:"type:varchar(10);index" json:"direction"`
 	IsAIReply bool      `gorm:"default:false" json:"is_ai_reply"`
 	CreatedAt time.Time `gorm:"autoCreateTime;index" json:"created_at"`
 }
 
 func (FeishuMessage) TableName() string { return "feishu_messages" }
 
-
 // TelegramAccount Telegram 机器人账号
 type TelegramAccount struct {
-	ID          uint   `gorm:"primaryKey;autoIncrement" json:"id"`
+	ID uint `gorm:"primaryKey;autoIncrement" json:"id"`
 	// OwnerUserID 创建者（归属 staff）ID；0 表示存量共享账号（P1-5 归属校验向后兼容）
-	OwnerUserID uint   `gorm:"default:0;index" json:"owner_user_id"`
-	AccountName string `gorm:"type:varchar(100);not null" json:"account_name"`
-	BotToken    string `gorm:"type:varchar(200);not null" json:"bot_token"`
-	BotUsername    string     `gorm:"type:varchar(64)" json:"bot_username"`
-	WebhookURL     string     `gorm:"type:varchar(500)" json:"webhook_url"`
-	WebhookSecret  string     `gorm:"type:varchar(200)" json:"webhook_secret"`
-	WebhookEnabled bool       `gorm:"default:false" json:"webhook_enabled"`
-	AIAgentEnabled bool       `gorm:"default:false" json:"ai_agent_enabled"`
-	LastSyncAt     *time.Time `json:"last_sync_at"`
-	LastErrorAt    *time.Time `json:"last_error_at"`
-	LastErrorMsg   string     `gorm:"type:text" json:"last_error_msg"`
-	Status         int        `gorm:"default:1" json:"status"` 
+	OwnerUserID        uint       `gorm:"default:0;index" json:"owner_user_id"`
+	AccountName        string     `gorm:"type:varchar(100);not null" json:"account_name"`
+	BotToken           string     `gorm:"type:varchar(200);not null" json:"bot_token"`
+	BotUsername        string     `gorm:"type:varchar(64)" json:"bot_username"`
+	WebhookURL         string     `gorm:"type:varchar(500)" json:"webhook_url"`
+	WebhookSecret      string     `gorm:"type:varchar(200)" json:"webhook_secret"`
+	WebhookEnabled     bool       `gorm:"default:false" json:"webhook_enabled"`
+	AIAgentEnabled     bool       `gorm:"default:false" json:"ai_agent_enabled"`
+	LastSyncAt         *time.Time `json:"last_sync_at"`
+	LastErrorAt        *time.Time `json:"last_error_at"`
+	LastErrorMsg       string     `gorm:"type:text" json:"last_error_msg"`
+	Status             int        `gorm:"default:1" json:"status"`
 	PollingOwner       string     `gorm:"type:varchar(100);default:''" json:"polling_owner"`
 	PollingHeartbeatAt *time.Time `json:"polling_heartbeat_at"`
 	CreatedAt          time.Time  `gorm:"autoCreateTime" json:"created_at"`
@@ -87,18 +85,17 @@ type TelegramAccount struct {
 
 func (TelegramAccount) TableName() string { return "telegram_accounts" }
 
-
 // WhatsAppCloudAccount WhatsApp Cloud API 商业账号
 type WhatsAppCloudAccount struct {
-	ID                 uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	ID uint `gorm:"primaryKey;autoIncrement" json:"id"`
 	// OwnerUserID 创建者（归属 staff）ID；0 表示存量共享账号（P1-5 归属校验向后兼容）
 	OwnerUserID        uint       `gorm:"default:0;index" json:"owner_user_id"`
 	AccountName        string     `gorm:"type:varchar(100);not null" json:"account_name"`
-	PhoneNumberID      string     `gorm:"type:varchar(100);not null" json:"phone_number_id"`      
-	WhatsAppBusinessID string     `gorm:"type:varchar(100);not null" json:"whatsapp_business_id"` 
+	PhoneNumberID      string     `gorm:"type:varchar(100);not null" json:"phone_number_id"`
+	WhatsAppBusinessID string     `gorm:"type:varchar(100);not null" json:"whatsapp_business_id"`
 	AccessToken        string     `gorm:"type:varchar(500);not null" json:"access_token"`
-	VerifyToken        string     `gorm:"type:varchar(200)" json:"verify_token"` 
-	AppSecret          string     `gorm:"type:varchar(200)" json:"app_secret"`   
+	VerifyToken        string     `gorm:"type:varchar(200)" json:"verify_token"`
+	AppSecret          string     `gorm:"type:varchar(200)" json:"app_secret"`
 	WebhookEnabled     bool       `gorm:"default:false" json:"webhook_enabled"`
 	AIAgentEnabled     bool       `gorm:"default:false" json:"ai_agent_enabled"`
 	LastSyncAt         *time.Time `json:"last_sync_at"`
@@ -110,4 +107,3 @@ type WhatsAppCloudAccount struct {
 }
 
 func (WhatsAppCloudAccount) TableName() string { return "whatsapp_cloud_accounts" }
-

@@ -28,12 +28,9 @@ import (
 // 当前实现：基于 token 频率的「字符级 perplexity」（不需要预训练模型）
 //   - 适合做轻量级 QA gate（性能 vs 精度权衡）
 type Detector struct {
-	// 阈值：perplexity > upper → 高度自然（可能需要降低）
-	//       perplexity < lower → 高度模式化（可能需要提升）
 	lowerBound float64
 	upperBound float64
 
-	// 训练用 baseline（从真实人类对话统计得到）
 	humanBaseline float64
 	aiBaseline    float64
 }
@@ -69,11 +66,11 @@ func (d *Detector) SetThresholds(lower, upper float64) {
 // DetectionResult 检测结果
 type DetectionResult struct {
 	Perplexity    float64 `json:"perplexity"`
-	Quality       string  `json:"quality"` // "good" | "too_ai" | "too_natural" | "unknown"
-	Score         float64 `json:"score"`   // 0-1，1 = 理想拟人度
+	Quality       string  `json:"quality"`
+	Score         float64 `json:"score"`
 	Tokens        int     `json:"tokens"`
-	CharEntropy   float64 `json:"char_entropy"`   // 字符级熵
-	AIProbability float64 `json:"ai_probability"` // 0-1，AI 似然
+	CharEntropy   float64 `json:"char_entropy"`
+	AIProbability float64 `json:"ai_probability"`
 }
 
 // Score 综合打分
@@ -110,14 +107,12 @@ func (d *Detector) Detect(text string) DetectionResult {
 		return DetectionResult{Quality: "unknown"}
 	}
 
-	// 词频统计
 	counts := make(map[string]int)
 	for _, tok := range tokens {
 		counts[tok]++
 	}
 	total := len(tokens)
 
-	// Shannon 熵
 	entropy := 0.0
 	for _, c := range counts {
 		p := float64(c) / float64(total)
@@ -126,34 +121,26 @@ func (d *Detector) Detect(text string) DetectionResult {
 		}
 	}
 
-	// 字符级 perplexity = 2^entropy
-	// 业界直觉：
-	//   - 高熵（多不同 token）→ 高 ppl → 接近人类
-	//   - 低熵（重复 token）→ 低 ppl → 接近 AI
 	perplexity := math.Pow(2, entropy)
 
-	// AI 似然：用 sigmoid 映射
-	// ppl=aiBaseline (15) → AI=0.5; ppl 越低 AI 越高
 	aiProb := sigmoid((d.aiBaseline - perplexity) / 20.0)
 
-	// 质量分级
 	quality := "good"
 	switch {
 	case perplexity < d.lowerBound:
-		quality = "too_ai" // 过于模式化
+		quality = "too_ai"
 	case perplexity > d.upperBound:
-		quality = "too_natural" // 过于"自然"（少见但有可能是 base model 输出）
+		quality = "too_natural"
 	}
 
-	// 拟人化分数：距 lowerBound 越远越好（但不超过 upperBound）
 	score := 0.0
 	switch {
 	case quality == "too_ai":
-		score = perplexity / d.lowerBound * 0.5 // 0-0.5
+		score = perplexity / d.lowerBound * 0.5
 	case quality == "too_natural":
-		score = 0.5 + (d.upperBound-perplexity)/(d.upperBound-d.humanBaseline)*0.3 // 0.5-0.8
+		score = 0.5 + (d.upperBound-perplexity)/(d.upperBound-d.humanBaseline)*0.3
 	case quality == "good":
-		// 在 good 区间内按距 humanBaseline 的接近度打分
+
 		dist := math.Abs(perplexity - d.humanBaseline)
 		maxDist := math.Max(d.humanBaseline-d.lowerBound, d.upperBound-d.humanBaseline)
 		score = 0.8 + 0.2*(1-dist/maxDist)
@@ -174,7 +161,6 @@ func (d *Detector) Detect(text string) DetectionResult {
 	}
 }
 
-// tokenize 简单分词（英文按空格，中文按 char-level）
 func tokenize(text string) []string {
 	var tokens []string
 	var current strings.Builder
@@ -200,7 +186,6 @@ func tokenize(text string) []string {
 	return tokens
 }
 
-// sigmoid 标准 sigmoid
 func sigmoid(x float64) float64 {
 	if x >= 0 {
 		return 1.0 / (1.0 + math.Exp(-x))

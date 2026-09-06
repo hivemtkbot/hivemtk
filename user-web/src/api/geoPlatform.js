@@ -1,8 +1,7 @@
 import { http } from '@/utils/http'
 
-// ===== 平台发布（后端 /geo/platform/*） =====
 export const listPlatforms = () =>
-  http.get('/api/geo/platform/platforms')
+  http.get('/api/geo/platform/platforms');
 
 export const listPlatformAccounts = () =>
   http.get('/api/geo/platform/accounts')

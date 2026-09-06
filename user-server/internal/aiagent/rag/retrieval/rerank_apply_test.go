@@ -60,4 +60,3 @@ func TestApplyRerankKeepsUncoveredChunks(t *testing.T) {
 		t.Errorf("out[1]=%s/%v, want c2/0.02 (保留原 RRF score, 不得清零)", out[1].ID, out[1].Score)
 	}
 }
-

@@ -75,8 +75,6 @@ func (r *ScriptLibraryRepository) IncrementUsageStats(ctx context.Context, templ
 		Updates(updates).Error
 }
 
-// ---------- T-6 版本管理 ----------
-
 // ListScriptVersions 查询话术版本历史（version DESC）
 func (r *ScriptLibraryRepository) ListScriptVersions(ctx context.Context, scriptID uint) ([]model.ScriptVersion, error) {
 	if r == nil || r.db == nil {
@@ -136,8 +134,6 @@ func (r *ScriptLibraryRepository) UpdateScriptActivation(ctx context.Context, sc
 		Where("id = ?", scriptID).
 		Updates(updates).Error
 }
-
-// ---------- T-7 AB 曝光日志 ----------
 
 // CreateScriptExposure 写入曝光记录（fire-and-forget 调用方负责降级）
 func (r *ScriptLibraryRepository) CreateScriptExposure(ctx context.Context, e *model.ScriptExposureLog) error {

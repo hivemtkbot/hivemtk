@@ -36,11 +36,10 @@ type Customer360Service struct {
 	customerRepo     repository.CustomerRepository
 	eventRepo        repository.CustomerEventRepository
 
-	// P-4 画像字段真实来源依赖（均为 best-effort，nil 时对应字段回退默认值）
-	tagRepo     repository.CustomerTagAssignmentRepository  // Tags ← customer_tag_assignments top5
-	insightRepo repository.CustomerProfileInsightRepository // PreferredTime ← 消息时段直方图
-	rfmRepo     repository.CustomerRFMRepository            // RiskLevel ← RFM churn_risk
-	aiTagger    *AITagger                                   // Interests ← ai_tagger 兴趣标签（只读接口）
+	tagRepo     repository.CustomerTagAssignmentRepository
+	insightRepo repository.CustomerProfileInsightRepository
+	rfmRepo     repository.CustomerRFMRepository
+	aiTagger    *AITagger
 }
 
 func NewCustomer360ServiceWithDB(db *gorm.DB) *Customer360Service {
@@ -214,7 +213,7 @@ func (s *Customer360Service) GetCustomer360(ctx context.Context, userID string) 
 
 	dto.MessageHistory, err = s.buildMessageHistory(ctx, userSessions)
 	if err != nil {
-		// X-1：消息历史失败不再静默吞没
+
 		logger.Warnf("[customer-360] GetCustomer360: buildMessageHistory failed (user=%s): %v", userID, err)
 	}
 
@@ -265,9 +264,6 @@ func (s *Customer360Service) GetCustomer360ByCustomerID(ctx context.Context, cus
 
 	dto.BasicInfo = s.buildBasicInfoFromCustomer(cust, sessions)
 
-	// v7 审计修复：by-ID 路径的线索/订单直接用客户档案身份字段聚合。
-	// 原实现传 cust.UnifiedID 给 buildClueInfo/buildOrderInfo，要求存在
-	// session.UserID == unified_id 的会话；UnifiedID 现为盐化哈希恒不匹配 → 线索/订单永远空白。
 	identityKeys := make([]string, 0, 4)
 	accountIDs := make([]string, 0, len(sessions))
 	for _, sess := range sessions {
@@ -308,7 +304,6 @@ func (s *Customer360Service) GetCustomer360ByCustomerID(ctx context.Context, cus
 	return dto, nil
 }
 
-// buildBasicInfoFromCustomer 从客户档案构造基本展示信息；若有关联会话，补充首次/最近活跃时间。
 func (s *Customer360Service) buildBasicInfoFromCustomer(cust *model.Customer, sessions []*model.CustomerSession) *CustomerBasicInfo {
 	info := &CustomerBasicInfo{
 		UserID:    cust.ID,
@@ -491,7 +486,7 @@ func (s *Customer360Service) buildMessageHistory(ctx context.Context, sessions [
 }
 
 func (s *Customer360Service) buildClueInfo(ctx context.Context, userID string, userSessions []*model.CustomerSession) (*ClueInfo, error) {
-	// 从已加载的 userSessions 提取 phone / email / accountID
+
 	var userPhone, userEmail, accountID string
 	for _, session := range userSessions {
 		if session.UserID == userID {
@@ -509,9 +504,6 @@ func (s *Customer360Service) buildClueInfo(ctx context.Context, userID string, u
 	return s.assembleClueInfo(ctx, []string{accountID, userPhone, userEmail})
 }
 
-// assembleClueInfo 按线索键(账户/手机号/邮箱)聚合线索信息。
-// v7 审计修复：从 buildClueInfo 拆出，供 by-ID 路径直接以客户档案身份字段调用，
-// 不再依赖 session.UserID == unified_id 的匹配（盐化哈希 UnifiedID 恒不等于会话 user_id）。
 func (s *Customer360Service) assembleClueInfo(ctx context.Context, keys []string) (*ClueInfo, error) {
 	clues, err := s.clueRepo.ListByAccounts(ctx, keys)
 	if err != nil {
@@ -541,7 +533,7 @@ func (s *Customer360Service) assembleClueInfo(ctx context.Context, keys []string
 }
 
 func (s *Customer360Service) buildOrderInfo(ctx context.Context, userID string, userSessions []*model.CustomerSession) (*OrderInfo, error) {
-	// 从已加载的 userSessions 提取 accountID
+
 	var accountID string
 	for _, session := range userSessions {
 		if session.UserID == userID {
@@ -559,12 +551,10 @@ func (s *Customer360Service) buildOrderInfo(ctx context.Context, userID string, 
 	return s.assembleOrderInfo(ctx, []string{accountID})
 }
 
-// assembleOrderInfo 按账户聚合订单统计。
-// v7 审计修复：从 buildOrderInfo 拆出，供 by-ID 路径直接以会话/档案账户调用。
 func (s *Customer360Service) assembleOrderInfo(ctx context.Context, accountIDs []string) (*OrderInfo, error) {
 	userOrders, err := s.orderRepo.ListByAccountIDs(ctx, accountIDs)
 	if err != nil {
-		// X-1：订单聚合失败不再静默吞没（降级返回空订单视图）
+
 		logger.Warnf("[customer-360] assembleOrderInfo: ListByAccountIDs failed (accounts=%v): %v", accountIDs, err)
 		return &OrderInfo{
 			Orders: make([]*OrderItem, 0),
@@ -577,7 +567,6 @@ func (s *Customer360Service) assembleOrderInfo(ctx context.Context, accountIDs [
 		}, nil
 	}
 
-	// 计算统计数据（ListByAccountIDs 已按 create_time DESC 排序，首条即最新）
 	var totalAmount float64
 	lastOrder := userOrders[0]
 	orderItems := make([]*OrderItem, 0, len(userOrders))
@@ -662,9 +651,6 @@ func (s *Customer360Service) buildInteractionStats(ctx context.Context, sessions
 	return stats
 }
 
-// resolveCustomerIDForSessions 由会话身份字段反查客户档案主键（best-effort）。
-// GetCustomer360(userID) 路径只有会话 user_id，而 RFM/标签均以 customers.id 为键，
-// 这里用会话上的 phone/email 反查；查不到返回空串（画像字段回退默认值）。
 func (s *Customer360Service) resolveCustomerIDForSessions(ctx context.Context, sessions []*model.CustomerSession) string {
 	if s.customerRepo == nil || len(sessions) == 0 {
 		return ""
@@ -690,15 +676,6 @@ func (s *Customer360Service) resolveCustomerIDForSessions(ctx context.Context, s
 	return cust.ID
 }
 
-// buildUserProfile 构建客户画像
-//
-// P-4（画像字段实现或删除）四字段真实来源：
-//   - Tags          ← customer_tag_assignments 置信度 top5
-//   - RiskLevel     ← customer_rfm.churn_risk_level（RFM 已算）
-//   - Interests     ← ai_tagger 兴趣标签（category=interest，只读接口）
-//   - PreferredTime ← 消息时段直方图峰值（session_messages 按小时聚合，近 30 天）
-//
-// customerID 为空时跳过富化（列表路径防 N+1）；各来源失败仅告警不阻断。
 func (s *Customer360Service) buildUserProfile(ctx context.Context, sessions []*model.CustomerSession, interactionStats *InteractionStats, orderInfo *OrderInfo, customerID string) *UserProfile {
 	profile := &UserProfile{
 		Tags:          make([]string, 0),
@@ -739,13 +716,11 @@ func (s *Customer360Service) buildUserProfile(ctx context.Context, sessions []*m
 	return profile
 }
 
-// enrichUserProfile P-4 四字段富化（全部 best-effort：失败记告警并保留默认值）
 func (s *Customer360Service) enrichUserProfile(ctx context.Context, profile *UserProfile, customerID string, sessions []*model.CustomerSession) {
 	if ctx == nil || customerID == "" || profile == nil {
 		return
 	}
 
-	// Tags ← customer_tag_assignments 置信度 top5
 	if s.tagRepo != nil {
 		if assignments, err := s.tagRepo.ListByCustomerID(ctx, customerID); err != nil {
 			logger.Warnf("[customer-360] enrichUserProfile: ListTags failed (customer=%s): %v", customerID, err)
@@ -769,7 +744,6 @@ func (s *Customer360Service) enrichUserProfile(ctx context.Context, profile *Use
 		}
 	}
 
-	// Interests ← ai_tagger 兴趣标签（只读，不改 ai_tagger）
 	if s.aiTagger != nil {
 		interests := make([]string, 0)
 		for _, tag := range s.aiTagger.GetByCategory(ctx, customerID, "interest") {
@@ -780,7 +754,6 @@ func (s *Customer360Service) enrichUserProfile(ctx context.Context, profile *Use
 		}
 	}
 
-	// RiskLevel ← RFM churn_risk
 	if s.rfmRepo != nil {
 		rfm, err := s.rfmRepo.GetByCustomerID(ctx, customerID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -791,7 +764,6 @@ func (s *Customer360Service) enrichUserProfile(ctx context.Context, profile *Use
 		}
 	}
 
-	// PreferredTime ← 消息时段直方图（近 30 天，轻量 GROUP BY 聚合）
 	if s.insightRepo != nil && len(sessions) > 0 {
 		sessionIDs := make([]string, 0, len(sessions))
 		for _, sess := range sessions {
@@ -808,7 +780,6 @@ func (s *Customer360Service) enrichUserProfile(ctx context.Context, profile *Use
 	}
 }
 
-// riskLevelFromChurn RFM churn_risk_level → 画像 RiskLevel 映射
 func riskLevelFromChurn(churnRisk string) string {
 	switch churnRisk {
 	case "high":
@@ -820,10 +791,9 @@ func riskLevelFromChurn(churnRisk string) string {
 	}
 }
 
-// preferredTimeLabel 消息时段直方图 → 偏好时段标签（峰值小时起 2 小时窗口）
 func preferredTimeLabel(hist map[int]int64) string {
 	peakHour, peakCount := -1, int64(0)
-	// 固定顺序遍历保证同计数时取更早小时（结果确定性）
+
 	for h := 0; h < 24; h++ {
 		if c := hist[h]; c > peakCount {
 			peakHour, peakCount = h, c
@@ -933,7 +903,7 @@ func (s *Customer360Service) GetCustomerList(ctx context.Context, page, pageSize
 
 	orders, orderListErr := s.orderRepo.ListByAccountIDs(ctx, accountIDs)
 	if orderListErr != nil {
-		// X-1：订单批量拉取失败不再静默吞没
+
 		logger.Warnf("[customer-360] GetCustomerList: ListByAccountIDs failed: %v", orderListErr)
 	}
 	orderMap := make(map[string][]*model.Order, len(accountIDs))
@@ -960,7 +930,7 @@ func (s *Customer360Service) indexCluesByAccount(ctx context.Context, accounts [
 	}
 	clues, err := s.clueRepo.ListByAccounts(ctx, accounts)
 	if err != nil {
-		// X-1：线索索引失败不再静默吞没（降级返回空索引）
+
 		logger.Warnf("[customer-360] indexCluesByAccount: ListByAccounts failed: %v", err)
 		return out
 	}
@@ -997,7 +967,7 @@ func (s *Customer360Service) assembleCustomer360DTO(
 	dto.ClueInfo = s.buildClueInfoFromMap(userSessions, clueMap)
 	dto.OrderInfo = s.buildOrderInfoFromMap(userSessions, orderMap)
 	dto.InteractionStats = s.buildInteractionStats(nil, userSessions)
-	// 列表路径不做逐客户画像富化（避免 N+1 查询），四字段保持默认空值
+
 	dto.UserProfile = s.buildUserProfile(nil, userSessions, dto.InteractionStats, dto.OrderInfo, "")
 	return dto
 }

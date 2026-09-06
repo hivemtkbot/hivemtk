@@ -524,7 +524,6 @@ func (s *IntegrationService) syncTaobaoOrders(ctx context.Context, account *mode
 		return 0, err
 	}
 
-	// 解析响应（简化版本）
 	var result struct {
 		TradesSoldGetResponse struct {
 			Trades struct {
@@ -557,7 +556,7 @@ func (s *IntegrationService) syncTaobaoOrders(ctx context.Context, account *mode
 
 	count := 0
 	for _, t := range result.TradesSoldGetResponse.Trades.Trade {
-		// 解析订单商品
+
 		var items []map[string]any
 		for _, o := range t.Orders.Order {
 			items = append(items, map[string]any{
@@ -569,7 +568,6 @@ func (s *IntegrationService) syncTaobaoOrders(ctx context.Context, account *mode
 		}
 		itemsJSON, _ := json.Marshal(items)
 
-		// 解析时间
 		var payTime, shipTime, orderTime *time.Time
 		if t.Created != "" {
 			if ct, err := time.Parse("2006-01-02 15:04:05", t.Created); err == nil {
@@ -668,7 +666,6 @@ func (s *IntegrationService) syncJDOrders(ctx context.Context, account *model.In
 		return 0, err
 	}
 
-	// 解析响应（简化版本）
 	var result struct {
 		OrderSearchResponse struct {
 			Orders []struct {
@@ -699,7 +696,7 @@ func (s *IntegrationService) syncJDOrders(ctx context.Context, account *model.In
 
 	count := 0
 	for _, o := range result.OrderSearchResponse.Orders {
-		// 解析订单商品
+
 		var items []map[string]any
 		for _, sku := range o.SKUList {
 			items = append(items, map[string]any{
@@ -711,7 +708,6 @@ func (s *IntegrationService) syncJDOrders(ctx context.Context, account *model.In
 		}
 		itemsJSON, _ := json.Marshal(items)
 
-		// 解析时间
 		var payTime, shipTime, orderTime *time.Time
 		if o.OrderStartTime != "" {
 			if st, err := time.Parse("2006-01-02 15:04:05", o.OrderStartTime); err == nil {
@@ -768,7 +764,6 @@ func (s *IntegrationService) SyncProducts(ctx context.Context, account *model.In
 	}
 }
 
-// syncTaobaoProducts 同步淘宝商品
 func (s *IntegrationService) syncTaobaoProducts(ctx context.Context, account *model.IntegrationAccount) (int, error) {
 	client := NewTaobaoClient(account)
 
@@ -861,7 +856,6 @@ func (s *IntegrationService) syncTaobaoProducts(ctx context.Context, account *mo
 	return count, nil
 }
 
-// syncJDProducts 同步京东商品
 func (s *IntegrationService) syncJDProducts(ctx context.Context, account *model.IntegrationAccount) (int, error) {
 	client := NewJDClient(account)
 
@@ -1031,7 +1025,6 @@ func (s *IntegrationService) UpsertOrderFromWebhook(ctx context.Context, platfor
 	return s.orderRepo.Create(ctx, o)
 }
 
-// parseWebhookTime 将 webhook raw 中可能为 string(RFC3339/常见格式) 或 time.Time 的值解析为 *time.Time。
 func parseWebhookTime(v any) (*time.Time, bool) {
 	switch t := v.(type) {
 	case time.Time:

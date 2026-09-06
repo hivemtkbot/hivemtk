@@ -15,7 +15,6 @@ var ErrCacheMiss = errors.New("cache: key not found")
 // DefaultMaxKeys 默认 LRU 上限（修复：限制内存使用）
 const DefaultMaxKeys = 10_000
 
-// maxKeysProvider 返回 LRU 上限，可被上层（ConfigParam）注入动态值
 var maxKeysProvider = func() int { return DefaultMaxKeys }
 
 // MaxKeys 返回当前 LRU 上限（DB 驱动优先，fallback 为 DefaultMaxKeys）
@@ -28,20 +27,17 @@ func SetMaxKeysProvider(fn func() int) {
 	}
 }
 
-// cacheRegistry 全局 MemoryCache 注册表，用于测试/进程退出时统一清理 goroutine
 var (
 	cacheRegistryMu sync.Mutex
 	cacheRegistry   = make(map[*MemoryCache]struct{})
 )
 
-// registerCache 注册一个 MemoryCache 到全局注册表
 func registerCache(m *MemoryCache) {
 	cacheRegistryMu.Lock()
 	cacheRegistry[m] = struct{}{}
 	cacheRegistryMu.Unlock()
 }
 
-// unregisterCache 从全局注册表注销一个 MemoryCache
 func unregisterCache(m *MemoryCache) {
 	cacheRegistryMu.Lock()
 	delete(cacheRegistry, m)
@@ -108,7 +104,6 @@ func (m *MemoryCache) Close() {
 	})
 }
 
-// cleanup 定期清理过期缓存，监听 done channel 退出
 func (m *MemoryCache) cleanup() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
@@ -122,7 +117,6 @@ func (m *MemoryCache) cleanup() {
 	}
 }
 
-// deleteExpired 删除所有过期缓存
 func (m *MemoryCache) deleteExpired() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -138,12 +132,10 @@ func (m *MemoryCache) deleteExpired() {
 	}
 }
 
-// touch 将元素移动到链表头部（最近使用）
 func (m *MemoryCache) touch(ele *list.Element) {
 	m.order.MoveToFront(ele)
 }
 
-// evictIfNeeded 超过 maxKeys 时淘汰最久未用的元素
 func (m *MemoryCache) evictIfNeeded() {
 	for m.order.Len() > m.maxKeys {
 		back := m.order.Back()
@@ -156,7 +148,6 @@ func (m *MemoryCache) evictIfNeeded() {
 	}
 }
 
-// peekItem 读锁下取元素并刷新 LRU
 func (m *MemoryCache) peekItem(key string) (*cacheItem, bool) {
 	m.mu.RLock()
 	ele, ok := m.data[key]

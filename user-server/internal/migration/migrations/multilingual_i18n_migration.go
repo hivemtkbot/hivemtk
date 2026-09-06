@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -111,7 +110,6 @@ func (m *MultilingualI18nMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// truncate 截断字符串用于错误信息
 func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s
@@ -119,6 +117,4 @@ func truncate(s string, n int) string {
 	return s[:n] + "..."
 }
 
-// 编译期接口断言
 var _ migration.Migration = (*MultilingualI18nMigration)(nil)
-

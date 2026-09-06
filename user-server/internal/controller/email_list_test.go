@@ -322,8 +322,6 @@ func TestEmailListController_NewEmailListController(t *testing.T) {
 	}
 }
 
-
-// setupEmailTestDB_Merged 初始化邮件测试数据库(合并自 email_extra_test.go)
 func setupEmailTestDB_Merged(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.EmailList{},
@@ -336,7 +334,6 @@ func setupEmailTestDB_Merged(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupEmailListRouter_Merged 构建 EmailList 路由(合并自 email_extra_test.go)
 func setupEmailListRouter_Merged(ctrl *EmailListController) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
@@ -491,4 +488,3 @@ func TestEmailJobsController_GetList_MergedSuccess(t *testing.T) {
 		t.Errorf("Expected 200, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
-

@@ -75,7 +75,6 @@ type ObjectionTemplate struct {
 	SuccessRate float64           `json:"success_rate"`
 }
 
-// angerWords H-6 愤怒情绪关键词（用于情感分层前缀触发）
 var angerWords = []string{
 	"生气", "愤怒", "气死", "气死我", "发火", "火大", "恼火", "大怒", "暴怒",
 	"讨厌", "烦死", "烦", "闹心", "恶心", "郁闷", "憋屈", "窝火", "不爽",
@@ -87,9 +86,6 @@ var angerWords = []string{
 	"太坑", "太烂", "太差", "太离谱", "太过分", "太过分", "再也不",
 }
 
-// detectAnger H-6：简单词典匹配检测愤怒情绪。
-// 返回 anger=true 时，confidence=hitCount/len(angerWords) 的归一化值，
-// 命中 >= 2 个关键词视为 high_confidence。
 func detectAnger(text string) (anger bool, confidence float64) {
 	t := strings.ToLower(text)
 	hits := 0
@@ -108,11 +104,6 @@ func detectAnger(text string) (anger bool, confidence float64) {
 	return hits >= 2, confidence
 }
 
-// objectionRule 关键词 → 类别映射
-//
-// 规则按顺序求值、首个命中即返回，因此高优先级类别必须排在前面：
-// status_quo（T-3）须先于 need/timing —— "不需要了"含 need 的"不需要"、
-// "再想想"原属 timing，均应优先归入维持现状类（竞品数据：status quo 单占丢单 38%）。
 var objectionRules = []struct {
 	Keywords []string
 	Category ObjectionCategory
@@ -127,7 +118,6 @@ var objectionRules = []struct {
 	{Keywords: []string{"功能", "不支持", "做不到", "没有这个", "feature", "can't"}, Category: ObjectionFeature, Name: "特性异议"},
 }
 
-// 异议分类置信度分级（按命中该类别的关键词个数）
 const (
 	confidenceMultiHit  = 0.90
 	confidenceSingleHit = 0.70
@@ -140,8 +130,6 @@ func (s *ObjectionHandlerService) Classify(ctx context.Context, text string) (Ob
 	return category, name
 }
 
-// classifyWithConfidence 异议分类并按命中关键词数给出置信度：
-// 该类别命中关键词数 >= 2 → 0.90；恰好 1 个 → 0.70；未命中任何规则（other 兜底）→ 0.40。
 func (s *ObjectionHandlerService) classifyWithConfidence(ctx context.Context, text string) (ObjectionCategory, string, float64) {
 	t := strings.ToLower(text)
 	for _, rule := range objectionRules {
@@ -166,10 +154,10 @@ func (s *ObjectionHandlerService) classifyWithConfidence(ctx context.Context, te
 type HandleRequest struct {
 	Text           string `json:"text"`
 	Category       string `json:"category"`
-	OneID          string `json:"one_id"`          // T-7 AB 曝光归因锚点（可选）
-	CustomerID     uint   `json:"customer_id"`     // T-7（可选）
-	ConversationID string `json:"conversation_id"` // T-7（可选）
-	TraceID        string `json:"trace_id"`        // T-7（可选）
+	OneID          string `json:"one_id"`
+	CustomerID     uint   `json:"customer_id"`
+	ConversationID string `json:"conversation_id"`
+	TraceID        string `json:"trace_id"`
 }
 
 // HandleResponse 异议处理响应
@@ -255,9 +243,7 @@ func (s *ObjectionHandlerService) Handle(ctx context.Context, req HandleRequest)
 
 	if len(resp.Templates) > 0 {
 		resp.Template = &resp.Templates[0]
-		// T-2 归因闭环：推荐话术后异步记录 usage（异议→话术→转化率结构化数据）
-		// 失败仅告警，不影响主响应
-		// T-7 扩展：带 AB 曝光上下文（one_id 缺失时不记录曝光）
+
 		var exposure *scriptExposure
 		if req.OneID != "" {
 			exposure = &scriptExposure{
@@ -275,8 +261,6 @@ func (s *ObjectionHandlerService) Handle(ctx context.Context, req HandleRequest)
 		resp.Suggestion = s.defaultSuggestion(ctx, category, req.Text)
 	}
 
-	// T-4 LAER 编排：Acknowledge（镜像复述前缀，按模板 ID 稳定伪随机 3 选 1）
-	// + Explore（price/trust 高价值异议先发澄清问题再答）
 	resp.Acknowledge = pickAcknowledge(category, ackSeedID(resp.Template), req.Text)
 	if q, ok := exploreClarifyQuestions[category]; ok {
 		resp.Clarify = q
@@ -286,7 +270,6 @@ func (s *ObjectionHandlerService) Handle(ctx context.Context, req HandleRequest)
 		return resp.Templates[i].UsageCount > resp.Templates[j].UsageCount
 	})
 
-	// H-6 情感分层：anger 高置信时，建议回复前加道歉前缀
 	if angry, conf := detectAnger(req.Text); angry && conf >= 0.6 {
 		apology := "非常抱歉给您带来了不愉快的体验，"
 		if resp.Suggestion != "" {
@@ -343,7 +326,6 @@ func (s *ObjectionHandlerService) RecordUsage(ctx context.Context, templateID ui
 	return s.scriptRepo.IncrementUsageStats(ctx, templateID, success)
 }
 
-// scriptAB 话术 AB 曝光服务（T-7，懒加载单例；nil 安全）
 var scriptABOnce sync.Once
 var scriptABSvc *ScriptABService
 
@@ -376,11 +358,6 @@ func RecordScriptExposure(scriptID uint, version int, oneID string, customerID u
 	}()
 }
 
-// recordUsageAsync 异步记录模板推荐 usage（T-2 归因闭环）
-//
-// 使用脱离取消信号的 context（context.WithoutCancel）确保请求返回后记录仍能落库；
-// 记录失败仅打日志，绝不影响主响应。
-// T-7 扩展：exposure 非空时同步写入 AB 曝光日志（分桶+版本+会话锚点）。
 func (s *ObjectionHandlerService) recordUsageAsync(ctx context.Context, templateID uint, exposure *scriptExposure) {
 	if s == nil || s.scriptRepo == nil || templateID == 0 {
 		return
@@ -396,7 +373,6 @@ func (s *ObjectionHandlerService) recordUsageAsync(ctx context.Context, template
 	}
 }
 
-// scriptExposure T-7 曝光上下文（Handle 内组装后传入 recordUsageAsync）
 type scriptExposure struct {
 	version        int
 	oneID          string
@@ -405,11 +381,6 @@ type scriptExposure struct {
 	traceID        string
 }
 
-// reqVersionOf 从已加载话术中取指定 ID 的版本号（T-7）
-//
-// R55 T4 修复：此前模板缺失/Version=0 时恒回 1 → 曝光统计记错版本。
-// 现改为异步查 DB 当前最大版本（版本快照未建时降级 1）。
-// 保持同步签名（调用方在请求链路内），失败静默降级 1 不影响主链路。
 func reqVersionOf(scripts []model.ScriptLibrary, templateID uint) int {
 	for _, sc := range scripts {
 		if sc.ID == templateID {
@@ -422,7 +393,6 @@ func reqVersionOf(scripts []model.ScriptLibrary, templateID uint) int {
 	return fallbackVersionOf(templateID)
 }
 
-// fallbackVersionOf 从版本快照表取当前版本（异步缓存，避免阻塞主链路）
 func fallbackVersionOf(templateID uint) int {
 	if templateID == 0 {
 		return 1
@@ -434,7 +404,6 @@ func fallbackVersionOf(templateID uint) int {
 	}
 	versionCacheMu.RUnlock()
 
-	// 异步刷新缓存（首次 miss 返回 1，下一轮请求生效）
 	go func(id uint) {
 		defer func() { _ = recover() }()
 		repo := repository.NewScriptLibraryRepository(repository.GetDB())
@@ -460,10 +429,6 @@ var (
 	versionCacheMu sync.RWMutex
 )
 
-// acknowledgeTemplates T-4 LAER-Acknowledge 镜像复述前缀模板层。
-// 业界依据：多数异议实现跳过 Acknowledge 层直接 Respond，机器味重；
-// 先镜像复述客户顾虑再作答可显著降低对抗感。每类别 3 选 1，
-// 以话术模板 ID 为种子做稳定伪随机（同模板同选择，避免同会话内漂移）。
 var acknowledgeTemplates = map[ObjectionCategory][]string{
 	ObjectionPrice: {
 		"价格确实是大家都会关心的，您有这个顾虑很正常。",
@@ -502,15 +467,11 @@ var acknowledgeTemplates = map[ObjectionCategory][]string{
 	},
 }
 
-// exploreClarifyQuestions T-4 LAER-Explore：高价值异议（price/trust）先澄清再答，
-// 避免答非所问——价格异议需区分"超预算"与"对比后觉得偏高"，信任异议需定位具体担忧面。
 var exploreClarifyQuestions = map[ObjectionCategory]string{
 	ObjectionPrice: "方便问一下，您是觉得超出预算了，还是和同类产品对比后觉得偏高呢？",
 	ObjectionTrust: "方便说说主要担心哪方面吗？比如效果、售后还是服务保障？",
 }
 
-// ackSeedID 确定 Acknowledge 选择的种子：有推荐模板时用模板 ID（同模板输出稳定），
-// 无模板时回退按文本哈希。种子为 0 视为未初始化。
 func ackSeedID(tpl *ObjectionTemplate) uint {
 	if tpl != nil && tpl.ID > 0 {
 		return tpl.ID
@@ -518,9 +479,6 @@ func ackSeedID(tpl *ObjectionTemplate) uint {
 	return 0
 }
 
-// pickAcknowledge 按类别从 3 个镜像复述模板中稳定选取 1 条：
-// 种子取模板 ID（优先）或文本 FNV-1a 哈希（兜底），保证同一输入选择恒定。
-// other 兜底类别无镜像复述（未知顾虑复述易答非所问），返回空串。
 func pickAcknowledge(cat ObjectionCategory, seedID uint, text string) string {
 	tpls, ok := acknowledgeTemplates[cat]
 	if !ok || len(tpls) == 0 {

@@ -16,10 +16,10 @@ func TestStableSigmoid(t *testing.T) {
 		{0, 0.5, 1e-9},
 		{1, 0.7310585786, 1e-6},
 		{-1, 0.2689414214, 1e-6},
-		{100, 1.0, 1e-9},   // 大正数 → 1（不应 NaN）
-		{-100, 0.0, 1e-9},  // 大负数 → 0（不应 NaN）
-		{1000, 1.0, 1e-9},  // 极端值不溢出
-		{-1000, 0.0, 1e-9}, // 极端值不溢出
+		{100, 1.0, 1e-9},
+		{-100, 0.0, 1e-9},
+		{1000, 1.0, 1e-9},
+		{-1000, 0.0, 1e-9},
 	}
 	for _, tt := range tests {
 		got := stableSigmoid(tt.z)
@@ -39,7 +39,7 @@ func TestPlattScaling_Identity(t *testing.T) {
 	if a != 1.0 || b != 0.0 {
 		t.Errorf("default should be A=1, B=0, got A=%v B=%v", a, b)
 	}
-	// 校准后概率应与原 sigmoid 接近
+
 	p10 := p.Predict(1.0)
 	expected := 1.0 / (1.0 + math.Exp(-1.0))
 	if math.Abs(p10-expected) > 1e-6 {
@@ -62,7 +62,7 @@ func TestPlattScaling_EmptyDataset(t *testing.T) {
 // 构造数据：decision_value = 2 * label + N(0, 0.5)
 // 期望：模型对 label=0 的样本 z 应远小于 0，对 label=1 应远大于 0
 func TestPlattScaling_Convergence(t *testing.T) {
-	// 数据：z=0 时 label=0，z=2 时 label=1
+
 	samples := make([]PlattSample, 0, 100)
 	for i := 0; i < 100; i++ {
 		label := i % 2
@@ -72,12 +72,11 @@ func TestPlattScaling_Convergence(t *testing.T) {
 	p := NewPlattScaling()
 	p.Fit(samples)
 	a, b := p.Parameters()
-	// 拟合后模型应能把 z=0 映射到 P≈0，z=2 映射到 P≈1
-	// 由于完美分离，|A| 应足够大（>= 3）以构造锐利决策边界
+
 	if math.Abs(a) < 3.0 {
 		t.Errorf("|A| should grow to separate classes, got A=%v B=%v", a, b)
 	}
-	// 校准后：z=0 → P≈0, z=2 → P≈1
+
 	if p.Predict(0.0) > 0.05 {
 		t.Errorf("P(y=1|z=0) should be near 0, got %v", p.Predict(0.0))
 	}
@@ -92,29 +91,23 @@ func TestPlattScaling_Convergence(t *testing.T) {
 //   - 校准前：所有预测概率偏高（over-confident）
 //   - 校准后：ECE 显著下降
 func TestPlattScaling_ImprovesCalibration(t *testing.T) {
-	// 模型真实：z = 0.5 * x，label = (x > 0 ? 1 : 0)
-	// 但模型输出仍是 raw z（未校准）
-	// 真实 P(y=1|z) = sigmoid(0) = 0.5（当 z=0）
-	// 校准前 P(y=1|z=0.5) = sigmoid(0.5) ≈ 0.622
-	// 实际 label 当 z=0.5 时 y=1 概率 0.5 → 模型 over-confident
+
 	samples := make([]PlattSample, 0, 200)
 	for i := 0; i < 200; i++ {
-		// x 范围 [-2, 2]
+
 		x := -2.0 + 4.0*float64(i)/199.0
-		// 真实分布：y=1 当 x>0
+
 		label := 0
 		if x > 0 {
 			label = 1
 		}
-		// 模型输出决策值 = x
+
 		samples = append(samples, PlattSample{DecisionValue: x, Label: label})
 	}
 
-	// 校准前 ECE：使用 identity Platt (A=1, B=0)
 	before := NewPlattScaling()
 	eceBefore := before.ECE(samples)
 
-	// 校准后
 	after := NewPlattScaling()
 	after.Fit(samples)
 	eceAfter := after.ECE(samples)
@@ -128,7 +121,7 @@ func TestPlattScaling_ImprovesCalibration(t *testing.T) {
 // TestPlattScaling_ECE_NaN 验证极端输入不导致 NaN
 func TestPlattScaling_ECE_NaN(t *testing.T) {
 	p := NewPlattScaling()
-	// 极端值
+
 	samples := []PlattSample{
 		{DecisionValue: -1000, Label: 0},
 		{DecisionValue: 1000, Label: 1},
@@ -166,10 +159,10 @@ func TestPlattScaling_PredictBatch(t *testing.T) {
 // Platt 应能正确学习不平衡数据的决策边界
 func TestPlattScaling_RealisticClassImbalance(t *testing.T) {
 	samples := make([]PlattSample, 0, 1000)
-	// 90% label=0, 10% label=1
+
 	for i := 0; i < 1000; i++ {
 		label := 0
-		z := -0.5 // 偏向 label=0
+		z := -0.5
 		if i%10 == 0 {
 			label = 1
 			z = 1.0
@@ -178,11 +171,11 @@ func TestPlattScaling_RealisticClassImbalance(t *testing.T) {
 	}
 	p := NewPlattScaling()
 	p.Fit(samples)
-	// z=-0.5 应得 P < 0.5
+
 	if p.Predict(-0.5) > 0.5 {
 		t.Errorf("P(y=1|z=-0.5) should be < 0.5 for imbalanced data, got %v", p.Predict(-0.5))
 	}
-	// z=1.0 应得 P > 0.5
+
 	if p.Predict(1.0) < 0.5 {
 		t.Errorf("P(y=1|z=1.0) should be > 0.5 for imbalanced data, got %v", p.Predict(1.0))
 	}
@@ -211,7 +204,7 @@ func TestPlattScaling_Monotonicity(t *testing.T) {
 // TestPlattScaling_NumericalStability_OverFlow 验证极端大值不溢出
 func TestPlattScaling_NumericalStability_OverFlow(t *testing.T) {
 	p := NewPlattScaling()
-	// A=1, B=0 时 z=1000 → exp(-1000) 应当被 1.0 代替（不产生 NaN）
+
 	pred := p.Predict(1000)
 	if math.IsNaN(pred) || math.IsInf(pred, 0) {
 		t.Errorf("extreme value caused NaN/Inf: %v", pred)
@@ -224,19 +217,19 @@ func TestPlattScaling_NumericalStability_OverFlow(t *testing.T) {
 // TestPlattScaling_BoundaryDecisions 验证边界决策值 (0.5 附近) 的处理
 func TestPlattScaling_BoundaryDecisions(t *testing.T) {
 	p := NewPlattScaling()
-	// 训练数据让决策边界在 z=0
+
 	p.Fit([]PlattSample{
 		{DecisionValue: -1, Label: 0},
 		{DecisionValue: -0.1, Label: 0},
 		{DecisionValue: 0.1, Label: 1},
 		{DecisionValue: 1, Label: 1},
 	})
-	// z=0 应接近 0.5（决策边界）
+
 	pred := p.Predict(0.0)
 	if pred < 0.3 || pred > 0.7 {
 		t.Errorf("P(y=1|z=0) should be near 0.5, got %v", pred)
 	}
-	// 概率必须严格在 [0, 1]
+
 	if pred < 0 || pred > 1 {
 		t.Errorf("probability out of bounds: %v", pred)
 	}
@@ -244,7 +237,7 @@ func TestPlattScaling_BoundaryDecisions(t *testing.T) {
 
 // TestPlattScaling_SortStability 验证对大量乱序数据训练稳定
 func TestPlattScaling_SortStability(t *testing.T) {
-	// 同数据集训练两次（顺序不同）应得到相同结果
+
 	samples := make([]PlattSample, 0, 50)
 	for i := 0; i < 50; i++ {
 		samples = append(samples, PlattSample{

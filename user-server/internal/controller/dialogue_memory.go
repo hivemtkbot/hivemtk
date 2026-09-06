@@ -209,4 +209,3 @@ func (c *DialogueMemoryController) Stats(ctx *gin.Context) {
 	}
 	response.SuccessWithPage(ctx, mems, 1, int64(limit), total)
 }
-

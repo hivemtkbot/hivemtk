@@ -61,7 +61,7 @@ func (gmc *GroupMessagingController) GetLeadGroups(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	clues, total, err := gmc.clueSvc.GetClueAllList(context.Background(), 7) 
+	clues, total, err := gmc.clueSvc.GetClueAllList(context.Background(), 7)
 	if err != nil {
 		response.ErrorFromDB(c, err, "获取线索失败", err.Error())
 		return
@@ -86,7 +86,7 @@ func (gmc *GroupMessagingController) GetLeadGroups(c *gin.Context) {
 			"email":   "",
 			"company": clue.Address,
 			"source":  "whatsapp",
-			"score":   80, 
+			"score":   80,
 			"status":  "new",
 		})
 	}
@@ -104,8 +104,8 @@ func (gmc *GroupMessagingController) SelectGroupAndSendMessage(c *gin.Context) {
 	var req struct {
 		LeadIDs    []string          `json:"lead_ids" binding:"required"`
 		TemplateID string            `json:"template_id" binding:"required"`
-		ScheduleAt *time.Time        `json:"schedule_at"` 
-		Variables  map[string]string `json:"variables"`   
+		ScheduleAt *time.Time        `json:"schedule_at"`
+		Variables  map[string]string `json:"variables"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -125,7 +125,7 @@ func (gmc *GroupMessagingController) SelectGroupAndSendMessage(c *gin.Context) {
 
 	leads := make([]map[string]any, 0)
 
-	allClues, _, err := gmc.clueSvc.GetClueAllList(context.Background(), 7) 
+	allClues, _, err := gmc.clueSvc.GetClueAllList(context.Background(), 7)
 	if err != nil {
 		logger.Errorf("获取WhatsApp线索失败: %v", err)
 		for _, leadID := range req.LeadIDs {
@@ -151,13 +151,12 @@ func (gmc *GroupMessagingController) SelectGroupAndSendMessage(c *gin.Context) {
 						"company": clue.Address,
 						"source":  "whatsapp",
 					})
-					break 
+					break
 				}
 			}
 		}
 	}
 
-	// 准备消息队列
 	var messages []model.QueuedMessage
 	for _, lead := range leads {
 		leadMap := map[string]any{
@@ -198,7 +197,6 @@ func (gmc *GroupMessagingController) SelectGroupAndSendMessage(c *gin.Context) {
 	}, "消息已添加到发送队列")
 }
 
-// 个性化消息内容
 func (gmc *GroupMessagingController) personalizeMessage(templateContent string, lead map[string]any, globalVars map[string]string) string {
 	data := map[string]any{
 		"name":    lead["name"],
@@ -214,24 +212,23 @@ func (gmc *GroupMessagingController) personalizeMessage(templateContent string, 
 
 	tmpl, err := template.New("message").Parse(templateContent)
 	if err != nil {
-		return templateContent 
+		return templateContent
 	}
 
 	var result strings.Builder
 	if err := tmpl.Execute(&result, data); err != nil {
-		return templateContent 
+		return templateContent
 	}
 
 	return result.String()
 }
 
-// 处理消息队列
 func (gmc *GroupMessagingController) processMessageQueue(queueID string) {
 	messages := gmc.messageQueue.GetQueue(context.Background(), queueID)
 
 	for i, message := range messages {
 		if i > 0 {
-			time.Sleep(1 * time.Second) 
+			time.Sleep(1 * time.Second)
 		}
 
 		success := gmc.sendMessageToWhatsApp(message)
@@ -244,7 +241,6 @@ func (gmc *GroupMessagingController) processMessageQueue(queueID string) {
 	}
 }
 
-// 发送消息到WhatsApp
 func (gmc *GroupMessagingController) sendMessageToWhatsApp(message model.QueuedMessage) bool {
 	if gmc.whatsappService == nil {
 		logger.Errorf("WhatsApp 服务未初始化")
@@ -258,7 +254,6 @@ func (gmc *GroupMessagingController) sendMessageToWhatsApp(message model.QueuedM
 		return false
 	}
 
-	// 选择第一个状态可用的账号
 	var account *model.WhatsappAccount
 	for _, a := range accounts {
 		if a.Status == model.WhatsappStatusOnline || a.Status == model.WhatsappStatusPending {
@@ -292,7 +287,6 @@ func (gmc *GroupMessagingController) sendMessageToWhatsApp(message model.QueuedM
 	return true
 }
 
-// formatWhatsAppJID 格式化 WhatsApp JID
 func formatWhatsAppJID(phone string) string {
 	phone = strings.TrimSpace(phone)
 	phone = strings.ReplaceAll(phone, "+", "")
@@ -300,17 +294,14 @@ func formatWhatsAppJID(phone string) string {
 	return fmt.Sprintf("%s@s.whatsapp.net", phone)
 }
 
-// persistSendSuccess 记录发送成功到数据库
 func (gmc *GroupMessagingController) persistSendSuccess(message model.QueuedMessage) {
 	gmc.messageQueue.RecordGroupMessage(context.Background(), message, "sent", "")
 }
 
-// persistSendFailure 记录发送失败到数据库
 func (gmc *GroupMessagingController) persistSendFailure(message model.QueuedMessage, reason string) {
 	gmc.messageQueue.RecordGroupMessage(context.Background(), message, "failed", reason)
 }
 
-// 记录发送失败
 func (gmc *GroupMessagingController) recordSendFailure(message model.QueuedMessage) {
 	logger.Errorf("消息发送失败: ID=%s, Phone=%s, Content=%s", message.ID, message.PhoneNumber, message.Content)
 }
@@ -439,7 +430,7 @@ func (gmc *GroupMessagingController) GetSendRecords(c *gin.Context) {
 		statuses = append(statuses, map[string]any{
 			"id":           status.QueueID,
 			"queue_id":     status.QueueID,
-			"templateName": "批量消息", 
+			"templateName": "批量消息",
 			"totalCount":   status.Total,
 			"sentCount":    status.Sent,
 			"failedCount":  status.Failed,
@@ -471,4 +462,3 @@ func (gmc *GroupMessagingController) GetSendRecords(c *gin.Context) {
 func generateMessageID() string {
 	return fmt.Sprintf("msg_%d", time.Now().UnixNano())
 }
-

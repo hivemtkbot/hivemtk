@@ -1,6 +1,6 @@
 <template>
   <div class="chat-input-area">
-    <!-- 模式切换 -->
+    
     <div class="mode-bar">
       <el-radio-group v-model="mode" size="small">
         <el-radio-button label="reply">{{ $t('对外回复') }}</el-radio-button>
@@ -16,7 +16,7 @@
       </div>
     </div>
 
-    <!-- @mention 弹层 -->
+    
     <el-popover
       v-model:visible="mentionVisible"
       :width="280"
@@ -37,7 +37,7 @@
       </div>
     </el-popover>
 
-    <!-- 输入区 -->
+    
     <el-input
       v-model="text"
       type="textarea"
@@ -68,10 +68,7 @@
 </template>
 
 <script setup>
-/**
- * 协作聊天输入组件（USR-WB-06）
- */
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { Promotion, Picture, Document, Emoji, Lock, InfoFilled } from '@element-plus/icons-vue'
 import {
   sendCollaborativeMessage,
@@ -88,7 +85,7 @@ const props = defineProps({
 const emit = defineEmits(['sent'])
 
 const text = ref('')
-const mode = ref('reply') // 'reply' | 'note'
+const mode = ref('reply');
 const mentionVisible = ref(false)
 const mentionResults = ref([])
 const editingLock = ref(null)
@@ -103,12 +100,8 @@ async function checkLock() {
   try {
     const lock = await getEditLock(props.sessionId)
     editingLock.value = lock
-    if (lock && lock.holder !== 'me' && lock.expiresAt > Date.now()) {
-      // 显示锁警告
-    }
-  } catch (_) {
-    // 静默
-  }
+    if (lock && lock.holder !== 'me' && lock.expiresAt > Date.now()) {}
+  } catch (_) {}
 }
 
 async function acquireLock() {
@@ -126,18 +119,15 @@ async function releaseLock() {
 
 onMounted(() => {
   checkLock()
-  // 每 30s 心跳续锁
-  lockTimer = setInterval(acquireLock, 30000)
+  lockTimer = setInterval(acquireLock, 30000);
 })
 onUnmounted(() => {
   if (lockTimer) clearInterval(lockTimer)
   releaseLock()
 })
 
-// 监听 text 变化检测 @
 function onInput(val) {
-  // 简单实现：检测最后一个 @ 后的输入
-  const cursor = val.length
+  const cursor = val.length;
   const lastAt = val.lastIndexOf('@', cursor - 1)
   if (lastAt >= 0) {
     const query = val.substring(lastAt + 1, cursor)
@@ -156,8 +146,7 @@ function onInput(val) {
 }
 
 function selectMention(user) {
-  // 替换 @query 为 @user_name
-  const cursor = text.value.length
+  const cursor = text.value.length;
   const lastAt = text.value.lastIndexOf('@', cursor - 1)
   if (lastAt >= 0) {
     text.value = text.value.substring(0, lastAt) + `@${user.name} `
@@ -168,11 +157,10 @@ function selectMention(user) {
 function openMention() {
   const cursor = text.value.length
   text.value = text.value + '@'
-  // 触发弹层
   searchMentionUsers({ q: '' }).then((res) => {
     mentionResults.value = res || []
     mentionVisible.value = true
-  })
+  });
 }
 
 async function onSend() {
@@ -181,8 +169,7 @@ async function onSend() {
     if (mode.value === 'note') {
       await addInternalNote(props.sessionId, { content: text.value })
     } else {
-      // 解析 @mention
-      const mentions = extractMentions(text.value)
+      const mentions = extractMentions(text.value);
       await sendCollaborativeMessage(props.sessionId, {
         content: text.value,
         is_internal_note: false,

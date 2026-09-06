@@ -194,12 +194,6 @@ func (s *SSOService) HandleCallback(ctx context.Context, provider, code, verifie
 	}, nil
 }
 
-// resolveUser 关联 SSO 身份到本地用户
-//
-// 优先级：
-//  1. (provider, subject) 已有绑定 → 复用该用户
-//  2. auto_provision=true → 自动创建本地用户并绑定
-//  3. auto_provision=false → 尝试按邮箱关联已有本地用户；否则返回"未绑定"
 func (s *SSOService) resolveUser(ctx context.Context, nu *sso.NormalizedUser) (*model.SystemUser, bool, error) {
 	identity, err := s.identityRepo.GetByProviderSubject(ctx, nu.Provider, nu.Subject)
 	if err == nil {
@@ -243,7 +237,6 @@ func (s *SSOService) resolveUser(ctx context.Context, nu *sso.NormalizedUser) (*
 	return nil, false, ErrSSOUserNotBound
 }
 
-// provisionUser 自动创建本地用户并绑定 SSO 身份
 func (s *SSOService) provisionUser(ctx context.Context, nu *sso.NormalizedUser, cfg sso.OIDCConfig) (*model.SystemUser, error) {
 	role := nu.Role
 	if role == "" {
@@ -280,7 +273,6 @@ func (s *SSOService) provisionUser(ctx context.Context, nu *sso.NormalizedUser, 
 	return user, nil
 }
 
-// bindIdentity 绑定 SSO 身份到本地用户
 func (s *SSOService) bindIdentity(ctx context.Context, provider, subject string, userID uint) error {
 	identity := &model.SSOIdentity{
 		Provider: provider,
@@ -293,7 +285,6 @@ func (s *SSOService) bindIdentity(ctx context.Context, provider, subject string,
 	return nil
 }
 
-// uniqueUsername 生成唯一用户名（冲突时追加随机后缀）
 func (s *SSOService) uniqueUsername(ctx context.Context, base, email string) string {
 	name := strings.TrimSpace(base)
 	if name == "" {
@@ -317,21 +308,18 @@ func (s *SSOService) uniqueUsername(ctx context.Context, base, email string) str
 	return fmt.Sprintf("%s_%d", name, time.Now().UnixNano()%100000)
 }
 
-// randomPassword 生成随机强密码（SSO 用户禁本地密码登录）
 func randomPassword() string {
 	b := make([]byte, 32)
 	_, _ = rand.Read(b)
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
-// randomSuffix 生成短随机后缀
 func randomSuffix(n int) string {
 	b := make([]byte, n)
 	_, _ = rand.Read(b)
 	return fmt.Sprintf("%x", b)
 }
 
-// toSystemUserResponse 转换为用户响应（与 AuthService 输出对齐）
 func toSystemUserResponse(user *model.SystemUser) *SystemUserResponse {
 	return &SystemUserResponse{
 		ID:          user.ID,

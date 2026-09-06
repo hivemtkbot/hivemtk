@@ -20,7 +20,6 @@ type LiveCodeClickLogRepository interface {
 	CountTodayByQRCode(ctx context.Context, qrCodeID string) (int64, error)
 }
 
-// liveCodeClickLogRepository 活码点击日志仓储实现
 type liveCodeClickLogRepository struct {
 	db *gorm.DB
 }
@@ -30,17 +29,14 @@ func NewLiveCodeClickLogRepository(db *gorm.DB) LiveCodeClickLogRepository {
 	return &liveCodeClickLogRepository{db: db}
 }
 
-// CreateLiveCodeClick 写入活码点击日志
 func (r *liveCodeClickLogRepository) CreateLiveCodeClick(ctx context.Context, log *model.LiveCodeClickLog) error {
 	return r.db.WithContext(ctx).Create(log).Error
 }
 
-// CreateQRCodeClick 写入二维码点击日志
 func (r *liveCodeClickLogRepository) CreateQRCodeClick(ctx context.Context, log *model.QRCodeClickLog) error {
 	return r.db.WithContext(ctx).Create(log).Error
 }
 
-// CountByLiveCode 统计活码总点击数
 func (r *liveCodeClickLogRepository) CountByLiveCode(ctx context.Context, liveCodeID string) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&model.LiveCodeClickLog{}).
@@ -49,7 +45,6 @@ func (r *liveCodeClickLogRepository) CountByLiveCode(ctx context.Context, liveCo
 	return count, err
 }
 
-// CountTodayByLiveCode 统计活码今日点击数
 func (r *liveCodeClickLogRepository) CountTodayByLiveCode(ctx context.Context, liveCodeID string) (int64, error) {
 	var count int64
 	todayStart := time.Now().Truncate(24 * time.Hour)
@@ -59,7 +54,6 @@ func (r *liveCodeClickLogRepository) CountTodayByLiveCode(ctx context.Context, l
 	return count, err
 }
 
-// CountByQRCode 统计二维码总点击数
 func (r *liveCodeClickLogRepository) CountByQRCode(ctx context.Context, qrCodeID string) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&model.QRCodeClickLog{}).
@@ -68,7 +62,6 @@ func (r *liveCodeClickLogRepository) CountByQRCode(ctx context.Context, qrCodeID
 	return count, err
 }
 
-// CountTodayByQRCode 统计二维码今日点击数
 func (r *liveCodeClickLogRepository) CountTodayByQRCode(ctx context.Context, qrCodeID string) (int64, error) {
 	var count int64
 	todayStart := time.Now().Truncate(24 * time.Hour)

@@ -12,7 +12,7 @@ import (
 type LLMProviderConfig struct {
 	APIKey         string `json:"api_key" gorm:"column:api_key"`
 	BaseURL        string `json:"base_url" gorm:"column:base_url"`
-	APIType        string `json:"api_type" gorm:"column:api_type"` 
+	APIType        string `json:"api_type" gorm:"column:api_type"`
 	Model          string `json:"model" gorm:"column:model_detail"`
 	MaxRetries     int    `json:"max_retries" gorm:"column:max_retries;default:3"`
 	RequestTimeout int    `json:"request_timeout" gorm:"column:request_timeout;default:60"`
@@ -24,7 +24,7 @@ type LLMProviderConfig struct {
 type EmbeddingProviderConfig struct {
 	APIKey    string `json:"api_key" gorm:"column:api_key"`
 	BaseURL   string `json:"base_url" gorm:"column:base_url"`
-	APIType   string `json:"api_type" gorm:"column:api_type"` 
+	APIType   string `json:"api_type" gorm:"column:api_type"`
 	Model     string `json:"model" gorm:"column:model"`
 	Dimension int    `json:"dimension" gorm:"column:dimension;default:1024"`
 	Enabled   bool   `json:"enabled" gorm:"column:enabled;default:true"`
@@ -36,7 +36,7 @@ type EmbeddingProviderConfig struct {
 type RerankProviderConfig struct {
 	APIKey  string `json:"api_key" gorm:"column:api_key"`
 	BaseURL string `json:"base_url" gorm:"column:base_url"`
-	APIType string `json:"api_type" gorm:"column:api_type"` 
+	APIType string `json:"api_type" gorm:"column:api_type"`
 	Model   string `json:"model" gorm:"column:model"`
 	Enabled bool   `json:"enabled" gorm:"column:enabled;default:true"`
 }
@@ -62,22 +62,22 @@ type RagProduct struct {
 	PresencePenalty         float64                 `json:"presence_penalty" gorm:"default:0.5"`
 	ResponseFormat          string                  `json:"response_format" gorm:"size:50;default:json_object"`
 	SystemPrompt            string                  `json:"system_prompt" gorm:"type:text"`
-	TopK                int     `json:"top_k" gorm:"default:5"`
-	ChunkSize           int     `json:"chunk_size" gorm:"default:800"`
-	ChunkOverlap        int     `json:"chunk_overlap" gorm:"default:100"`
-	SimilarityThreshold float64 `json:"similarity_threshold" gorm:"default:0.6"`
-	IsActive bool `json:"is_active" gorm:"default:true"`
-	Status   int  `json:"status" gorm:"default:1"`
-	DocCount     int        `json:"doc_count" gorm:"default:0"`
-	ChunkCount   int64      `json:"chunk_count" gorm:"default:0"`
-	LastImportAt *time.Time `json:"last_import_at"`
-	LastSearchAt *time.Time `json:"last_search_at"`
-	SearchCount  int64      `json:"search_count" gorm:"default:0"`
-	IntentClassification string `json:"intent_classification" gorm:"type:text;column:intent_classification"` 
-	EnabledIntents string `json:"enabled_intents" gorm:"type:text;column:enabled_intents"`
-	IntentSOPMap string    `json:"intent_sop_map" gorm:"type:text;column:intent_sop_map"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	TopK                    int                     `json:"top_k" gorm:"default:5"`
+	ChunkSize               int                     `json:"chunk_size" gorm:"default:800"`
+	ChunkOverlap            int                     `json:"chunk_overlap" gorm:"default:100"`
+	SimilarityThreshold     float64                 `json:"similarity_threshold" gorm:"default:0.6"`
+	IsActive                bool                    `json:"is_active" gorm:"default:true"`
+	Status                  int                     `json:"status" gorm:"default:1"`
+	DocCount                int                     `json:"doc_count" gorm:"default:0"`
+	ChunkCount              int64                   `json:"chunk_count" gorm:"default:0"`
+	LastImportAt            *time.Time              `json:"last_import_at"`
+	LastSearchAt            *time.Time              `json:"last_search_at"`
+	SearchCount             int64                   `json:"search_count" gorm:"default:0"`
+	IntentClassification    string                  `json:"intent_classification" gorm:"type:text;column:intent_classification"`
+	EnabledIntents          string                  `json:"enabled_intents" gorm:"type:text;column:enabled_intents"`
+	IntentSOPMap            string                  `json:"intent_sop_map" gorm:"type:text;column:intent_sop_map"`
+	CreatedAt               time.Time               `json:"created_at"`
+	UpdatedAt               time.Time               `json:"updated_at"`
 }
 
 // TableName 指定表名
@@ -87,11 +87,11 @@ func (RagProduct) TableName() string {
 
 // IntentConfig 精细意图识别配置（运行时反序列化 IntentClassification）
 type IntentConfig struct {
-	Mode string `json:"mode"`
-	EnabledIntents []string `json:"enabled_intents,omitempty"`
-	KeyIntentThreshold float64 `json:"key_intent_threshold"`
-	EnableLLMFallback bool `json:"enable_llm_fallback"`
-	KeyIntentSOPMap map[string]string `json:"key_intent_sop_map,omitempty"`
+	Mode               string            `json:"mode"`
+	EnabledIntents     []string          `json:"enabled_intents,omitempty"`
+	KeyIntentThreshold float64           `json:"key_intent_threshold"`
+	EnableLLMFallback  bool              `json:"enable_llm_fallback"`
+	KeyIntentSOPMap    map[string]string `json:"key_intent_sop_map,omitempty"`
 }
 
 // DefaultIntentConfig 默认意图配置
@@ -112,4 +112,3 @@ func DefaultIntentConfig() IntentConfig {
 		},
 	}
 }
-

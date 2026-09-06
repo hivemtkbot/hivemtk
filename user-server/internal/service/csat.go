@@ -60,7 +60,6 @@ func (s *CSATService) Trigger(ctx context.Context, sessionID, triggeredBy string
 	now := s.now()
 	survey.SentAt = &now
 
-	// --- 出站推送评分邀请 ---
 	platform := string(sess.Platform)
 	accountID := sess.AccountID
 	if accountID == "" {
@@ -73,7 +72,6 @@ func (s *CSATService) Trigger(ctx context.Context, sessionID, triggeredBy string
 
 	ratingMsg := "本次会话已结束，请为我们的服务打分 ⭐ 1-5 分（回复数字即可）"
 
-	// bridge 渠道（WebWidget 等）：通过 DeliverBridgeOutbound 下发
 	if isBridgeChannel(platform) {
 		if err := DeliverBridgeOutbound(ctx, platform, accountID, sessionID, "text", ratingMsg, "csat-trigger"); err != nil {
 			logger.Ctx(ctx).Error().Err(err).
@@ -91,8 +89,7 @@ func (s *CSATService) Trigger(ctx context.Context, sessionID, triggeredBy string
 				Msg("csat rating invite pushed via bridge outbound")
 		}
 	} else {
-		// 非 bridge 渠道（WhatsApp/Telegram/Email 等）：暂不落渠道消息
-		// 前端/Webhook 可根据 csat_surveys.status=sent 轮询展示评分 UI
+
 		logger.Ctx(ctx).Info().
 			Str("module", "csat").
 			Str("channel", platform).

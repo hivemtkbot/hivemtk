@@ -11,16 +11,14 @@ import (
 	"hivemtk-user/internal/geo/repository"
 )
 
-// ---- Platform 常量 ----
-
 const (
-	PlatformJuejin    = "juejin"     // 掘金
-	PlatformXhs       = "xiaohongshu" // 小红书
-	PlatformZhihu     = "zhihu"      // 知乎
-	PlatformCSDN      = "csdn"
-	PlatformWechat    = "wechat"     // 公众号（Headless 暂不支持）
-	PlatformMedium    = "medium"     // Medium（API 平台占位）
-	PlatformDevTo     = "devto"
+	PlatformJuejin = "juejin"
+	PlatformXhs    = "xiaohongshu"
+	PlatformZhihu  = "zhihu"
+	PlatformCSDN   = "csdn"
+	PlatformWechat = "wechat"
+	PlatformMedium = "medium"
+	PlatformDevTo  = "devto"
 
 	// 平台分类：有 API / 需 Headless
 	PlatformAPI     = "api"
@@ -31,7 +29,7 @@ const (
 type PlatformMeta struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"display_name"`
-	Category    string `json:"category"` // api / browser
+	Category    string `json:"category"`
 	MaxTitleLen int    `json:"max_title_len"`
 	MaxBodyLen  int    `json:"max_body_len"`
 	NeedLogin   bool   `json:"need_login"`
@@ -48,8 +46,6 @@ func PlatformMetas() map[string]PlatformMeta {
 		PlatformDevTo:  {Name: PlatformDevTo, DisplayName: "DEV Community", Category: PlatformAPI, MaxTitleLen: 100, MaxBodyLen: 100000},
 	}
 }
-
-// ---- ContentAdapter ----
 
 // AdaptedContent 适配某平台后的内容
 type AdaptedContent struct {
@@ -71,7 +67,7 @@ func DefaultContentAdapter(article *model.GeoArticle, platform string) AdaptedCo
 	if meta.MaxBodyLen > 0 && len([]rune(body)) > meta.MaxBodyLen {
 		body = string([]rune(body)[:meta.MaxBodyLen]) + "\n\n…（内容已截断）"
 	}
-	// 小红书：转 emoji 开头 + 去掉 Markdown 标题层级
+
 	if platform == PlatformXhs {
 		title = "📝 " + strings.TrimPrefix(title, "#")
 		body = strings.ReplaceAll(body, "## ", "")
@@ -80,24 +76,20 @@ func DefaultContentAdapter(article *model.GeoArticle, platform string) AdaptedCo
 	return AdaptedContent{Title: strings.TrimSpace(title), Body: strings.TrimSpace(body)}
 }
 
-// ---- PlatformPublisher ----
-
 // PlatformPublisher 单平台发布器（API 平台实现接口；Browser 平台返回 "需要 headless 登录"）
 type PlatformPublisher interface {
 	Publish(ctx context.Context, account *model.GeoPlatformAccount, content AdaptedContent) (url string, err error)
 	PlatformName() string
 }
 
-// ---- PublishPipeline ----
-
 // PublishPipeline 发布管线：聚合 PlatformPublisher + Worker Pool
 type PublishPipeline struct {
-	publishers map[string]PlatformPublisher // key = platform
-	adapters   []ContentAdapter
-	articleRepo    repository.GeoArticleRepository
-	accountRepo    repository.GeoPlatformAccountRepository
+	publishers        map[string]PlatformPublisher
+	adapters          []ContentAdapter
+	articleRepo       repository.GeoArticleRepository
+	accountRepo       repository.GeoPlatformAccountRepository
 	publishRecordRepo repository.GeoPublishRecordRepository
-	workerCount    int
+	workerCount       int
 }
 
 // NewPublishPipeline 创建 PublishPipeline
@@ -113,12 +105,12 @@ func NewPublishPipeline(
 		m[p.PlatformName()] = p
 	}
 	return &PublishPipeline{
-		publishers:         m,
-		adapters:           []ContentAdapter{DefaultContentAdapter},
-		articleRepo:        articleRepo,
-		accountRepo:        accountRepo,
-		publishRecordRepo:  publishRecordRepo,
-		workerCount:        3,
+		publishers:        m,
+		adapters:          []ContentAdapter{DefaultContentAdapter},
+		articleRepo:       articleRepo,
+		accountRepo:       accountRepo,
+		publishRecordRepo: publishRecordRepo,
+		workerCount:       3,
 	}
 }
 
@@ -137,12 +129,12 @@ type PublishRequest struct {
 
 // PublishResult 单条平台发布结果
 type PublishResult struct {
-	Platform   string    `json:"platform"`
-	AccountID  string    `json:"account_id,omitempty"`
-	Status     string    `json:"status"` // success / failed / skipped
-	URL        string    `json:"url,omitempty"`
-	Simulated  bool      `json:"simulated"`
-	Message    string    `json:"message,omitempty"`
+	Platform    string    `json:"platform"`
+	AccountID   string    `json:"account_id,omitempty"`
+	Status      string    `json:"status"`
+	URL         string    `json:"url,omitempty"`
+	Simulated   bool      `json:"simulated"`
+	Message     string    `json:"message,omitempty"`
 	PublishedAt time.Time `json:"published_at,omitempty"`
 }
 
@@ -153,7 +145,7 @@ func (p *PublishPipeline) Publish(ctx context.Context, req PublishRequest) ([]Pu
 	if err != nil {
 		return nil, fmt.Errorf("article %s: %w", req.ArticleID, err)
 	}
-	// 若无指定平台，默认尝试所有已注册的
+
 	platforms := req.Platforms
 	if len(platforms) == 0 {
 		for name := range p.publishers {
@@ -199,7 +191,6 @@ func (p *PublishPipeline) publishOne(ctx context.Context, article *model.GeoArti
 	adapter := p.adapters[0]
 	content := adapter(article, platform)
 
-	// 取最近的该平台账号
 	account, err := p.accountRepo.GetLatestByPlatform(platform)
 	if err != nil {
 		return PublishResult{Platform: platform, Status: "failed", Message: fmt.Sprintf("account: %v", err)}
@@ -208,20 +199,19 @@ func (p *PublishPipeline) publishOne(ctx context.Context, article *model.GeoArti
 	url, pubErr := pr.Publish(ctx, account, content)
 	now := time.Now()
 
-	// 落库 GeoPublishRecord（ID 由 model.BeforeCreate 自动生成 uuid）
 	rec := &model.GeoPublishRecord{
-		ArticleID:   article.ID,
-		Platform:    platform,
-		AccountID:   account.ID,
-		Status:      "success",
+		ArticleID:    article.ID,
+		Platform:     platform,
+		AccountID:    account.ID,
+		Status:       "success",
 		PublishedURL: url,
-		PublishedAt: now,
+		PublishedAt:  now,
 	}
 	simulated := strings.HasPrefix(url, "mock://") || pubErr == nil && url == ""
 	if pubErr != nil {
 		rec.Status = "failed"
 	} else if simulated {
-		rec.Status = "pending" // simulated 视为待人工确认
+		rec.Status = "pending"
 	}
 	_ = p.publishRecordRepo.Create(rec)
 

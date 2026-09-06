@@ -1,6 +1,5 @@
 package trace
 
-
 import (
 	"context"
 	"net/http"
@@ -140,7 +139,6 @@ func TestLogFields(t *testing.T) {
 	}
 }
 
-
 func TestGinTraceMiddleware_Generate(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -217,4 +215,3 @@ func TestGinTraceMiddleware_NilContext(t *testing.T) {
 	req := httptest.NewRequest("GET", "/test", nil)
 	r.ServeHTTP(w, req)
 }
-

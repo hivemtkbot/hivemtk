@@ -10,7 +10,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// customerTagGetRule 获取标签规则对象（从 model.CustomerTag 迁出，五层架构合规）
 func customerTagGetRule(t *model.CustomerTag) map[string]any {
 	if t.Rule == "" {
 		return map[string]any{}
@@ -22,7 +21,6 @@ func customerTagGetRule(t *model.CustomerTag) map[string]any {
 	return rule
 }
 
-// customerTagSetRule 设置标签规则对象（从 model.CustomerTag 迁出）
 func customerTagSetRule(t *model.CustomerTag, rule map[string]any) error {
 	if rule == nil {
 		rule = map[string]any{}

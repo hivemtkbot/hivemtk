@@ -21,7 +21,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupSystemRoutes 系统管理路由
 func setupSystemRoutes(auth *gin.RouterGroup) {
 	systemConfigCtrl := controller.NewSystemConfigController()
 	auth.GET("/system/config", systemConfigCtrl.GetConfig)
@@ -39,18 +38,14 @@ func setupSystemRoutes(auth *gin.RouterGroup) {
 	auth.POST("/system/restart", systemOpsCtrl.RestartServer)
 	auth.GET("/system/logs", systemOpsCtrl.GetSystemLogs)
 	auth.GET("/system/stats", systemOpsCtrl.GetSystemStats)
-	auth.GET("/stats/system", systemOpsCtrl.GetSystemStats) 
+	auth.GET("/stats/system", systemOpsCtrl.GetSystemStats)
 	auth.GET("/system/backup", systemOpsCtrl.GetBackupList)
 	auth.POST("/system/backup", systemOpsCtrl.CreateBackup)
 	auth.POST("/system/restore", systemOpsCtrl.RestoreBackup)
 
-
-
 	adminConfigCtrl := controller.NewAdminConfigController()
 	auth.GET("/admin/config", adminConfigCtrl.GetAdminConfig)
 
-	// 最高标准审计 P1-6 修复：OBS 凭据配置（AccessKey/SecretKey + TestConnection
-	// SSRF 探测面）写操作收敛为 admin only；只读查询保留任意登录用户。
 	obsConfigCtrl := controller.NewObsConfigController()
 	auth.GET("/obs/config", obsConfigCtrl.GetConfigList)
 	auth.GET("/obs/config/:id", obsConfigCtrl.GetConfig)
@@ -66,7 +61,6 @@ func setupSystemRoutes(auth *gin.RouterGroup) {
 	}
 }
 
-// setupRagRoutes RAG 知识库管理路由
 func setupRagRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	ragRepo := knowledgerepo.NewRagConfigRepository(gormDB)
 	llmService := llm.NewLLMService()
@@ -85,12 +79,10 @@ func setupRagRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	ragHealthCtrl := controller.NewRagHealthController(ragHealthSvc)
 	ragHealthCtrl.RegisterRoutes(auth)
 
-
 	ragRecallCtrl := controller.NewRagRecallMonitorController(service.NewRagRecallMonitorService(gormDB, 0, 0), ragMetricsSvc)
 	ragRecallCtrl.RegisterRoutes(auth)
 }
 
-// setupKnowledgeBaseRoutes 知识库管理路由(基础 + 工作台 + 商户视角增强)
 func setupKnowledgeBaseRoutes(auth *gin.RouterGroup) {
 	knowledgeBaseCtrl := knowledgectrl.NewKnowledgeBaseController()
 	knowledgeBaseCtrl.RegisterRoutes(auth)
@@ -98,18 +90,12 @@ func setupKnowledgeBaseRoutes(auth *gin.RouterGroup) {
 	knowledgeWorkspaceCtrl := knowledgectrl.NewKnowledgeWorkspaceController(&openAPISourceAdapter{svc: service.NewOpenAPIService()})
 	knowledgeWorkspaceCtrl.RegisterRoutes(auth)
 
-	// R40 连接器凭据管理（原在 aiagent 工作台 RegisterRoutes 内，因 depguard
-	// aiagent-layer 禁止反向依赖主域 controller，移至本装配层注册）
 	knowledgeWorkspaceCtrl.RegisterConnectors(auth, controller.NewKBConnectorController())
 
 	knowledgeMerchantCtrl := knowledgectrl.NewKnowledgeMerchantController()
 	knowledgeMerchantCtrl.RegisterRoutes(auth)
 }
 
-// setupBackupRoutes 备份恢复路由
-//
-// 权限分级（2026-08-18 三轮发现 + 2026-09-01 四轮加固）：
-// 备份属于系统级敏感操作，全链路收敛为 admin only（含列表、详情、恢复历史查看）。
 func setupBackupRoutes(auth *gin.RouterGroup) {
 	backupCtrl := controller.NewBackupController()
 	restoreCtrl := controller.NewRestoreController()
@@ -123,15 +109,6 @@ func setupBackupRoutes(auth *gin.RouterGroup) {
 	admin.POST("/restore", restoreCtrl.RestoreBackup)
 }
 
-// setupMigrationRoutes 数据库迁移管理路由
-// 路径由原 /upgrade/* 改为 /migration/*（M3 重命名以避免与"OTA 升级"概念混淆）。
-// controller 结构体已重命名为 MigrationController。
-//
-// 安全（2026-08-26 审计 P0-1）：
-//   - POST /migration/task（执行升级）与 POST /migration/rollback（回滚）直接操作
-//     数据库 schema 与数据，原挂载在普通 JWT 组，任意低权限登录用户均可触发，
-//     构成数据丢失风险 → 写操作收敛为 admin only。
-//   - 只读查询端点（task/history/records/current-version/available）保留任意登录可访问。
 func setupMigrationRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	registry := migration.NewMigrationRegistry()
 	migrationSvc := migration.NewMigrationService(registry, gormDB, migrations.RegisterMigrations)
@@ -149,9 +126,6 @@ func setupMigrationRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	}
 }
 
-
-
-// setupI18nRoutes 注册多语言方案相关路由（术语表 CRUD + 校验预览 + 监控看板）
 func setupI18nRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	glossaryRepo := repository.NewGlossaryRepositoryWithDB(db)
 	glossarySvc := translation.NewGlossaryService(glossaryRepo, nil)
@@ -164,18 +138,6 @@ func setupI18nRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	statsCtrl.RegisterRoutes(auth)
 }
 
-
-
-// setupTuningRoutes 注册 置信度/拟人度/反馈学习 统一管理 API
-//
-// 路由前缀: /api/admin/tuning/
-// 中间件: 继承 auth group(InitGuard + JWTAuthMiddleware + LicenseGuard)
-//
-// 涵盖:
-//   - 置信度信号/校准/阈值策略
-//   - 拟人度评分/销冠基线
-//   - 反馈事件/销冠对话/Prompt 候选/Bandit 臂
-//   - 低质样本
 func setupTuningRoutes(auth *gin.RouterGroup) {
 	tuning := auth.Group("/admin/tuning")
 	ctrl := controller.NewTuningController(service.NewTuningService())
@@ -207,13 +169,6 @@ func setupTuningRoutes(auth *gin.RouterGroup) {
 	tuning.GET("/humanize/low-quality", ctrl.ListLowQualitySamples)
 }
 
-
-// setupAIToolConfigRoutes 注册AI工具配置路由
-//
-// P0-12 权限分级（2026-08-31 四轮加固）：
-//   - 读（List/Get/Accounts）：任意登录用户（AI 工具面板需要展示）
-//   - 写（UpdateStatus/BatchStatus/BindAccount/UnbindAccount）：admin only
-// AI 工具持有第三方 API Key，staff 不能启停 / 绑定解绑账号。
 func setupAIToolConfigRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	toolRepo := repository.NewAIToolConfigRepository(db)
 	bindingRepo := repository.NewAIToolAccountBindingRepository(db)
@@ -226,7 +181,7 @@ func setupAIToolConfigRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 		g.GET("/:name", ctrl.GetTool)
 		g.GET("/:name/accounts", ctrl.GetToolAccounts)
 	}
-	// 写操作 admin only
+
 	admin := auth.Group("/ai-tools", middleware.AdminAuthMiddleware())
 	{
 		admin.PUT("/:name/status", ctrl.UpdateToolStatus)
@@ -235,4 +190,3 @@ func setupAIToolConfigRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 		admin.DELETE("/:name/accounts/:account_type/:account_id", ctrl.UnbindAccount)
 	}
 }
-

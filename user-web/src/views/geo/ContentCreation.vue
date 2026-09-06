@@ -2,7 +2,7 @@
   <div class="geo-page">
 
     <el-row :gutter="16">
-      <!-- 左侧：生成表单 -->
+      
       <el-col :xs="24" :lg="10">
         <el-card shadow="never" class="form-card">
           <template #header><span class="card-title">生成配置</span></template>
@@ -59,7 +59,7 @@
         </el-card>
       </el-col>
 
-      <!-- 右侧：生成结果 + 评分 -->
+      
       <el-col :xs="24" :lg="14">
         <el-card shadow="never" class="result-card">
           <template #header>
@@ -138,7 +138,6 @@ const form = reactive({
   style: 'professional'
 })
 
-// 动态加载云端模型（排除本地 provider）
 const loadModels = async () => {
   try {
     const list = await http.get('/api/llm/models')
@@ -156,7 +155,7 @@ const loadModels = async () => {
     models.value = cloud
     if (cloud.length && !form.model) form.model = cloud[0].value
   } catch {}
-}
+};
 onMounted(loadModels)
 
 const generating = ref(false)
@@ -179,8 +178,7 @@ const addAdv = () => {
   advInputValue.value = ''
 }
 
-// 模板不能直接调用 setTimeout（Web API 不在 Vue3 模板全局白名单），包装成方法供 @blur 绑定
-const onBlurAddAdv = () => setTimeout(addAdv, 100)
+const onBlurAddAdv = () => setTimeout(addAdv, 100);
 
 const handleGenerate = async () => {
   if (!form.keyword.trim() || !form.brand_name.trim()) {

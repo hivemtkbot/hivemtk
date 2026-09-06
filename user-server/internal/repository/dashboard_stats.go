@@ -81,14 +81,10 @@ func NewDashboardStatsRepository(db *gorm.DB) DashboardStatsRepository {
 	return &dashboardStatsRepo{db: db, summaryRepo: NewMessageHubSummaryRepository(db)}
 }
 
-// Available 底层 db 是否可用
 func (r *dashboardStatsRepo) Available(ctx context.Context) bool {
 	return r.db != nil
 }
 
-// CountSessionsByStatus 按 status 集合 + 在线阈值统计会话数
-//
-// 与原实现一致：status IN (...) AND (last_message_at > threshold OR last_message_at IS NULL)
 func (r *dashboardStatsRepo) CountSessionsByStatus(ctx context.Context, statuses []model.SessionStatus, onlineThreshold time.Time) (int64, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Model(&model.CustomerSession{}).
@@ -101,7 +97,6 @@ func (r *dashboardStatsRepo) CountSessionsByStatus(ctx context.Context, statuses
 	return n, nil
 }
 
-// CountSessionsBySingleStatus 按单一 status 统计会话数
 func (r *dashboardStatsRepo) CountSessionsBySingleStatus(ctx context.Context, status model.SessionStatus) (int64, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Model(&model.CustomerSession{}).
@@ -113,9 +108,6 @@ func (r *dashboardStatsRepo) CountSessionsBySingleStatus(ctx context.Context, st
 	return n, nil
 }
 
-// QueryHumanizeDistribution 查询拟人度分布（最近 N 小时）
-//
-// Raw SQL 与原 service 实现完全一致，封装到 repository 层。
 func (r *dashboardStatsRepo) QueryHumanizeDistribution(ctx context.Context, since time.Time) (*HumanizeScoreRow, error) {
 	raw := `
 		SELECT
@@ -133,9 +125,6 @@ func (r *dashboardStatsRepo) QueryHumanizeDistribution(ctx context.Context, sinc
 	return &row, nil
 }
 
-// QueryJourneyFunnel 查询 customer_journey 表的阶段分布
-//
-// Raw SQL 与原 service 实现完全一致。
 func (r *dashboardStatsRepo) QueryJourneyFunnel(ctx context.Context, since time.Time) ([]FunnelStageRow, error) {
 	raw := `
 		SELECT stage, COUNT(*) as count
@@ -149,9 +138,6 @@ func (r *dashboardStatsRepo) QueryJourneyFunnel(ctx context.Context, since time.
 	return rows, nil
 }
 
-// QuerySessionFunnel 兜底：按 customer_sessions 状态聚合
-//
-// Raw SQL 与原 service 实现完全一致：COUNT(DISTINCT user_id)。
 func (r *dashboardStatsRepo) QuerySessionFunnel(ctx context.Context, since time.Time) ([]FunnelStatusRow, error) {
 	raw := `
 		SELECT status, COUNT(DISTINCT user_id) as count
@@ -165,8 +151,6 @@ func (r *dashboardStatsRepo) QuerySessionFunnel(ctx context.Context, since time.
 	return rows, nil
 }
 
-// QueryMessageVolumeFromSummary 读 msg_hourly_summary（X-8 双读主路径）。
-// 委托给独立的 summary 仓库，保持单一 SQL 来源。
 func (r *dashboardStatsRepo) QueryMessageVolumeFromSummary(ctx context.Context, since time.Time) ([]model.MsgHourlySummary, error) {
 	if r.summaryRepo == nil {
 		r.summaryRepo = NewMessageHubSummaryRepository(r.db)
@@ -174,7 +158,6 @@ func (r *dashboardStatsRepo) QueryMessageVolumeFromSummary(ctx context.Context, 
 	return r.summaryRepo.QuerySince(ctx, since)
 }
 
-// LatestSummaryBucket summary 表最新 hour_bucket（用于陈旧判定）
 func (r *dashboardStatsRepo) LatestSummaryBucket(ctx context.Context) (*time.Time, error) {
 	if r.summaryRepo == nil {
 		r.summaryRepo = NewMessageHubSummaryRepository(r.db)
@@ -182,9 +165,6 @@ func (r *dashboardStatsRepo) LatestSummaryBucket(ctx context.Context) (*time.Tim
 	return r.summaryRepo.LatestUpdate(ctx)
 }
 
-// QueryMessageVolumeRaw 回源 message_hub 原生 SQL 聚合（X-8 双读兜底路径）。
-//
-// 语义与增量汇总一致：session=去重会话数，ai=is_ai_reply，human=outbound 且非 AI。
 func (r *dashboardStatsRepo) QueryMessageVolumeRaw(ctx context.Context, since time.Time) ([]MessageVolumeRawRow, error) {
 	raw := `
 		SELECT

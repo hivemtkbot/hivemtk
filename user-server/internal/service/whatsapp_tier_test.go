@@ -15,7 +15,7 @@ func TestClassifyTierOf_CategoryPriority(t *testing.T) {
 		{"Utility", "营销唤醒", TierUtility},
 		{"authentication", "营销唤醒", TierAuthentication},
 		{"AUTH", "", TierAuthentication},
-		{"", "", TierUtility}, // 两者皆空 → 默认 utility
+		{"", "", TierUtility},
 	}
 	for _, c := range cases {
 		if got := ClassifyTierOf(c.cat, c.intent); got != c.want {
@@ -37,7 +37,7 @@ func TestClassifyTierOf_IntentMapping(t *testing.T) {
 		{"otp code", TierAuthentication},
 		{"大促唤醒老客户", TierMarketing},
 		{"promo campaign", TierMarketing},
-		{"随便聊聊天气", TierUtility}, // 未命中 → 默认 utility
+		{"随便聊聊天气", TierUtility},
 	}
 	for _, c := range cases {
 		if got := ClassifyTierOf("", c.intent); got != c.want {
@@ -65,12 +65,11 @@ func TestClassifyTier_SpecSignature(t *testing.T) {
 	}
 }
 
-// newTestPacer 构造确定性 pacer：速率 12/min、无抖动、关闭默认 per-tier 配额
 func newTestPacer(dayCap int) *TierPacer {
 	p := NewTierPacer()
 	p.DayCap = dayCap
-	p.TierQuotas = map[WATier]int{} // 空表 → 全部不限，专注测令牌桶
-	return p                        // 默认 jitterFn 恒 1.0
+	p.TierQuotas = map[WATier]int{}
+	return p
 }
 
 // TestTierPacer_BucketRefill 令牌桶补币数学：12/min = 0.2/s，耗尽后 5s 恰补 1 枚
@@ -79,13 +78,12 @@ func TestTierPacer_BucketRefill(t *testing.T) {
 	base := time.Now()
 	tier := TierUtility
 
-	// 冷启动桶容量 12：连发 12 次全部允许
 	for i := 0; i < 12; i++ {
 		if allow, _ := p.Enforce("peer1", tier, base); !allow {
 			t.Fatalf("第 %d 次发送应允许（冷启动满桶）", i+1)
 		}
 	}
-	// 第 13 次：桶空，拒绝且给出重试间隔
+
 	allow, retry := p.Enforce("peer1", tier, base)
 	if allow {
 		t.Fatal("桶耗尽后应拒绝")
@@ -93,11 +91,11 @@ func TestTierPacer_BucketRefill(t *testing.T) {
 	if retry <= 0 || retry > time.Minute {
 		t.Fatalf("retryAfter = %v, 应在 (0,1min] 内", retry)
 	}
-	// 推进 4s：补 0.8 枚，仍不足 1
+
 	if allow, _ := p.Enforce("peer1", tier, base.Add(4*time.Second)); allow {
 		t.Fatal("4s 仅补 0.8 枚，应拒绝")
 	}
-	// 推进 5s：补 1.0 枚，允许
+
 	if allow, _ := p.Enforce("peer1", tier, base.Add(5*time.Second)); !allow {
 		t.Fatal("5s 补满 1 枚，应允许")
 	}
@@ -110,18 +108,18 @@ func TestTierPacer_QualityDowngrade(t *testing.T) {
 	base := time.Now()
 	tier := TierUtility
 
-	for i := 0; i < 12; i++ { // 容量仍为减半后速率 6 → 连发 6 次即耗尽
+	for i := 0; i < 12; i++ {
 		p.Enforce("peer2", tier, base)
 	}
-	// 第 7 次应已拒绝（容量 6 < 12）
+
 	if allow, _ := p.Enforce("peer2", tier, base); allow {
 		t.Fatal("降级后桶容量减半，第 7 次应拒绝")
 	}
-	// 推进 5s：速率 0.1/s 仅补 0.5 枚 → 拒绝（未降级时 5s 恰好可发）
+
 	if allow, _ := p.Enforce("peer2", tier, base.Add(5*time.Second)); allow {
 		t.Fatal("降级速率减半，5s 补币 0.5 枚应拒绝")
 	}
-	// 推进 10s：补 1.0 枚 → 允许
+
 	if allow, _ := p.Enforce("peer2", tier, base.Add(10*time.Second)); !allow {
 		t.Fatal("降级后 10s 补满 1 枚应允许")
 	}
@@ -145,11 +143,11 @@ func TestTierPacer_DayCap(t *testing.T) {
 	if retry != TierDayWindow {
 		t.Fatalf("retryAfter = %v, want %v（窗口重置剩余时间）", retry, TierDayWindow)
 	}
-	// 不同 tier 预算独立
+
 	if allow, _ := p.Enforce("peer3", TierUtility, base); !allow {
 		t.Fatal("utility 与 marketing 桶独立，应允许")
 	}
-	// 24h 后窗口重置
+
 	if allow, _ := p.Enforce("peer3", tier, base.Add(TierDayWindow)); !allow {
 		t.Fatal("窗口重置后应允许")
 	}
@@ -157,11 +155,10 @@ func TestTierPacer_DayCap(t *testing.T) {
 
 // TestTierPacer_TierQuota 规格默认 per-tier 24h/peer 配额：marketing 1、utility 4、authentication 不限
 func TestTierPacer_TierQuota(t *testing.T) {
-	p := NewTierPacer() // 默认配额表生效
+	p := NewTierPacer()
 	p.MinRatePerMin = 1000
 	base := time.Now()
 
-	// marketing：第 1 条允许，第 2 条拒绝
 	if allow, _ := p.Enforce("p_m", TierMarketing, base); !allow {
 		t.Fatal("marketing 第 1 条应允许")
 	}
@@ -170,12 +167,11 @@ func TestTierPacer_TierQuota(t *testing.T) {
 	} else if retry <= 0 || retry > TierDayWindow {
 		t.Fatalf("marketing retryAfter = %v, 应在 (0,24h] 内", retry)
 	}
-	// 24h 窗重置后恢复
+
 	if allow, _ := p.Enforce("p_m", TierMarketing, base.Add(TierDayWindow)); !allow {
 		t.Fatal("窗口重置后 marketing 应允许")
 	}
 
-	// utility：前 4 条允许，第 5 条拒绝
 	for i := 0; i < 4; i++ {
 		if allow, _ := p.Enforce("p_u", TierUtility, base); !allow {
 			t.Fatalf("utility 第 %d 条应允许", i+1)
@@ -185,14 +181,12 @@ func TestTierPacer_TierQuota(t *testing.T) {
 		t.Fatal("utility 第 5 条应拒绝（24h/peer 配额 4）")
 	}
 
-	// authentication：不限（连发 20 条全允许）
 	for i := 0; i < 20; i++ {
 		if allow, _ := p.Enforce("p_a", TierAuthentication, base); !allow {
 			t.Fatalf("authentication 第 %d 条应允许（不限）", i+1)
 		}
 	}
 
-	// 配额覆盖表：marketing 提到 2 条
 	p2 := NewTierPacer()
 	p2.TierQuotas = map[WATier]int{WATierMarketing: 2}
 	for i := 0; i < 2; i++ {
@@ -210,13 +204,13 @@ func TestTierPacer_Jitter(t *testing.T) {
 	p := NewTierPacer()
 	p.MinRatePerMin = 12
 	p.TierQuotas = map[WATier]int{}
-	p.SetJitterFn(func() float64 { return 2.0 }) // 速率翻倍 24/min = 0.4/s
+	p.SetJitterFn(func() float64 { return 2.0 })
 	base := time.Now()
 
 	for i := 0; i < 12; i++ {
 		p.Enforce("peer4", TierUtility, base)
 	}
-	// 2.5s 补 1.0 枚（0.4/s），若抖动未生效（0.2/s）仅 0.5 枚应拒绝
+
 	if allow, _ := p.Enforce("peer4", TierUtility, base.Add(2500*time.Millisecond)); !allow {
 		t.Fatal("抖动因子 2.0 下 2.5s 应补满 1 枚")
 	}

@@ -18,9 +18,9 @@ type ShortLinkAccessResponse struct {
 
 // ShortLinkStatsRequest 短链统计请求
 type ShortLinkStatsRequest struct {
-	ID        uint   `json:"id" binding:"required"`        
-	StartDate string `json:"start_date" form:"start_date"` 
-	EndDate   string `json:"end_date" form:"end_date"`     
+	ID        uint   `json:"id" binding:"required"`
+	StartDate string `json:"start_date" form:"start_date"`
+	EndDate   string `json:"end_date" form:"end_date"`
 }
 
 // ShortLinkStatsResponse 短链统计响应
@@ -29,38 +29,38 @@ type ShortLinkStatsResponse struct {
 	ShortCode       string            `json:"short_code"`
 	OriginalURL     string            `json:"original_url"`
 	Title           string            `json:"title"`
-	TotalAccess     int64             `json:"total_access"`      
-	TodayAccess     int64             `json:"today_access"`      
-	DeviceTypeStats []DeviceTypeStats `json:"device_type_stats"` 
-	DailyStats      []DailyStats      `json:"daily_stats"`       
+	TotalAccess     int64             `json:"total_access"`
+	TodayAccess     int64             `json:"today_access"`
+	DeviceTypeStats []DeviceTypeStats `json:"device_type_stats"`
+	DailyStats      []DailyStats      `json:"daily_stats"`
 }
 
 // AllShortLinksStatsRequest 所有短链统计请求
 type AllShortLinksStatsRequest struct {
-	StartDate string `json:"start_date" form:"start_date"` 
-	EndDate   string `json:"end_date" form:"end_date"`     
+	StartDate string `json:"start_date" form:"start_date"`
+	EndDate   string `json:"end_date" form:"end_date"`
 }
 
 // AllShortLinksStatsResponse 所有短链统计响应
 type AllShortLinksStatsResponse struct {
-	TotalAccess     int64                 `json:"total_access"`      
-	TodayAccess     int64                 `json:"today_access"`      
-	DeviceTypeStats []DeviceTypeStats     `json:"device_type_stats"` 
-	DailyStats      []DailyStats          `json:"daily_stats"`       
-	ShortLinkStats  []ShortLinkBasicStats `json:"short_link_stats"`  
+	TotalAccess     int64                 `json:"total_access"`
+	TodayAccess     int64                 `json:"today_access"`
+	DeviceTypeStats []DeviceTypeStats     `json:"device_type_stats"`
+	DailyStats      []DailyStats          `json:"daily_stats"`
+	ShortLinkStats  []ShortLinkBasicStats `json:"short_link_stats"`
 }
 
 // DeviceTypeStats 设备类型统计
 type DeviceTypeStats struct {
-	DeviceType string  `json:"device_type"` 
-	Count      int64   `json:"count"`       
-	Percentage float64 `json:"percentage"`  
+	DeviceType string  `json:"device_type"`
+	Count      int64   `json:"count"`
+	Percentage float64 `json:"percentage"`
 }
 
 // DailyStats 每日统计
 type DailyStats struct {
-	Date  string `json:"date"`  
-	Count int64  `json:"count"` 
+	Date  string `json:"date"`
+	Count int64  `json:"count"`
 }
 
 // ShortLinkBasicStats 短链基本统计
@@ -73,12 +73,11 @@ type ShortLinkBasicStats struct {
 
 // ShareShortLinkRequest 分享短链请求
 type ShareShortLinkRequest struct {
-	ID uint `json:"id" binding:"required"` 
+	ID uint `json:"id" binding:"required"`
 }
 
 // ShareShortLinkResponse 分享短链响应
 type ShareShortLinkResponse struct {
-	ShortURL string `json:"short_url"` 
-	QRCode   string `json:"qr_code"`   
+	ShortURL string `json:"short_url"`
+	QRCode   string `json:"qr_code"`
 }
-

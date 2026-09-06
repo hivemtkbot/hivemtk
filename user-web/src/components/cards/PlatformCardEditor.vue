@@ -43,7 +43,7 @@
       </el-form>
     </el-card>
 
-    <!-- 预览 -->
+    
     <el-card class="preview-card">
       <template #header><span>预览（实时）</span></template>
       <div class="card-preview">
@@ -62,12 +62,7 @@
 </template>
 
 <script setup>
-/**
- * 5 平台卡片统一编辑器（USR-RC-01）
- * 抽公共组件替代 5 套独立实现
- * 借鉴：各平台官方 + MJML 思路
- */
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch } from 'vue';
 import { ElMessage } from 'element-plus'
 import { http } from '@/utils/request'
 
@@ -118,14 +113,13 @@ function saveDraft() {
 }
 
 function publish() {
-  // 跨平台：调对应 API
   const apiMap = {
     douyin: 'douyinCard',
     kuaishou: 'kuaishouCard',
     xiaohongshu: 'xiaohongshuCard',
     xianyu: 'xianyuCard',
     tiktok: 'tiktokCard'
-  }
+  };
   emit('publish', { platform: platform.value, data: form })
   ElMessage.success(`已发布到 ${platformLabel.value}`)
 }

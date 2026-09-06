@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupXiaohongshuCardServiceTestDB 设置小红书卡片服务测试数据库
 func setupXiaohongshuCardServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.XiaohongshuCard{},
@@ -469,7 +468,6 @@ func TestXiaohongshuCardService_Create_InactiveCard(t *testing.T) {
 	}
 }
 
-// uintPtr 辅助函数，返回 uint 指针
 func uintPtr(i uint) *uint {
 	return &i
 }

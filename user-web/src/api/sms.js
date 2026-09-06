@@ -1,7 +1,6 @@
 import { http } from '@/utils/request'
 
 export default {
-  // 配置相关
   getConfig() {
     return http.get('/api/sms/config')
   },
@@ -9,7 +8,6 @@ export default {
     return http.post('/api/sms/config', data)
   },
   
-  // 短信列表
   getSmsList(params) {
     return http.get('/api/sms/list', params)
   },
@@ -23,7 +21,6 @@ export default {
     return http.post('/api/sms/send', data)
   },
   
-  // 草稿相关
   getDraftList(params) {
     return http.get('/api/sms/draft/list', params)
   },
@@ -43,7 +40,6 @@ export default {
     return http.post(`/api/sms/draft/${id}/send`, data)
   },
   
-  // 任务相关
   getJobList(params) {
     return http.get('/api/sms/job/list', params)
   },

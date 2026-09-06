@@ -33,7 +33,6 @@ type MessageHubSummaryAggregationService struct {
 	repo repository.MessageHubSummaryRepository
 	db   *gorm.DB
 
-	// batchSize 单批扫描源表行数上限（D-3 落地要点：LIMIT 50K）
 	batchSize int
 }
 
@@ -84,14 +83,12 @@ func (s *MessageHubSummaryAggregationService) RunOnce(ctx context.Context) (int6
 	}
 }
 
-// summaryKey summary 维度键
 type summaryKey struct {
 	bucket     time.Time
 	merchantID uint
 	platform   string
 }
 
-// aggregateHubRows 将原始消息行内存聚合为维度增量；同时返回最大 id（新水位线）。
 func aggregateHubRows(rows []model.MessageHub) ([]repository.MsgHourlyDelta, int64) {
 	type acc struct {
 		delta repository.MsgHourlyDelta
@@ -105,7 +102,7 @@ func aggregateHubRows(rows []model.MessageHub) ([]repository.MsgHourlyDelta, int
 		}
 		k := summaryKey{
 			bucket:     h.CreatedAt.Truncate(time.Hour),
-			merchantID: 0, // 私域单商户，预留维度恒 0
+			merchantID: 0,
 			platform:   h.Platform,
 		}
 		a := accs[k]
@@ -134,8 +131,6 @@ func aggregateHubRows(rows []model.MessageHub) ([]repository.MsgHourlyDelta, int
 	}
 	return deltas, maxID
 }
-
-// ===== 定时驱动（沿用 SessionTTLCron 惯例） =====
 
 type hubSummaryAggCron struct {
 	svc      *MessageHubSummaryAggregationService

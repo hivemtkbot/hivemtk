@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupCustomer360TestDB 设置 Customer360 测试数据库
 func setupCustomer360TestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.CustomerSession{},
@@ -25,7 +24,6 @@ func setupCustomer360TestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// setupCustomer360Service 创建测试用的 Customer360 服务实例
 func setupCustomer360Service(t *testing.T, db *gorm.DB) *Customer360Service {
 	return &Customer360Service{
 		sessionRepo:      repository.NewCustomerSessionRepositoryWithDB(db),
@@ -431,7 +429,6 @@ func TestCustomer360Service_GetCustomer360(t *testing.T) {
 	}
 }
 
-// abs 返回浮点数的绝对值
 func abs(x float64) float64 {
 	if x < 0 {
 		return -x

@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-
 // DefaultTaskPlanner 默认任务规划器
 type DefaultTaskPlanner struct {
 	FAQLibrary func(ctx context.Context, content string) (bool, string)
@@ -148,7 +147,6 @@ func (p *DefaultTaskPlanner) Plan(ctx context.Context, ic *InferenceContext) (*A
 	return plan, nil
 }
 
-
 func buildChitchatHint(ic *InferenceContext) string {
 	persona := ""
 	if ic.AgentCtx != nil {
@@ -202,4 +200,3 @@ func boolStr(b bool) string {
 	}
 	return "false"
 }
-

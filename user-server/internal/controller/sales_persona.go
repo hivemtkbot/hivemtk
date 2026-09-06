@@ -63,4 +63,3 @@ func (c *SalesPersonaController) ListStaffs(ctx *gin.Context) {
 	}
 	response.SuccessWithList(ctx, staffs, int64(len(staffs)))
 }
-

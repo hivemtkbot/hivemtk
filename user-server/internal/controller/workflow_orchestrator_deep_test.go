@@ -10,7 +10,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// requestJSON 构造一个 JSON body 的 HTTP 请求并返回它和 recorder。
 func requestJSON(method, path string, body any) (*http.Request, *httptest.ResponseRecorder) {
 	bodyBytes, _ := json.Marshal(body)
 	req, _ := http.NewRequest(method, path, bytes.NewReader(bodyBytes))
@@ -226,5 +225,4 @@ func TestWOCtrl_CreateVersion_InvalidJSON(t *testing.T) {
 	}
 }
 
-// 确保 dto 包被使用（避免未使用导入在某些 go 版本下报错）
 var _ = dto.WorkflowVersionCreateRequest{}

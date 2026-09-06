@@ -27,7 +27,7 @@
       />
     </el-card>
 
-    <!-- 顶部指标卡 -->
+    
     <el-row :gutter="16" class="stats-row" v-loading="statsLoading">
       <el-col :xs="12" :sm="6">
         <el-card class="stat-card" shadow="never">
@@ -116,7 +116,7 @@
       />
     </el-card>
 
-    <!-- 身份详情对话框 -->
+    
     <el-dialog v-model="identitiesDialogVisible" title="客户身份详情" width="640px">
       <div v-if="selectedCustomer">
         <el-descriptions :column="1" border>
@@ -150,7 +150,7 @@
       </div>
     </el-dialog>
 
-    <!-- 解析/创建 OneID 对话框 -->
+    
     <el-dialog v-model="resolveDialogVisible" title="解析/创建 OneID" width="640px">
       <el-form :model="resolveForm" label-width="100px">
         <el-form-item label="手机号">
@@ -172,7 +172,7 @@
       </template>
     </el-dialog>
 
-    <!-- 链接身份对话框 -->
+    
     <el-dialog v-model="linkDialogVisible" title="链接新身份" width="640px">
       <el-alert
         v-if="linkForm.customerId"
@@ -254,9 +254,7 @@ const loadStats = async () => {
       multiIdentity: s.multi_identity ?? s.multiIdentity ?? 0,
       multiRate: s.total ? Math.round(((s.multi_identity ?? s.multiIdentity ?? 0) * 1000) / s.total) / 10 : 0
     }
-  } catch (e) {
-    // 静默失败：统计接口不可用时不影响列表
-  } finally {
+  } catch (e) {} finally {
     statsLoading.value = false
   }
 }
@@ -265,9 +263,7 @@ const loadList = async () => {
   loading.value = true
   try {
     const res = await listOneID({ page: page.value, page_size: pageSize.value, keyword: keyword.value })
-    // 修复：request.js 拦截器已解包 data.data，res 即业务数据本身（{list,total}）
-    // 原 `if (res.code === 0)` 是死代码——拦截器只在 code===0/200/SUCCESS 时返回 res，否则 reject
-    list.value = res?.list || []
+    list.value = res?.list || [];
     total.value = res?.total || 0
   } finally {
     loading.value = false
@@ -318,7 +314,6 @@ const handleResolve = async () => {
         ElMessage.warning(i18n.global.t('请先选择客户'))
         return
       }
-      // 至少填写一个身份标识
       if (!identifiers.phone && !identifiers.email && !identifiers.wechat_open_id && !identifiers.douyin_open_id) {
         ElMessage.warning(i18n.global.t('请至少填写一个身份标识（手机号/邮箱/微信/抖音）'))
         return

@@ -1,6 +1,5 @@
 package controller
 
-
 import (
 	"context"
 	"net/http"
@@ -213,4 +212,3 @@ func (c *SmsDeliveryTrackerController) RegisterRoutes(public *gin.RouterGroup, a
 		}
 	}
 }
-

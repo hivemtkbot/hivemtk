@@ -10,13 +10,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// ============================================================================
-// M4：sop_timers 列下沉回归测试
-// expires_at/max_wait_at/claim_count 原先仅存于 Payload JSONB，无法建索引、
-// 无法用 SQL 条件扫描。下沉实体列后：写入落列、扫描走列查询（部分索引），
-// 旧数据（仅 payload 有值）兼容读取。
-// ============================================================================
-
 // TestSOPTimer_SinkColumns_Persist AutoMigrate 注册确认：三列可持久化、可查询
 func TestSOPTimer_SinkColumns_Persist(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.SOPTimer{})
@@ -101,7 +94,7 @@ func TestSOPDispatcher_SweepLegacyPayloadOnlyTimer(t *testing.T) {
 		WaitEvent:   WaitEventCustomerReply,
 		WaitUntil:   time.Now().Add(24 * time.Hour),
 		Status:      "pending",
-		Payload:     model.JSONMap{"max_wait_at": past}, // 无实体列（历史行）
+		Payload:     model.JSONMap{"max_wait_at": past},
 	}
 	db.Create(timer)
 

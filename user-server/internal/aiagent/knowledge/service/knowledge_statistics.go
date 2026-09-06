@@ -42,7 +42,6 @@ func newKnowledgeStatisticsServiceWithDB(gdb *gorm.DB) *KnowledgeStatisticsServi
 	}
 }
 
-
 // OverviewData 总览数据
 type OverviewData struct {
 	TotalDocuments       int64            `json:"total_documents"`
@@ -95,7 +94,7 @@ func (s *KnowledgeStatisticsService) GetOverview(ctx context.Context, productID 
 	}
 	overview.TotalTokens = totalTokens
 
-	overview.TotalSearches, _ = s.searchLogRepo.TodayCount(ctx) 
+	overview.TotalSearches, _ = s.searchLogRepo.TodayCount(ctx)
 
 	overview.TodayImports, _ = s.docRepo.CountTodayImports(ctx)
 	overview.TodaySearches, _ = s.searchLogRepo.TodayCount(ctx)
@@ -145,7 +144,6 @@ func (s *KnowledgeStatisticsService) GetOverview(ctx context.Context, productID 
 
 	return overview, nil
 }
-
 
 // DocumentStatsData 文档维度统计
 type DocumentStatsData struct {
@@ -218,7 +216,6 @@ func (s *KnowledgeStatisticsService) GetDocumentStats(ctx context.Context, produ
 	return data, nil
 }
 
-
 // SearchStatsData 检索维度统计
 type SearchStatsData struct {
 	Overview       *OverviewData               `json:"overview"`
@@ -261,7 +258,6 @@ func (s *KnowledgeStatisticsService) GetSearchStats(ctx context.Context, product
 	return data, nil
 }
 
-
 // OpenAPIStatsData OpenAPI 同步统计
 type OpenAPIStatsData struct {
 	TotalSources   int64                          `json:"total_sources"`
@@ -291,7 +287,6 @@ func (s *KnowledgeStatisticsService) GetOpenAPIStats(ctx context.Context, produc
 	data.SourceList = sources
 	return data, nil
 }
-
 
 // ImportStatsData 导入维度统计
 type ImportStatsData struct {
@@ -335,7 +330,6 @@ func (s *KnowledgeStatisticsService) GetImportStats(ctx context.Context, product
 	return data, nil
 }
 
-
 // LogSearch 记录一次检索行为
 func (s *KnowledgeStatisticsService) LogSearch(ctx context.Context, log *model.KnowledgeSearchLog) error {
 	if log.Query != "" {
@@ -344,4 +338,3 @@ func (s *KnowledgeStatisticsService) LogSearch(ctx context.Context, log *model.K
 	}
 	return s.searchLogRepo.Create(ctx, log)
 }
-

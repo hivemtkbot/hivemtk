@@ -9,7 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
 // AgentSettingsController Agent Loop 运行期调参控制器
 type AgentSettingsController struct{}
 
@@ -45,4 +44,3 @@ func (c *AgentSettingsController) SaveConfig(ctx *gin.Context) {
 	}
 	response.Success(ctx, cfg, "ok")
 }
-

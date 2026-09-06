@@ -30,17 +30,14 @@ type LLMResult struct {
 	OutputTokens int
 }
 
-// modelPrice 模型定价（USD / 1M tokens）
 type modelPrice struct {
 	aliases []string
 	input   float64
 	output  float64
 }
 
-// modelPrices 常见模型内置定价表（公开牌价的保守近似，用于成本报表估算而非计费）。
-// 匹配策略：模型名小写后包含任一 alias 即命中（兼容 gpt-4o-2024-08-06 等带版本号名称）。
 var modelPrices = []modelPrice{
-	// 注意：alias 按子串包含匹配，长名（如 gpt-4o-mini）必须排在短名（gpt-4o）之前
+
 	{[]string{"gpt-4o-mini"}, 0.15, 0.6},
 	{[]string{"gpt-4o"}, 2.5, 10},
 	{[]string{"gpt-4.1-nano"}, 0.1, 0.4},
@@ -67,11 +64,10 @@ var modelPrices = []modelPrice{
 	{[]string{"glm-4"}, 0.7, 0.7},
 }
 
-// 未识别模型的兜底单价（避免金额恒零导致报表失真，取中位保守值）
 const (
 	fallbackPriceIn  = 1.0
 	fallbackPriceOut = 2.0
-	// usdCnyRate USD→CNY 固定估算汇率（如需动态汇率/可配置化再演进）
+
 	usdCnyRate = 7.2
 )
 
@@ -96,10 +92,6 @@ func EstimateCostUSD(modelName string, inputTokens, outputTokens int) (float64, 
 	return cost, cost * usdCnyRate
 }
 
-// Generate 生成内容（使用 high_quality 场景路由）
-
-// geoMaxTokensPerCall 单次 LLM 调用 token 上限（v3 审计 P2-9 成本熔断）
-// seed: agent_llm.geo_max_tokens_per_call
 func geoMaxTokensPerCall() int {
 	return service.GlobalConfigParam().GetInt(context.Background(), "agent_llm", "geo_max_tokens_per_call", 4000)
 }
@@ -108,8 +100,7 @@ func (a *LLMAdapter) Generate(ctx context.Context, systemPrompt, prompt string, 
 	if a.dispatcher == nil {
 		return nil, fmt.Errorf("LLM dispatcher 未初始化")
 	}
-	// v3 审计 P2-9：调用方可能传 WithoutCancel 的 ctx（工作流长执行），
-	// 必须有单次调用超时兜底，防止不可中止的分钟级挂起
+
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
 	if maxTokens <= 0 || maxTokens > geoMaxTokensPerCall() {

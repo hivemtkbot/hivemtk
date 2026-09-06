@@ -4,13 +4,11 @@ import (
 	"time"
 )
 
-
-
 // LLMProviderConfig LLM 提供商配置（镜像 model.LLMProviderConfig，去 gorm 标签）
 type LLMProviderConfig struct {
 	APIKey         string `json:"api_key"`
 	BaseURL        string `json:"base_url"`
-	APIType        string `json:"api_type"` 
+	APIType        string `json:"api_type"`
 	Model          string `json:"model"`
 	MaxRetries     int    `json:"max_retries"`
 	RequestTimeout int    `json:"request_timeout"`
@@ -85,14 +83,13 @@ type RichCard struct {
 
 // SalesStepLog 销售链路步骤日志
 type SalesStepLog struct {
-	Step      string `json:"step"`   
-	Status    string `json:"status"` 
+	Step      string `json:"step"`
+	Status    string `json:"status"`
 	LatencyMs int    `json:"latency_ms"`
 	Detail    string `json:"detail,omitempty"`
 	Error     string `json:"error,omitempty"`
 	Extra     any    `json:"extra,omitempty"`
 }
-
 
 // RAGChunk RAG 召回片段
 type RAGChunk struct {
@@ -101,7 +98,7 @@ type RAGChunk struct {
 	Score   float64 `json:"score"`
 	DocID   string  `json:"doc_id"`
 	ChunkID string  `json:"chunk_id"`
-	Weight float64 `json:"weight"`
+	Weight  float64 `json:"weight"`
 }
 
 // ScriptTemplate 话术模板
@@ -114,66 +111,64 @@ type ScriptTemplate struct {
 	MatchRate float64  `json:"match_rate"`
 }
 
-
 // Industry 行业
 type Industry string
 
 const (
-	IndustryMedicalBeauty Industry = "medical_beauty" 
-	IndustryEducation     Industry = "education"      
-	IndustryEcommerce     Industry = "ecommerce"      
-	IndustryRealEstate    Industry = "real_estate"    
-	IndustryAuto          Industry = "auto"           
-	IndustryFinance       Industry = "finance"        
-	IndustryB2B           Industry = "b2b"            
+	IndustryMedicalBeauty Industry = "medical_beauty"
+	IndustryEducation     Industry = "education"
+	IndustryEcommerce     Industry = "ecommerce"
+	IndustryRealEstate    Industry = "real_estate"
+	IndustryAuto          Industry = "auto"
+	IndustryFinance       Industry = "finance"
+	IndustryB2B           Industry = "b2b"
 )
 
 // ObjectionType 异议类型（销冠话术库专用，与 objection_handler_service.go 的 ObjectionCategory 区分）
 type ObjectionType string
 
 const (
-	PlayObjectionPrice       ObjectionType = "price"       
-	PlayObjectionTime        ObjectionType = "time"        
-	PlayObjectionTrust       ObjectionType = "trust"       
-	PlayObjectionCompetition ObjectionType = "competition" 
-	PlayObjectionNeed        ObjectionType = "need"        
-	PlayObjectionAuthority   ObjectionType = "authority"   
-	PlayObjectionStall       ObjectionType = "stall"       
+	PlayObjectionPrice       ObjectionType = "price"
+	PlayObjectionTime        ObjectionType = "time"
+	PlayObjectionTrust       ObjectionType = "trust"
+	PlayObjectionCompetition ObjectionType = "competition"
+	PlayObjectionNeed        ObjectionType = "need"
+	PlayObjectionAuthority   ObjectionType = "authority"
+	PlayObjectionStall       ObjectionType = "stall"
 )
 
 // PlaybookEntry 话术条目
 type PlaybookEntry struct {
 	ID           string        `json:"id"`
-	Industry     Industry      `json:"industry"`      
-	ProductID    string        `json:"product_id"`    
-	Stage        JourneyStage  `json:"stage"`         
-	Objection    ObjectionType `json:"objection"`     
-	Title        string        `json:"title"`         
-	Content      string        `json:"content"`       
-	Tips         string        `json:"tips"`          
-	Tags         []string      `json:"tags"`          
-	UseCount     int           `json:"use_count"`     
-	SuccessCount int           `json:"success_count"` 
-	CreatedBy    string        `json:"created_by"`    
+	Industry     Industry      `json:"industry"`
+	ProductID    string        `json:"product_id"`
+	Stage        JourneyStage  `json:"stage"`
+	Objection    ObjectionType `json:"objection"`
+	Title        string        `json:"title"`
+	Content      string        `json:"content"`
+	Tips         string        `json:"tips"`
+	Tags         []string      `json:"tags"`
+	UseCount     int           `json:"use_count"`
+	SuccessCount int           `json:"success_count"`
+	CreatedBy    string        `json:"created_by"`
 	CreatedAt    time.Time     `json:"created_at"`
 	UpdatedAt    time.Time     `json:"updated_at"`
 }
-
 
 // JourneyStage 客户旅程阶段
 type JourneyStage string
 
 const (
-	StageStranger   JourneyStage = "stranger"   
-	StageLead       JourneyStage = "lead"       
-	StageContact    JourneyStage = "contact"    
-	StageInterested JourneyStage = "interested" 
-	StageQuoted     JourneyStage = "quoted"     
-	StageWon        JourneyStage = "won"        
-	StageAfterSale  JourneyStage = "after_sale" 
-	StageRepurchase JourneyStage = "repurchase" 
-	StageSleeping   JourneyStage = "sleeping"   
-	StageLost       JourneyStage = "lost"       
+	StageStranger   JourneyStage = "stranger"
+	StageLead       JourneyStage = "lead"
+	StageContact    JourneyStage = "contact"
+	StageInterested JourneyStage = "interested"
+	StageQuoted     JourneyStage = "quoted"
+	StageWon        JourneyStage = "won"
+	StageAfterSale  JourneyStage = "after_sale"
+	StageRepurchase JourneyStage = "repurchase"
+	StageSleeping   JourneyStage = "sleeping"
+	StageLost       JourneyStage = "lost"
 )
 
 // AllStages 所有阶段
@@ -186,21 +181,20 @@ var AllStages = []JourneyStage{
 type JourneyTransitionRequest struct {
 	CustomerID string       `json:"customer_id" binding:"required"`
 	ToStage    JourneyStage `json:"to_stage" binding:"required"`
-	Source     string       `json:"source"` 
-	Reason     string       `json:"reason"` 
+	Source     string       `json:"source"`
+	Reason     string       `json:"reason"`
 }
-
 
 // SalesEngineConfig 销售引擎配置
 type SalesEngineConfig struct {
-	EnableRAG            bool    `json:"enable_rag"`             
-	EnableScriptMatch    bool    `json:"enable_script_match"`    
-	EnableHumanizePolish bool    `json:"enable_humanize_polish"` 
-	EnableContentAudit   bool    `json:"enable_content_audit"`   
-	RAGTopK              int     `json:"rag_top_k"`              
-	Temperature          float64 `json:"temperature"`            
-	MaxTokens            int     `json:"max_tokens"`             
-	Persona              string  `json:"persona"`                
+	EnableRAG            bool    `json:"enable_rag"`
+	EnableScriptMatch    bool    `json:"enable_script_match"`
+	EnableHumanizePolish bool    `json:"enable_humanize_polish"`
+	EnableContentAudit   bool    `json:"enable_content_audit"`
+	RAGTopK              int     `json:"rag_top_k"`
+	Temperature          float64 `json:"temperature"`
+	MaxTokens            int     `json:"max_tokens"`
+	Persona              string  `json:"persona"`
 
 	CustomerLevel string `json:"customer_level,omitempty"`
 
@@ -224,19 +218,19 @@ func DefaultSalesEngineConfig() *SalesEngineConfig {
 // AgentContext 智能体执行上下文
 // 由 AIAgentService.LoadContext 加载，传给 SalesEngine.HandleWithAgent
 type AgentContext struct {
-	AgentID       uint     `json:"agent_id"`
-	AgentCode     string   `json:"agent_code"`
-	Name          string   `json:"name"`
-	AgentType     string   `json:"agent_type"`
-	AgentMode     string   `json:"agent_mode"` 
-	Persona       string   `json:"persona"`
-	SystemPrompt  string   `json:"system_prompt"`
-	Greeting      string   `json:"greeting"`
-	RagProductIDs []string `json:"rag_product_ids"` 
+	AgentID              uint              `json:"agent_id"`
+	AgentCode            string            `json:"agent_code"`
+	Name                 string            `json:"name"`
+	AgentType            string            `json:"agent_type"`
+	AgentMode            string            `json:"agent_mode"`
+	Persona              string            `json:"persona"`
+	SystemPrompt         string            `json:"system_prompt"`
+	Greeting             string            `json:"greeting"`
+	RagProductIDs        []string          `json:"rag_product_ids"`
 	FAQEntryIDs          []string          `json:"faq_entry_ids"`
 	SOPTemplateIDs       []string          `json:"sop_template_ids"`
-	SOPIDs               []string          `json:"sop_ids"`            
-	ScriptLibraryIDs     []string          `json:"script_library_ids"` 
+	SOPIDs               []string          `json:"sop_ids"`
+	ScriptLibraryIDs     []string          `json:"script_library_ids"`
 	LLMModel             string            `json:"llm_model"`
 	LLMProviderConfig    LLMProviderConfig `json:"llm_provider_config"`
 	Temperature          float64           `json:"temperature"`
@@ -283,7 +277,6 @@ func AgentContextToSalesEngineConfig(a *AgentContext) *SalesEngineConfig {
 	}
 }
 
-
 // SalesRequest 销售请求
 type SalesRequest struct {
 	SessionID   string             `json:"session_id"`
@@ -307,13 +300,13 @@ type SalesRequest struct {
 
 // SalesResponse 销售回复
 type SalesResponse struct {
-	Reply               string           `json:"reply"`            
-	Intent              *RecognizeResult `json:"intent"`           
-	Memory              *DialogueMemory  `json:"memory,omitempty"` 
+	Reply               string           `json:"reply"`
+	Intent              *RecognizeResult `json:"intent"`
+	Memory              *DialogueMemory  `json:"memory,omitempty"`
 	MatchedSOP          *SOPAgent        `json:"matched_sop,omitempty"`
 	RAGChunks           []RAGChunk       `json:"rag_chunks,omitempty"`
 	ScriptTemplate      *ScriptTemplate  `json:"script_template,omitempty"`
-	PlaybookSuggestions []*PlaybookEntry `json:"playbook_suggestions,omitempty"` 
+	PlaybookSuggestions []*PlaybookEntry `json:"playbook_suggestions,omitempty"`
 	LLMProvider         string           `json:"llm_provider,omitempty"`
 	LLMModel            string           `json:"llm_model,omitempty"`
 	CostTokens          int              `json:"cost_tokens"`
@@ -321,10 +314,10 @@ type SalesResponse struct {
 	Polished            bool             `json:"polished"`
 	Audited             bool             `json:"audited"`
 	AuditIssues         []string         `json:"audit_issues,omitempty"`
-	TransferredToHuman  bool             `json:"transferred_to_human"` 
+	TransferredToHuman  bool             `json:"transferred_to_human"`
 	TransferReason      string           `json:"transfer_reason,omitempty"`
-	Cards []RichCard     `json:"cards,omitempty"`
-	Steps []SalesStepLog `json:"steps"` 
+	Cards               []RichCard       `json:"cards,omitempty"`
+	Steps               []SalesStepLog   `json:"steps"`
 
 	Confidence *ConfidenceDecision `json:"confidence,omitempty"`
 
@@ -392,4 +385,3 @@ func SalesRequestAgentLLMModel(r *SalesRequest) string {
 	}
 	return ""
 }
-

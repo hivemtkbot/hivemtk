@@ -219,7 +219,6 @@ func (r *SessionMessageRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.SessionMessage{}).Error
 }
 
-// ensure errors package is used to avoid import removal during splits
 var _ = errors.New
 
 // ListInternalBySession 会话内部备注列表（仅 is_internal=true）

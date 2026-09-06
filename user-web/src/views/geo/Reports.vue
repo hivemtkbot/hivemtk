@@ -1,7 +1,7 @@
 <template>
   <div class="geo-page">
 
-    <!-- 筛选 -->
+    
     <el-card shadow="never" class="filter-card">
       <el-form :inline="true" :model="filter">
         <el-form-item label="日期范围">
@@ -23,7 +23,7 @@
       </el-form>
     </el-card>
 
-    <!-- 概览卡片 -->
+    
     <el-row :gutter="16" class="summary-row">
       <el-col v-for="s in summaryCards" :key="s.key" :xs="12" :sm="8" :md="4">
         <el-card shadow="never" class="summary-card" :body-style="{ padding: '16px' }">
@@ -33,7 +33,7 @@
       </el-col>
     </el-row>
 
-    <!-- API 成本明细 -->
+    
     <el-card shadow="never" class="cost-card">
       <template #header><span class="card-title">API 成本明细（按 Provider / Model）</span></template>
       <el-table v-loading="costLoading" :data="costRows" stripe style="width: 100%">
@@ -56,7 +56,7 @@
       <el-empty v-if="!costRows.length && !costLoading" description="暂无 API 成本数据" :image-size="60" />
     </el-card>
 
-    <!-- ROI 分析 -->
+    
     <el-card shadow="never" class="roi-card">
       <template #header><span class="card-title">ROI 分析（API 投入统计）</span></template>
       <div v-loading="roiLoading">

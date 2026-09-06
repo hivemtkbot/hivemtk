@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 // AIAgentSchemaMigration 多 AI 智能体架构迁移
 type AIAgentSchemaMigration struct {
 	db *gorm.DB
@@ -51,8 +50,6 @@ func (m *AIAgentSchemaMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("migrate customer_service_agents failed: %w", err)
 	}
 
-	// 4. 为已存在的渠道账号创建默认智能体（避免空表场景）
-	//    仅当 ai_agents 表为空时创建一个默认智能体，便于商户首次使用
 	var count int64
 	m.db.Model(&model.AIAgent{}).Count(&count)
 	if count == 0 {
@@ -87,6 +84,4 @@ func (m *AIAgentSchemaMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// 编译期接口断言
 var _ migration.Migration = (*AIAgentSchemaMigration)(nil)
-

@@ -16,7 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupKBTestDB 设置知识库测试数据库
 func setupKBTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.KBDocument{},
@@ -170,4 +169,3 @@ func TestKnowledgeBaseController_ImportKnowledgeBase_DOCX(t *testing.T) {
 		t.Errorf("Expected 200 for DOCX, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
-

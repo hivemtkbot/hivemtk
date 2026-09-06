@@ -14,15 +14,15 @@ import (
 // InMemoryIndexManager 内存索引管理器实现
 // 注意：在实际生产环境中，这里应该使用专门的向量数据库（如FAISS、Milvus、Pinecone等）
 type InMemoryIndexManager struct {
-	indices   map[string][]Chunk 
-	mutex     sync.RWMutex       
-	dimension int                
+	indices   map[string][]Chunk
+	mutex     sync.RWMutex
+	dimension int
 }
 
 // NewInMemoryIndexManager 创建新的内存索引管理器
 func NewInMemoryIndexManager(dimension int) *InMemoryIndexManager {
 	if dimension <= 0 {
-		dimension = 1024 
+		dimension = 1024
 	}
 
 	return &InMemoryIndexManager{
@@ -130,7 +130,7 @@ func (im *InMemoryIndexManager) SearchIndex(ctx context.Context, kbID string, qu
 	}
 
 	if topK <= 0 {
-		topK = 5 
+		topK = 5
 	}
 
 	im.mutex.RLock()
@@ -138,7 +138,7 @@ func (im *InMemoryIndexManager) SearchIndex(ctx context.Context, kbID string, qu
 	im.mutex.RUnlock()
 
 	if !exists {
-		return []Chunk{}, nil 
+		return []Chunk{}, nil
 	}
 
 	scores := make([]struct {
@@ -157,8 +157,6 @@ func (im *InMemoryIndexManager) SearchIndex(ctx context.Context, kbID string, qu
 		}
 	}
 
-	// v3 审计 P2-29 修复：原 O(n²) 冒泡 → sort.Slice O(n log n)
-	// 10K chunks: 50M → 130K 次比较 (380x 加速)
 	sort.Slice(scores, func(i, j int) bool {
 		return scores[i].score > scores[j].score
 	})
@@ -205,12 +203,11 @@ func (im *InMemoryIndexManager) GetIndexStats(ctx context.Context, kbID string) 
 		return nil, fmt.Errorf("knowledge base %s does not exist", kbID)
 	}
 
-	// 计算内存使用量（粗略估算）
 	var memoryUsage int64
 	for _, chunk := range indexSlice {
-		memoryUsage += int64(len(chunk.Content))        
-		memoryUsage += int64(len(chunk.Embedding) * 4)  
-		memoryUsage += int64(len(chunk.Metadata) * 100) 
+		memoryUsage += int64(len(chunk.Content))
+		memoryUsage += int64(len(chunk.Embedding) * 4)
+		memoryUsage += int64(len(chunk.Metadata) * 100)
 	}
 
 	stats := &IndexStats{
@@ -228,13 +225,13 @@ func (im *InMemoryIndexManager) GetIndexStats(ctx context.Context, kbID string) 
 // 使用 InMemoryIndexManager 作为后端，提供完整的向量索引功能
 // 当未来需要接入FAISS C++库时，可替换后端实现
 type FAISSIndexManager struct {
-	backend *InMemoryIndexManager 
+	backend *InMemoryIndexManager
 }
 
 // NewFAISSIndexManager 创建FAISS索引管理器
 func NewFAISSIndexManager(dimension int) *FAISSIndexManager {
 	if dimension <= 0 {
-		dimension = 1024 
+		dimension = 1024
 	}
 	return &FAISSIndexManager{
 		backend: NewInMemoryIndexManager(dimension),
@@ -306,7 +303,7 @@ func NormalizeVector(vec []float32) []float32 {
 
 	magnitude := math.Sqrt(sumSquares)
 	if magnitude == 0 {
-		return vec 
+		return vec
 	}
 
 	normalized := make([]float32, len(vec))
@@ -316,4 +313,3 @@ func NormalizeVector(vec []float32) []float32 {
 
 	return normalized
 }
-

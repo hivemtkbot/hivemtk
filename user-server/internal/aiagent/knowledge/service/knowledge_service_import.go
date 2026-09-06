@@ -20,8 +20,6 @@ import (
 	"github.com/google/uuid"
 )
 
-
-// metaToJSON 将附加字段映射为 jsonb 字符串；空/nil 时返回 "{}"。
 func metaToJSON(m map[string]any) string {
 	if len(m) == 0 {
 		return "{}"
@@ -33,8 +31,6 @@ func metaToJSON(m map[string]any) string {
 	return string(b)
 }
 
-
-// importUploadedFile 处理 multipart 文件上传(PDF/DOCX/TXT/MD/HTML/JSON/CSV)
 func (s *KnowledgeService) importUploadedFile(ctx context.Context, req *ImportRequest, product *model.RagProduct, productNumericID string) (*model.KnowledgeDocument, error) {
 	if req.File == nil || req.FileHeader == nil {
 		return nil, errors.New("文件不能为空")
@@ -59,7 +55,7 @@ func (s *KnowledgeService) importUploadedFile(ctx context.Context, req *ImportRe
 		return nil, fmt.Errorf("创建文件失败: %w", err)
 	}
 	defer dst.Close()
-	// io.LimitReader 双保险：ContentLength 可伪造，实际读取超限即中止并清理
+
 	size, err := io.Copy(dst, io.LimitReader(req.File, MaxUploadFileSize+1))
 	if err != nil {
 		_ = os.Remove(filePath)
@@ -101,7 +97,6 @@ func (s *KnowledgeService) importUploadedFile(ctx context.Context, req *ImportRe
 	return doc, nil
 }
 
-// importText 处理纯文本导入（OpenAPI/Batch 走同一路径）
 func (s *KnowledgeService) importText(ctx context.Context, req *ImportRequest, product *model.RagProduct, productNumericID string) (*model.KnowledgeDocument, error) {
 	if strings.TrimSpace(req.Content) == "" {
 		return nil, errors.New("内容不能为空")
@@ -142,7 +137,6 @@ func (s *KnowledgeService) importText(ctx context.Context, req *ImportRequest, p
 	return doc, nil
 }
 
-// importFromURL 抓取 URL 内容（含 SSRF 防护 + HTML 标签剥离）
 func (s *KnowledgeService) importFromURL(ctx context.Context, req *ImportRequest, product *model.RagProduct, productNumericID string) (*model.KnowledgeDocument, error) {
 	if req.SourceRef == "" {
 		return nil, errors.New("URL 不能为空")
@@ -205,4 +199,3 @@ func (s *KnowledgeService) importFromURL(ctx context.Context, req *ImportRequest
 	}
 	return doc, nil
 }
-

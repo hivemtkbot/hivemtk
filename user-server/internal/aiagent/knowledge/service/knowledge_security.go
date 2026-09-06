@@ -13,17 +13,10 @@ import (
 	urlutil "hivemtk-user/internal/pkg/utils/url"
 )
 
-// validateURL URL 校验(含 SSRF 防护)
-//
-// 防护策略:仅允许 http/https 协议,并对解析后的所有 IP 做内网/保留地址拦截。
-// 注:DNS 重绑定(TOCTOU)无法靠单次解析完全消除,生产环境应配合出口防火墙 /
-// 专用 egress proxy;此处拦截已覆盖绝大多数 SSRF 利用场景(如 169.254.169.254 元数据)。
 func validateURL(rawURL string) error {
 	return urlutil.ValidateURL(context.Background(), rawURL)
 }
 
-// stripHTML 简单 HTML 标签剥离
 func stripHTML(html string) string {
 	return text.StripHTML(html)
 }
-

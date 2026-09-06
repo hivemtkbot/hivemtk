@@ -1,6 +1,6 @@
 <template>
   <div class="ai-agent-list-page">
-    <!-- 页面头部 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="header-content">
         <div>
@@ -20,7 +20,7 @@
       </div>
     </el-card>
 
-    <!-- 搜索栏 -->
+    
     <el-card shadow="never" class="filter-card">
       <el-form :inline="true" :model="filter" @submit.prevent>
         <el-form-item :label="$t('智能体类型')">
@@ -56,7 +56,7 @@
       </el-form>
     </el-card>
 
-    <!-- 列表表格 -->
+    
     <el-card shadow="never">
       <el-table :data="list" v-loading="loading" stripe border>
         <el-table-column prop="id" label="ID" width="70" align="center" />
@@ -125,7 +125,7 @@
       </el-table>
     </el-card>
 
-    <!-- 测试弹窗 -->
+    
     <el-dialog v-model="testDialogVisible" title="测试智能体" width="760px" top="6vh">
       <el-form :model="testForm" label-width="90px">
         <el-form-item label="智能体">
@@ -151,7 +151,7 @@
         </el-form-item>
       </el-form>
 
-      <!-- 测试结果 -->
+      
       <template v-if="testResult">
         <el-divider content-position="left">测试结果</el-divider>
         <el-descriptions :column="2" border size="small">
@@ -169,7 +169,7 @@
           </el-descriptions-item>
         </el-descriptions>
 
-        <!-- 9步链路日志 -->
+        
         <div class="chain-title">9步链路日志</div>
         <el-table :data="testResult.steps || []" stripe size="small" border>
           <el-table-column type="index" label="#" width="50" align="center" />
@@ -194,7 +194,7 @@
       <el-empty v-else-if="!testing" description="执行测试后显示结果" :image-size="80" />
     </el-dialog>
 
-    <!-- 绑定关系弹窗 -->
+    
     <el-dialog v-model="bindingDialogVisible" title="智能体绑定关系" width="720px" top="6vh">
       <template v-if="currentAgent">
         <el-descriptions :column="2" border size="small">
@@ -245,38 +245,33 @@ import { getLanguageLabel } from '@/constants/languages'
 
 const router = useRouter()
 
-// 当前测试智能体的显示标签
 const currentAgentLabel = computed(() => {
   const agent = currentAgent.value
   if (!agent) return ''
   const name = agent.name || ''
   const code = agent.agent_code || ''
   return code ? `${name}（${code}）` : name
-})
+});
 
-// ===== 列表数据 =====
-const loading = ref(false)
+const loading = ref(false);
 const list = ref([])
 const filter = ref({ type: '', status: '', keyword: '' })
 
-// ===== 测试弹窗 =====
-const testDialogVisible = ref(false)
+const testDialogVisible = ref(false);
 const testing = ref(false)
 const currentAgent = ref(null)
 const testForm = ref({ customer_id: '', message: '' })
 const testResult = ref(null)
 
-// ===== 绑定关系弹窗 =====
-const bindingDialogVisible = ref(false)
+const bindingDialogVisible = ref(false);
 const bindingLoading = ref(false)
 const channelBindings = ref([])
 
-// 类型映射
 const typeMap = {
   sales: '销售智能体',
   customer_service: '客服智能体',
   hybrid: '混合智能体'
-}
+};
 
 const getTypeLabel = (type) => typeMap[type] || type || '-'
 
@@ -307,7 +302,6 @@ const formatTime = (t) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-// ===== 加载列表 =====
 const loadList = async () => {
   loading.value = true
   try {
@@ -316,14 +310,13 @@ const loadList = async () => {
     if (filter.value.status !== '' && filter.value.status !== null) params.status = filter.value.status
     if (filter.value.keyword) params.keyword = filter.value.keyword
     const res = await listAgents(params)
-    // SuccessWithList 返回 { list, total }
-    list.value = res?.list || []
+    list.value = res?.list || [];
   } catch (e) {
     ElMessage.error('加载智能体列表失败：' + (e.message || '未知错误'))
   } finally {
     loading.value = false
   }
-}
+};
 
 const onSearch = () => {
   loadList()
@@ -334,16 +327,14 @@ const resetFilter = () => {
   loadList()
 }
 
-// ===== 路由跳转 =====
 const goCreate = () => {
   router.push('/aiAgent/create')
-}
+};
 
 const goEdit = (row) => {
   router.push(`/aiAgent/edit/${row.id}`)
 }
 
-// ===== 启用/禁用 =====
 const onToggle = (row) => {
   const nextStatus = row.status === 1 ? 0 : 1
   const action = nextStatus === 1 ? '启用' : '禁用'
@@ -360,9 +351,8 @@ const onToggle = (row) => {
       ElMessage.error(`${action}失败：` + (e.message || '未知错误'))
     }
   }).catch(() => {})
-}
+};
 
-// ===== 删除 =====
 const onDelete = (row) => {
   ElMessageBox.confirm(`确认删除智能体「${row.name}」吗？删除后不可恢复。`, '删除确认', {
     type: 'warning',
@@ -377,15 +367,14 @@ const onDelete = (row) => {
       ElMessage.error('删除失败：' + (e.message || '未知错误'))
     }
   }).catch(() => {})
-}
+};
 
-// ===== 测试智能体 =====
 const openTestDialog = (row) => {
   currentAgent.value = row
   testForm.value = { customer_id: '', message: '' }
   testResult.value = null
   testDialogVisible.value = true
-}
+};
 
 const runTest = async () => {
   if (!testForm.value.message || !testForm.value.message.trim()) {
@@ -415,7 +404,6 @@ const clearTestResult = () => {
   testForm.value.message = ''
 }
 
-// ===== 查看绑定关系 =====
 const openBindingDialog = async (row) => {
   currentAgent.value = row
   bindingDialogVisible.value = true
@@ -429,12 +417,11 @@ const openBindingDialog = async (row) => {
   } finally {
     bindingLoading.value = false
   }
-}
+};
 
-// 初始化
 onMounted(() => {
   loadList()
-})
+});
 </script>
 
 <style scoped lang="scss">

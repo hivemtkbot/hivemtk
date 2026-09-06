@@ -65,7 +65,7 @@
       </div>
     </div>
 
-    <!-- 添加/编辑账号对话框 -->
+    
     <el-dialog
       v-model="dialogVisible"
       :title="dialogType === 'add' ? '添加机器人' : '编辑机器人'"
@@ -113,7 +113,7 @@
       </template>
     </el-dialog>
 
-    <!-- 测试发送对话框 -->
+    
     <el-dialog v-model="testDialogVisible" title="测试发送消息" width="500px">
       <el-form :model="testForm" label-width="100px">
         <el-form-item label="目标 Chat ID">
@@ -131,7 +131,7 @@
       </template>
     </el-dialog>
 
-    <!-- AI 智能体绑定对话框 -->
+    
     <AgentBindingDialog
       v-model="bindingDialogVisible"
       channel-type="telegram"
@@ -163,8 +163,7 @@ const testing = ref(false)
 const accounts = ref([])
 const searchKeyword = ref('')
 
-// AI 智能体绑定对话框状态
-const bindingDialogVisible = ref(false)
+const bindingDialogVisible = ref(false);
 const bindingAccountId = ref('')
 const bindingAccountLabel = ref('')
 const bindingAccountEnabled = ref(true)
@@ -198,8 +197,7 @@ const fetchAccounts = async () => {
 
 const handleSearch = () => {}
 
-// 添加 / 编辑
-const dialogVisible = ref(false)
+const dialogVisible = ref(false);
 const dialogType = ref('add')
 const accountFormRef = ref(null)
 const accountForm = reactive({
@@ -326,8 +324,7 @@ const handleRegisterWebhook = (row) => {
     .catch(() => {})
 }
 
-// 测试发送
-const testDialogVisible = ref(false)
+const testDialogVisible = ref(false);
 const testForm = reactive({ chat_id: null, text: '' })
 let currentTestAccountId = null
 

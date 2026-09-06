@@ -26,4 +26,3 @@ func GetRequest(url string) (map[string]any, error) {
 	}
 	return result, nil
 }
-

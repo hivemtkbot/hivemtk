@@ -37,7 +37,6 @@ type CustomerSessionService struct {
 // 单一源：repository.DefaultSessionActiveTTL；调整需同步更新两边。
 const CustomerSessionActiveTTL = repository.DefaultSessionActiveTTL
 
-// autoCloseStaleBatchSize 自动关闭单批处理上限（避免大表锁竞争）
 const autoCloseStaleBatchSize = 500
 
 // AutoCloseStaleSessions 自动关闭超过 TTL 的活跃会话
@@ -130,10 +129,8 @@ func (s *CustomerSessionService) CreateSession(ctx context.Context, req *CreateS
 		return nil, err
 	}
 
-	// R48 T2: 新会话非办公时间自动离开回复（fire-and-forget，防循环标记 system_away）
 	MaybeSendAwayReply(session.SessionID, session.SessionID, string(session.Platform), session.AccountID)
 
-	// R53 B: 新会话 → 自动化规则事件 conversation_created
 	DispatchSessionEventAsync(RuleEventConversationCreated, session.SessionID, session)
 
 	return session, nil
@@ -209,7 +206,7 @@ type SendMessageRequest struct {
 
 // UnmarshalJSON 自定义反序列化，兼容 sender_id 为数字或字符串
 func (r *SendMessageRequest) UnmarshalJSON(data []byte) error {
-	// 使用别名避免无限递归
+
 	type Alias SendMessageRequest
 	aux := &struct {
 		SenderID interface{} `json:"sender_id"`
@@ -297,8 +294,6 @@ func (s *CustomerSessionService) SendMessage(ctx context.Context, req *SendMessa
 	return message, nil
 }
 
-// pushToVisitor 将坐席/AI 的回复实时推送给访客端 WebSocket
-// 若访客在线则标记 delivered_at，避免重连时离线补发重复展示
 func (s *CustomerSessionService) pushToVisitor(ctx context.Context, sessionID string, message *model.SessionMessage) {
 	payload := map[string]any{
 		"session_id":   sessionID,
@@ -364,7 +359,6 @@ func (s *CustomerSessionService) UpdateSessionStatus(ctx context.Context, sessio
 		})
 	}
 
-	// R53 A1/B: 生命周期链闭环——resolved/closed 自动触发 CSAT + 规则引擎事件
 	if (status == model.SessionStatusResolved || status == model.SessionStatusClosed) && session.Status != status {
 		chain := NewSessionChainServiceFromGlobal()
 		chain.TriggerCSATOnClose(session)
@@ -404,7 +398,6 @@ func (s *CustomerSessionService) TagSession(ctx context.Context, sessionID uint,
 	return s.sessionRepo.Update(ctx, session)
 }
 
-// generateSessionID 生成会话ID
 func generateSessionID() string {
 	return fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), uuid.New().String()[:8])
 }

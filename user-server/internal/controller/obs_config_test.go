@@ -83,4 +83,3 @@ func TestObsConfigController_GetDefaultConfig_Success(t *testing.T) {
 		t.Errorf("Expected 200 or 500, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
-

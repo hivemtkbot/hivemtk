@@ -10,9 +10,9 @@ import (
 // EmailDraft 邮件草稿模型
 type EmailDraft struct {
 	ID          uuid.UUID      `gorm:"type:char(36);primary_key" json:"id"`
-	Subject     string         `gorm:"size:255;not null" json:"subject"` 
-	Content     string         `gorm:"type:text" json:"content"`         
-	Attachments string         `gorm:"type:text" json:"attachments"`     
+	Subject     string         `gorm:"size:255;not null" json:"subject"`
+	Content     string         `gorm:"type:text" json:"content"`
+	Attachments string         `gorm:"type:text" json:"attachments"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
@@ -25,4 +25,3 @@ func (e *EmailDraft) BeforeCreate(tx *gorm.DB) error {
 	e.UpdatedAt = time.Now()
 	return nil
 }
-

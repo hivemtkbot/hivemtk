@@ -163,4 +163,3 @@ func TestXianyuCard_WithHighCounts(t *testing.T) {
 		t.Errorf("Expected ViewCount 1000000, got %d", card.ViewCount)
 	}
 }
-

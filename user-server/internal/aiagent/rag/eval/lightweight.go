@@ -17,10 +17,10 @@ import (
 
 // EvalCase 单条评测样例
 type EvalCase struct {
-	Question    string   `json:"question"`     // 用户问题
-	GroundTruth string   `json:"ground_truth"` // 标准答案（参考真值）
-	Answer      string   `json:"answer"`       // 待评系统回答
-	Contexts    []string `json:"contexts"`     // 召回上下文片段
+	Question    string   `json:"question"`
+	GroundTruth string   `json:"ground_truth"`
+	Answer      string   `json:"answer"`
+	Contexts    []string `json:"contexts"`
 }
 
 // CaseResult 单条样例的明细得分
@@ -40,8 +40,6 @@ type EvalReport struct {
 	AvgAnswerRelevance float64      `json:"avg_answer_relevance"`
 }
 
-// splitSentencesLite 轻量分句：按中英文终止标点与换行切分。
-// 已知近似：数字小数点（如 "3.5"）会被切开，评测场景可接受。
 func splitSentencesLite(s string) []string {
 	f := func(r rune) bool {
 		switch r {
@@ -60,8 +58,6 @@ func splitSentencesLite(s string) []string {
 	return out
 }
 
-// tokenizeLite 中文轻量分词：小写归一后的「单字 + 相邻双字滑窗」，跳过空白字符。
-// 返回原始 token 序列（上层以集合语义使用）。
 func tokenizeLite(s string) []string {
 	runes := []rune(strings.ToLower(s))
 	tokens := make([]string, 0, len(runes)*2)
@@ -88,7 +84,6 @@ func tokenSet(ss ...string) map[string]struct{} {
 	return set
 }
 
-// coverageRatio 计算 target token 相对基准集合的覆盖率
 func coverageRatio(targetTokens []string, base map[string]struct{}) float64 {
 	var hit, total int
 	for _, t := range targetTokens {
@@ -164,7 +159,6 @@ func AnswerRelevanceLite(question string, answer string) float64 {
 	return 2 * float64(inter) / float64(den)
 }
 
-// bigramSet 仅提取相邻双字滑窗（忽略空白），用于 Dice 计算
 func bigramSet(s string) map[string]struct{} {
 	runes := []rune(strings.ToLower(s))
 	set := make(map[string]struct{})
@@ -234,7 +228,6 @@ func LoadGoldenSet(path string) ([]EvalCase, error) {
 	}
 }
 
-// normalizeCases 保证 Contexts 非 nil，便于调用方直接 range 使用
 func normalizeCases(cases []EvalCase) []EvalCase {
 	out := make([]EvalCase, 0, len(cases))
 	for _, c := range cases {

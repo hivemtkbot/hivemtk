@@ -11,12 +11,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// bridgeChannels 网页桥接渠道白名单。
-//
-// B-5 单源化（2026-08-26）：本包不再手工维护渠道清单，运行时由 bridge 包 init()
-// 从 channelgw.Default（权威注册表）取值注入（SetBridgeChannels），
-// 消除双份清单漂移。service → channelgw 存在反向依赖故无法直接 import，
-// 注入时序由包初始化顺序保证（bridge import channelgw，其 init 先于 main）。
 var bridgeChannels = map[string]struct{}{}
 
 // SetBridgeChannels 用 channelgw.Default 的渠道名集合重建白名单（B-5 运行时单一来源）。
@@ -39,17 +33,8 @@ func SetBridgeChannels(names []string) {
 	bridgeChannels = m
 }
 
-// errBridgeOutboundNotReady 桥接出站未装配（router.Setup 尚未注入 InboxIngressService）。
-//
-// 历史：早期曾以 RegisterBridgeOutbound 全局回调注入；为消除 callback 间接层 + 与 AI reply
-// 走同一 InboxIngressService.DeliverOutbound 路径，现改为直接持有入站服务单例。
-// 私有化部署单租户场景下装配时序固定，启动后必非 nil。
 var errBridgeOutboundNotReady = errors.New("bridge outbound not ready: InboxIngressService not registered")
 
-// globalInboxIngressService 全局入站服务引用（router.Setup 在装配完成后注入）。
-//
-// 单一源：app.SetBridgeIngressSvc 会同步设置本变量；本包内 DeliverBridgeOutbound
-// 走直接方法调用而非 callback，避免 service → bridge 导入环。
 var globalInboxIngressService *InboxIngressService
 
 // GlobalSSEPublisher SSE 事件通知回调（由 bridge 包在初始化时设置）。
@@ -150,7 +135,6 @@ func DeliverBridgeOutbound(ctx context.Context, channel, accountID, conversation
 		return err
 	}
 
-	// Phase 1: SSE 事件通知（异步，不阻塞主路径）
 	if GlobalSSEPublisher != nil {
 		go func() {
 			defer func() {
@@ -174,18 +158,6 @@ func DeliverBridgeOutbound(ctx context.Context, channel, accountID, conversation
 	return nil
 }
 
-// bridgeOutboundUndeliverable 判断桥接出站目标是否可达。
-//
-// 拦截两类不可达目标：
-//   - 占位账号 `<channel>-unknown`：前端账号解析失败时兜底上报，真实账号解析后扩展用真实 id 轮询 outbox，
-//     永不拉取 -unknown；unknown 状态下无法投递到具体会话。
-//   - 派生于昵称的兜底会话 `conv:<name>`：前端 openConversation 按列表项 name 匹配点击打开已能尽力投递；
-//     真正打不开的会留 pending 由监控归类为"待观察"，下一轮 downlink 仍可重试，不算硬失败。
-//
-// 因此本函数仅拦截「占位账号」一种情况。
-//
-// 返回 (undeliverable, reason)：reason 仅在 undeliverable=true 时非空，供 webhook_outbound 写入
-// outbox.Extra["undeliverable_reason"] 供后续排查 / 监控。
 func bridgeOutboundUndeliverable(accountID, conversationID string) (bool, string) {
 	if accountID != "" && strings.HasSuffix(accountID, "-unknown") {
 		return true, "placeholder-account"
@@ -193,7 +165,6 @@ func bridgeOutboundUndeliverable(accountID, conversationID string) (bool, string
 	return false, ""
 }
 
-// isBridgeChannel 检查渠道是否在网页桥接白名单
 func isBridgeChannel(channel string) bool {
 	_, ok := bridgeChannels[channel]
 	return ok

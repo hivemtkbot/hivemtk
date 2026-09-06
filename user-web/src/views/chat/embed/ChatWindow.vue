@@ -32,7 +32,7 @@
       @send="onSend"
     />
 
-    <!-- 历史会话列表弹窗 -->
+    
     <div v-if="showOfflineList" class="modal-mask" @click.self="showOfflineList = false">
       <div class="modal">
         <div class="modal-header">
@@ -54,7 +54,7 @@
       </div>
     </div>
 
-    <!-- 评分弹窗 -->
+    
     <div v-if="showRating" class="modal-mask" @click.self="showRating = false">
       <div class="modal">
         <div class="modal-header">
@@ -94,12 +94,10 @@ import chatApi from '@/api/chatPublic'
 import { ChatSocket } from '@/utils/chatSocket'
 
 const props = defineProps({
-  // 兼容字段：旧版用 appKey，新版用 channelId（私域部署模式）
   appKey: { type: String, default: '' },
   channelId: { type: String, default: 'default' },
   channelTitle: { type: String, default: '在线客服' },
   widgetColor: { type: String, default: '#1989fa' },
-  // 卡片客服来源追踪：source（douyin/kuaishou/xiaohongshu/xianyu）+ card_id
   source: { type: String, default: '' },
   cardId: { type: String, default: '' },
   fullscreen: { type: Boolean, default: false }
@@ -107,15 +105,13 @@ const props = defineProps({
 
 const emit = defineEmits(['close'])
 
-// 计算实际 channel_id：优先 channelId > appKey > default
 const effectiveChannelId = computed(() => {
   if (props.channelId && props.channelId !== 'default') return props.channelId
   if (props.appKey) return props.appKey
   return 'default'
-})
+});
 
-// 状态
-const visitorId = ref('')
+const visitorId = ref('');
 const sessionId = ref('')
 const visitorToken = ref('')
 const messages = ref([])
@@ -126,15 +122,12 @@ const agentOnline = ref(false)
 const agentCount = ref(0)
 const widgetTitle = ref(props.channelTitle)
 
-// 离线消息
-const offlineSessions = ref([])
+const offlineSessions = ref([]);
 const showOfflineList = ref(false)
 const offlineBannerCount = ref(0)
 
-// 会话初始化失败（可重试）
-const initFailed = ref(false)
-// 转人工等待超时
-let transferTimer = null
+const initFailed = ref(false);
+let transferTimer = null;
 const clearTransferTimer = () => {
   if (transferTimer) { clearTimeout(transferTimer); transferTimer = null }
 }
@@ -149,31 +142,24 @@ const startTransferWaiting = () => {
   }, 30000)
 }
 
-// 未读消息数变化时上报给父页浮标，驱动红点
 watch(offlineBannerCount, (c) => {
   try {
     if (window.parent && window.parent !== window) {
       window.parent.postMessage({ type: 'mcw-unread', count: c }, '*')
     }
-  } catch (e) { /* ignore */ }
-})
+  } catch (e) {}
+});
 
-// 转人工：
-//   转人工完全由后端基于意图识别 / NLP 关键词 / 置信度自动触发。
-//   本变量仅用于展示"客服正在为您接入..."的过渡提示（由 WebSocket 推 agent_joined 触发）。
-const humanHint = ref(false)
+const humanHint = ref(false);
 
-// 评分
-const showRating = ref(false)
+const showRating = ref(false);
 const rating = ref(0)
 const ratingComment = ref('')
 
-// 引用
-const messagesRef = ref(null)
+const messagesRef = ref(null);
 const inputRef = ref(null)
 let socket = null
 
-// 初始化访客 ID
 const initVisitorId = () => {
   let id = localStorage.getItem('chat_visitor_id')
   if (!id) {
@@ -181,9 +167,8 @@ const initVisitorId = () => {
     localStorage.setItem('chat_visitor_id', id)
   }
   visitorId.value = id
-}
+};
 
-// 把后端 message 转成前端 UI 消息
 const buildUiMessage = (m) => ({
   id: m.id,
   sender_type: m.sender_type,
@@ -194,24 +179,21 @@ const buildUiMessage = (m) => ({
   ai_source: m.ai_source,
   confidence: m.confidence || m.ai_confidence,
   created_at: m.created_at
-})
+});
 
-// 打开会话
 const openSession = async (resume = true) => {
   loading.value = true
   initFailed.value = false
   try {
-    // 先获取可用坐席数
-    const agentRes = await chatApi.getAvailableAgents(effectiveChannelId.value)
+    const agentRes = await chatApi.getAvailableAgents(effectiveChannelId.value);
     agentCount.value = agentRes?.data?.available || 0
     agentOnline.value = agentCount.value > 0
 
-    // 打开会话
     const res = await chatApi.openSession({
       channel_id: effectiveChannelId.value,
       visitor_id: visitorId.value,
       resume: resume
-    }, effectiveChannelId.value, visitorId.value)
+    }, effectiveChannelId.value, visitorId.value);
     const data = res?.data || res
     sessionId.value = data.session?.session_id || ''
     visitorToken.value = data.visitor_token || ''
@@ -225,8 +207,7 @@ const openSession = async (resume = true) => {
     if (data.session?.is_new_session === false) {
       await loadHistory()
     }
-    // 连接 WebSocket
-    connectWebSocket()
+    connectWebSocket();
   } catch (err) {
     console.error('打开会话失败：', err)
     initFailed.value = true
@@ -238,7 +219,7 @@ const openSession = async (resume = true) => {
   } finally {
     loading.value = false
   }
-}
+};
 
 const loadHistory = async () => {
   if (!sessionId.value) return
@@ -292,8 +273,7 @@ const connectWebSocket = () => {
       showRating.value = true
     },
     onOfflineMessages: (payload) => {
-      // 连接建立时，后端推送的离线消息（坐席/AI 在访客离线期间发的回复）
-      const list = payload?.messages || []
+      const list = payload?.messages || [];
       if (list.length > 0) {
         messages.value.push(...list.map(buildUiMessage))
         messages.value.push({
@@ -302,15 +282,12 @@ const connectWebSocket = () => {
           created_at: new Date().toISOString()
         })
         offlineBannerCount.value = list.length
-        // 通知服务端已收到
         try { socket && socket.ackDelivered(list.map(m => m.id)) } catch {}
       }
     },
     onAITyping: (payload) => {
-      // 后端在 RAG+推理期间推送，控制「AI 思考中」气泡
-      typing.value = !!payload?.typing
+      typing.value = !!payload?.typing;
     },
-    // WebSocket 连接/断开回调：状态由 UI 层（typing 气泡、重连提示）体现，无需额外日志
     onConnected: () => {},
     onDisconnected: () => {}
   })
@@ -319,15 +296,13 @@ const connectWebSocket = () => {
 
 const onSend = async (payload) => {
   if (!sessionId.value) return
-  // ChatInput 传入 { text, attachment }
-  const text = typeof payload === 'string' ? payload : (payload?.text || '')
+  const text = typeof payload === 'string' ? payload : (payload?.text || '');
   const attachment = typeof payload === 'object' ? payload?.attachment : null
   const userMsg = {
     id: Date.now(),
     sender_type: 'user',
     sender_name: '我',
     content: text,
-    // 附件预览
     content_type: attachment ? attachment.mediaType : 'text',
     media_url: attachment?.url || '',
     created_at: new Date().toISOString()
@@ -352,7 +327,6 @@ const onSend = async (payload) => {
       typing.value = false
       messages.value.push(buildUiMessage(data.ai_response))
     }
-    // 会话内结构化富卡片：随回复一并渲染（商品卡/订单卡/优惠卡等）
     if (data.ai_cards && data.ai_cards.length) {
       typing.value = false
       data.ai_cards.forEach((c) => {
@@ -386,10 +360,7 @@ const onSend = async (payload) => {
   }
 }
 
-const onTransfer = () => {
-  // 转人工由后端基于意图识别 / NLP 关键词 / 置信度自动触发
-  // 此函数保留为空以兼容旧 ChatInput 调用
-}
+const onTransfer = () => {}
 
 const submitRating = async () => {
   if (rating.value === 0) return

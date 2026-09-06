@@ -18,7 +18,6 @@ type PlaybookRecommenderInterface interface {
 	RecommendForResponse(ctx context.Context, industry Industry, productID string, stage JourneyStage, intent string) []*PlaybookEntry
 }
 
-// renderSalesScriptSteps 将资产话术步骤渲染为可直接作为话术参考的纯文本。
 func renderSalesScriptSteps(scripts []map[string]interface{}) string {
 	if len(scripts) == 0 {
 		return ""
@@ -59,7 +58,6 @@ func (e *SalesEngine) RecommendPlaybook(ctx context.Context, industry Industry, 
 	return e.playbook.RecommendForResponse(ctx, industry, productID, stage, intent)
 }
 
-// fetchPlaybookSuggestions 在 Handle 流程中根据客户阶段+意图自动拉取话术建议
 func (e *SalesEngine) fetchPlaybookSuggestions(ctx context.Context, industry Industry, productID string, stage JourneyStage, intent string) []*PlaybookEntry {
 	if e.playbook == nil {
 		return nil
@@ -67,14 +65,6 @@ func (e *SalesEngine) fetchPlaybookSuggestions(ctx context.Context, industry Ind
 	return e.playbook.RecommendForResponse(ctx, industry, productID, stage, intent)
 }
 
-// generateCandidate LLM 生成候选回复
-//
-// 智能体升级：当注入了 toolExecutor 且存在可用工具时，调用 runAgentLoop
-// 走真正的 Agent Loop（LLM ↔ 工具 循环）；否则走原始一次性 LLM 调用（向后兼容）。
-//
-// 集成双层架构 - 顶部先调 LayerRouter.Route
-//   - Layer1 命中 (SkipLLM) -> 直接返回 FAQ/SOP 模板回复, 不调 LLM
-//   - Layer1 未命中/置信度低 -> 走原 LLM 路径
 func (e *SalesEngine) generateCandidate(
 	ctx context.Context,
 	req *SalesRequest,

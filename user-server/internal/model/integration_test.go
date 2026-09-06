@@ -173,9 +173,9 @@ func TestExternalOrder_BasicFields(t *testing.T) {
 		UserID:         "user-001",
 		UserName:       "Test User",
 		UserPhone:      "13800138000",
-		TotalAmount:    19999, 
-		PayAmount:      17999, 
-		DiscountAmount: 2000,  
+		TotalAmount:    19999,
+		PayAmount:      17999,
+		DiscountAmount: 2000,
 		Status:         "paid",
 		PayTime:        &now,
 		Items:          `[{"id": "item1", "qty": 2}]`,
@@ -212,8 +212,8 @@ func TestExternalProduct_BasicFields(t *testing.T) {
 		Name:          "Test Product",
 		CategoryID:    "cat-001",
 		CategoryName:  "Electronics",
-		Price:         9999,  
-		OriginalPrice: 12999, 
+		Price:         9999,
+		OriginalPrice: 12999,
 		Stock:         100,
 		Sales:         500,
 		Images:        `["img1.jpg", "img2.jpg"]`,
@@ -269,4 +269,3 @@ func TestWebhookEvent_BasicFields(t *testing.T) {
 		t.Error("Expected Processed to be true")
 	}
 }
-

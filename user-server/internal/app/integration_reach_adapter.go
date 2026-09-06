@@ -38,11 +38,11 @@ type IntegrationReachAdapter struct {
 	tg       *service.TelegramIntegrationService
 	wa       *service.WhatsAppCloudIntegrationService
 	feishu   *service.FeishuIntegrationService
-	web      *service.CustomerSessionService  
-	wecom    *service.WeComIntegrationService 
-	dingtalk *service.DingTalkService         
-	sms      service.SmsService               
-	email    *email.EmailSendService          
+	web      *service.CustomerSessionService
+	wecom    *service.WeComIntegrationService
+	dingtalk *service.DingTalkService
+	sms      service.SmsService
+	email    *email.EmailSendService
 }
 
 // Sentinel errors
@@ -86,7 +86,6 @@ func NewIntegrationReachAdapterFromDB(db *gorm.DB) *IntegrationReachAdapter {
 	}
 }
 
-
 // SendTelegram 通过 TelegramIntegrationService 发送消息
 //
 // 参数：accountID 数字字符串，chatID 数字字符串（私聊为正、群组为负），content 消息文本
@@ -113,7 +112,6 @@ func (a *IntegrationReachAdapter) SendTelegram(ctx context.Context, accountID, c
 	return fmt.Sprintf("tg-%d-%d", accID, time.Now().UnixNano()), nil
 }
 
-
 // SendWhatsApp 通过 WhatsAppCloudIntegrationService 发送消息
 //
 // 参数：accountID 数字字符串，toPhone E.164 格式，content 消息文本
@@ -136,7 +134,6 @@ func (a *IntegrationReachAdapter) SendWhatsApp(ctx context.Context, accountID, t
 	return fmt.Sprintf("wa-%d-%d", accID, time.Now().UnixNano()), nil
 }
 
-
 // SendFeishu 通过 FeishuIntegrationService 发送消息
 //
 // 参数：accountID 数字字符串，openID 飞书 open_id，content 消息文本
@@ -158,7 +155,6 @@ func (a *IntegrationReachAdapter) SendFeishu(ctx context.Context, accountID, ope
 	}
 	return fmt.Sprintf("feishu-%d-%d", accID, time.Now().UnixNano()), nil
 }
-
 
 // SendWeb 通过网页客服渠道（WebSocket）向访客会话推送消息。
 //
@@ -218,7 +214,6 @@ type WebReachAdapter = IntegrationReachAdapter
 func NewWebReachAdapter(svc *service.CustomerSessionService) *WebReachAdapter {
 	return &WebReachAdapter{web: svc}
 }
-
 
 // SendSMS 通过 SmsService 发送短信（补 reach.sms.send 真实出站）
 //
@@ -395,8 +390,6 @@ func (a *IntegrationReachAdapter) ListAccounts(ctx context.Context, channel stri
 	return nil, fmt.Errorf("list_accounts(%s): %w", channel, ErrChannelNotImplemented)
 }
 
-
-// parseAccountID 解析账号 ID 字符串为 uint
 func parseAccountID(s string) (uint, error) {
 	if s == "" {
 		return 0, fmt.Errorf("empty: %w", ErrInvalidAccountID)
@@ -411,7 +404,6 @@ func parseAccountID(s string) (uint, error) {
 	return uint(id), nil
 }
 
-// parseInt64 解析 int64 字符串（支持负数）
 func parseInt64(s string) (int64, error) {
 	if s == "" {
 		return 0, fmt.Errorf("empty: %w", ErrInvalidInt64)
@@ -425,4 +417,3 @@ func parseInt64(s string) (int64, error) {
 	}
 	return v, nil
 }
-

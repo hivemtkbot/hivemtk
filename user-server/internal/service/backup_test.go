@@ -16,7 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupBackupServiceTestDB 设置备份服务测试数据库
 func setupBackupServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.Backup{},
@@ -29,12 +28,10 @@ func setupBackupServiceTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// newTestBackupRepository 创建测试备份仓库
 func newTestBackupRepository(database *gorm.DB) *repository.BackupRepository {
 	return repository.NewBackupRepositoryWithDB(database)
 }
 
-// newTestRestoreRecordRepository 创建测试恢复记录仓库
 func newTestRestoreRecordRepository(database *gorm.DB) *repository.RestoreRecordRepository {
 	return repository.NewRestoreRecordRepositoryWithDB(database)
 }
@@ -78,7 +75,6 @@ func TestBackupService_CreateBackup(t *testing.T) {
 		t.Errorf("Expected CreatedBy 1, got %d", backup.CreatedBy)
 	}
 
-	// 验证备份记录已保存到数据库
 	var count int64
 	database.Model(&model.Backup{}).Count(&count)
 	if count != 1 {
@@ -270,7 +266,6 @@ func TestBackupService_DeleteBackup(t *testing.T) {
 		t.Fatalf("DeleteBackup failed: %v", err)
 	}
 
-	// 验证已删除（软删除）
 	var count int64
 	database.Model(&model.Backup{}).Where("id = ?", backup.ID).Count(&count)
 	if count != 0 {
@@ -391,7 +386,6 @@ func TestRestoreService_RestoreBackup(t *testing.T) {
 		t.Errorf("Expected Status 'pending', got %s", record.Status)
 	}
 
-	// 验证恢复记录已保存
 	var count int64
 	database.Model(&model.RestoreRecord{}).Count(&count)
 	if count != 1 {
@@ -607,7 +601,6 @@ func TestBackupService_ExecuteBackup_DirCreationError(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	// 验证备份记录已更新
 	var updatedBackup model.Backup
 	database.First(&updatedBackup, backup.ID)
 

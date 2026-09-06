@@ -11,9 +11,9 @@ import (
 
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/tracing"
 	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/logger"
-	"hivemtk-user/internal/pkg/tracing"
 	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/websocket"
 )
@@ -42,15 +42,12 @@ func DefaultSOPDispatcherConfig() *SOPDispatcherConfig {
 	}
 }
 
-// dispatchTask 调度任务
 type dispatchTask struct {
 	ExecutionID uint
 	NodeID      string
 	Attempt     int
 	TraceID     string
 
-	// SkipWait S1-2：max_wait 超时后由 outbox sweeper 派发，
-	// worker 对 wait 节点不再执行，直接视为满足（skipped）推进下一节点
 	SkipWait bool
 }
 
@@ -78,14 +75,11 @@ type SOPExecutionDispatcher struct {
 	runMu   sync.Mutex
 	running bool
 
-	// v3 审计 P0-10 修复：worker 父 ctx 取消器，Stop 时联动取消
 	workerCancel context.CancelFunc
 
-	// v3 审计 P0-12 修复：跟踪所有重试 timer 以便 Stop 时全部释放
 	retryTimersMu sync.Mutex
 	retryTimers   map[*time.Timer]struct{}
 
-	// v3 审计 P1-#7 增强：Saga 补偿管理器（可选注入）
 	compensationMgr *CompensationManager
 }
 
@@ -100,7 +94,6 @@ func (d *SOPExecutionDispatcher) SetCompensationManager(m *CompensationManager) 
 	d.compensationMgr = m
 }
 
-// registerRetryTimer 注册 timer（v3 审计 P0-12 修复）
 func (d *SOPExecutionDispatcher) registerRetryTimer(t *time.Timer) {
 	d.retryTimersMu.Lock()
 	defer d.retryTimersMu.Unlock()
@@ -110,7 +103,6 @@ func (d *SOPExecutionDispatcher) registerRetryTimer(t *time.Timer) {
 	d.retryTimers[t] = struct{}{}
 }
 
-// unregisterRetryTimer 注销 timer（v3 审计 P0-12 修复）
 func (d *SOPExecutionDispatcher) unregisterRetryTimer(t *time.Timer) {
 	d.retryTimersMu.Lock()
 	defer d.retryTimersMu.Unlock()
@@ -119,7 +111,6 @@ func (d *SOPExecutionDispatcher) unregisterRetryTimer(t *time.Timer) {
 	}
 }
 
-// stopAllRetryTimers 停止所有 timer（v3 审计 P0-12 修复）
 func (d *SOPExecutionDispatcher) stopAllRetryTimers() {
 	d.retryTimersMu.Lock()
 	defer d.retryTimersMu.Unlock()
@@ -237,10 +228,6 @@ func (d *SOPExecutionDispatcher) SetWSHub(ctx context.Context, hub *websocket.Hu
 	d.replaceMessageExecutorHub(context.Background(), hub)
 }
 
-// replaceMessageExecutorHub 替换所有 MessageNodeBase 的 WS Hub
-//
-// 通过类型断言直接调用 MessageNodeBase.SetWSHub（编译期安全）。
-// 遍历 registry.executors，过滤出 *MessageNodeBase 类型。
 func (d *SOPExecutionDispatcher) replaceMessageExecutorHub(ctx context.Context, hub *websocket.Hub) {
 	if d == nil || d.registry == nil {
 		return
@@ -290,7 +277,6 @@ func (d *SOPExecutionDispatcher) Stop(ctx context.Context) {
 	}
 	d.runMu.Unlock()
 
-	// v3 审计 P0-12 修复：停止所有重试 timer
 	d.stopAllRetryTimers()
 
 	d.wg.Wait()
@@ -327,7 +313,6 @@ func (d *SOPExecutionDispatcher) DispatchOrLog(task *dispatchTask) {
 	}
 }
 
-// worker Worker 主循环
 func (d *SOPExecutionDispatcher) worker(ctx context.Context, id int) {
 	defer d.wg.Done()
 	logger.GetLogger().Debug().Int("worker_id", id).Msg("[worker] started")
@@ -340,7 +325,7 @@ func (d *SOPExecutionDispatcher) worker(ctx context.Context, id int) {
 			logger.GetLogger().Debug().Int("worker_id", id).Msg("[worker] ctx cancelled, stopped")
 			return
 		case task := <-d.dispatchQueue:
-			// 任务级 ctx：保留父 ctx（用于 cancel 传播）+ 5min 超时
+
 			taskCtx, cancel := context.WithTimeout(ctx, utils.CronShortTimeout)
 			d.processTask(taskCtx, id, task)
 			cancel()
@@ -348,7 +333,6 @@ func (d *SOPExecutionDispatcher) worker(ctx context.Context, id int) {
 	}
 }
 
-// processTask 处理单个调度任务
 func (d *SOPExecutionDispatcher) processTask(ctx context.Context, workerID int, task *dispatchTask) {
 	ctx = logger.WithTraceID(ctx, task.TraceID)
 	ctx = logger.WithModule(ctx, "sop_dispatcher")
@@ -388,7 +372,6 @@ func (d *SOPExecutionDispatcher) processTask(ctx context.Context, workerID int, 
 		return
 	}
 
-	// S1-1：加载 entry_policy（goal_exit 达成即退出）
 	entryPolicy := DefaultSOPEntryPolicy()
 	if d.sopService != nil {
 		if agent, aerr := d.sopService.Get(ctx, exec.SOPID); aerr == nil && agent != nil {
@@ -400,7 +383,7 @@ func (d *SOPExecutionDispatcher) processTask(ctx context.Context, workerID int, 
 
 	var result *NodeExecResult
 	if task.SkipWait && node.Type == SOPNodeTypeWait {
-		// S1-2：max_wait 已超时，"已过期视为满足立即跳过"，不再执行 wait 节点
+
 		logger.Ctx(ctx).Info().
 			Str("node_id", node.ID).
 			Msg("[worker] skip wait node (max_wait exceeded, treated as satisfied)")
@@ -426,7 +409,7 @@ func (d *SOPExecutionDispatcher) processTask(ctx context.Context, workerID int, 
 		var err error
 		result, err = executor.Execute(ctx, execCtx)
 		if err != nil || result == nil {
-			// 执行器返回 error 属可重试类（dispatcher 负责退避重试）
+
 			d.handleNodeFailure(ctx, exec, node, task, err, true, latencyMs)
 			return
 		}
@@ -436,7 +419,7 @@ func (d *SOPExecutionDispatcher) processTask(ctx context.Context, workerID int, 
 
 	switch result.Status {
 	case NodeStatusCompleted, NodeStatusSkipped:
-		// SAGA 轨迹：仅在节点真正完成/跳过时记录（waiting/failed 不入补偿清单）
+
 		appendExecutedNode(exec, node, task.Attempt, "")
 		d.handleNodeSuccess(ctx, exec, node, graph, result, task, entryPolicy, latencyMs)
 	case NodeStatusWaiting:
@@ -453,12 +436,10 @@ func (d *SOPExecutionDispatcher) processTask(ctx context.Context, workerID int, 
 	}
 }
 
-// loadExecution 加载 Execution 记录
 func (d *SOPExecutionDispatcher) loadExecution(ctx context.Context, execID uint) (*model.SOPExecution, error) {
 	return d.execRepo.GetByID(ctx, execID)
 }
 
-// loadGraph 加载 SOP 图
 func (d *SOPExecutionDispatcher) loadGraph(ctx context.Context, exec *model.SOPExecution) (*dto.SOPGraph, error) {
 	if d.sopService == nil {
 		return nil, fmt.Errorf("sop service not configured")
@@ -467,7 +448,7 @@ func (d *SOPExecutionDispatcher) loadGraph(ctx context.Context, exec *model.SOPE
 	if err != nil {
 		return nil, err
 	}
-	// 解析 variant graph ID
+
 	var variantGraphID uint
 	if exec.Variant != "" {
 		cfg := ParseSOPABTestConfig(agent.ABTestConfig)
@@ -487,7 +468,6 @@ func (d *SOPExecutionDispatcher) loadGraph(ctx context.Context, exec *model.SOPE
 	return &graph, nil
 }
 
-// handleNodeSuccess 处理节点执行成功
 func (d *SOPExecutionDispatcher) handleNodeSuccess(ctx context.Context, exec *model.SOPExecution, node *dto.SOPNode, graph *dto.SOPGraph, result *NodeExecResult, task *dispatchTask, policy SOPEntryPolicy, latencyMs int64) {
 	if exec.ExecutionData == nil {
 		exec.ExecutionData = model.JSONMap{}
@@ -499,7 +479,6 @@ func (d *SOPExecutionDispatcher) handleNodeSuccess(ctx context.Context, exec *mo
 		exec.ExecutionData = appendSideEffect(exec.ExecutionData, effect)
 	}
 
-	// S1-1：goal_exit 达成即退出（提前完成，状态记 success）
 	if policy.GoalExit != "" && goalExitAchieved(policy.GoalExit, exec.ExecutionData) {
 		d.writeExecEvent(ctx, exec, node, NodeEventGoalAchieved, task.Attempt, result.Output, result.SideEffects, "")
 		logger.Ctx(ctx).Info().
@@ -555,7 +534,6 @@ func (d *SOPExecutionDispatcher) handleNodeSuccess(ctx context.Context, exec *mo
 		Msg("[worker] node completed, dispatched next")
 }
 
-// handleNodeWaiting 处理节点进入等待态
 func (d *SOPExecutionDispatcher) handleNodeWaiting(ctx context.Context, exec *model.SOPExecution, node *dto.SOPNode, result *NodeExecResult, latencyMs int64) {
 	now := time.Now()
 	exec.LastEventAt = &now
@@ -575,10 +553,6 @@ func (d *SOPExecutionDispatcher) handleNodeWaiting(ctx context.Context, exec *mo
 		Msg("[worker] node waiting")
 }
 
-// handleNodeFailure 处理节点执行失败
-//
-// S1-3：终态失败（重试耗尽）时向 executed_nodes 追加 failed 记录，
-// 携带 error_class(transient|permanent)。
 func (d *SOPExecutionDispatcher) handleNodeFailure(ctx context.Context, exec *model.SOPExecution, node *dto.SOPNode, task *dispatchTask, err error, retryable bool, latencyMs int64) {
 	errMsg := ""
 	if err != nil {
@@ -608,13 +582,9 @@ func (d *SOPExecutionDispatcher) handleNodeFailure(ctx context.Context, exec *mo
 
 		d.writeExecEvent(ctx, exec, node, NodeEventRetried, task.Attempt+1, nil, nil, errMsg)
 
-		// v3 审计 P0-12 修复：timer 关联 ctx 实现可停止
-		// 原：time.AfterFunc(backoff, func() { d.DispatchOrLog(...) })
-		//      Stop 后仍 dispatch；timer 资源不释放
-		// 新：time.NewTimer + Stop()，并把 stop 注册到 dispatcher
 		retryTimer := time.NewTimer(backoff)
 		d.registerRetryTimer(retryTimer)
-		// 最高标准审计 P1-3 修复：SOP 节点重试派发改走 SafeGo
+
 		utils.SafeGo(ctx, "sop_dispatcher.retry_timer", func(_ context.Context) {
 			defer d.unregisterRetryTimer(retryTimer)
 			select {
@@ -639,7 +609,6 @@ func (d *SOPExecutionDispatcher) handleNodeFailure(ctx context.Context, exec *mo
 		Err(err).
 		Msg("[worker] node failed after max attempts, marking execution as failed")
 
-	// S1-3：失败节点也入轨迹（不入补偿计划，tryCompensate 过滤 status=failed）
 	errClass := SOPErrorClassTransient
 	if !retryable {
 		errClass = SOPErrorClassPermanent
@@ -649,12 +618,10 @@ func (d *SOPExecutionDispatcher) handleNodeFailure(ctx context.Context, exec *mo
 	d.failExecution(ctx, exec, fmt.Sprintf("node %s failed after %d attempts: %s", node.ID, task.Attempt+1, errMsg))
 }
 
-// handleExecutionError 处理 Execution 级别错误（如加载失败）
 func (d *SOPExecutionDispatcher) handleExecutionError(ctx context.Context, exec *model.SOPExecution, err error, task *dispatchTask) {
 	d.failExecution(ctx, exec, fmt.Sprintf("execution error: %v", err))
 }
 
-// completeExecution 标记 Execution 成功完成
 func (d *SOPExecutionDispatcher) completeExecution(ctx context.Context, exec *model.SOPExecution) {
 	now := time.Now()
 	exec.Status = SOPStatusSuccess
@@ -672,13 +639,6 @@ func (d *SOPExecutionDispatcher) completeExecution(ctx context.Context, exec *mo
 		Msg("[worker] execution completed successfully")
 }
 
-// failExecution 标记 Execution 失败
-//
-// v3 审计 P1-#7 增强：失败时自动触发 Saga 补偿（已执行节点的反向撤销）
-//   - 业界依据：Garcia-Molina & Salem 1987 "Sagas"
-//   - 仅在 SOPNodeExecutor 实现 Compensable 接口时才补偿
-//   - 补偿执行是非阻塞的（同步触发，异步运行）
-//   - 补偿结果写 sop_exec_events 事件表，便于运维回放
 func (d *SOPExecutionDispatcher) failExecution(ctx context.Context, exec *model.SOPExecution, errMsg string) {
 	now := time.Now()
 	exec.Status = SOPStatusFailed
@@ -692,22 +652,15 @@ func (d *SOPExecutionDispatcher) failExecution(ctx context.Context, exec *model.
 		Str("error", errMsg).
 		Msg("[worker] execution marked as failed")
 
-	// v3 审计 P1-#7 增强：触发 Saga 补偿（异步）
-	//   - 业界实践：业务失败后异步启动补偿，不阻塞 fail 路径
-	//   - 实际生产中应配合 outbox dispatcher 持久化补偿计划
 	d.tryCompensate(ctx, exec)
 }
 
-// maxExecutedNodeTrace 单次执行轨迹封顶（防异常长流程无限膨胀 JSONB）
 const maxExecutedNodeTrace = 200
 
-// appendExecutedNode 追加已完成节点轨迹到 exec.ExecutedNodes（SAGA 补偿依据）。
-// best-effort：序列化失败仅记日志，不阻断主流程。
 func appendExecutedNode(exec *model.SOPExecution, node *dto.SOPNode, attempt int, errMsg string) {
 	appendExecutedNodeWithStatus(exec, node, attempt, "completed", errMsg, "")
 }
 
-// appendExecutedNodeWithStatus 带状态与错误分类的节点轨迹追加（S1-3）
 func appendExecutedNodeWithStatus(exec *model.SOPExecution, node *dto.SOPNode, attempt int, status, errMsg, errClass string) {
 	if exec == nil || node == nil {
 		return
@@ -730,13 +683,6 @@ func appendExecutedNodeWithStatus(exec *model.SOPExecution, node *dto.SOPNode, a
 	exec.ExecutedNodes = append(exec.ExecutedNodes, rec)
 }
 
-// tryCompensate 异步尝试补偿已执行的节点
-//
-// 设计原则：
-//   - 非阻塞：补偿是异步的（独立 goroutine）
-//   - best-effort：补偿失败仅记日志
-//   - 幂等：Compensate 实现方负责幂等性
-//   - 上下文隔离：使用 Background ctx（避免 fail 路径 ctx 取消）
 func (d *SOPExecutionDispatcher) tryCompensate(_ context.Context, exec *model.SOPExecution) {
 	if d == nil || d.compensationMgr == nil {
 		return
@@ -745,13 +691,10 @@ func (d *SOPExecutionDispatcher) tryCompensate(_ context.Context, exec *model.SO
 		return
 	}
 
-	// 异步触发：使用 background ctx 防止 fail 路径的 ctx 取消影响补偿
-	// 最高标准审计 P1-3 修复：补偿流程改走 SafeGo
 	utils.SafeGo(nil, "sop_dispatcher.compensate", func(ctx context.Context) {
 		bgCtx, cancel := context.WithTimeout(context.Background(), utils.CronShortTimeout)
 		defer cancel()
 
-		// 从 DB 读取最新 executed_nodes（内存对象可能落后于已持久化状态）
 		var executed []compensationTraceEntry
 		fresh, err := d.execRepo.GetByID(bgCtx, exec.ID)
 		if err == nil && fresh != nil && len(fresh.ExecutedNodes) > 0 {
@@ -764,7 +707,7 @@ func (d *SOPExecutionDispatcher) tryCompensate(_ context.Context, exec *model.SO
 
 		planRecords := make([]CompensationRecord, 0, len(executed))
 		for _, e := range executed {
-			// S1-3：failed 终态节点不参与补偿（仅其前序成功节点需要撤销）
+
 			if e.Status == "failed" {
 				continue
 			}
@@ -784,8 +727,6 @@ func (d *SOPExecutionDispatcher) tryCompensate(_ context.Context, exec *model.SO
 			return
 		}
 
-		// 加载图并构建 nodeID→Node 索引，为 Run 提供真实 ExecutionContext
-		// （红队审查 F0：execCtxFor 传 nil 会在 Run 内部解引用 panic）
 		graph, err := d.loadGraph(bgCtx, exec)
 		if err != nil {
 			logger.GetLogger().Warn().
@@ -806,7 +747,7 @@ func (d *SOPExecutionDispatcher) tryCompensate(_ context.Context, exec *model.SO
 			func(nodeID string) *ExecutionContext {
 				n := nodeByID[nodeID]
 				if n == nil {
-					return nil // Run 会记录 Failed 记录而非 panic
+					return nil
 				}
 				return &ExecutionContext{
 					Execution:     exec,
@@ -831,20 +772,15 @@ func (d *SOPExecutionDispatcher) tryCompensate(_ context.Context, exec *model.SO
 	})
 }
 
-// compensationTraceEntry executed_nodes JSONB 元素结构（与 CompensationRecord 对齐的持久化形态）
 type compensationTraceEntry struct {
 	NodeID     string `json:"node_id"`
 	NodeType   string `json:"node_type"`
 	Status     string `json:"status"`
 	Attempt    int    `json:"attempt"`
 	Error      string `json:"error,omitempty"`
-	ErrorClass string `json:"error_class,omitempty"` // S1-3: transient|permanent
+	ErrorClass string `json:"error_class,omitempty"`
 }
 
-// writeExecEvent 写入 sop_exec_events 事件日志
-//
-// 事件日志的幂等性由唯一约束 (execution_id, node_id, attempt) 保证，
-// 同一 attempt 重复写入会被数据库拒绝（忽略错误，仅记录日志）。
 func (d *SOPExecutionDispatcher) writeExecEvent(ctx context.Context, exec *model.SOPExecution, node *dto.SOPNode, eventType string, attempt int, output model.JSONMap, sideEffects []string, errMsg string) {
 	if d.eventRepo == nil {
 		return
@@ -871,10 +807,6 @@ func (d *SOPExecutionDispatcher) writeExecEvent(ctx context.Context, exec *model
 	}
 }
 
-// sopToJSONArray 将 []string 转为 model.JSONArray
-//
-// 注意：reach_pipeline.go 已有 toJSONArray 函数（参数为 []byte），
-// 本函数专为 SOP 节点执行器的 []string 副作用列表设计，故加 sop 前缀避免冲突。
 func sopToJSONArray(s []string) model.JSONArray {
 	if len(s) == 0 {
 		return nil

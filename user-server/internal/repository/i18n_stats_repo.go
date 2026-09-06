@@ -56,7 +56,6 @@ type LatencyRow struct {
 	Count      int64   `gorm:"column:count" json:"count"`
 }
 
-// i18nStatsRepo 多语言统计仓库实现
 type i18nStatsRepo struct {
 	db *gorm.DB
 }
@@ -75,22 +74,16 @@ func NewI18nStatsRepositoryWithDB(db *gorm.DB) I18nStatsRepository {
 	return &i18nStatsRepo{db: db}
 }
 
-// SetDB 注入 db（与现有 repository 风格保持一致）。
 func (r *i18nStatsRepo) SetDB(_ context.Context, db *gorm.DB) {
 	if db != nil {
 		r.db = db
 	}
 }
 
-// GetDB 返回内部 db（用于测试与子事务透传）。
 func (r *i18nStatsRepo) GetDB(_ context.Context) *gorm.DB {
 	return r.db
 }
 
-// LangDistribution 语言分布统计
-//
-// 仅统计 target_lang 非空的记录（多语言扩展字段启用后的数据）。
-// 按 (internal_lang, target_lang) 分组，输出每组的总调用数与跨语言调用数。
 func (r *i18nStatsRepo) LangDistribution(ctx context.Context, since time.Time) ([]LangDistRow, error) {
 	if r.db == nil {
 		return nil, errors.New("i18n_stats: db is nil")
@@ -112,10 +105,6 @@ func (r *i18nStatsRepo) LangDistribution(ctx context.Context, since time.Time) (
 	return rows, nil
 }
 
-// CacheHitRate 缓存命中率
-//
-// hit = cache_hit=true 的记录数；miss = cache_hit=false 的记录数。
-// 仅统计 target_lang 非空（多语言扩展字段启用后）的记录。
 func (r *i18nStatsRepo) CacheHitRate(ctx context.Context, since time.Time) (hit, miss int64, err error) {
 	if r.db == nil {
 		return 0, 0, errors.New("i18n_stats: db is nil")
@@ -136,14 +125,6 @@ func (r *i18nStatsRepo) CacheHitRate(ctx context.Context, since time.Time) (hit,
 	return row.Hit, row.Miss, nil
 }
 
-// GlossaryCoverage 术语覆盖率
-//
-// 术语表存储格式：translations 为 JSONB {lang: text}。
-// 通过遍历 glossaries 表统计：
-//   - term_count：该语言下出现过翻译条目的术语总数
-//   - active_count：该语言下 status=active 的术语数
-//
-// 注：用 jsonb_object_keys 展开所有 lang 键后再聚合，确保跨语言分布准确。
 func (r *i18nStatsRepo) GlossaryCoverage(ctx context.Context) ([]GlossaryCovRow, error) {
 	if r.db == nil {
 		return nil, errors.New("i18n_stats: db is nil")
@@ -165,10 +146,6 @@ func (r *i18nStatsRepo) GlossaryCoverage(ctx context.Context) ([]GlossaryCovRow,
 	return rows, nil
 }
 
-// QualityTrend 质量评分趋势（按天聚合）
-//
-// 仅统计 quality_score 非空（异步回填完成）的记录。
-// days <= 0 时默认 30 天。
 func (r *i18nStatsRepo) QualityTrend(ctx context.Context, days int) ([]QualityTrendRow, error) {
 	if r.db == nil {
 		return nil, errors.New("i18n_stats: db is nil")
@@ -193,10 +170,6 @@ func (r *i18nStatsRepo) QualityTrend(ctx context.Context, days int) ([]QualityTr
 	return rows, nil
 }
 
-// FallbackRate 降级率
-//
-// total = 多语言扩展字段启用后的总记录数；
-// fallback = is_fallback=true 的记录数（含低资源语言降级到云端 / 估算等场景）。
 func (r *i18nStatsRepo) FallbackRate(ctx context.Context, since time.Time) (total, fallback int64, err error) {
 	if r.db == nil {
 		return 0, 0, errors.New("i18n_stats: db is nil")
@@ -217,10 +190,6 @@ func (r *i18nStatsRepo) FallbackRate(ctx context.Context, since time.Time) (tota
 	return row.Total, row.Fallback, nil
 }
 
-// LatencyStats 延迟统计（按 target_lang 聚合）
-//
-// 使用 PostgreSQL percentile_cont 计算分位数。
-// 仅统计 target_lang 非空的记录，按调用数倒序排列。
 func (r *i18nStatsRepo) LatencyStats(ctx context.Context, since time.Time) ([]LatencyRow, error) {
 	if r.db == nil {
 		return nil, errors.New("i18n_stats: db is nil")
@@ -243,5 +212,4 @@ func (r *i18nStatsRepo) LatencyStats(ctx context.Context, since time.Time) ([]La
 	return rows, nil
 }
 
-// 编译期接口断言
 var _ I18nStatsRepository = (*i18nStatsRepo)(nil)

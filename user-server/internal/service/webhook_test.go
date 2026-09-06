@@ -34,7 +34,7 @@ func setupWebhookTestDB(t *testing.T) *gorm.DB {
 // 后端 GetByMsgID 才能命中（钩子2）→ 幂等跳过。算法任何漂移都会让回环防护断裂，
 // 故用此测试作为契约锚点（跨语言一致性由前端单测对相同输入断言同一值保证）。
 func TestContentHashMsgID_StableContract(t *testing.T) {
-	// 已知输入 → 期望输出（FNV-1a 32 位，输入 "douyin|你好"，不含 conversationID）
+
 	const channel, conv, content = "douyin", "c1", "你好"
 	got := ContentHashMsgID(channel, conv, content)
 	if got != "mh:00550fed" {
@@ -397,7 +397,7 @@ func TestWebhookService_Receive_Wechat(t *testing.T) {
 	body := []byte(`{"event_id":"w1","msg_signature":"x","timestamp":"1","nonce":"2"}`)
 	hdr := map[string]string{"X-Wechat-Timestamp": "1", "X-Wechat-Nonce": "2", "X-Wechat-Signature": "x"}
 	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelWechat, AccountID: "a1", Body: body, Headers: hdr})
-	// W-6：未配置 secret 时跳过该渠道验签（原实现恒空串导致验签永远失败、回调全部被拒）
+
 	if !r.Accepted {
 		t.Errorf("expected accepted (secret 未配置时跳过验签), got %+v", r)
 	}
@@ -506,7 +506,7 @@ func TestWebhookService_HandleJob_MarksProcessed(t *testing.T) {
 	body := []byte(`{"event_id":"h1","content":"hi","sender":"u1","chat_id":"c1"}`)
 	job := &webhookJob{event: evt, raw: body, header: nil}
 	s.handleJob(context.Background(), job)
-	// 等异步 worker 不行（已同步）, 直接查
+
 	var got model.WebhookEvent
 	db.First(&got, evt.ID)
 	if !got.Processed {
@@ -522,7 +522,7 @@ func TestWebhookService_HandleJob_BadJSON(t *testing.T) {
 	db.Create(evt)
 	job := &webhookJob{event: evt, raw: []byte("bad"), header: nil}
 	s.handleJob(context.Background(), job)
-	// 不应 panic，event 保留为未处理
+
 	var got model.WebhookEvent
 	db.First(&got, evt.ID)
 	if got.Processed {

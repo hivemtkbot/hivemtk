@@ -47,15 +47,11 @@ import (
 
 const (
 	defaultPort         = "18080"
-	defaultAIDelayMs    = 1500 
+	defaultAIDelayMs    = 1500
 	mockAIDefaultReply  = "AI 自动回复：你好，很高兴为你服务 :)"
 	mockAccountIDPrefix = "mock"
 )
 
-// mockInbox 内存版 InboxIngressService：
-//   - 5min 内容 hash 去重
-//   - 触发 AI 后异步 n 毫秒入 reply queue
-//   - 不依赖任何外部服务
 type mockInbox struct {
 	mu          sync.Mutex
 	contentHash map[string]time.Time
@@ -128,7 +124,7 @@ func (m *mockInbox) mockPersist(_ context.Context, _ *model.MessageEvent, _ stri
 }
 
 func simpleHash(s string) string {
-	// 简易 hash（仅用于 mock key，不参与生产）
+
 	var sum uint64 = 1469598103934665603
 	for _, c := range []byte(s) {
 		sum ^= uint64(c)
@@ -185,7 +181,6 @@ func main() {
 		})
 	})
 
-
 	srv := &http.Server{Addr: ":" + port, Handler: r}
 	go func() {
 		log.Printf("============================================================")
@@ -217,7 +212,6 @@ func main() {
 	log.Printf("[bridge-mock] bye")
 }
 
-// readBodyPreview 读取 body 全部内容 + 前 N 字节预览（与生产 handler 同源）
 func readBodyPreview(rc interface {
 	Read(p []byte) (n int, err error)
 	Close() error
@@ -254,6 +248,4 @@ type readCloser struct {
 func (rc readCloser) Read(p []byte) (int, error) { return rc.r.Read(p) }
 func (rc readCloser) Close() error               { return nil }
 
-// 编译期断言：用到相关包避免被优化
 var _ = json.Marshal
-

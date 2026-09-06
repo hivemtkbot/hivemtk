@@ -32,7 +32,6 @@ type DouyinCardStatsRepository interface {
 	IncrementCardViewCount(ctx context.Context, cardID uint) error
 }
 
-// douyinCardStatsRepository 抖音卡片统计仓库实现
 type douyinCardStatsRepository struct {
 	db *gorm.DB
 }
@@ -42,7 +41,6 @@ func NewDouyinCardStatsRepository(db *gorm.DB) DouyinCardStatsRepository {
 	return &douyinCardStatsRepository{db: db}
 }
 
-// GetCardByID 按 ID 获取卡片
 func (r *douyinCardStatsRepository) GetCardByID(ctx context.Context, cardID uint) (*model.DouyinCard, error) {
 	var card model.DouyinCard
 	if err := r.db.WithContext(ctx).First(&card, cardID).Error; err != nil {
@@ -51,7 +49,6 @@ func (r *douyinCardStatsRepository) GetCardByID(ctx context.Context, cardID uint
 	return &card, nil
 }
 
-// CountCardViews 统计卡片浏览量
 func (r *douyinCardStatsRepository) CountCardViews(ctx context.Context, cardID uint) (int64, error) {
 	var views int64
 	err := r.db.WithContext(ctx).Model(&model.DouyinCardActivity{}).
@@ -60,7 +57,6 @@ func (r *douyinCardStatsRepository) CountCardViews(ctx context.Context, cardID u
 	return views, err
 }
 
-// applyDouyinStatsGroupBy 根据分组方式构建查询 Select/Group/Order
 func applyDouyinStatsGroupBy(query *gorm.DB, groupBy string) *gorm.DB {
 	switch groupBy {
 	case "day":
@@ -82,7 +78,6 @@ func applyDouyinStatsGroupBy(query *gorm.DB, groupBy string) *gorm.DB {
 	}
 }
 
-// GetCardDailyStats 按时间分组获取卡片统计
 func (r *douyinCardStatsRepository) GetCardDailyStats(ctx context.Context, cardID uint, startDate, endDate, groupBy string) ([]DouyinCardStatsTempStat, error) {
 	query := r.db.WithContext(ctx).Model(&model.DouyinCardActivity{}).Where("card_id = ?", cardID)
 	if startDate != "" && endDate != "" {
@@ -96,7 +91,6 @@ func (r *douyinCardStatsRepository) GetCardDailyStats(ctx context.Context, cardI
 	return stats, nil
 }
 
-// GetRecentActivitiesByCard 获取卡片的最近活动
 func (r *douyinCardStatsRepository) GetRecentActivitiesByCard(ctx context.Context, cardID uint, limit int) ([]model.DouyinCardActivity, error) {
 	var activities []model.DouyinCardActivity
 	err := r.db.WithContext(ctx).Where("card_id = ? AND action = ?", cardID, "view").
@@ -104,35 +98,30 @@ func (r *douyinCardStatsRepository) GetRecentActivitiesByCard(ctx context.Contex
 	return activities, err
 }
 
-// CountTotalCards 统计卡片总数
 func (r *douyinCardStatsRepository) CountTotalCards(ctx context.Context) (int64, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Model(&model.DouyinCard{}).Count(&n).Error
 	return n, err
 }
 
-// CountActiveCards 统计激活卡片数
 func (r *douyinCardStatsRepository) CountActiveCards(ctx context.Context) (int64, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Model(&model.DouyinCard{}).Where("is_active = ?", true).Count(&n).Error
 	return n, err
 }
 
-// CountTotalViews 统计总浏览量
 func (r *douyinCardStatsRepository) CountTotalViews(ctx context.Context) (int64, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Model(&model.DouyinCardActivity{}).Where("action = ?", "view").Count(&n).Error
 	return n, err
 }
 
-// GetTopCards 获取热门卡片
 func (r *douyinCardStatsRepository) GetTopCards(ctx context.Context, limit int) ([]model.DouyinCard, error) {
 	var cards []model.DouyinCard
 	err := r.db.WithContext(ctx).Order("view_count DESC").Limit(limit).Find(&cards).Error
 	return cards, err
 }
 
-// GetOverallDailyStats 获取全部卡片的按时间分组统计
 func (r *douyinCardStatsRepository) GetOverallDailyStats(ctx context.Context, startDate, endDate, groupBy string) ([]DouyinCardStatsTempStat, error) {
 	query := r.db.WithContext(ctx).Model(&model.DouyinCardActivity{})
 	if startDate != "" {
@@ -149,7 +138,6 @@ func (r *douyinCardStatsRepository) GetOverallDailyStats(ctx context.Context, st
 	return stats, nil
 }
 
-// GetRecentActivities 获取最近活动
 func (r *douyinCardStatsRepository) GetRecentActivities(ctx context.Context, limit int) ([]model.DouyinCardActivity, error) {
 	var activities []model.DouyinCardActivity
 	err := r.db.WithContext(ctx).Where("action = ?", "view").
@@ -157,7 +145,6 @@ func (r *douyinCardStatsRepository) GetRecentActivities(ctx context.Context, lim
 	return activities, err
 }
 
-// CreateActivity 创建活动记录
 func (r *douyinCardStatsRepository) CreateActivity(ctx context.Context, activity *model.DouyinCardActivity) error {
 	if err := r.db.WithContext(ctx).Create(activity).Error; err != nil {
 		return fmt.Errorf("记录活动失败: %w", err)
@@ -165,7 +152,6 @@ func (r *douyinCardStatsRepository) CreateActivity(ctx context.Context, activity
 	return nil
 }
 
-// IncrementCardViewCount 增加卡片浏览量
 func (r *douyinCardStatsRepository) IncrementCardViewCount(ctx context.Context, cardID uint) error {
 	return r.db.WithContext(ctx).Model(&model.DouyinCard{}).
 		Where("id = ?", cardID).

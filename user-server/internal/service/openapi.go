@@ -269,7 +269,6 @@ func (s *OpenAPIService) TestConnection(ctx context.Context, src *model.Knowledg
 	}, nil
 }
 
-// buildRequest 构建请求体与请求头
 func (s *OpenAPIService) buildRequest(ctx context.Context, src *model.KnowledgeOpenAPISource) ([]byte, map[string]string, error) {
 	headers := make(map[string]string)
 
@@ -304,7 +303,6 @@ func (s *OpenAPIService) buildRequest(ctx context.Context, src *model.KnowledgeO
 		}
 	}
 
-	// 构建请求体(使用模板渲染)
 	var body []byte
 	if src.RequestTemplate != "" {
 		tmpl, err := template.New("req").Parse(src.RequestTemplate)
@@ -326,7 +324,6 @@ func (s *OpenAPIService) buildRequest(ctx context.Context, src *model.KnowledgeO
 	return body, headers, nil
 }
 
-// extractItems 从 JSON 响应中提取数据项
 func (s *OpenAPIService) extractItems(ctx context.Context, rawBody []byte, responsePath string) ([]map[string]any, error) {
 	var root any
 	if err := json.Unmarshal(rawBody, &root); err != nil {
@@ -358,7 +355,6 @@ func (s *OpenAPIService) extractItems(ctx context.Context, rawBody []byte, respo
 	return items, nil
 }
 
-// mapFields 根据字段映射提取 title/content/source_ref
 func mapFields(item map[string]any, mapping map[string]string) (title, content, ref string) {
 	get := func(field string) string {
 		if mp, ok := mapping[field]; ok && mp != "" {
@@ -377,7 +373,6 @@ func mapFields(item map[string]any, mapping map[string]string) (title, content, 
 	return get("title"), get("content"), get("ref")
 }
 
-// recordSyncError 记录同步错误
 func (s *OpenAPIService) recordSyncError(ctx context.Context, src *model.KnowledgeOpenAPISource, errMsg string, result *SyncResult, start time.Time) {
 	result.Status = "failed"
 	result.ErrorMsg = errMsg
@@ -385,7 +380,6 @@ func (s *OpenAPIService) recordSyncError(ctx context.Context, src *model.Knowled
 	_ = s.srcRepo.UpdateSyncStatus(ctx, src.ID, "failed", errMsg, 0)
 }
 
-// encryptAuthConfig 加密 auth_config 中的敏感字段
 func (s *OpenAPIService) encryptAuthConfig(ctx context.Context, src *model.KnowledgeOpenAPISource) error {
 	if src.AuthConfig == "" {
 		return nil
@@ -397,7 +391,6 @@ func (s *OpenAPIService) encryptAuthConfig(ctx context.Context, src *model.Knowl
 	return nil
 }
 
-// 公共工具
 func parseJSONField(s string) map[string]any {
 	if s == "" {
 		return map[string]any{}

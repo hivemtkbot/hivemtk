@@ -18,7 +18,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupXiaohongshuCardTestDB 设置小红书卡片测试数据库
 func setupXiaohongshuCardTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.XiaohongshuCard{},
@@ -28,7 +27,6 @@ func setupXiaohongshuCardTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// uintPtr 返回 uint 指针
 func uintPtr(v uint) *uint {
 	return &v
 }
@@ -243,7 +241,7 @@ func TestXiaohongshuCardController_Update_IDMismatch(t *testing.T) {
 	router.PUT("/xiaohongshu/cards/:id", ctrl.Update)
 
 	updateReq := dto.XiaohongshuCardUpdateRequest{
-		ID:    999, 
+		ID:    999,
 		Title: "Test",
 	}
 	body, _ := json.Marshal(updateReq)
@@ -618,4 +616,3 @@ func TestXiaohongshuCardController_Update_ViewCount(t *testing.T) {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
-

@@ -70,4 +70,3 @@ func (c *DouyinCardStatsController) GetOverallStats(ctx *gin.Context) {
 
 	response.Success(ctx, stats, "获取成功")
 }
-

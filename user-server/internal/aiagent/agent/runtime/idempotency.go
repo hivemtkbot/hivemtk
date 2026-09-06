@@ -10,24 +10,16 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// replyGuardTTL 幂等认领的存活时间。
-// 既是「进程内 map 的惰性清理窗口」，也是「Redis 分布式锁的过期时间」，
-// 二者保持一致，避免两后端语义错位。
 const replyGuardTTL = 10 * time.Minute
 
-// replyGuardKeyPrefix Redis 键前缀，避免与其它业务键冲突。
 const replyGuardKeyPrefix = "mtk:reply_guard:"
 
-// replyGuardBackend 幂等守卫后端抽象。
-// 进程内后端用于单实例部署；Redis 后端用于多实例水平扩展（SETNX 分布式锁）。
 type replyGuardBackend interface {
 	claim(eventID string) (bool, error)
 	release(eventID string)
 	has(eventID string) bool
 }
 
-
-// localReplyGuard 进程内 sync.Map + TTL 惰性清理。
 type localReplyGuard struct {
 	mu      sync.Mutex
 	claimed map[string]time.Time
@@ -76,17 +68,10 @@ func (g *localReplyGuard) has(eventID string) bool {
 	return ok && time.Since(t) < g.ttl
 }
 
-
-// redisReplyGuard 基于 Redis SETNX 的分布式幂等守卫。
-// 同一 EventID 在集群内任意实例上只会被认领一次，杜绝多实例双发。
-// 设计取舍：
-//   - Redis 不可用时降级到进程内守卫（local），保证可用性；
-//     此时多实例一致性退化为单实例语义，但消息不丢、也不因 Redis 抖动而阻断出站。
-//   - 认领键带 TTL，进程崩溃/网络分区导致的锁残留会在 TTL 后自动释放，避免永久死锁。
 type redisReplyGuard struct {
 	rdb   *redis.Client
 	ttl   time.Duration
-	local *localReplyGuard 
+	local *localReplyGuard
 }
 
 func (g *redisReplyGuard) claim(eventID string) (bool, error) {
@@ -125,7 +110,6 @@ func (g *redisReplyGuard) has(eventID string) bool {
 	}
 	return n > 0
 }
-
 
 var (
 	guardMu       sync.RWMutex
@@ -192,4 +176,3 @@ func MarkReplied(eventID string) {
 	guardMu.RUnlock()
 	b.claim(eventID)
 }
-

@@ -50,7 +50,7 @@ func TestClassify_SignatureUnchanged(t *testing.T) {
 
 // TestHandle_ConfidenceInResponse Handle 响应中 Confidence 不再硬编码 0.85
 func TestHandle_ConfidenceInResponse(t *testing.T) {
-	s := &ObjectionHandlerService{scriptRepo: nil} // 无仓储时降级走 defaultSuggestion
+	s := &ObjectionHandlerService{scriptRepo: nil}
 	resp, err := s.Handle(context.Background(), HandleRequest{Text: "太贵了，能不能便宜点、打个折扣"})
 	if err != nil {
 		t.Fatalf("handle: %v", err)

@@ -8,7 +8,7 @@
         </div>
       </template>
       
-      <!-- 搜索栏 -->
+      
       <div class="search-bar">
         <el-form :inline="true" :model="searchForm" class="search-form">
           <el-form-item label="活码名称">
@@ -27,7 +27,7 @@
         </el-form>
       </div>
       
-      <!-- 表格 -->
+      
       <el-table :data="liveCodeList" style="width: 100%" v-loading="loading">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="name" label="活码名称" />
@@ -60,7 +60,7 @@
         </el-table-column>
       </el-table>
       
-      <!-- 分页 -->
+      
       <div class="pagination">
         <el-pagination
           v-model:current-page="pagination.page"
@@ -74,7 +74,7 @@
       </div>
     </el-card>
     
-    <!-- 新增/编辑对话框 -->
+    
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
@@ -129,7 +129,7 @@
       </template>
     </el-dialog>
     
-    <!-- 二维码管理对话框 -->
+    
     <el-dialog
       v-model="qrDialogVisible"
       title="二维码管理"
@@ -181,7 +181,7 @@
       </template>
     </el-dialog>
     
-    <!-- 新增/编辑二维码对话框 -->
+    
     <el-dialog
       v-model="qrFormVisible"
       :title="qrFormTitle"
@@ -222,7 +222,7 @@
       </template>
     </el-dialog>
     
-    <!-- 统计对话框 -->
+    
     <el-dialog
       v-model="statsDialogVisible"
       title="活码统计"
@@ -296,8 +296,7 @@ import {
   shareLiveCode
 } from '@/api/livecode'
 
-// 数据
-const loading = ref(false)
+const loading = ref(false);
 const submitLoading = ref(false)
 const qrLoading = ref(false)
 const qrSubmitLoading = ref(false)
@@ -314,20 +313,17 @@ const qrFormRef = ref()
 const currentLiveCodeId = ref(null)
 const statsData = ref({})
 
-// 搜索表单
 const searchForm = reactive({
   name: '',
   status: ''
-})
+});
 
-// 分页
 const pagination = reactive({
   page: 1,
   pageSize: 10,
   total: 0
-})
+});
 
-// 活码表单
 const liveCodeForm = reactive({
   id: null,
   name: '',
@@ -339,16 +335,14 @@ const liveCodeForm = reactive({
   image_url: '',
   entry_url: '',
   landing_url: ''
-})
+});
 
-// 二维码表单
 const qrForm = reactive({
   id: null,
   daily_limit: 200,
   status: 1
-})
+});
 
-// 表单验证规则
 const liveCodeRules = {
   name: [
     { required: true, message: i18n.global.t('请输入活码名称'), trigger: 'blur' },
@@ -366,18 +360,16 @@ const liveCodeRules = {
   landing_domain_id: [
     { required: true, message: i18n.global.t('请输入落地域名ID'), trigger: 'blur', type: 'number' }
   ]
-}
+};
 
-// 二维码验证规则
 const qrRules = {
   daily_limit: [
     { required: true, message: i18n.global.t('请输入每日限制'), trigger: 'blur', type: 'number' }
   ]
-}
+};
 
 
 
-// 获取活码列表
 const fetchLiveCodeList = async () => {
   loading.value = true
   try {
@@ -386,7 +378,6 @@ const fetchLiveCodeList = async () => {
       pageSize: pagination.pageSize
     }
     
-    // 只添加非空的搜索参数
     if (searchForm.name) {
       params.name = searchForm.name
     }
@@ -402,9 +393,8 @@ const fetchLiveCodeList = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
-// 获取二维码列表
 const fetchQRList = async (liveCodeId) => {
   qrLoading.value = true
   try {
@@ -415,40 +405,34 @@ const fetchQRList = async (liveCodeId) => {
   } finally {
     qrLoading.value = false
   }
-}
+};
 
-// 搜索
 const handleSearch = () => {
   pagination.page = 1
   fetchLiveCodeList()
-}
+};
 
-// 重置搜索
 const resetSearch = () => {
   searchForm.name = ''
   searchForm.status = ''
   pagination.page = 1
   fetchLiveCodeList()
-}
+};
 
-// 分页大小改变
 const handleSizeChange = (val) => {
   pagination.pageSize = val
   fetchLiveCodeList()
-}
+};
 
-// 当前页改变
 const handleCurrentChange = (val) => {
   pagination.page = val
   fetchLiveCodeList()
-}
+};
 
-// 新增活码
 const handleAdd = () => {
   dialogTitle.value = '新增活码'
   dialogVisible.value = true
   
-  // 重置表单
   Object.assign(liveCodeForm, {
     id: null,
     name: '',
@@ -460,15 +444,13 @@ const handleAdd = () => {
     image_url: '',
     entry_url: '',
     landing_url: ''
-  })
-}
+  });
+};
 
-// 编辑活码
 const handleEdit = (row) => {
   dialogTitle.value = '编辑活码'
   dialogVisible.value = true
   
-  // 填充表单
   Object.assign(liveCodeForm, {
     id: row.id,
     name: row.name,
@@ -480,10 +462,9 @@ const handleEdit = (row) => {
     image_url: row.image_url,
     entry_url: row.entry_url,
     landing_url: row.landing_url
-  })
-}
+  });
+};
 
-// 删除活码
 const handleDelete = (row) => {
   ElMessageBox.confirm(
     `确定要删除活码 "${row.name}" 吗？`,
@@ -504,42 +485,36 @@ const handleDelete = (row) => {
       }
     })
     .catch(() => {})
-}
+};
 
-// 查看二维码
 const handleViewQR = (row) => {
   currentLiveCodeId.value = row.id
   qrDialogVisible.value = true
   fetchQRList(row.id)
-}
+};
 
-// 新增二维码
 const handleAddQR = () => {
   qrFormTitle.value = '新增二维码'
   qrFormVisible.value = true
   
-  // 重置表单
   Object.assign(qrForm, {
     id: null,
     daily_limit: 200,
     status: 1
-  })
-}
+  });
+};
 
-// 编辑二维码
 const handleEditQR = (row) => {
   qrFormTitle.value = '编辑二维码'
   qrFormVisible.value = true
   
-  // 填充表单
   Object.assign(qrForm, {
     id: row.id,
     daily_limit: row.daily_limit,
     status: row.status
-  })
-}
+  });
+};
 
-// 删除二维码
 const handleDeleteQR = (row) => {
   ElMessageBox.confirm(
     `确定要删除二维码 "${row.name}" 吗？`,
@@ -560,33 +535,24 @@ const handleDeleteQR = (row) => {
       }
     })
     .catch(() => {})
-}
+};
 
-// 查看统计
 const handleStats = async (row) => {
   try {
     const response = await getLiveCodeStats(row.id)
     statsData.value = response
-    statsDialogVisible.value = true
-    
-    // 这里可以添加图表初始化代码
-    // nextTick(() => {
-    //   initChart()
-    // })
+    statsDialogVisible.value = true;
   } catch (error) {
     ElMessage.error(i18n.global.t('获取统计数据失败'))
   }
-}
+};
 
-// 分享活码
 const handleShare = async (row) => {
   try {
     const response = await shareLiveCode(row.id, {})
-    // 拦截器已解包，response 直接就是数据对象
-    const shareUrl = response.share_url
+    const shareUrl = response.share_url;
     
-    // 创建一个临时的输入框来复制链接
-    const input = document.createElement('input')
+    const input = document.createElement('input');
     input.value = shareUrl
     document.body.appendChild(input)
     input.select()
@@ -597,9 +563,8 @@ const handleShare = async (row) => {
   } catch (error) {
     ElMessage.error(i18n.global.t('分享失败'))
   }
-}
+};
 
-// 提交表单
 const handleSubmit = async () => {
   if (!liveCodeFormRef.value) return
   
@@ -608,12 +573,10 @@ const handleSubmit = async () => {
     submitLoading.value = true
     
     if (liveCodeForm.id) {
-      // 编辑活码
-      await updateLiveCode(liveCodeForm.id, liveCodeForm)
+      await updateLiveCode(liveCodeForm.id, liveCodeForm);
       ElMessage.success(i18n.global.t('更新成功'))
     } else {
-      // 新增活码
-      await createLiveCode(liveCodeForm)
+      await createLiveCode(liveCodeForm);
       ElMessage.success(i18n.global.t('创建成功'))
     }
     
@@ -626,9 +589,8 @@ const handleSubmit = async () => {
   } finally {
     submitLoading.value = false
   }
-}
+};
 
-// 提交二维码表单
 const handleQRSubmit = async () => {
   if (!qrFormRef.value) return
   
@@ -637,12 +599,10 @@ const handleQRSubmit = async () => {
     qrSubmitLoading.value = true
     
     if (qrForm.id) {
-      // 编辑二维码
-      await updateLiveCodeQR(qrForm.id, qrForm)
+      await updateLiveCodeQR(qrForm.id, qrForm);
       ElMessage.success(i18n.global.t('更新成功'))
     } else {
-      // 新增二维码
-      await generateLiveCodeQR(currentLiveCodeId.value, qrForm)
+      await generateLiveCodeQR(currentLiveCodeId.value, qrForm);
       ElMessage.success(i18n.global.t('创建成功'))
     }
     
@@ -655,26 +615,23 @@ const handleQRSubmit = async () => {
   } finally {
     qrSubmitLoading.value = false
   }
-}
+};
 
-// 对话框关闭
 const handleDialogClose = () => {
   if (liveCodeFormRef.value) {
     liveCodeFormRef.value.resetFields()
   }
-}
+};
 
-// 二维码表单对话框关闭
 const handleQRFormClose = () => {
   if (qrFormRef.value) {
     qrFormRef.value.resetFields()
   }
-}
+};
 
-// 初始化
 onMounted(() => {
   fetchLiveCodeList()
-})
+});
 </script>
 
 <style scoped>

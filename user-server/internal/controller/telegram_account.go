@@ -57,7 +57,6 @@ func (ctrl *TelegramAccountController) RegisterRoutes(router *gin.RouterGroup) {
 	}
 }
 
-// telegramAccountVO 列表/详情返回视图（对 Bot Token 做掩码处理）
 type telegramAccountVO struct {
 	ID             uint       `json:"id"`
 	AccountName    string     `json:"account_name"`
@@ -92,7 +91,6 @@ func toTelegramAccountVO(acc *model.TelegramAccount) telegramAccountVO {
 	}
 }
 
-// maskBotToken 对 Bot Token 做掩码处理，仅保留前 4 和后 4 字符
 func maskBotToken(token string) string {
 	if token == "" {
 		return ""
@@ -129,13 +127,12 @@ func (ctrl *TelegramAccountController) Get(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
-	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) {
 		return
 	}
 	response.Success(c, toTelegramAccountVO(acc), "获取成功")
 }
 
-// telegramAccountCreateReq 创建/更新请求体
 type telegramAccountCreateReq struct {
 	AccountName    string `json:"account_name" binding:"required"`
 	BotToken       string `json:"bot_token" binding:"required"`
@@ -170,7 +167,7 @@ func (ctrl *TelegramAccountController) Create(c *gin.Context) {
 		WebhookEnabled: req.WebhookEnabled,
 		AIAgentEnabled: req.AIAgentEnabled,
 		Status:         req.Status,
-		OwnerUserID:    currentStaffUserID(c), // P1-5：归属当前登录 staff
+		OwnerUserID:    currentStaffUserID(c),
 	}
 	if _, err := ctrl.svc.CreateAccount(context.Background(), acc); err != nil {
 		response.ErrorFromDB(c, err, "创建失败", err.Error())
@@ -191,7 +188,7 @@ func (ctrl *TelegramAccountController) Update(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
-	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) {
 		return
 	}
 	var req telegramAccountCreateReq
@@ -238,7 +235,7 @@ func (ctrl *TelegramAccountController) Delete(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
-	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) {
 		return
 	}
 	if err := ctrl.svc.DeleteAccount(context.Background(), uint(id)); err != nil {
@@ -262,7 +259,7 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
-	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) {
 		return
 	}
 	if acc.BotToken == "" {
@@ -322,24 +319,10 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 	response.Success(c, toTelegramAccountVO(acc), "Webhook 注册成功")
 }
 
-// deriveTelegramWebhookURL 基于配置 + 请求头推导 webhook 公网地址：{scheme}://{host}/api/webhook/telegram/{id}
-//
-// 解析顺序（自高到低）：
-//  1. 配置文件 external.public_base_url 或环境变量 PUBLIC_BASE_URL（公网域名/frp 暴露的域名）
-//     → 私域部署基线：user-server 跑在 frp 后，请求 Host 总是 localhost:8204，
-//     必须显式声明公网域名，否则 Telegram 永远无法回调本系统。
-//  2. 反代透传的 X-Forwarded-Proto / X-Forwarded-Host（适用于云函数 / 反向代理层 自终止 TLS）
-//  3. 请求自身 Host（仅适合公网直连调试 / 本地开发）
-//
-// 注意：返回值已确保是 https 协议（http + 端口会由 NormalizePublicBaseURL 自动升级）。
 func deriveTelegramWebhookURL(c *gin.Context, accountID uint) string {
 	return deriveTelegramWebhookURLWithBase(c, accountID, config.GetPublicBaseURL())
 }
 
-// deriveTelegramWebhookURLWithBase 与 deriveTelegramWebhookURL 行为一致，但允许显式传入
-// publicBase 覆盖（用于：测试 / 启动期对账时无 gin.Context 的场景）。
-//
-// 当 publicBase 非空时优先使用；否则回退到 X-Forwarded-* 头 / 请求 Host。
 func deriveTelegramWebhookURLWithBase(c *gin.Context, accountID uint, publicBase string) string {
 	if publicBase != "" {
 		return strings.TrimRight(publicBase, "/") + fmt.Sprintf("/api/webhook/telegram/%d", accountID)
@@ -373,7 +356,7 @@ func (ctrl *TelegramAccountController) Status(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
-	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) {
 		return
 	}
 	bot, botErr := tgbot.GetMe(acc.BotToken)
@@ -418,7 +401,7 @@ func (ctrl *TelegramAccountController) TestSend(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
-	if !guardChannelAccountOwnership(c, acc.OwnerUserID) { // P1-5 IDOR 防护
+	if !guardChannelAccountOwnership(c, acc.OwnerUserID) {
 		return
 	}
 	var req struct {
@@ -435,4 +418,3 @@ func (ctrl *TelegramAccountController) TestSend(c *gin.Context) {
 	}
 	response.Success(c, gin.H{"ok": true}, "发送成功")
 }
-

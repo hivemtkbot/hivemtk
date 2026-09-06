@@ -58,20 +58,20 @@ func DefaultDataScopeForRole(role string) string {
 // SystemUser 系统用户模型
 type SystemUser struct {
 	ID           uint       `json:"id" gorm:"primaryKey"`
-	Username     string     `json:"username" gorm:"size:50;uniqueIndex;not null"`        
-	Password     string     `json:"-" gorm:"size:100;not null"`                          
-	Email        string     `json:"email" gorm:"size:100"`                               
-	Phone        string     `json:"phone" gorm:"size:20;index"`                          
-	RealName     string     `json:"real_name" gorm:"size:50"`                            
-	Role         string     `json:"role" gorm:"size:20;default:'staff'"`                 
-	Status       int        `json:"status" gorm:"default:1"`                             
-	Enabled      bool       `json:"enabled" gorm:"column:enabled;default:true;not null"` 
-	LastLogin    *time.Time `json:"last_login"`                                          
-	DataScope    string     `json:"data_scope" gorm:"size:20;default:'self'"`            
-	DepartmentID uint       `json:"department_id" gorm:"index;default:0"`                
-	TeamID       uint       `json:"team_id" gorm:"index;default:0"`                      
-	CreatedAt    time.Time  `json:"created_at" gorm:"autoCreateTime"`                    
-	UpdatedAt    time.Time  `json:"updated_at" gorm:"autoUpdateTime"`                    
+	Username     string     `json:"username" gorm:"size:50;uniqueIndex;not null"`
+	Password     string     `json:"-" gorm:"size:100;not null"`
+	Email        string     `json:"email" gorm:"size:100"`
+	Phone        string     `json:"phone" gorm:"size:20;index"`
+	RealName     string     `json:"real_name" gorm:"size:50"`
+	Role         string     `json:"role" gorm:"size:20;default:'staff'"`
+	Status       int        `json:"status" gorm:"default:1"`
+	Enabled      bool       `json:"enabled" gorm:"column:enabled;default:true;not null"`
+	LastLogin    *time.Time `json:"last_login"`
+	DataScope    string     `json:"data_scope" gorm:"size:20;default:'self'"`
+	DepartmentID uint       `json:"department_id" gorm:"index;default:0"`
+	TeamID       uint       `json:"team_id" gorm:"index;default:0"`
+	CreatedAt    time.Time  `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt    time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // TableName 返回表名
@@ -107,4 +107,3 @@ func CheckSystemUserPassword(u *SystemUser, password string) bool {
 func IsSystemUserAdmin(u *SystemUser) bool {
 	return u.Role == SystemUserRoleAdmin
 }
-

@@ -42,7 +42,7 @@ func InitDB() {
 		logLevel = gormLogger.Info
 	}
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: gormLogger.Default.LogMode(logLevel),
+		Logger:                                   gormLogger.Default.LogMode(logLevel),
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 
@@ -83,4 +83,3 @@ func GetDB() *gorm.DB {
 func SetTestDB(testDB *gorm.DB) {
 	DB = testDB
 }
-

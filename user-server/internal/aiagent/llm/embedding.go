@@ -62,8 +62,6 @@ type EmbeddingService struct {
 	defaultConfig *EmbeddingConfig
 }
 
-// sharedEmbeddingTransport 进程级共享 Transport，避免每次请求 new http.Client 导致连接不复用、
-// 连接数随并发线性膨胀。
 var sharedEmbeddingTransport = &http.Transport{
 	MaxIdleConns:        200,
 	MaxIdleConnsPerHost: 50,
@@ -85,15 +83,11 @@ const (
 	EmbeddingLaneBatch
 )
 
-// embeddingLanes 双车道并发闸门：online(cap=并发-1，至少 1) 与 batch(cap=1)。
 type embeddingLanes struct {
 	online chan struct{}
 	batch  chan struct{}
 }
 
-// newEmbeddingLanesFrom 按总并发额度 n 构造双车道：
-//   - online 容量 n-1（n=1 时保底 1，保证在线检索永不为 0）
-//   - batch  容量恒为 1（批量任务串行，天然让路）
 func newEmbeddingLanesFrom(n int) *embeddingLanes {
 	if n < 1 {
 		n = 1
@@ -108,14 +102,6 @@ func newEmbeddingLanesFrom(n int) *embeddingLanes {
 	}
 }
 
-// newEmbeddingLanes 从环境变量读取总并发额度并构造双车道。
-//
-// 容量来源：
-//   - 环境变量 EMBEDDING_CONCURRENCY（与 llama-server --parallel 对应）
-//   - 默认 1（保守，避免内存带宽竞争）
-//
-// 注意：调高此值时，必须同步调高 llama-server 的 --parallel（见 env.sh EMBEDDING_PARALLEL），
-// 否则多余的请求会在 llama-server 队列中排队，不会带来实际并发收益。
 func newEmbeddingLanes() *embeddingLanes {
 	n := 1
 	if v := strings.TrimSpace(os.Getenv("EMBEDDING_CONCURRENCY")); v != "" {
@@ -126,7 +112,6 @@ func newEmbeddingLanes() *embeddingLanes {
 	return newEmbeddingLanesFrom(n)
 }
 
-// laneChannel 返回车道对应的信号量 channel（未知值回退 online，保证 API 兼容默认在线）。
 func (l *embeddingLanes) laneChannel(lane EmbeddingLane) chan struct{} {
 	if l == nil {
 		return nil
@@ -137,10 +122,8 @@ func (l *embeddingLanes) laneChannel(lane EmbeddingLane) chan struct{} {
 	return l.online
 }
 
-// embeddingLanes 进程级双车道闸门（N-1），见上方容量说明。
 var embeddingLanesSem = newEmbeddingLanes()
 
-// acquireEmbeddingSlot 从指定车道获取一个并发槽位（支持 ctx 取消）。
 func acquireEmbeddingSlot(ctx context.Context, ch chan struct{}) error {
 	if ch == nil {
 		return ctx.Err()
@@ -153,7 +136,6 @@ func acquireEmbeddingSlot(ctx context.Context, ch chan struct{}) error {
 	}
 }
 
-// releaseEmbeddingSlot 归还并发槽位。
 func releaseEmbeddingSlot(ch chan struct{}) {
 	if ch != nil {
 		<-ch
@@ -252,13 +234,6 @@ func (s *EmbeddingService) DefaultConfig() *EmbeddingConfig {
 	}
 }
 
-// embeddingMaxBatch 单次 embedding 请求最大文本数（DB 驱动）。
-// 超过此值时自动分片串行请求，避免单次请求体过大导致 llama-server OOM 或超时。
-// llama-server 默认 --batch-size=512（token 级），64 条短文本约 6400 token 会分批处理，
-// 设 64 是兼顾吞吐与内存安全的经验值。
-//
-// seed: knowledge.embedding_max_batch（默认 64）
-// 启动时由 internal/service.SetLLMConfigGetters 注入 DB 驱动的 getter。
 var embeddingMaxBatchGetter = func() int { return 64 }
 
 func embeddingMaxBatch() int { return embeddingMaxBatchGetter() }
@@ -314,7 +289,6 @@ func (s *EmbeddingService) EmbedWithLane(ctx context.Context, cfg *EmbeddingConf
 	return s.fallback.Embed(ctx, cfg, texts)
 }
 
-// embedInBatches 将大批量文本分片串行请求，合并结果保持原始顺序
 func (s *EmbeddingService) embedInBatches(ctx context.Context, cfg *EmbeddingConfig, texts []string, lane EmbeddingLane) ([][]float32, error) {
 	total := len(texts)
 	result := make([][]float32, total)
@@ -334,11 +308,6 @@ func (s *EmbeddingService) embedInBatches(ctx context.Context, cfg *EmbeddingCon
 	return result, nil
 }
 
-// callProviderWithRetry 带重试的本地 embedding 调用
-//
-// 候选 BaseURL：docker 内 EMBEDDING_BASE_URL 默认指向服务名 mtk-embedding；
-// 宿主机（macOS 等）无法解析该服务名时，自动回退到 localhost（同一实例），
-// 不影响 docker 内解析（docker 中 mtk-embedding 首轮即成功，不会触发回退）。
 func (s *EmbeddingService) callProviderWithRetry(ctx context.Context, cfg *EmbeddingConfig, texts []string, lane EmbeddingLane) ([][]float32, error) {
 	maxRetries := cfg.MaxRetries
 	if maxRetries <= 0 {
@@ -389,9 +358,6 @@ func (s *EmbeddingService) callProviderWithRetry(ctx context.Context, cfg *Embed
 		cfg.BaseURL, maxRetries, lastErr, lastErr)
 }
 
-// baseURLCandidates 返回候选 BaseURL 列表。
-// 当配置 host 为 mtk-embedding（docker 服务名）时，附带 localhost 候选（保留原端口），
-// 用于宿主机部署回退（宿主机无法解析 docker 服务名时自动切到 localhost）。
 func (s *EmbeddingService) baseURLCandidates(raw string) []string {
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" {
@@ -406,7 +372,6 @@ func (s *EmbeddingService) baseURLCandidates(raw string) []string {
 	return []string{raw}
 }
 
-// isConnError 判断是否为连接类错误（DNS 不可解析 / 连接被拒 / 超时），用于快速切换候选 BaseURL。
 func isConnError(err error) bool {
 	if err == nil {
 		return false
@@ -418,8 +383,6 @@ func isConnError(err error) bool {
 		strings.Contains(msg, "i/o timeout")
 }
 
-// isRateLimited 判断是否为限流/过载类错误：TEI 在并发超限时返回 429 且 body 含
-// "no permits available" / "Model is overloaded"，需以更长退避重试而非立即失败。
 func isRateLimited(err error) bool {
 	if err == nil {
 		return false
@@ -443,13 +406,11 @@ func (s *EmbeddingService) EmbedOne(ctx context.Context, cfg *EmbeddingConfig, t
 	return vectors[0], nil
 }
 
-// embeddingRequest 通用 OpenAI 兼容请求体
 type embeddingRequest struct {
 	Model string   `json:"model"`
 	Input []string `json:"input"`
 }
 
-// embeddingResponse 通用 OpenAI 兼容响应
 type embeddingResponse struct {
 	Object string `json:"object"`
 	Data   []struct {

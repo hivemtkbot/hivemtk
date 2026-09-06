@@ -1,6 +1,6 @@
 <template>
   <div class="merchant-editor">
-    <!-- 顶部挡板状态 -->
+    
     <el-card class="status-bar" shadow="never">
       <div class="status-row">
         <div class="status-left">
@@ -39,7 +39,7 @@
     </el-card>
 
     <el-form ref="formRef" :model="form" label-width="160px" class="form-body" v-loading="loading">
-      <!-- 1. 基础经营策略参数 -->
+      
       <el-card class="section" shadow="never">
         <template #header>
           <div class="section-header">
@@ -109,7 +109,7 @@
         </el-row>
       </el-card>
 
-      <!-- 2. 6 维拟人门禁指标阀门 -->
+      
       <el-card class="section" shadow="never">
         <template #header>
           <div class="section-header">
@@ -156,7 +156,7 @@
         </el-form-item>
       </el-card>
 
-      <!-- 3. 可视化商户快捷话术微调 -->
+      
       <el-card class="section" shadow="never">
         <template #header>
           <div class="section-header">
@@ -202,7 +202,7 @@
         </el-button>
       </el-card>
 
-      <!-- 4. 乐高式多媒体卡片消息快捷配置 -->
+      
       <el-card class="section" shadow="never">
         <template #header>
           <div class="section-header">
@@ -271,7 +271,7 @@
         </el-button>
       </el-card>
 
-      <!-- 保存按钮 -->
+      
       <div class="footer-actions">
         <el-button type="primary" size="large" :loading="saving" @click="handleSave">
           💾 保存配置并立刻热更新到商户本地 AI 引擎
@@ -301,38 +301,31 @@ const saving = ref(false)
 const aid = computed(() => route.params.aid || '')
 const isEdit = computed(() => !!aid.value)
 
-// 表单数据（对应后端 dto.MerchantFormSaveRequest）
 const form = reactive({
   asset_id: '',
   title: '',
   author: '',
-  cover_image: '',  // 封面图 URL（由 uploadCover 返回 /files/attachments/YYYY/MM/uuid.jpg）
-  // 1. 基础经营策略
+  cover_image: '',
   shop_name: '',
   campaign_name: '',
   discount_pct: '',
   support_contact: '',
-  // 2. 6 维门禁
   crisis_threshold: '4',
   tone_level: 'medium',
   censorship_level: 'strict',
   enabled_intents: ['faq', 'lead_capture', 'human_transfer'],
-  // 3. QA 卡片
   qa_cards: [],
-  // 4. 乐高卡片
   card_config: {
     intent_type: 'button_card',
     product_image: '',
     buttons: []
   },
-  // 运行态字段（仅查询时填充）
   status: 'draft',
   version: '1.0.0',
   template_asset_id: ''
-})
+});
 
-// 生成卡片唯一 ID
-const genCardId = () => `card_${Date.now()}_${Math.floor(Math.random() * 1000)}`
+const genCardId = () => `card_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
 const addQACard = () => {
   form.qa_cards.push({
@@ -364,13 +357,11 @@ const removeButton = (idx) => {
   form.card_config.buttons.splice(idx, 1)
 }
 
-// 加载已有资产包（编辑模式）
 const loadBundle = async () => {
   if (!aid.value) return
   loading.value = true
   try {
-    // 先查资产包详情（含 status / version / author / title）
-    const detailResp = await getBundleByAssetID(aid.value)
+    const detailResp = await getBundleByAssetID(aid.value);
     const detail = detailResp?.data || detailResp
     if (detail) {
       form.title = detail.title || ''
@@ -378,8 +369,7 @@ const loadBundle = async () => {
       form.version = detail.version || '1.0.0'
       form.status = detail.status || 'draft'
     }
-    // 再调解析接口，把 messages 数组反向解析为商户表单
-    const parseResp = await merchantParse(aid.value)
+    const parseResp = await merchantParse(aid.value);
     const parsed = parseResp?.data || parseResp
     if (parsed) {
       form.shop_name = parsed.shop_name || ''
@@ -397,8 +387,7 @@ const loadBundle = async () => {
       if (parsed.enabled_intents && parsed.enabled_intents.length) {
         form.enabled_intents = parsed.enabled_intents
       }
-      // 6 维拟人门禁指标回显（保存时写入 system 快照，编辑时还原，避免重置为默认值）
-      form.crisis_threshold = parsed.crisis_threshold || '4'
+      form.crisis_threshold = parsed.crisis_threshold || '4';
       form.tone_level = parsed.tone_level || 'medium'
       form.censorship_level = parsed.censorship_level || 'default'
     }
@@ -407,20 +396,16 @@ const loadBundle = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
-// 封面图上传（对接后端 /api/upload → /files/attachments/YYYY/MM/uuid.jpg）
 const handleCoverUpload = async ({ file }) => {
   try {
     const res = await uploadCover(file)
     form.cover_image = res.data?.url || res.url || res
     ElMessage.success('封面上传成功（保存后生效）')
-  } catch (e) {
-    // request.js 拦截器已弹 ElMessage.error
-  }
-}
+  } catch (e) {}
+};
 
-// 保存配置
 const handleSave = async () => {
   if (!form.asset_id) {
     ElMessage.warning('请填写资产 ID')
@@ -454,14 +439,12 @@ const handleSave = async () => {
     const resp = await merchantSave(payload)
     const data = resp?.data || resp
     if (data && data.id) {
-      // 保存成功后自动热启用（文档 §六「立刻热更新到商户本地 AI 引擎」）
       try {
         await enableBundle(data.id)
         ElMessage.success('保存并热启用成功')
       } catch (e) {
         ElMessage.warning('保存成功，但热启用失败，请手动启用')
       }
-      // 新建模式 → 跳转到编辑模式
       if (!isEdit.value && data.asset_id) {
         router.replace(`/asset-bundle/merchant/${data.asset_id}`)
       }
@@ -473,17 +456,15 @@ const handleSave = async () => {
   } finally {
     saving.value = false
   }
-}
+};
 
-// 暂停 / 恢复托管
 const handleToggleStatus = async (action) => {
   if (!aid.value) {
     ElMessage.warning('请先保存资产包')
     return
   }
   try {
-    // 先获取资产包的数据库 ID（按 asset_id 查）
-    const detailResp = await getBundleByAssetID(aid.value)
+    const detailResp = await getBundleByAssetID(aid.value);
     const detail = detailResp?.data || detailResp
     if (!detail || !detail.id) {
       ElMessage.error('找不到资产包')
@@ -501,15 +482,14 @@ const handleToggleStatus = async (action) => {
   } catch (e) {
     ElMessage.error('状态切换失败: ' + (e?.message || e))
   }
-}
+};
 
 onMounted(() => {
   if (aid.value) {
     form.asset_id = aid.value
     loadBundle()
   } else {
-    // 新建模式：默认给一张空白 QA 卡片
-    addQACard()
+    addQACard();
   }
 })
 </script>

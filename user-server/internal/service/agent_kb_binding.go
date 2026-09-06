@@ -17,9 +17,6 @@ type AgentKBBindingService struct {
 	bindingRepo *repository.AgentKBBindingRepository
 	kbRepo      *repository.KnowledgeBaseRepository
 
-	// txBeginner 用于事务开启（如 Bind/Replace/Batch 需要原子性时）。
-	// 注入方式（func）而非直接持有 *gorm.DB，符合五层架构：service 不持久化 db 句柄，
-	// 而是在每次调用时按需获取一个执行器，事务结束后释放。
 	txBeginner func(ctx context.Context) *gorm.DB
 }
 
@@ -73,7 +70,6 @@ func (s *AgentKBBindingService) SetRepositories(
 	}
 }
 
-// withTxBeginner 获取事务入口；nil 表示不启用事务（降级到非事务路径）。
 func (s *AgentKBBindingService) withTxBeginner(ctx context.Context) *gorm.DB {
 	if s.txBeginner == nil {
 		return nil
@@ -290,5 +286,4 @@ func (s *AgentKBBindingService) BatchBind(ctx context.Context, items []BatchBind
 	return nil
 }
 
-// boolPtr 构造 *bool
 func boolPtr(b bool) *bool { return &b }

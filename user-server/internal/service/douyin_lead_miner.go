@@ -13,7 +13,7 @@ import (
 )
 
 func (s *WebhookService) mineDouyinGroupLead(ctx context.Context, hub *model.MessageHub, accountID, groupID, groupTitle, fromID, fromName, text string) (newOpportunity bool) {
-	// 2026-08-19：已重构为通用 MineUnifiedLead 的薄包装，所有渠道复用同一套挖掘逻辑。
+
 	return MineUnifiedLead(ctx, s, hub, DouyinLeadAdapter{}, accountID, groupID, groupTitle, fromID, fromName, "", text)
 }
 
@@ -91,8 +91,7 @@ func (s *WebhookService) DouyinLeadMiner() func(ctx context.Context, ev *model.M
 			return
 		}
 		channel := strings.ToLower(strings.TrimSpace(ev.Channel))
-		// 2026-08-16 扩展：所有 Bridge 网页渠道统一走通用关键词打分模型（兼容闲鱼/微博/淘宝等）
-		// 2026-08-19 重构：每个 Bridge 渠道使用对应适配器，修正之前全部写 ClueTypeDouyin 的 Bug
+
 		if !isBridgeLeadMiningChannel(channel) {
 			return
 		}
@@ -134,19 +133,16 @@ func (s *WebhookService) DouyinLeadMiner() func(ctx context.Context, ev *model.M
 			},
 		}
 
-		// 根据渠道选择对应适配器（修正类型映射：小红书→ClueTypeXiaohongshu 等）
 		adapter := bridgeLeadAdapterForChannel(channel)
 		MineUnifiedLead(ctx, s, hub, adapter, accountID, ev.GroupID, groupName, ev.SenderID, ev.SenderName, "", ev.Content)
 	}
 }
 
-// leadMiningChannels Bridge 协议支持的线索挖掘渠道注册表
 var leadMiningChannels = map[string]bool{
 	"douyin": true, "tiktok": true, "kuaishou": true,
 	"xiaohongshu": true, "xianyu": true,
 }
 
-// unsupportedLeadMiningChannels 声明支持但未完整实现的渠道（返回明确提示）
 var unsupportedLeadMiningChannels = map[string]string{
 	"weibo":    "微博线索挖掘需要 Chrome 扩展 + Bridge 协议 + 微博平台 API",
 	"taobao":   "淘宝线索挖掘需要 Chrome 扩展 + Bridge 协议",

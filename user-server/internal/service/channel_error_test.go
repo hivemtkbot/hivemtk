@@ -83,7 +83,6 @@ func TestOutboundSendFailed_MarksTerminalState(t *testing.T) {
 	}
 	fresh, _ := repo.GetByID(ctx, row.ID)
 
-	// 鉴权失败 → 终态 send_failed + Extra 分类
 	svc.outboundSendFailed(ctx, ChannelWhatsapp, "a", fresh, errors.New("wa send status 401: invalid token"))
 	got, _ := repo.GetByID(ctx, row.ID)
 	if got.Status != "send_failed" {
@@ -93,7 +92,6 @@ func TestOutboundSendFailed_MarksTerminalState(t *testing.T) {
 		t.Fatalf("extra should record category, got %v", got.Extra)
 	}
 
-	// 网络失败 → 可重试，不落终态
 	row2 := &model.MessageHub{MsgID: "wamid.T4NET", Platform: "whatsapp", AccountID: "a", Direction: "outbound", MsgType: "text", ConversationID: "c", Content: "x", SentAt: time.Now()}
 	if err := db.Create(row2).Error; err != nil {
 		t.Fatalf("create2: %v", err)
@@ -105,6 +103,5 @@ func TestOutboundSendFailed_MarksTerminalState(t *testing.T) {
 		t.Fatalf("retryable network error must not mark terminal state")
 	}
 
-	// hubMsg=nil（AI 现场构造前失败）→ 仅日志不 panic
 	svc.outboundSendFailed(ctx, ChannelWhatsapp, "a", nil, errors.New("status 401"))
 }

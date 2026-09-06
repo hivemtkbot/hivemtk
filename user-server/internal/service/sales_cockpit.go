@@ -74,7 +74,7 @@ func (s *SalesCockpitService) countWhere(ctx context.Context, table, cond string
 	}
 	var n int64
 	if err := s.db.WithContext(ctx).Table(table).Where(cond, args...).Count(&n).Error; err != nil {
-		return 0 // 缺表/索引缺失不阻塞驾驶舱
+		return 0
 	}
 	return n
 }
@@ -83,7 +83,6 @@ func (s *SalesCockpitService) countTodayTable(ctx context.Context, table, today 
 	return s.countWhere(ctx, table, "created_at >= ?", today)
 }
 
-// groupQuery 通用分组聚合（查询失败返回空数组）
 func (s *SalesCockpitService) groupQuery(ctx context.Context, sql string, args ...any) []map[string]any {
 	if s.db == nil {
 		return []map[string]any{}

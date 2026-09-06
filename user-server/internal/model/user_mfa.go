@@ -18,14 +18,14 @@ import (
 type UserMFA struct {
 	ID           uint       `gorm:"primaryKey;autoIncrement" json:"id"`
 	UserID       uint       `gorm:"uniqueIndex;not null" json:"user_id"`
-	MFASecret    string     `gorm:"type:varchar(255);not null" json:"-"`             
-	MFAEnabled   bool       `gorm:"default:false" json:"mfa_enabled"`                
-	MFAType      string     `gorm:"type:varchar(20);default:'totp'" json:"mfa_type"` 
-	BackupCodes  string     `gorm:"type:text" json:"-"`                              
-	LastUsedAt   *time.Time `json:"last_used_at"`                                    
-	LastUsedCode string     `gorm:"type:varchar(20)" json:"-"`                       
-	EnabledAt    *time.Time `json:"enabled_at"`                                      
-	DisabledAt   *time.Time `json:"disabled_at"`                                     
+	MFASecret    string     `gorm:"type:varchar(255);not null" json:"-"`
+	MFAEnabled   bool       `gorm:"default:false" json:"mfa_enabled"`
+	MFAType      string     `gorm:"type:varchar(20);default:'totp'" json:"mfa_type"`
+	BackupCodes  string     `gorm:"type:text" json:"-"`
+	LastUsedAt   *time.Time `json:"last_used_at"`
+	LastUsedCode string     `gorm:"type:varchar(20)" json:"-"`
+	EnabledAt    *time.Time `json:"enabled_at"`
+	DisabledAt   *time.Time `json:"disabled_at"`
 	CreatedAt    time.Time  `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt    time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 }
@@ -48,4 +48,3 @@ func (m *UserMFA) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
-

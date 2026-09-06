@@ -56,7 +56,6 @@ func TestSendOutbound_BridgeChannel_ExtraMetadata_P1_4(t *testing.T) {
 
 	svc.sendOutbound(ctx, ChannelXiaohongshu, account, p, result.Reply, hub, nil)
 
-	// 校验落库的 message_hub.Extra
 	var out model.MessageHub
 	err := db.Where("direction = ? AND conversation_id = ?", "outbound", conv).
 		Order("id DESC").First(&out).Error
@@ -194,8 +193,6 @@ func TestSendOutbound_NoCtxResult_StillFillsStableFields_P1_4(t *testing.T) {
 	}
 }
 
-// ===== H-3 AI 会话回复时段感知（23:00-7:00 CST 延迟队列）=====
-
 // TestIsAIReplyQuietHours_Boundaries 静默窗口边界：22:59 放行 / 23:00 起 / 06:59 内 / 07:00 放行
 func TestIsAIReplyQuietHours_Boundaries(t *testing.T) {
 	cases := []struct {
@@ -240,7 +237,7 @@ func TestEnqueueDelayedOutbound(t *testing.T) {
 	if rec.Platform != string(ChannelXiaohongshu) || rec.ConversationID != "conv-h3-1" || rec.Content != "延迟回复内容" {
 		t.Errorf("字段不符: %+v", rec)
 	}
-	// SendAt 必须是未来时刻且落在 07:00 CST 首发 点位
+
 	sendAtCST := rec.SendAt.In(cstZone)
 	if !rec.SendAt.After(time.Now()) {
 		t.Errorf("SendAt 应在未来，got %s", rec.SendAt)
@@ -277,7 +274,7 @@ func TestDispatchDueDelayedOutbound(t *testing.T) {
 	if after.Status == "pending" {
 		t.Error("到期记录应被派发器抢占并处理，不应停留在 pending")
 	}
-	// 未到期记录不被处理
+
 	future := &DelayedOutboundReply{
 		Platform: "x", AccountID: "a", ConversationID: "c", SenderID: "s", Content: "future",
 		SendAt: time.Now().Add(time.Hour), Status: "pending",
@@ -306,8 +303,6 @@ func TestDelayedReplayContext(t *testing.T) {
 	}
 }
 
-// init 包级禁用 H-3 quiet hours 时钟（参照 smsNightRestrictedFn 测试注入先例），
-// 使 sendOutbound 直发类测试与运行时刻无关；quiet hours 行为由下方专项测试覆盖。
 func init() {
 	aiReplyQuietHoursFn = func(time.Time) bool { return false }
 }

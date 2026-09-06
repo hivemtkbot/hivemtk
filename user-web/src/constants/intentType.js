@@ -1,9 +1,3 @@
-/**
- * 统一通用枚举：对话意图类型（intent type）
- *
- * 业务：dialogueMemory 对话记忆
- */
-
 export const INTENT_TYPE_OPTIONS = Object.freeze([
   { value: 'purchase',      label: '购买意向',  tagType: 'success', description: '客户有购买意向' },
   { value: 'price_inquiry', label: '询价',      tagType: 'primary', description: '客户在询价' },
@@ -12,7 +6,7 @@ export const INTENT_TYPE_OPTIONS = Object.freeze([
   { value: 'greeting',      label: '问候',      tagType: 'info',    description: '寒暄/问候' },
   { value: 'support',       label: '售后',      tagType: '',        description: '售后服务' },
   { value: 'other',         label: '其他',      tagType: 'info',    description: '其他意图' }
-])
+]);
 
 export const INTENT_TYPE_LABEL_MAP = Object.freeze(
   INTENT_TYPE_OPTIONS.reduce((acc, o) => { acc[o.value] = o.label; return acc }, {})

@@ -107,7 +107,6 @@ func (s *EmailJobsService) IncreaseReadTotal(ctx context.Context, jobs_id uuid.U
 	return s.repo.Update(ctx, jobs)
 }
 
-
 // CreateEmailJobsDTO 通过请求 DTO 创建任务
 func (s *EmailJobsService) CreateEmailJobsDTO(ctx context.Context, req dto.CreateEmailJobsRequest) (*dto.EmailJobsResponse, error) {
 	created, err := s.CreateEmailJobs(ctx, model.EmailJobs{
@@ -179,4 +178,3 @@ func toEmailJobsResponse(j *model.EmailJobs) *dto.EmailJobsResponse {
 		UpdatedAt:    j.UpdatedAt,
 	}
 }
-

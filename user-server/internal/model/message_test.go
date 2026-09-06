@@ -114,4 +114,3 @@ func TestMessage_BeforeCreate(t *testing.T) {
 		t.Errorf("Expected ID length 36 (UUID), got %d", len(message.ID))
 	}
 }
-

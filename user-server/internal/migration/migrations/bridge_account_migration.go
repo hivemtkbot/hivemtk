@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -46,4 +45,3 @@ func (m *BridgeAccountMigration) Down(ctx context.Context) error {
 }
 
 var _ migration.Migration = (*BridgeAccountMigration)(nil)
-

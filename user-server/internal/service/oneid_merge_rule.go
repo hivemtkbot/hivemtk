@@ -36,12 +36,12 @@ func NewOneIDMergeRuleService() *OneIDMergeRuleService {
 type MergeRule struct {
 	ID          int64  `json:"id"`
 	Name        string `json:"name"`
-	Field       string `json:"field"`    // 匹配字段，如 phone / email / unionid
-	Op          string `json:"op"`       // eq / prefix / like / custom_sql
-	Value       string `json:"value"`    // 自定义 SQL 时的表达式
-	Priority    int    `json:"priority"` // 100 = 最高
+	Field       string `json:"field"`
+	Op          string `json:"op"`
+	Value       string `json:"value"`
+	Priority    int    `json:"priority"`
 	Enabled     bool   `json:"enabled"`
-	BuiltIn     bool   `json:"built_in"` // 预置规则（不可删）
+	BuiltIn     bool   `json:"built_in"`
 	UpdatedAt   string `json:"updated_at"`
 	Description string `json:"description"`
 	Example     string `json:"example"`
@@ -49,11 +49,11 @@ type MergeRule struct {
 
 // MergeStrategy 合并策略
 type MergeStrategy struct {
-	PrimaryRule      string   `json:"primary_rule"`       // latest_active / most_orders / manual
-	ConflictBehavior string   `json:"conflict_behavior"`  // auto_merge / queue_review / skip
-	WindowStart      string   `json:"window_start"`       // "02:00"
-	WindowEnd        string   `json:"window_end"`         // "05:00"
-	PostMergeActions []string `json:"post_merge_actions"` // unify_tag / merge_orders / notify_owner / write_audit
+	PrimaryRule      string   `json:"primary_rule"`
+	ConflictBehavior string   `json:"conflict_behavior"`
+	WindowStart      string   `json:"window_start"`
+	WindowEnd        string   `json:"window_end"`
+	PostMergeActions []string `json:"post_merge_actions"`
 }
 
 // MergeRuleSet 完整规则集
@@ -75,7 +75,7 @@ type MergeRuleSet struct {
 func (s *OneIDMergeRuleService) GetRules(ctx context.Context) (*MergeRuleSet, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	// 返回深拷贝，避免外部修改内部状态
+
 	out := *s.rules
 	return &out, nil
 }
@@ -113,7 +113,6 @@ func (s *OneIDMergeRuleService) ApplyRules(ctx context.Context, a, b map[string]
 	rules := s.rules
 	s.mu.RUnlock()
 
-	// 1) 预置规则：按 priority 倒序匹配第一个 enabled 的
 	for _, r := range rules.BuiltIn {
 		if !r.Enabled {
 			continue
@@ -128,12 +127,11 @@ func (s *OneIDMergeRuleService) ApplyRules(ctx context.Context, a, b map[string]
 		}
 	}
 
-	// 2) 自定义规则：SQL 表达式（v2 实施，v1 仅记录）
 	for _, r := range rules.Custom {
 		if !r.Enabled {
 			continue
 		}
-		// v1: 仅支持 eq / prefix
+
 		va, oka := a[r.Field]
 		vb, okb := b[r.Field]
 		if !oka || !okb {
@@ -147,7 +145,6 @@ func (s *OneIDMergeRuleService) ApplyRules(ctx context.Context, a, b map[string]
 	return false, "", nil
 }
 
-// matchRule 单条规则匹配
 func matchRule(a, b, op string) bool {
 	switch op {
 	case "eq":
@@ -159,7 +156,7 @@ func matchRule(a, b, op string) bool {
 		}
 		return a[:plen] == b[:plen]
 	case "like":
-		// 简单子串匹配；生产应使用 LIKE + %
+
 		return containsSubstr(a, b) || containsSubstr(b, a)
 	}
 	return false
@@ -177,7 +174,6 @@ func containsSubstr(s, sub string) bool {
 	return false
 }
 
-// validateRuleSet 校验规则集
 func validateRuleSet(set *MergeRuleSet) error {
 	if len(set.BuiltIn) == 0 && len(set.Custom) == 0 {
 		return errors.New("至少需要 1 条规则")
@@ -225,7 +221,6 @@ func itoaMerge(n int) string {
 	return string(buf[i:])
 }
 
-// defaultRuleSet 默认规则集（与前端 MergeRuleConfig.vue 保持一致）
 func defaultRuleSet() *MergeRuleSet {
 	now := time.Now().UTC().Format(time.RFC3339)
 	return &MergeRuleSet{

@@ -30,7 +30,6 @@ func NewCustomerOneIDController() *CustomerOneIDController {
 	}
 }
 
-// mergeRequest 合并身份请求
 type mergeRequest struct {
 	PrimaryID   string `json:"primary_id" binding:"required"`
 	SecondaryID string `json:"secondary_id" binding:"required"`
@@ -124,7 +123,7 @@ func (c *CustomerOneIDController) ListConflicts(ctx *gin.Context) {
 type ResolveConflictRequest struct {
 	PrimaryID   string `json:"primary_id" binding:"required"`
 	SecondaryID string `json:"secondary_id" binding:"required"`
-	Action      string `json:"action"` 
+	Action      string `json:"action"`
 }
 
 // ResolveConflict 解决身份冲突
@@ -249,7 +248,6 @@ func (c *CustomerOneIDController) ResolveIdentity(ctx *gin.Context) {
 	}, "解析成功")
 }
 
-// parsePage 解析页码
 func parsePage(s string) int {
 	if s == "" {
 		return 1
@@ -320,7 +318,6 @@ func (c *CustomerOneIDController) PreviewMergeRules(ctx *gin.Context) {
 	response.Success(ctx, out, "预览成功")
 }
 
-// parsePageSize 解析页大小
 func parsePageSize(s string, def int) int {
 	if s == "" {
 		return def
@@ -340,4 +337,3 @@ func parsePageSize(s string, def int) int {
 	}
 	return n
 }
-

@@ -1,7 +1,5 @@
 package tooluse
 
-// TL-3 单测：场景白名单裁剪正反例
-
 import (
 	"context"
 	"testing"
@@ -12,10 +10,10 @@ type scenarioMockTool struct {
 	cat  ToolCategory
 }
 
-func (m *scenarioMockTool) Name() string                       { return m.name }
-func (m *scenarioMockTool) Category() ToolCategory             { return m.cat }
-func (m *scenarioMockTool) Description() string                { return "mock" }
-func (m *scenarioMockTool) Parameters() ToolParameters         { return ToolParameters{Type: "object"} }
+func (m *scenarioMockTool) Name() string               { return m.name }
+func (m *scenarioMockTool) Category() ToolCategory     { return m.cat }
+func (m *scenarioMockTool) Description() string        { return "mock" }
+func (m *scenarioMockTool) Parameters() ToolParameters { return ToolParameters{Type: "object"} }
 func (m *scenarioMockTool) Execute(_ context.Context, _ map[string]any) (ToolResult, error) {
 	return ToolResult{Success: true}, nil
 }

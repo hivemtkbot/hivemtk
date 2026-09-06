@@ -24,10 +24,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// newSSOTestRouter 构建仅含 SSO 路由的测试 Gin 引擎
-//
-// 通过 config.SetAppConfig 注入确定性 SSO 配置（避免读取真实 config.yaml），
-// 测试结束自动还原全局配置与全局 DB。
 func newSSOTestRouter(t *testing.T, cfg *config.AppConfig) *gin.Engine {
 	t.Helper()
 	database := testutil.NewTestDB(t, &model.SystemUser{}, &model.SSOIdentity{})
@@ -44,7 +40,6 @@ func newSSOTestRouter(t *testing.T, cfg *config.AppConfig) *gin.Engine {
 	return r
 }
 
-// doSSORequest 发起 SSO 测试请求
 func doSSORequest(r http.Handler, target string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodGet, target, nil)
 	for _, c := range cookies {
@@ -55,7 +50,6 @@ func doSSORequest(r http.Handler, target string, cookies ...*http.Cookie) *httpt
 	return w
 }
 
-// ssoConfigWithProvider 构造启用指定 provider 的 SSO 配置
 func ssoConfigWithProvider(name string, pcfg config.SSOProviderConfig) *config.AppConfig {
 	return &config.AppConfig{SSO: config.SSOConfig{
 		Enabled:   true,
@@ -102,8 +96,8 @@ func TestSSORoute_ListProviders_Disabled(t *testing.T) {
 		Code    string `json:"code"`
 		Message string `json:"message"`
 		Data    struct {
-			Enabled   bool   `json:"enabled"`
-			Providers []any  `json:"providers"`
+			Enabled   bool  `json:"enabled"`
+			Providers []any `json:"providers"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
@@ -299,4 +293,3 @@ func TestSSORoute_Callback_MissingCode(t *testing.T) {
 		t.Fatalf("status: got %d want 400", w.Code)
 	}
 }
-

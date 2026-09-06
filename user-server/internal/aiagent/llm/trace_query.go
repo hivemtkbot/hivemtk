@@ -58,11 +58,8 @@ type TraceDetail struct {
 	Spans   []TraceSpanView `json:"spans"`
 }
 
-// traceDBOverride 仅用于单元测试注入 DB（默认 nil → 走 db.GetDB()）。
-// 不导出，避免外部包误用；测试通过 t.Cleanup 还原。
 var traceDBOverride func() any
 
-// fetchDB 取 DB 实例：测试 override 优先；否则走全局 db.GetDB()。
 func fetchDB() *gorm.DB {
 	if traceDBOverride != nil {
 		if v, ok := traceDBOverride().(*gorm.DB); ok {
@@ -176,7 +173,7 @@ func ListRecentTraces(ctx context.Context, limit int) ([]TraceSummary, error) {
 	}
 
 	out := make([]TraceSummary, 0, len(ids))
-	// 一次查询补齐 kind_counts / service_count（v3 审计：避免前端看到 null）
+
 	traceIDs := make([]string, 0, len(ids))
 	for _, id := range ids {
 		traceIDs = append(traceIDs, id.TraceID)
@@ -197,18 +194,16 @@ func ListRecentTraces(ctx context.Context, limit int) ([]TraceSummary, error) {
 	return out, nil
 }
 
-// traceSummaryStats 一次查询补齐 kind_counts / service_count
 type traceSummaryStats struct {
 	kindCounts   map[string]int
 	serviceCount int
 }
 
-// fetchTraceSummaryStats 批量查询避免 N+1
 func fetchTraceSummaryStats(d *gorm.DB, traceIDs []string) map[string]traceSummaryStats {
 	if len(traceIDs) == 0 {
 		return map[string]traceSummaryStats{}
 	}
-	// 业界优化：单次 GROUP BY 查询替代 N 次
+
 	var rows []struct {
 		TraceID string `gorm:"column:trace_id"`
 		Kind    string `gorm:"column:kind"`
@@ -219,7 +214,7 @@ func fetchTraceSummaryStats(d *gorm.DB, traceIDs []string) map[string]traceSumma
 		Where("trace_id IN ?", traceIDs).
 		Group("trace_id, kind, service").
 		Scan(&rows).Error; err != nil {
-		// 容错：失败时返回空 map，前端用 null 显示
+
 		return map[string]traceSummaryStats{}
 	}
 	result := make(map[string]traceSummaryStats, len(traceIDs))
@@ -235,8 +230,6 @@ func fetchTraceSummaryStats(d *gorm.DB, traceIDs []string) map[string]traceSumma
 	return result
 }
 
-// fetchTraceRows 从 trace_events 表按 trace_id 拉所有 span（按 timestamp ASC）。
-// 返回 raw map（避免依赖 llm.TraceEvent 模型 GORM 反射）。
 func fetchTraceRows(ctx context.Context, d *gorm.DB, traceID string) ([]map[string]any, error) {
 	var rows []map[string]any
 	if err := d.WithContext(ctx).

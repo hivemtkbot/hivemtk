@@ -11,11 +11,9 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// Redis 持久化相关常量
 const (
 	journeyStateKeyPrefix = "journey:state:"
 
-	// journeyL1TTL 内存读缓存 TTL（P-5：Redis 为权威源，内存仅作读缓存）
 	journeyL1TTL = 60 * time.Second
 
 	journeyTTLAcquisition   = 30 * 24 * time.Hour
@@ -25,12 +23,10 @@ const (
 	journeyTTLDefault       = 30 * 24 * time.Hour
 )
 
-// journeyStateKey 拼接 Redis key
 func journeyStateKey(customerID string) string {
 	return journeyStateKeyPrefix + customerID
 }
 
-// journeyStateTTL 根据当前阶段返回动态 TTL
 func journeyStateTTL(stage JourneyStage) time.Duration {
 	switch stage {
 	case StageStranger, StageLead, StageContact, StageInterested:
@@ -46,7 +42,6 @@ func journeyStateTTL(stage JourneyStage) time.Duration {
 	}
 }
 
-// cloneJourneyState 深拷贝，用于在锁外安全地序列化。
 func cloneJourneyState(src *JourneyState) JourneyState {
 	if src == nil {
 		return JourneyState{}
@@ -226,7 +221,6 @@ func (s *CustomerJourneyService) SetCache(c cache.Cache) {
 	s.mu.Unlock()
 }
 
-// persistState 写 Redis（权威写，双写路径之一；失败仅记录日志，不影响主流程）
 func (s *CustomerJourneyService) persistState(ctx context.Context, state *JourneyState) {
 	if state == nil || state.CustomerID == "" {
 		return
@@ -241,7 +235,6 @@ func (s *CustomerJourneyService) persistState(ctx context.Context, state *Journe
 	}
 }
 
-// getLiveL1 取未过期的 L1 条目；过期条目惰性淘汰（P-5）。返回深拷贝。
 func (s *CustomerJourneyService) getLiveL1(customerID string) (*JourneyState, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -258,7 +251,6 @@ func (s *CustomerJourneyService) getLiveL1(customerID string) (*JourneyState, bo
 	return &c, true
 }
 
-// putL1 写入 L1 读缓存（带 60s TTL）
 func (s *CustomerJourneyService) putL1(customerID string, state *JourneyState) {
 	s.mu.Lock()
 	stored := cloneJourneyState(state)
@@ -267,7 +259,6 @@ func (s *CustomerJourneyService) putL1(customerID string, state *JourneyState) {
 	s.mu.Unlock()
 }
 
-// loadAuthoritative 读权威状态：L1 读缓存 → L2 Redis（权威）→ nil。
 func (s *CustomerJourneyService) loadAuthoritative(ctx context.Context, customerID string) (*JourneyState, bool) {
 	if st, ok := s.getLiveL1(customerID); ok {
 		return st, true
@@ -303,7 +294,7 @@ func (s *CustomerJourneyService) GetState(ctx context.Context, customerID string
 
 // Touch 记录互动（不改变阶段）
 func (s *CustomerJourneyService) Touch(ctx context.Context, customerID, source string) {
-	// 写路径以权威源为基线：L1 未命中时回源 Redis，避免多实例下覆盖丢失
+
 	base, found := s.loadAuthoritative(ctx, customerID)
 	if !found {
 		now := time.Now()
@@ -329,7 +320,7 @@ func (s *CustomerJourneyService) Transition(ctx context.Context, customerID stri
 	if !s.isValidStage(ctx, toStage) {
 		return nil, fmt.Errorf("无效的阶段: %s", toStage)
 	}
-	// 写路径以权威源为基线：L1 未命中时回源 Redis，避免多实例下覆盖丢失
+
 	base, found := s.loadAuthoritative(ctx, customerID)
 	if !found {
 		now := time.Now()
@@ -371,7 +362,6 @@ func (s *CustomerJourneyService) Transition(ctx context.Context, customerID stri
 	return event, nil
 }
 
-// applyStageSideEffects 阶段副作用（打标签 + 推荐 SOP）
 func (s *CustomerJourneyService) applyStageSideEffects(ctx context.Context, state *JourneyState, stage JourneyStage) {
 	meta := StageMetas[stage]
 	if meta == nil {
@@ -390,7 +380,6 @@ func (s *CustomerJourneyService) applyStageSideEffects(ctx context.Context, stat
 	}
 }
 
-// isValidStage 检查阶段有效性
 func (s *CustomerJourneyService) isValidStage(ctx context.Context, stage JourneyStage) bool {
 	for _, s := range AllStages {
 		if s == stage {
@@ -481,8 +470,6 @@ func (s *CustomerJourneyService) AutoDetectSleeping(ctx context.Context) []strin
 	return wokeUp
 }
 
-// ===== H4 修复：沉睡客户自动检测定时任务 =====
-
 // JourneySleepCron 客户旅程沉睡检测定时任务。
 //
 // H4 债务修复：AutoDetectSleeping 此前零调用（无任何 cron 注册），沉睡检测实际永不运行。
@@ -543,7 +530,6 @@ func (c *JourneySleepCron) loop(ctx context.Context) {
 	}
 }
 
-// runOnce 单次执行（panic 隔离，供测试直接调用调度触发逻辑）
 func (c *JourneySleepCron) runOnce(ctx context.Context) (detected []string) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -554,9 +540,6 @@ func (c *JourneySleepCron) runOnce(ctx context.Context) (detected []string) {
 	return c.svc.AutoDetectSleeping(ctx)
 }
 
-// stageDefaultSleepThreshold 阶段级硬编码沉睡阈值
-// 商业逻辑：成交/复购阶段虽然 DefaultFollowup=0（"下一次主动触达"无时间表），
-// 但仍需定期唤醒沉睡客户。例如：成交后 90 天 → 沉睡；售后 60 天 → 沉睡
 func stageDefaultSleepThreshold(stage JourneyStage) time.Duration {
 	switch stage {
 	case StageWon, StageAfterSale:

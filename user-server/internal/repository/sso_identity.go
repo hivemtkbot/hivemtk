@@ -31,12 +31,10 @@ func NewSSOIdentityRepository(db *gorm.DB) SSOIdentityRepository {
 	return &ssoIdentityRepo{db: db}
 }
 
-// Create 创建
 func (r *ssoIdentityRepo) Create(ctx context.Context, identity *model.SSOIdentity) error {
 	return r.db.WithContext(ctx).Create(identity).Error
 }
 
-// GetByProviderSubject 按 (provider, subject) 查询
 func (r *ssoIdentityRepo) GetByProviderSubject(ctx context.Context, provider, subject string) (*model.SSOIdentity, error) {
 	var identity model.SSOIdentity
 	if err := r.db.WithContext(ctx).
@@ -50,7 +48,6 @@ func (r *ssoIdentityRepo) GetByProviderSubject(ctx context.Context, provider, su
 	return &identity, nil
 }
 
-// ListByUserID 查询某用户绑定的所有 SSO 身份
 func (r *ssoIdentityRepo) ListByUserID(ctx context.Context, userID uint) ([]*model.SSOIdentity, error) {
 	var list []*model.SSOIdentity
 	if err := r.db.WithContext(ctx).Where("user_id = ?", userID).Find(&list).Error; err != nil {
@@ -59,7 +56,6 @@ func (r *ssoIdentityRepo) ListByUserID(ctx context.Context, userID uint) ([]*mod
 	return list, nil
 }
 
-// Delete 删除
 func (r *ssoIdentityRepo) Delete(ctx context.Context, id uint) error {
 	res := r.db.WithContext(ctx).Delete(&model.SSOIdentity{}, id)
 	if res.Error != nil {

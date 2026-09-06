@@ -192,7 +192,6 @@ func (s *WeComAccountHealthService) SelectHealthyAccount(ctx context.Context) (*
 		return nil, fmt.Errorf("db is nil")
 	}
 
-	// Step 1: 找健康账号
 	accounts, err := s.accountRepo.FindHealthyAccounts(ctx,
 		[]string{WeComRiskNormal, WeComRiskWarning},
 		[]string{WeComLoginBanned, WeComLoginOffline})
@@ -201,21 +200,19 @@ func (s *WeComAccountHealthService) SelectHealthyAccount(ctx context.Context) (*
 	}
 
 	if len(accounts) == 0 {
-		// Step 2: 降级 — 找任何已启用、未封禁的账号（允许 offline）
+
 		active, err := s.accountRepo.FindActiveAccounts(ctx)
 		if err != nil {
 			return nil, err
 		}
 		if len(active) == 0 {
-			// Step 3: 完全没有账号
+
 			return nil, ErrWeComAccountNotFound
 		}
-		// 降级返回第一个可用账号（按 id ASC 排序，稳定选号）
+
 		return &active[0], nil
 	}
 
-	// v3 审计 P1-8：单一比较函数一次排序——健康分优先、Weight 次之、配额余量兜底。
-	// 原两次独立排序中第二次会整体重排，使健康分排序完全失效。
 	sort.SliceStable(accounts, func(i, j int) bool {
 		scoreI := accountHealthFromModel(&accounts[i])
 		scoreJ := accountHealthFromModel(&accounts[j])
@@ -383,7 +380,6 @@ func (s *WeComAccountHealthService) GetHealthSummary(ctx context.Context) (*Acco
 	return summary, nil
 }
 
-// computeHealthScore 计算账号健康分
 func computeHealthScore(loginState string, quotaRate, successRate float64, errorCount int) int {
 	score := 100
 	quotaDegrade := runtimeWeComQuotaDegrade(context.Background())
@@ -423,7 +419,6 @@ func computeHealthScore(loginState string, quotaRate, successRate float64, error
 	return score
 }
 
-// computeRiskLevel 计算风险等级
 func computeRiskLevel(score int, loginState string) string {
 	if loginState == WeComLoginBanned {
 		return WeComRiskBanned
@@ -440,7 +435,6 @@ func computeRiskLevel(score int, loginState string) string {
 	}
 }
 
-// syncAccountState 同步账号主表状态
 func (s *WeComAccountHealthService) syncAccountState(ctx context.Context, accountID uint, loginState string, score int, risk string, quotaRate float64, lastErr string) {
 	if s.accountRepo == nil {
 		return
@@ -469,7 +463,6 @@ func accountHealthFromModel(a *model.WeComAccount) int {
 	return a.Weight
 }
 
-// 全局实例
 var (
 	wecomHealthOnce     sync.Once
 	wecomHealthInstance *WeComAccountHealthService

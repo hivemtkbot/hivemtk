@@ -1,6 +1,5 @@
 package config
 
-
 const (
 	DefaultListenPort = "8204"
 
@@ -26,7 +25,6 @@ const (
 
 	DefaultRerankPortStr = "8209"
 )
-
 
 const (
 	DefaultUserServerBaseURL = "http://localhost:" + DefaultListenPort
@@ -55,4 +53,3 @@ const (
 
 	DefaultOllamaBaseURL = "http://localhost:11434"
 )
-

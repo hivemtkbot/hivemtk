@@ -232,7 +232,7 @@ func (c *InboxController) AutoAssign(ctx *gin.Context) {
 	var req struct {
 		ConversationID uint     `json:"conversation_id" binding:"required"`
 		Candidates     []string `json:"candidates" binding:"required"`
-		Mode           string   `json:"mode"` 
+		Mode           string   `json:"mode"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
@@ -244,7 +244,7 @@ func (c *InboxController) AutoAssign(ctx *gin.Context) {
 	}
 	var h any
 	var err error
-	// M5：策略不再静默忽略——round_robin 走轮转；manual 与非法策略名返回 400 明确报错
+
 	switch mode, modeErr := service.ResolveAutoAssignMode(req.Mode); {
 	case modeErr != nil:
 		response.Error(ctx, http.StatusBadRequest, modeErr.Error())
@@ -419,4 +419,3 @@ func (c *InboxIngressController) UnlockHuman(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"session_id": sessionID, "unlocked": true}, "解除人工接管成功")
 }
-

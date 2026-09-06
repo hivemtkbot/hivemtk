@@ -28,7 +28,7 @@ func TestSplitMessage(t *testing.T) {
 		},
 		{
 			name:    "long text splits at paragraph boundary",
-			in:      strings.Repeat("段落内容。", 1000), 
+			in:      strings.Repeat("段落内容。", 1000),
 			limit:   500,
 			wantCnt: 10,
 			check: func(t *testing.T, chunks []string) {
@@ -41,13 +41,13 @@ func TestSplitMessage(t *testing.T) {
 		},
 		{
 			name:    "long text without paragraph splits at line boundary",
-			in:      strings.Repeat("行内容\n", 1000), 
+			in:      strings.Repeat("行内容\n", 1000),
 			limit:   200,
 			wantCnt: 20,
 		},
 		{
 			name:    "long text without line breaks splits at sentence",
-			in:      strings.Repeat("句子内容。", 2000), 
+			in:      strings.Repeat("句子内容。", 2000),
 			limit:   100,
 			wantCnt: 100,
 		},
@@ -399,4 +399,3 @@ func TestSendMessage_ExhaustedRetries(t *testing.T) {
 		t.Errorf("expected 3 attempts (max), got %d", got)
 	}
 }
-

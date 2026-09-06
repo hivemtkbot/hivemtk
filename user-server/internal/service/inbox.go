@@ -147,8 +147,7 @@ type InboxService struct {
 	hubRepo        *repository.MessageHubRepository
 	sessionMsgRepo *repository.SessionMessageRepository
 	mu             sync.RWMutex
-	// Deprecated: unified_inbox 内存版废弃，负载缓存重启丢数据。
-	// 后续应从 inbox_assignments DB 表实时查询 assign_to 计数。
+
 	staffLoadCache map[string]int
 }
 
@@ -757,9 +756,6 @@ func (s *InboxService) reconcileBackfill(ctx context.Context) (*ReconcileResult,
 	return res, nil
 }
 
-// reconcileSyncGapConversation 把单个 sync_gap 会话物化为按规范 customer_id 归属的
-// 收件箱行，并清理同一会话下 customer_id 不一致的孤儿行。customerID 来自 monitor 的
-// 规范客户键判定（与 inboxCustomerID 一致），避免依赖单条最新消息推导导致错键。
 func (s *InboxService) reconcileSyncGapConversation(ctx context.Context, platform, accountID, conversationID, customerID string) error {
 	latest, err := s.hubRepo.FindLatestByConversation(ctx, conversationID)
 	if err != nil || latest == nil {
@@ -828,13 +824,11 @@ func (s *InboxService) GetMessagesByConversation(ctx context.Context, conversati
 		pageSize = 20
 	}
 
-	// 1) 消息中台（渠道接入）
 	var hubs []*model.MessageHub
 	if s.hubRepo != nil {
 		hubs, _ = s.hubRepo.ListByConversationContext(ctx, conv.Platform, conv.AccountID, conv.CustomerID)
 	}
 
-	// 2) 客服会话实时消息流（网页 widget / 坐席回复）
 	var sms []*model.SessionMessage
 	if s.sessionMsgRepo != nil && s.sessionMsgRepo.HasTable(ctx) {
 		sms, _ = s.sessionMsgRepo.ListAllBySessionID(ctx, conv.ConversationID)
@@ -940,7 +934,6 @@ func (s *InboxService) DeleteMessage(ctx context.Context, conversationID, messag
 	return nil
 }
 
-// pickStaff 选择负载最小的客服
 func (s *InboxService) pickStaff(ctx context.Context, candidates []string) (string, error) {
 	if len(candidates) == 0 {
 		return "", ErrInboxInvalidAssignTo
@@ -976,7 +969,6 @@ func (s *InboxService) pickStaff(ctx context.Context, candidates []string) (stri
 	return candidates[minIdx], nil
 }
 
-// pickRoundRobin 轮询：按 last assignment 计数取最小
 func (s *InboxService) pickRoundRobin(ctx context.Context, candidates []string) (string, error) {
 	if len(candidates) == 0 {
 		return "", ErrInboxInvalidAssignTo

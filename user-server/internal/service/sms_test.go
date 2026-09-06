@@ -17,7 +17,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupSmsServiceTestDB 设置短信服务测试数据库
 func setupSmsServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.SmsConfig{},
@@ -30,14 +29,12 @@ func setupSmsServiceTestDB(t *testing.T) *gorm.DB {
 		&model.SmsJobDetail{},
 	)
 	db.SetTestDB(database)
-	// 铁律#22 守卫会让既有发送类用例在夜间运行时被拦截，测试统一关闭时段守卫；
-	// 守卫自身行为由 TestIsSMSNightRestricted 与 TestSendSms_NightGuard 专项验证。
+
 	smsNightRestrictedFn = func(time.Time) bool { return false }
 	t.Cleanup(func() { smsNightRestrictedFn = isSMSNightRestricted })
 	return database
 }
 
-// newTestSmsRepository 创建测试仓库
 func newTestSmsRepository(database *gorm.DB) repository.SmsRepository {
 	return repository.NewSmsRepository()
 }
@@ -165,7 +162,6 @@ func TestSmsService_SendSms(t *testing.T) {
 		t.Logf("SendSms expectedly failed with test credentials: %v", err)
 	}
 
-	// 验证短信记录已创建
 	var count int64
 	database.Model(&model.SmsRecord{}).Where("phone = ?", req.Phone).Count(&count)
 	if count != 1 {
@@ -206,7 +202,7 @@ func TestSmsService_ResendSms(t *testing.T) {
 
 	err := service.ResendSms(context.Background(), record.ID)
 	if err != nil {
-		// 验证记录状态已更新为失败（因为API调用失败）
+
 		var updatedRecord model.SmsRecord
 		database.First(&updatedRecord, record.ID)
 		if updatedRecord.Status != "failed" {
@@ -218,7 +214,6 @@ func TestSmsService_ResendSms(t *testing.T) {
 		return
 	}
 
-	// 如果API调用成功（有真实凭证），验证状态已更新
 	var updatedRecord model.SmsRecord
 	database.First(&updatedRecord, record.ID)
 	if updatedRecord.Status != "sent" {
@@ -268,7 +263,6 @@ func TestSmsService_CreateDraft(t *testing.T) {
 		t.Fatalf("CreateDraft failed: %v", err)
 	}
 
-	// 验证草稿已创建
 	var count int64
 	database.Model(&model.SmsDraft{}).Where("title = ?", req.Title).Count(&count)
 	if count != 1 {
@@ -332,7 +326,6 @@ func TestSmsService_UpdateDraft(t *testing.T) {
 		t.Fatalf("UpdateDraft failed: %v", err)
 	}
 
-	// 验证更新
 	var updatedDraft model.SmsDraft
 	database.First(&updatedDraft, draft.ID)
 	if updatedDraft.Title != "新标题" {
@@ -360,7 +353,6 @@ func TestSmsService_DeleteDraft(t *testing.T) {
 		t.Fatalf("DeleteDraft failed: %v", err)
 	}
 
-	// 验证已删除（软删除）
 	var count int64
 	database.Unscoped().Model(&model.SmsDraft{}).Where("id = ?", draft.ID).Unscoped().Count(&count)
 	if count != 1 {
@@ -370,7 +362,6 @@ func TestSmsService_DeleteDraft(t *testing.T) {
 		}
 	}
 
-	// 验证软删除标记（deleted_at 应该被设置）
 	var deletedAt *time.Time
 	database.Unscoped().Model(&model.SmsDraft{}).Where("id = ?", draft.ID).Select("deleted_at").Scan(&deletedAt)
 	if deletedAt == nil {
@@ -409,7 +400,6 @@ func TestSmsService_SendDraft(t *testing.T) {
 		t.Logf("SendDraft expectedly failed with test credentials: %v", err)
 	}
 
-	// 验证短信记录已创建
 	var count int64
 	database.Model(&model.SmsRecord{}).Where("phone = ? AND content = ?", phone, draft.Content).Count(&count)
 	if count != 1 {
@@ -508,7 +498,6 @@ func TestSmsService_CreateJob(t *testing.T) {
 		t.Fatalf("CreateJob failed: %v", err)
 	}
 
-	// 验证任务已创建
 	var job model.SmsJob
 	database.First(&job)
 	if job.Name != "测试任务" {
@@ -518,7 +507,6 @@ func TestSmsService_CreateJob(t *testing.T) {
 		t.Errorf("Expected total 3, got %d", job.Total)
 	}
 
-	// 验证任务详情已创建
 	var detailCount int64
 	database.Model(&model.SmsJobDetail{}).Count(&detailCount)
 	if detailCount != 3 {
@@ -546,7 +534,6 @@ func TestSmsService_CreateJob_WithScheduleTime(t *testing.T) {
 		t.Fatalf("CreateJob failed: %v", err)
 	}
 
-	// 验证任务状态为 pending
 	var job model.SmsJob
 	database.First(&job)
 	if job.Status != "pending" {
@@ -664,7 +651,6 @@ func TestSmsService_PauseJob(t *testing.T) {
 		t.Fatalf("PauseJob failed: %v", err)
 	}
 
-	// 验证状态
 	var updatedJob model.SmsJob
 	database.First(&updatedJob, job.ID)
 	if updatedJob.Status != "paused" {
@@ -710,7 +696,6 @@ func TestSmsService_ResumeJob(t *testing.T) {
 		t.Fatalf("ResumeJob failed: %v", err)
 	}
 
-	// 验证状态
 	var updatedJob model.SmsJob
 	database.First(&updatedJob, job.ID)
 	if updatedJob.Status != "running" {
@@ -756,7 +741,6 @@ func TestSmsService_StopJob(t *testing.T) {
 		t.Fatalf("StopJob failed: %v", err)
 	}
 
-	// 验证状态
 	var updatedJob model.SmsJob
 	database.First(&updatedJob, job.ID)
 	if updatedJob.Status != "failed" {
@@ -810,7 +794,6 @@ func TestSmsService_DeleteJob(t *testing.T) {
 		t.Fatalf("DeleteJob failed: %v", err)
 	}
 
-	// 验证任务已被软删除（使用 Unscoped 检查）
 	var count int64
 	database.Unscoped().Model(&model.SmsJob{}).Where("id = ?", job.ID).Unscoped().Count(&count)
 	if count != 1 {
@@ -820,7 +803,6 @@ func TestSmsService_DeleteJob(t *testing.T) {
 		}
 	}
 
-	// 验证软删除标记（deleted_at 应该被设置）
 	var deletedAt *time.Time
 	database.Unscoped().Model(&model.SmsJob{}).Where("id = ?", job.ID).Select("deleted_at").Scan(&deletedAt)
 	if deletedAt == nil {
@@ -990,7 +972,6 @@ func TestSendSms_NightGuard(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	// 模拟夜间 23:00（北京时间）
 	smsNightRestrictedFn = func(time.Time) bool { return true }
 	t.Cleanup(func() { smsNightRestrictedFn = isSMSNightRestricted })
 
@@ -1002,7 +983,6 @@ func TestSendSms_NightGuard(t *testing.T) {
 		t.Fatalf("夜间时段应拒绝发送, got err=%v", err)
 	}
 
-	// 记录不应创建
 	var count int64
 	database.Model(&model.SmsRecord{}).Count(&count)
 	if count != 0 {

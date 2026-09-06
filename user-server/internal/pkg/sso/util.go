@@ -7,7 +7,6 @@ import (
 	"io"
 )
 
-// curveFromName 从 JWK 曲线名获取椭圆曲线
 func curveFromName(name string) (elliptic.Curve, error) {
 	switch name {
 	case "P-256", "p-256":
@@ -30,12 +29,10 @@ func (e *UnsupportedCurveError) Error() string {
 	return "unsupported curve: " + e.Name
 }
 
-// randRead 调用 crypto/rand 读取字节
 func randRead(p []byte) (int, error) {
 	return io.ReadFull(rand.Reader, p)
 }
 
-// readerFunc 把 func(p []byte) (int, error) 包装成 io.Reader
 type readerFunc func(p []byte) (int, error)
 
 func (f readerFunc) Read(p []byte) (int, error) { return f(p) }
@@ -49,5 +46,3 @@ func PKCES256(verifier string) string {
 func RandString(n int) string {
 	return randString(n)
 }
-
-

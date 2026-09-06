@@ -107,7 +107,6 @@ func TestAIAgent_FullChain(t *testing.T) {
 		t.Logf("✅ ListEnabled 启用智能体成功")
 	})
 
-	// ---- 3. 创建智能体 ----
 	var agentID float64
 	agentCode := fmt.Sprintf("test_ai_agent_%d", time.Now().Unix())
 	t.Run("Create", func(t *testing.T) {
@@ -188,7 +187,6 @@ func TestAIAgent_FullChain(t *testing.T) {
 		}
 	})
 
-	// ---- 7. 渠道绑定 ----
 	var bindingID float64
 	t.Run("Binding_Create", func(t *testing.T) {
 		body := map[string]any{
@@ -258,5 +256,4 @@ func TestAIAgent_FullChain(t *testing.T) {
 	})
 }
 
-// 防止 os 引用
 var _ = os.Getenv

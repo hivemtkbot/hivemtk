@@ -8,12 +8,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// ============================================================================
-// M14 W-4：WhatsApp Cloud 多消息批次回归测试
-// Meta 单次 webhook 推送可能携带多条 messages[]，原实现只处理第一条、其余静默丢弃。
-// 修复后必须逐条入队（message_hub + inbox + 线索挖掘），并返回首条 hub。
-// ============================================================================
-
 func waBatchBody(msgsJSON, contactsJSON string) []byte {
 	return []byte(`{"object":"whatsapp_business_account","entry":[{"id":"W","changes":[{"value":{"messages":[` +
 		msgsJSON + `],"contacts":[` + contactsJSON + `]},"field":"messages"}]}]}`)
@@ -95,7 +89,7 @@ func TestDispatchWhatsApp_EmptyBatch(t *testing.T) {
 // TestWaMessageContent 媒体类型占位符映射
 func TestWaMessageContent(t *testing.T) {
 	cases := map[string]string{
-		"text":     "", // text 单独断言
+		"text":     "",
 		"image":    "[图片]",
 		"audio":    "[语音]",
 		"video":    "[视频]",

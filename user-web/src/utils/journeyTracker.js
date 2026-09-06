@@ -1,15 +1,4 @@
-/**
- * 客户旅程事件自动埋点 SDK（USR-CM-04）
- * 借鉴：Mixpanel / Amplitude Journey
- *
- * 用法：
- *   import journey from '@/utils/journeyTracker'
- *   journey.track('cart_viewed', { sku: 'X' })
- *   journey.identify('user_123')
- *   journey.page('产品详情')
- */
-
-const STORAGE_KEY_USER = 'journey:userId'
+const STORAGE_KEY_USER = 'journey:userId';
 const STORAGE_KEY_SESSION = 'journey:sessionId'
 const STORAGE_KEY_HISTORY = 'journey:history'
 const QUEUE_KEY = 'journey:queue'
@@ -17,16 +6,15 @@ const MAX_HISTORY = 50
 const MAX_QUEUE = 100
 const FLUSH_INTERVAL_MS = 30 * 1000
 const JOURNEY_STAGES = [
-  'visit',           // 访问
-  'browse',          // 浏览
-  'engaged',         // 互动
-  'cart_viewed',     // 加购
-  'checkout',        // 结算
-  'purchased',       // 购买
-  'retained'         // 留存
+  "visit",
+  "browse",
+  "engaged",
+  "cart_viewed",
+  "checkout",
+  "purchased",
+  "retained"
 ]
 
-// 当前用户的旅程阶段（最新事件推断）
 function inferStage(event) {
   if (['purchased', 'order_completed'].includes(event)) return 'purchased'
   if (['checkout', 'order_created'].includes(event)) return 'checkout'
@@ -108,8 +96,7 @@ async function flush() {
     await http.post('/api/customer-events/batch', { events: queue }, { _silent: true })
     saveQueue([])
   } catch (e) {
-    // 网络失败：保留队列，下次再试
-    console.debug('[journey] 事件上报失败，保留队列')
+    console.debug('[journey] 事件上报失败，保留队列');
   }
 }
 
@@ -159,13 +146,11 @@ const journey = {
       event.stage = stage
     }
 
-    // 记录历史
-    const history = loadHistory()
+    const history = loadHistory();
     history.push({ event: eventName, ts: event.occurred_at, stage })
     saveHistory(history)
 
-    // 入队
-    const queue = loadQueue()
+    const queue = loadQueue();
     queue.push(event)
     saveQueue(queue)
   },
@@ -174,7 +159,6 @@ const journey = {
     this.track('page_view', { page: name, ...properties })
   },
 
-  // 手动标记阶段（适用于后端事件同步）
   setStage(stage) {
     if (JOURNEY_STAGES.includes(stage)) this.currentStage = stage
   },

@@ -98,7 +98,6 @@ func (s *LLMScorerImpl) Evaluate(ctx context.Context, input *dto.HumanizeEvalInp
 	return final, nil
 }
 
-// buildHumanizeLLMPrompt 构建 G-Eval 风格 prompt（见 §16.2.5）
 func buildHumanizeLLMPrompt(input *dto.HumanizeEvalInput, baseline *model.ChampionBaseline) string {
 	var sb strings.Builder
 	sb.WriteString("你是一位资深销售对话质检员，正在评估 AI 销冠回复的拟人度。\n")
@@ -139,7 +138,6 @@ func buildHumanizeLLMPrompt(input *dto.HumanizeEvalInput, baseline *model.Champi
 	return sb.String()
 }
 
-// parseHumanizeEvalResult 解析 LLM 返回（兼容 ```json 包裹）
 func parseHumanizeEvalResult(content string) (*dto.HumanizeEvalResult, error) {
 	content = strings.TrimSpace(content)
 	if strings.HasPrefix(content, "```") {
@@ -181,7 +179,6 @@ func parseHumanizeEvalResult(content string) (*dto.HumanizeEvalResult, error) {
 	}, nil
 }
 
-// pickMedianResult 取 N 次结果的中位数结果（按 total_score 排序后取中间）
 func pickMedianResult(results []*dto.HumanizeEvalResult) *dto.HumanizeEvalResult {
 	if len(results) == 1 {
 		return results[0]
@@ -192,10 +189,6 @@ func pickMedianResult(results []*dto.HumanizeEvalResult) *dto.HumanizeEvalResult
 	return results[len(results)/2]
 }
 
-// weightedEuclideanDistance 加权欧氏距离
-//
-// D = sqrt(Σ w_i * (s_i - b_i)²)
-// 权重取自 dto.HumanizeDimensionWeight
 func weightedEuclideanDistance(scores []dto.HumanizeDimensionScore, baseline *model.ChampionBaseline) float64 {
 	if baseline == nil {
 		return 0
@@ -226,13 +219,6 @@ type SampleDecision struct {
 	Strategy string
 }
 
-// decideLLMSample 根据 RuleScorer 总分决定是否触发 LLM 评估
-//
-// 决策规则：
-//   - 总分 ∈ [boundaryLow, boundaryHigh) → 100% 触发（边界）
-//   - 总分 < threshold 且 < boundaryLow → 10% 采样触发
-//   - 总分 ≥ threshold → 1% 监控采样触发
-//   - 其他 → 不触发
 func decideLLMSample(ruleScore, threshold, boundaryLow, boundaryHigh, sampleRate float64, r *rand.Rand) SampleDecision {
 	if r == nil {
 		r = rand.New(rand.NewSource(time.Now().UnixNano()))

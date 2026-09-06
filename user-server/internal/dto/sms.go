@@ -97,4 +97,3 @@ type SmsJobListRequest struct {
 	Status string `form:"status" binding:"omitempty,oneof=pending running paused completed failed"`
 	Name   string `form:"name"`
 }
-

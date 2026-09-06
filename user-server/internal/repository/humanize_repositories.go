@@ -123,7 +123,7 @@ func (r *ChampionBaselineRepositoryImpl) Save(
 	if b == nil {
 		return 0, fmt.Errorf("baseline is nil")
 	}
-	// 查询当前最大版本号
+
 	var maxVersion int
 	db.GetDB().WithContext(ctx).
 		Model(&model.ChampionBaseline{}).
@@ -214,9 +214,6 @@ func (r *ABTestStatRepository) ListByExperiment(ctx context.Context, experimentI
 	return list, err
 }
 
-// generateScoreID 生成评分 ID
-//
-// 格式：hs_<unix_nano>
 func generateScoreID() string {
 	return fmt.Sprintf("hs_%d", time.Now().UnixNano())
 }

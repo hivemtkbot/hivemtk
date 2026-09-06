@@ -33,7 +33,7 @@ func (r *KnowledgeBaseRepository) CreateWithBinding(ctx context.Context, kb *mod
 		if err := tx.Create(kb).Error; err != nil {
 			return err
 		}
-		// kb 主键在插入后才生成，回填到绑定行（否则 kb_id=0，同 agent 第二个私有库触发唯一键冲突）
+
 		binding.KBID = kb.ID
 		return tx.Create(binding).Error
 	})
@@ -128,10 +128,7 @@ func (r *KnowledgeBaseRepository) ListByAgent(ctx context.Context, agentID uint)
 	if agentID == 0 {
 		return nil, nil
 	}
-	// 用子查询: shared KB 必须在 agent_kb_bindings 中存在 (agent_id = ? AND enabled = true)
-	// SQL 语义:
-	//   owner_agent_id = ?                                    -- 私有
-	//   OR (owner_type = 'shared' AND id IN (SELECT kb_id FROM agent_kb_bindings WHERE agent_id = ? AND enabled = true))
+
 	var kbs []model.KnowledgeBase
 	subQuery := r.db.WithContext(ctx).
 		Model(&model.AgentKBBinding{}).

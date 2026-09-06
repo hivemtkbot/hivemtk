@@ -59,7 +59,6 @@ func TestInboxIngress_PlatformEchoAcrossDays(t *testing.T) {
 		t.Fatalf("echo 不应触发 AI, got %+v", result)
 	}
 
-	// 关键回归点：不得把平台回显误存为 inbound
 	var inboundCount int64
 	db.Model(&model.MessageHub{}).
 		Where("platform=? AND conversation_id=? AND direction='inbound' AND content=?", platform, conv, content).
@@ -163,7 +162,6 @@ func TestInboxIngress_PlatformEchoTextModified(t *testing.T) {
 		t.Fatalf("微调文本应视为新客户消息(accepted+trigger AI), got %+v", result)
 	}
 
-	// 微调文本应入库为 inbound
 	var inboundCount int64
 	db.Model(&model.MessageHub{}).
 		Where("platform=? AND conversation_id=? AND direction='inbound' AND content=?", platform, conv, reported).

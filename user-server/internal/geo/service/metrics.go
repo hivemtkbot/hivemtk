@@ -56,11 +56,9 @@ var (
 	caseSignalRe   = regexp.MustCompile(`案例[：:][^，。；\n]{5,100}|例如[^，。；\n]{5,100}|以[^，。；\n]{2,30}为例`)
 	brandMentionRe = regexp.MustCompile(`\b[A-Z][a-zA-Z0-9]{2,20}\b`)
 
-	// brandReCache 品牌提及正则缓存（按 brand 缓存，避免热路径每次 MustCompile）
-	brandReCache sync.Map // map[string]*regexp.Regexp
+	brandReCache sync.Map
 )
 
-// brandRegex 返回品牌匹配正则（带缓存）
 func brandRegex(brand string) *regexp.Regexp {
 	if v, ok := brandReCache.Load(brand); ok {
 		return v.(*regexp.Regexp)

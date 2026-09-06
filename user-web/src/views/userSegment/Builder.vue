@@ -60,11 +60,7 @@
 </template>
 
 <script setup>
-/**
- * 动态分群构建器（USR-CM-03）
- * 借鉴：Mixpanel / Amplitude Cohort Builder
- */
-import { ref, reactive, computed, h } from 'vue'
+import { ref, reactive, computed, h } from 'vue';
 import { ElMessage } from 'element-plus'
 import { http } from '@/utils/request'
 
@@ -101,8 +97,7 @@ function removeNode(idx) {
 }
 
 function buildSQL(nodes) {
-  // 简化：把规则树编译为 SQL WHERE
-  const parts = nodes.map(compileNode).filter(Boolean)
+  const parts = nodes.map(compileNode).filter(Boolean);
   return `SELECT id, name FROM customers WHERE ${parts.join(' AND ')}`
 }
 

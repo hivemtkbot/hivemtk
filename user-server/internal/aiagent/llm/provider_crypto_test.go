@@ -6,7 +6,7 @@ import (
 	"hivemtk-user/internal/secrets"
 )
 
-const testMasterKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" // >=32B
+const testMasterKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
 // T6 验收①：secrets 就绪时——写入加密（enc:v1: 前缀）、读取还原。
 func TestProviderCrypto_RoundTrip(t *testing.T) {
@@ -89,7 +89,7 @@ func TestProviderCrypto_RowRoundTrip(t *testing.T) {
 	if !secrets.IsCiphertextFormat(row.APIKey) {
 		t.Fatalf("落库行应为 enc:v1: 格式, got %s", row.APIKey)
 	}
-	// 读取侧由 LoadProvidersFromDB 统一解密（cfg.APIKey = decryptAPIKeyForUse(...)）
+
 	if got := decryptAPIKeyForUse(row.APIKey); got != "sk-secret" {
 		t.Fatalf("读库应还原, got %s", got)
 	}

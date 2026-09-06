@@ -9,8 +9,6 @@ import (
 	"time"
 )
 
-
-
 // ToolRiskLevel 工具风险级别
 //
 // 用于反馈加权：写工具的反馈信号权重高于读工具（写操作影响持久状态，
@@ -38,21 +36,20 @@ type FeedbackSink interface {
 
 // ToolCallEvent 工具调用事件（反馈回流载荷）
 type ToolCallEvent struct {
-	ToolName   string         `json:"tool_name"`             
-	Args       map[string]any `json:"args"`                  
-	Result     ToolResult     `json:"result"`                
-	Duration   time.Duration  `json:"duration_ms"`           
-	TraceID    string         `json:"trace_id,omitempty"`    
-	SessionID  string         `json:"session_id,omitempty"`  
-	CustomerID string         `json:"customer_id,omitempty"` 
-	AgentID    string         `json:"agent_id,omitempty"`    
-	Source     string         `json:"source,omitempty"`      
-	Success    bool           `json:"success"`               
-	Error      string         `json:"error,omitempty"`       
-	RiskLevel ToolRiskLevel `json:"risk_level,omitempty"`
-	Version string `json:"version,omitempty"`
+	ToolName   string         `json:"tool_name"`
+	Args       map[string]any `json:"args"`
+	Result     ToolResult     `json:"result"`
+	Duration   time.Duration  `json:"duration_ms"`
+	TraceID    string         `json:"trace_id,omitempty"`
+	SessionID  string         `json:"session_id,omitempty"`
+	CustomerID string         `json:"customer_id,omitempty"`
+	AgentID    string         `json:"agent_id,omitempty"`
+	Source     string         `json:"source,omitempty"`
+	Success    bool           `json:"success"`
+	Error      string         `json:"error,omitempty"`
+	RiskLevel  ToolRiskLevel  `json:"risk_level,omitempty"`
+	Version    string         `json:"version,omitempty"`
 }
-
 
 // FeedbackCollectorDecorator 反馈回流装饰器
 //
@@ -116,10 +113,6 @@ func FeedbackCollectorDecorator(sink FeedbackSink) ToolDecorator {
 	}
 }
 
-// sanitizeArgsForFeedback 反馈用参数脱敏
-//
-// 与审计日志的 summarizeArgs 不同，这里保留 map 结构（便于后续分析），
-// 但对敏感字段值替换为 ***。
 func sanitizeArgsForFeedback(args map[string]any) map[string]any {
 	if len(args) == 0 {
 		return nil
@@ -140,7 +133,6 @@ func sanitizeArgsForFeedback(args map[string]any) map[string]any {
 	return out
 }
 
-
 // MemoryFeedbackSink 内存反馈接收器（用于测试 / 单机审计）
 //
 // 采用环形缓冲区（ring buffer）实现 O(1) 写入
@@ -152,11 +144,11 @@ func sanitizeArgsForFeedback(args map[string]any) map[string]any {
 // 必须加锁保护内部状态。
 type MemoryFeedbackSink struct {
 	mu      sync.Mutex
-	buf     []ToolCallEvent 
-	head    int             
-	size    int             
-	max     int             
-	dropped int64           
+	buf     []ToolCallEvent
+	head    int
+	size    int
+	max     int
+	dropped int64
 }
 
 // NewMemoryFeedbackSink 创建内存反馈接收器
@@ -197,7 +189,7 @@ func (s *MemoryFeedbackSink) Events() []ToolCallEvent {
 	out := make([]ToolCallEvent, s.size)
 	start := 0
 	if s.size == s.max {
-		start = s.head 
+		start = s.head
 	}
 	for i := 0; i < s.size; i++ {
 		out[i] = s.buf[(start+i)%s.max]
@@ -235,17 +227,16 @@ func (NoOpFeedbackSink) RecordToolCall(ctx context.Context, event ToolCallEvent)
 	return nil
 }
 
-
 // FeedbackSinkMetrics 反馈回流错误监控指标
 //
 // 通过 atomic 计数器实现无锁监控，避免反馈回流影响主链路性能
 // 调用方可通过 Metrics() 读取当前快照，用于 /metrics endpoint 暴露或告警判定
 type FeedbackSinkMetrics struct {
-	TotalAttempts  atomic.Int64 
-	SuccessCount   atomic.Int64 
-	FailureCount   atomic.Int64 
-	TimeoutCount   atomic.Int64 
-	LastFailureMsg atomic.Value 
+	TotalAttempts  atomic.Int64
+	SuccessCount   atomic.Int64
+	FailureCount   atomic.Int64
+	TimeoutCount   atomic.Int64
+	LastFailureMsg atomic.Value
 }
 
 // Snapshot 返回指标快照（用于 /metrics 暴露或日志输出）
@@ -254,7 +245,7 @@ type FeedbackSinkMetricsSnapshot struct {
 	SuccessCount   int64
 	FailureCount   int64
 	TimeoutCount   int64
-	FailureRate    float64 
+	FailureRate    float64
 	LastFailureMsg string
 }
 
@@ -328,4 +319,3 @@ func (s *MonitoredFeedbackSink) RecordToolCall(ctx context.Context, event ToolCa
 func (s *MonitoredFeedbackSink) Metrics() *FeedbackSinkMetrics {
 	return &s.metrics
 }
-

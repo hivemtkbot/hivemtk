@@ -30,7 +30,7 @@ type Material struct {
 	Hash        string            `gorm:"type:varchar(64);index" json:"hash"`
 	Width       int               `gorm:"" json:"width"`
 	Height      int               `gorm:"" json:"height"`
-	Duration    int               `gorm:"" json:"duration"` 
+	Duration    int               `gorm:"" json:"duration"`
 	Provider    string            `gorm:"type:varchar(50)" json:"provider"`
 	StoragePath string            `gorm:"type:varchar(500)" json:"storage_path"`
 
@@ -111,4 +111,3 @@ func (c *MaterialCategory) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
-

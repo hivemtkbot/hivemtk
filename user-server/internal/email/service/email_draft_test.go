@@ -15,7 +15,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupEmailDraftServiceTestDB 设置邮件草稿服务测试数据库
 func setupEmailDraftServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.EmailDraft{},
@@ -24,7 +23,6 @@ func setupEmailDraftServiceTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// newTestEmailDraftRepository 创建测试仓库
 func newTestEmailDraftRepository(database *gorm.DB) repository.EmailDraftRepository {
 	return repository.NewEmailDraftRepository()
 }
@@ -70,7 +68,6 @@ func TestEmailDraftService_CreateEmailDraft(t *testing.T) {
 		t.Errorf("Expected attachments '%s', got %s", draft.Attachments, createdDraft.Attachments)
 	}
 
-	// 验证草稿已保存到数据库
 	var count int64
 	database.Model(&model.EmailDraft{}).Where("subject = ?", "测试邮件主题").Count(&count)
 	if count != 1 {
@@ -174,7 +171,7 @@ func TestEmailDraftService_GetEmailDraftList(t *testing.T) {
 			Attachments: "",
 		}
 		database.Create(draft)
-		time.Sleep(10 * time.Millisecond) 
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	drafts, err := service.GetEmailDraftList(context.Background())
@@ -231,7 +228,6 @@ func TestEmailDraftService_UpdateEmailDraft(t *testing.T) {
 		t.Fatalf("UpdateEmailDraft failed: %v", err)
 	}
 
-	// 验证更新
 	var updatedDraft model.EmailDraft
 	database.First(&updatedDraft, draft.ID)
 	if updatedDraft.Subject != "新主题" {
@@ -281,14 +277,12 @@ func TestEmailDraftService_DeleteEmailDraft(t *testing.T) {
 		t.Fatalf("DeleteEmailDraft failed: %v", err)
 	}
 
-	// 验证软删除（使用 Unscoped 检查 deleted_at）
 	var deletedAt *time.Time
 	database.Unscoped().Model(&model.EmailDraft{}).Where("id = ?", draft.ID).Select("deleted_at").Scan(&deletedAt)
 	if deletedAt == nil {
 		t.Error("Expected draft to be soft-deleted (deleted_at should be set)")
 	}
 
-	// 验证正常查询无法获取
 	var count int64
 	database.Model(&model.EmailDraft{}).Where("id = ?", draft.ID).Count(&count)
 	if count != 0 {
@@ -443,4 +437,3 @@ func TestEmailDraftService_SpecialCharacters(t *testing.T) {
 		t.Errorf("Content with special characters mismatch")
 	}
 }
-

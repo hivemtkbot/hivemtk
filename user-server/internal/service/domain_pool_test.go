@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupDomainPoolServiceTestDB 设置域名池服务测试数据库
 func setupDomainPoolServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.DomainPool{},
@@ -535,7 +534,6 @@ func TestDomainPoolService_CheckAllDomains_VerifyLastCheck(t *testing.T) {
 	_, _ = service.CheckAllDomains(context.Background())
 	afterCheck := time.Now()
 
-	// 验证所有记录的 LastCheck 都被更新
 	var pools []*model.DomainPool
 	database.Find(&pools)
 

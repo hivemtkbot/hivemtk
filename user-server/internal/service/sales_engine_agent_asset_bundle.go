@@ -16,7 +16,6 @@ type AssetBundleResolver interface {
 	ResolveSystemPrompt(ctx context.Context, assetBundleID string) (string, error)
 }
 
-// 全局解析器单例（由 main.go 装配时注入）
 var (
 	assetBundleResolverForSalesEngine AssetBundleResolver
 	assetBundleResolverMu             sync.RWMutex
@@ -38,17 +37,6 @@ func GetAssetBundleResolver() AssetBundleResolver {
 	return assetBundleResolverForSalesEngine
 }
 
-// resolveAssetBundlePersona 解析资产包人设话术
-//
-// 调用时机：SalesEngine.HandleWithAgent 在覆盖 req.Config 之前
-// 行为：
-//   - agentCtx == nil → 返回空
-//   - assetBundleID == "" → 返回空（未绑定资产包）
-//   - resolver == nil → 返回空（未注入解析器，安全降级）
-//   - resolver.ResolveSystemPrompt 失败 → 记录日志，返回空（降级沿用原人设）
-//   - 成功 → 返回资产包 system prompt
-//
-// 调用方应根据返回值决定是否覆盖 agentCtx.Persona / SystemPrompt
 func resolveAssetBundlePersona(ctx context.Context, agentCtx *dto.AgentContext, resolver AssetBundleResolver) string {
 	if agentCtx == nil || agentCtx.AssetBundleID == "" {
 		return ""

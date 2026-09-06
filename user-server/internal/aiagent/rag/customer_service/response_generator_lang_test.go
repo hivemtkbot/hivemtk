@@ -19,7 +19,7 @@ func TestDetectLangCode(t *testing.T) {
 		{"สวัสดีค่ะ สอบถามออเดอร์", "th"},
 		{"Привет, где мой заказ", "ru"},
 		{"Xin chào, đơn hàng của tôi đâu", "vi"},
-		{"Hello, where is my order", ""}, 
+		{"Hello, where is my order", ""},
 		{"ok", ""},
 		{"", ""},
 	}
@@ -47,4 +47,3 @@ func TestResolveTargetLang(t *testing.T) {
 		t.Errorf("resolveTargetLang = %q, want zh", got)
 	}
 }
-

@@ -7,7 +7,7 @@
     :aria-live="state === 'error' ? 'assertive' : 'polite'"
     :aria-busy="state === 'loading' ? 'true' : 'false'"
   >
-    <!-- 加载态 -->
+    
     <template v-if="state === 'loading'">
       <div v-if="loadingIcon === 'spinner'" class="page-state__spinner" :style="spinnerStyle" aria-hidden="true"></div>
       <el-icon v-else-if="loadingIcon" :size="iconSize" class="is-loading" aria-hidden="true">
@@ -16,7 +16,7 @@
       <p v-if="loadingText" class="page-state__text">{{ loadingText }}</p>
     </template>
 
-    <!-- 错误态 -->
+    
     <template v-else-if="state === 'error'">
       <el-icon v-if="!hideIcon" :size="iconSize" class="page-state__icon page-state__icon--error" aria-hidden="true">
         <CircleCloseFilled />
@@ -28,7 +28,7 @@
       </el-button>
     </template>
 
-    <!-- 空态 -->
+    
     <template v-else-if="state === 'empty'">
       <el-icon v-if="!hideIcon && emptyIcon" :size="iconSize" class="page-state__icon page-state__icon--empty" aria-hidden="true">
         <component :is="emptyIcon" />
@@ -38,7 +38,7 @@
       <slot name="action" />
     </template>
 
-    <!-- 通用自定义内容 slot -->
+    
     <slot v-if="state === 'custom'" />
   </div>
 </template>
@@ -50,25 +50,20 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
 const props = defineProps({
-  // loading | error | empty | custom
   state: {
     type: String,
     default: 'loading',
     validator: (v) => ['loading', 'error', 'empty', 'custom'].includes(v),
   },
-  // 加载态
   loadingText: { type: String, default: '' },
   loadingIcon: { type: [String, Object, Function], default: 'spinner' },
-  // 错误态
   errorTitle: { type: String, default: '' },
   errorText: { type: String, default: '' },
   showRetry: { type: Boolean, default: true },
   retryText: { type: String, default: '' },
-  // 空态
   emptyTitle: { type: String, default: '' },
   emptyText: { type: String, default: '' },
   emptyIcon: { type: [String, Object, Function], default: 'Box' },
-  // 通用
   hideIcon: { type: Boolean, default: false },
   iconSize: { type: Number, default: 48 },
   buttonSize: { type: String, default: 'default' },

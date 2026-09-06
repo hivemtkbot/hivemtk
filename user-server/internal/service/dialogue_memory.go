@@ -26,12 +26,12 @@ import (
 // 五层架构修复：service 层不再持有 *gorm.DB，由 repository 层封装所有 DB 操作。
 type DialogueMemoryService struct {
 	repo       repository.DialogueMemoryRepository
-	ms         *MemorySystem // M-3：统一记忆系统写入目标
+	ms         *MemorySystem
 	dispatcher *llm.Dispatcher
 
 	mu     sync.Mutex
-	sumBuf map[string][]string // sessionID -> 待摘要缓冲（消息文本）
-	sumDup map[string]int      // sessionID -> 近似重复累计次数（M-1 recurrence）
+	sumBuf map[string][]string
+	sumDup map[string]int
 }
 
 const (
@@ -39,9 +39,9 @@ const (
 	shortTermMsgMaxLen = 1500
 	memoryTTL          = 30 * 24 * time.Hour
 
-	summaryBufferMax     = 12  // M-1：缓冲满触发摘要
-	summaryDupTrigger    = 2   // M-1：相似重复达到该次数即触发摘要
-	summaryJaccardThresh = 0.6 // M-1：关键词 Jaccard 判重阈值
+	summaryBufferMax     = 12
+	summaryDupTrigger    = 2
+	summaryJaccardThresh = 0.6
 )
 
 // NewDialogueMemoryService 创建对话记忆服务
@@ -55,7 +55,7 @@ func NewDialogueMemoryService(db *gorm.DB, dispatcher *llm.Dispatcher) *Dialogue
 	}
 	if db != nil {
 		svc.repo = repository.NewDialogueMemoryRepositoryWithDB(db)
-		// M-3：适配到统一的 4 层记忆系统（L1/L2/向量 L2 共库）
+
 		svc.ms = &MemorySystem{
 			memoryRepo:   repository.NewMemoryRepositoryWithDB(db),
 			embeddingSvc: llm.NewEmbeddingService(),
@@ -109,13 +109,10 @@ func (s *DialogueMemoryService) AppendMessage(ctx context.Context, sessionID, cu
 		mem.LastAction = truncate(msg.Content, 100)
 	}
 
-	// M-3：短期消息双写统一记忆系统 L1
 	if s.ms != nil && msg.Content != "" {
 		_ = s.ms.L1Append(ctx, sessionID, customerID, msg.Role, msg.Content)
 	}
 
-	// M-1：摘要触发改 recurrence（关键词 Jaccard 判重 + 缓冲满触发），
-	// 替代原"每 5 条固定摘要"的 token 浪费模式
 	if s.dispatcher != nil && msg.Content != "" {
 		s.offerSummary(ctx, mem, customerID, msg.Content)
 	}
@@ -313,10 +310,6 @@ func (s *DialogueMemoryService) BuildContext(ctx context.Context, sessionID, cus
 	return sb.String(), nil
 }
 
-// offerSummary M-1：摘要触发改 recurrence（修正版，零额外 embedding 调用）
-//   - 新消息与缓冲区已有消息做关键词 Jaccard>=0.6 判重，重复累计 >=2 次触发摘要
-//   - 或缓冲区满 summaryBufferMax 条触发摘要
-//   - 触发后清空缓冲并调用 LLM 摘要
 func (s *DialogueMemoryService) offerSummary(ctx context.Context, mem *model.DialogueMemory, customerID, content string) bool {
 	s.mu.Lock()
 	buf := s.sumBuf[mem.SessionID]
@@ -346,11 +339,8 @@ func (s *DialogueMemoryService) offerSummary(ctx context.Context, mem *model.Dia
 	return true
 }
 
-// isCJK 判断是否 CJK 字符（用于中文 2-gram 切分）
 func isCJK(r rune) bool { return r >= 0x2E80 }
 
-// tokenizeKeywords 轻量关键词切分（M-1 修正版廉价判重，不做 embedding）：
-// 中文连续段按 2-gram、英文/数字按连续词元提取，全部转小写。
 func tokenizeKeywords(s string) map[string]struct{} {
 	tokens := map[string]struct{}{}
 	runes := []rune(strings.ToLower(s))
@@ -392,7 +382,6 @@ func tokenizeKeywords(s string) map[string]struct{} {
 	return tokens
 }
 
-// keywordJaccard 两段文本的关键词 Jaccard 相似度 [0,1]
 func keywordJaccard(a, b string) float64 {
 	ta, tb := tokenizeKeywords(a), tokenizeKeywords(b)
 	if len(ta) == 0 || len(tb) == 0 {
@@ -411,8 +400,6 @@ func keywordJaccard(a, b string) float64 {
 	return float64(inter) / float64(union)
 }
 
-// updateLongTermSummary 更新长期摘要（M-1：失败重试 1 次 + 错误日志，修复原静默 return；
-// 成功后经 routeSummaryToMemorySystem 统一写入 MemorySystem（M-3））
 func (s *DialogueMemoryService) updateLongTermSummary(ctx context.Context, mem *model.DialogueMemory, customerID string, batch []string) {
 	if s.dispatcher == nil || len(batch) == 0 {
 		return
@@ -472,8 +459,6 @@ func (s *DialogueMemoryService) updateLongTermSummary(ctx context.Context, mem *
 	s.routeSummaryToMemorySystem(ctx, customerID, parsed.Summary, parsed.KeyFacts)
 }
 
-// routeSummaryToMemorySystem M-3：摘要结果统一经 MemorySystem.Remember 写入 L2
-// （享受向量召回 + M-2 去重合并）；embedding 不可用时降级 L2SaveSummary/L2SaveFact 兜底。
 func (s *DialogueMemoryService) routeSummaryToMemorySystem(ctx context.Context, customerID, summary string, keyFacts map[string]string) {
 	if s.ms == nil || customerID == "" || summary == "" {
 		return
@@ -492,7 +477,6 @@ func (s *DialogueMemoryService) routeSummaryToMemorySystem(ctx context.Context, 
 	}
 }
 
-// syncKeyFactsToMemorySystem M-3：UpdateKeyFacts 同步委托到 MemorySystem L2
 func (s *DialogueMemoryService) syncKeyFactsToMemorySystem(ctx context.Context, customerID string, facts map[string]string) {
 	if s.ms == nil || customerID == "" || len(facts) == 0 {
 		return
@@ -508,7 +492,6 @@ func (s *DialogueMemoryService) syncKeyFactsToMemorySystem(ctx context.Context, 
 	}
 }
 
-// syncObjectionToMemorySystem M-3：RecordObjection 同步委托到 MemorySystem L4
 func (s *DialogueMemoryService) syncObjectionToMemorySystem(ctx context.Context, customerID, objectionType, content string) {
 	if s.ms == nil || customerID == "" || objectionType == "" {
 		return
@@ -518,7 +501,6 @@ func (s *DialogueMemoryService) syncObjectionToMemorySystem(ctx context.Context,
 		map[string]any{"objection_meta": string(meta)})
 }
 
-// syncPurchaseIntentToMemorySystem M-3：UpdatePurchaseIntent 同步委托到 MemorySystem L4
 func (s *DialogueMemoryService) syncPurchaseIntentToMemorySystem(ctx context.Context, customerID, level string) {
 	if s.ms == nil || customerID == "" {
 		return
@@ -526,7 +508,6 @@ func (s *DialogueMemoryService) syncPurchaseIntentToMemorySystem(ctx context.Con
 	_ = s.ms.L4Record(ctx, customerID, "intent", "购买意向="+level, level, 8, nil)
 }
 
-// 全局实例
 var (
 	dialogueMemoryOnce sync.Once
 	dialogueMemory     *DialogueMemoryService

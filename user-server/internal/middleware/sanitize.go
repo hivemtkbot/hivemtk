@@ -19,7 +19,6 @@ type PIIRule struct {
 	Kind       string
 }
 
-// 预定义脱敏规则
 var (
 	phoneRe    = regexp.MustCompile(`1[3-9]\d{9}`)
 	emailRe    = regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
@@ -27,6 +26,7 @@ var (
 	bankcardRe = regexp.MustCompile(`\b\d{16,19}\b`)
 	tokenRe    = regexp.MustCompile(`\b[A-Za-z0-9_-]{30,}\b`)
 )
+
 // DEFAULT_PII_RULES 默认脱敏规则
 var DEFAULT_PII_RULES = []PIIRule{
 	{
@@ -87,7 +87,6 @@ var DEFAULT_PII_RULES = []PIIRule{
 	},
 }
 
-
 // SanitizeString 对字符串做内容级脱敏（手机/邮箱/身份证/银行卡/token）
 // 返回脱敏后的字符串
 func SanitizeString(s string) string {
@@ -121,7 +120,7 @@ func SanitizeJSON(data []byte) []byte {
 	if len(data) == 0 {
 		return data
 	}
-	// 尝试解析为 JSON object
+
 	var v any
 	if err := json.Unmarshal(data, &v); err != nil {
 		return []byte(SanitizeString(string(data)))
@@ -133,7 +132,7 @@ func SanitizeJSON(data []byte) []byte {
 	}
 	return out
 }
-// sanitizeValue 单一字段的脱敏（考虑字段名 + 值类型）
+
 func sanitizeValue(key string, val any) any {
 	lowerKey := strings.ToLower(key)
 	for _, rule := range DEFAULT_PII_RULES {
@@ -161,7 +160,6 @@ func sanitizeValue(key string, val any) any {
 	return val
 }
 
-// sanitizeJSONValue 处理 JSON 解码后的值（key 可能为空）
 func sanitizeJSONValue(key string, val any) any {
 	if m, ok := val.(map[string]any); ok {
 		out := make(map[string]any, len(m))
@@ -185,7 +183,6 @@ func toString(v any) string {
 	}
 	return ""
 }
-
 
 // SanitizeConfig 脱敏配置
 type SanitizeConfig struct {
@@ -230,7 +227,6 @@ func isJSONContentType(ct string) bool {
 	return strings.Contains(strings.ToLower(ct), "application/json")
 }
 
-
 var _bufPool = sync.Pool{
 	New: func() any {
 		return new(bytes.Buffer)
@@ -242,7 +238,7 @@ func SanitizeJSONPooled(data []byte) []byte {
 	buf := _bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	defer _bufPool.Put(buf)
-	// 简易实现：先 unmarshal 再 marshal
+
 	var v any
 	if err := json.Unmarshal(data, &v); err != nil {
 		return []byte(SanitizeString(string(data)))

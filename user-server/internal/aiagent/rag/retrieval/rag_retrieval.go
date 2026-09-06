@@ -15,10 +15,10 @@ import (
 type RagRetrievalServiceImpl struct {
 	vectorizer VectorizerInterface
 	indexer    IndexManagerInterface
-	storage    StorageInterface 
-	cache      CacheInterface   
+	storage    StorageInterface
+	cache      CacheInterface
 	config     *RetrievalConfig
-	reranker   RerankerInterface 
+	reranker   RerankerInterface
 }
 
 // StorageInterface 存储接口
@@ -42,15 +42,15 @@ type CacheInterface interface {
 
 // RetrievalConfig 检索配置
 type RetrievalConfig struct {
-	DefaultTopK                int           `json:"default_top_k"`                
-	DefaultSimilarityThreshold float64       `json:"default_similarity_threshold"` 
-	MaxTopK                    int           `json:"max_top_k"`                    
-	MinSimilarityThreshold     float64       `json:"min_similarity_threshold"`     
-	CacheTTL                   time.Duration `json:"cache_ttl"`                    
-	MaxChunkSize               int           `json:"max_chunk_size"`               
-	DefaultChunkOverlap        int           `json:"default_chunk_overlap"`        
-	MaxQueryLength             int           `json:"max_query_length"`             
-	MaxDocLength               int           `json:"max_doc_length"`               
+	DefaultTopK                int           `json:"default_top_k"`
+	DefaultSimilarityThreshold float64       `json:"default_similarity_threshold"`
+	MaxTopK                    int           `json:"max_top_k"`
+	MinSimilarityThreshold     float64       `json:"min_similarity_threshold"`
+	CacheTTL                   time.Duration `json:"cache_ttl"`
+	MaxChunkSize               int           `json:"max_chunk_size"`
+	DefaultChunkOverlap        int           `json:"default_chunk_overlap"`
+	MaxQueryLength             int           `json:"max_query_length"`
+	MaxDocLength               int           `json:"max_doc_length"`
 }
 
 // ChunkStrategy 分片策略接口
@@ -63,10 +63,10 @@ type SemanticChunkStrategy struct{}
 
 // ChunkConfig 分片配置
 type ChunkConfig struct {
-	ChunkSize    int    `json:"chunk_size"`     
-	ChunkOverlap int    `json:"chunk_overlap"`  
-	MinChunkSize int    `json:"min_chunk_size"` 
-	Strategy     string `json:"strategy"`       
+	ChunkSize    int    `json:"chunk_size"`
+	ChunkOverlap int    `json:"chunk_overlap"`
+	MinChunkSize int    `json:"min_chunk_size"`
+	Strategy     string `json:"strategy"`
 }
 
 // NewRagRetrievalService 创建新的RAG检索服务
@@ -228,7 +228,6 @@ func (r *RagRetrievalServiceImpl) Search(ctx context.Context, kbID string, query
 		rankedChunks = rankedChunks[:params.TopK]
 	}
 
-	// 7. 转换为SearchResult
 	var results []SearchResult
 	for _, chunk := range rankedChunks {
 		doc, err := r.storage.GetDocument(ctx, kbID, chunk.DocumentID)
@@ -294,7 +293,6 @@ func (r *RagRetrievalServiceImpl) DeleteDocumentFromKB(ctx context.Context, kbID
 	if err != nil {
 		return fmt.Errorf("document not found: %w", err)
 	}
-
 
 	allDocs, err := r.storage.ListDocuments(ctx, kbID)
 	if err != nil {
@@ -368,9 +366,9 @@ func (r *RagRetrievalServiceImpl) UpdateDocumentInKB(ctx context.Context, kbID, 
 	}
 
 	updatedDoc := document
-	updatedDoc.ID = docID                        
-	updatedDoc.CreatedAt = existingDoc.CreatedAt 
-	updatedDoc.UpdatedAt = time.Now()            
+	updatedDoc.ID = docID
+	updatedDoc.CreatedAt = existingDoc.CreatedAt
+	updatedDoc.UpdatedAt = time.Now()
 
 	err = r.IndexDocuments(ctx, kbID, []Document{updatedDoc})
 	if err != nil {
@@ -425,7 +423,6 @@ func (r *RagRetrievalServiceImpl) CreateKnowledgeBase(ctx context.Context, kbInf
 	return nil
 }
 
-// preprocessDocuments 预处理文档
 func (r *RagRetrievalServiceImpl) preprocessDocuments(docs []Document) ([]Document, error) {
 	processed := make([]Document, len(docs))
 
@@ -453,21 +450,20 @@ func (r *RagRetrievalServiceImpl) preprocessDocuments(docs []Document) ([]Docume
 	return processed, nil
 }
 
-// createChunks 创建文档分片
 func (r *RagRetrievalServiceImpl) createChunks(docs []Document) []Chunk {
 	var allChunks []Chunk
 
 	strategy := &SemanticChunkStrategy{}
 	chunkSize := r.config.MaxChunkSize
 	if chunkSize <= 0 {
-		chunkSize = 1000 
+		chunkSize = 1000
 	}
 	overlap := r.config.DefaultChunkOverlap
 	if overlap < 0 {
 		overlap = 0
 	}
 	if overlap >= chunkSize {
-		overlap = chunkSize / 10 
+		overlap = chunkSize / 10
 	}
 	config := ChunkConfig{
 		ChunkSize:    chunkSize,
@@ -510,7 +506,7 @@ func (s *SemanticChunkStrategy) CreateChunks(doc Document, config ChunkConfig) [
 		chunks = append(chunks, chunk)
 
 		start = actualEnd - config.ChunkOverlap
-		if start < actualEnd { 
+		if start < actualEnd {
 			start = actualEnd
 		}
 
@@ -522,7 +518,6 @@ func (s *SemanticChunkStrategy) CreateChunks(doc Document, config ChunkConfig) [
 	return chunks
 }
 
-// findSemanticBoundary 寻找语义边界
 func (s *SemanticChunkStrategy) findSemanticBoundary(content string, start, suggestedEnd int) int {
 	if suggestedEnd >= len(content) {
 		return len(content)
@@ -550,18 +545,15 @@ func (s *SemanticChunkStrategy) findSemanticBoundary(content string, start, sugg
 	return suggestedEnd
 }
 
-// isSentenceBoundary 检查是否为句子边界
 func isSentenceBoundary(char byte) bool {
 	return char == '.' || char == '!' || char == '?' || char == ';' || char == ':'
 }
 
-// estimateTokenCount 估算token数量
 func estimateTokenCount(text string) int {
 	words := strings.Fields(text)
 	return len(words)
 }
 
-// filterResults 过滤结果
 func (r *RagRetrievalServiceImpl) filterResults(chunks []Chunk, filters map[string]any, threshold float64) []Chunk {
 	if len(filters) == 0 && threshold <= 0 {
 		return chunks
@@ -583,7 +575,6 @@ func (r *RagRetrievalServiceImpl) filterResults(chunks []Chunk, filters map[stri
 	return filtered
 }
 
-// matchFilters 检查是否匹配过滤器
 func (r *RagRetrievalServiceImpl) matchFilters(chunk Chunk, filters map[string]any) bool {
 	if len(filters) == 0 {
 		return true
@@ -598,7 +589,6 @@ func (r *RagRetrievalServiceImpl) matchFilters(chunk Chunk, filters map[string]a
 	return true
 }
 
-// checkFilterMatch 检查单个过滤器匹配
 func (r *RagRetrievalServiceImpl) checkFilterMatch(chunk Chunk, key string, value any) bool {
 	if metadataValue, exists := chunk.Metadata[key]; exists {
 		switch v := value.(type) {
@@ -620,7 +610,6 @@ func (r *RagRetrievalServiceImpl) checkFilterMatch(chunk Chunk, key string, valu
 	return false
 }
 
-// rankResults 排序结果
 func (r *RagRetrievalServiceImpl) rankResults(chunks []Chunk, query string) []Chunk {
 
 	sorted := make([]Chunk, len(chunks))
@@ -637,7 +626,6 @@ func (r *RagRetrievalServiceImpl) rankResults(chunks []Chunk, query string) []Ch
 	return sorted
 }
 
-// calculateConfidence 计算置信度
 func (r *RagRetrievalServiceImpl) calculateConfidence(similarityScore float64) float64 {
 	if similarityScore >= 1.0 {
 		return 1.0
@@ -659,7 +647,5 @@ func (r *RagRetrievalServiceImpl) calculateConfidence(similarityScore float64) f
 	return confidence
 }
 
-// clearCacheForKB 清除知识库相关缓存
 func (r *RagRetrievalServiceImpl) clearCacheForKB(kbID string) {
 }
-

@@ -11,10 +11,6 @@ import (
 	"hivemtk-user/internal/pkg/featureflag"
 )
 
-// withLayer1Flag 临时设置 FF_LAYER1 的值, 测试结束恢复
-//
-// 注意: featureflag.Bool() 返回的是缓存值(由后台 poller 5s 刷新),
-// 单测需要立刻生效, 这里显式调用 ReloadAll() 强制重读 env。
 func withLayer1Flag(t *testing.T, val string) {
 	t.Helper()
 	prev, hadPrev := os.LookupEnv("FF_LAYER1")
@@ -34,8 +30,6 @@ func withLayer1Flag(t *testing.T, val string) {
 	})
 }
 
-// mockFAQRepo 用于单元测试的 FAQ mock
-// 实现 FAQMatcher 接口, 不需要真实 DB
 type mockFAQRepo struct {
 	entries []model.FAQEntry
 	err     error
@@ -52,7 +46,6 @@ func (m *mockFAQRepo) MatchByKeyword(ctx context.Context, msg string, topK int) 
 	return m.entries[:topK], nil
 }
 
-// MatchByAgent 简单按 msg 包含 question 关键字匹配 (满足 FAQMatcher 接口)
 func (m *mockFAQRepo) MatchByAgent(ctx context.Context, agentID uint, msg string, topK int) ([]model.FAQEntry, error) {
 	if m.err != nil {
 		return nil, m.err
@@ -88,7 +81,6 @@ func (m *mockFAQRepo) IncrementHitCount(ctx context.Context, id uint) error {
 	return nil
 }
 
-// newMockFAQRepoWithEntry 构造一个包含单个高分 FAQ 的 mock
 func newMockFAQRepoWithEntry(question, answer, intent string, confidence float64) *mockFAQRepo {
 	enabled := true
 	return &mockFAQRepo{

@@ -79,7 +79,6 @@ func InitCron() {
 		panic(err)
 	}
 
-	// G10: 离线消息回扫 - 每 5 分钟扫描 bridge_metrics 发现离线渠道并回扫累积消息
 	_, err = mgr.AddTask("0 */5 * * * *", func() {
 		go service.NewBridgeOfflineReplayService().RunOnce(context.Background())
 	})
@@ -88,7 +87,6 @@ func InitCron() {
 		panic(err)
 	}
 
-	// G14: 工单升级/转派链 - 每 5 分钟扫描未解决会话执行规则链
 	_, err = mgr.AddTask("5 */5 * * * *", func() {
 		go service.NewHandoffChainService().RunCron(context.Background(), 200)
 	})
@@ -97,12 +95,8 @@ func InitCron() {
 		panic(err)
 	}
 
-	// GEO: 四个定时任务统一注册（SOV 刷新 / 负面监控 / 信源同步 / 竞品爬虫）。
-	// 调度周期持久化于 geo_config.cron_specs，可经管理端 /geo/jobs API 调整；
-	// 执行互斥、超时、panic 恢复与运行历史（geo_job_runs）由 geoservice.JobManager 统一处理。
 	geoservice.SetupGeoJobs(mgr)
 
-	// [Backup] 每日自动备份 — 每天凌晨 03:05（避开 GEO SourceCatalogSync 03:00 资源争抢）
 	_, err = mgr.AddTask("0 5 3 * * *", func() {
 		go service.RunDailyBackup()
 	})
@@ -140,8 +134,6 @@ func LiveCodeRotateCron() {
 
 	logger.Info("活码轮询定时任务执行完成")
 }
-
-
 
 // PasswordResetTokenCleanupCron 密码重置令牌清理定时任务
 func PasswordResetTokenCleanupCron() {

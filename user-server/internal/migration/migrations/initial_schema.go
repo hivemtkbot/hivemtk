@@ -44,7 +44,6 @@ func (m *InitialSchemaMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// Ensure InitialSchemaMigration implements Migration interface
 var _ migration.Migration = (*InitialSchemaMigration)(nil)
 
 // MarketingFlowSchemaMigration 营销自动化迁移(原 V130Migration 重命名)
@@ -193,4 +192,3 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	register(NewAgentCheckpointMigration(db))
 	register(NewChurnScoreMigration(db))
 }
-

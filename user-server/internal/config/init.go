@@ -35,4 +35,3 @@ func GetEnvDir() string {
 	}
 	return envDir
 }
-

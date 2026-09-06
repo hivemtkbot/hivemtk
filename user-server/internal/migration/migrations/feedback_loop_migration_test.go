@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -12,20 +11,13 @@ import (
 	"gorm.io/gorm"
 )
 
-// 编译时接口断言：FeedbackLoopMigration 实现 migration.Migration 接口
 var _ migration.Migration = (*FeedbackLoopMigration)(nil)
 
-// setupFeedbackLoopMigrationTestDB 创建迁移测试 DB（空库）
 func setupFeedbackLoopMigrationTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	return testutil.NewTestDB(t)
 }
 
-// dropDependencyTables 清理 sop_agents / script_templates 残留
-//
-// 同进程多测试共享 user_db_test_<pid>，service 包测试可能已创建这两张表
-// （含 scenario NOT NULL / category NOT NULL 等约束）。
-// 本辅助 DROP 后由具体测试用例按需重新 CREATE，保证 schema 隔离。
 func dropDependencyTables(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	_ = db.Exec(`DROP TABLE IF EXISTS sop_agents, script_templates CASCADE`).Error
@@ -196,7 +188,6 @@ func TestFeedbackLoopMigration_UpThenDownThenUp(t *testing.T) {
 		t.Fatalf("second Up() after Down() failed: %v", err)
 	}
 
-	// 验证表存在
 	var exists bool
 	_ = db.Raw(`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'feedback_events')`).Scan(&exists)
 	if !exists {
@@ -412,7 +403,6 @@ func TestFeedbackLoopMigration_SOPAgentsUseBanditColumn(t *testing.T) {
 		t.Fatalf("Up() failed: %v", err)
 	}
 
-	// 验证 use_bandit 列存在
 	var hasColumn bool
 	_ = db.Raw(`SELECT EXISTS (
 		SELECT 1 FROM information_schema.columns
@@ -533,4 +523,3 @@ func TestFeedbackLoopMigration_BanditArmsUniqueConstraint(t *testing.T) {
 		t.Logf("唯一约束生效, 拒绝重复插入: %v", err)
 	}
 }
-

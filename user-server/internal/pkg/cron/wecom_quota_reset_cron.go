@@ -19,7 +19,6 @@ import (
 type WeComQuotaResetCron struct {
 	svc *service.WeComAccountHealthService
 
-	// executeFn 单次执行入口（默认 svc.ResetAllDailyQuotas；测试可注入 mock）
 	executeFn func(ctx context.Context) (int64, error)
 
 	stop      chan struct{}
@@ -79,7 +78,6 @@ func (c *WeComQuotaResetCron) loop(ctx context.Context) {
 	}
 }
 
-// runOnce 单次执行（panic 隔离，供测试直接调用调度触发逻辑）
 func (c *WeComQuotaResetCron) runOnce(ctx context.Context) (n int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -93,8 +91,6 @@ func (c *WeComQuotaResetCron) runOnce(ctx context.Context) (n int64, err error) 
 	return fn(ctx)
 }
 
-// nextDailyTick 计算 now 之后最近的每日 hour:minute（loc 时区）触发点；
-// 若今日该时刻尚未过去则返回今日时刻（首次启动即补跑当日窗口）。
 func nextDailyTick(now time.Time, hour, minute int, loc *time.Location) time.Time {
 	n := now.In(loc)
 	next := time.Date(n.Year(), n.Month(), n.Day(), hour, minute, 0, 0, loc)

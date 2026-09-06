@@ -498,4 +498,3 @@ func TestTemplateService_GenerateDouyinCardPage_AllFields(t *testing.T) {
 		}
 	}
 }
-

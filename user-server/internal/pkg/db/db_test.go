@@ -73,7 +73,6 @@ func TestDB_PostgresConnection(t *testing.T) {
 		DB = originalDB
 	}()
 
-	// Verify we can use the database
 	var result int
 	if err := testDB.Raw("SELECT 1").Scan(&result).Error; err != nil {
 		t.Errorf("Failed to execute simple query: %v", err)
@@ -98,4 +97,3 @@ func TestAutoMigrate(t *testing.T) {
 		t.Error("AutoMigrate returned nil")
 	}
 }
-

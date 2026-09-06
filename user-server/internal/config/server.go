@@ -13,19 +13,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// envVarWithDefaultRe 匹配 ${VAR} 或 ${VAR:default} 两种形式
-// 说明：yaml 配置文件大量使用 ${LLM_BASE_URL:http://127.0.0.1:8207/v1} 这种带默认值的语法，
-// 但 Go 标准库 os.ExpandEnv 只支持 ${VAR} 形式，会把 `:default` 当成变量名的一部分，
-// 导致 env var 未设置时所有配置字段被吞为空字符串 → 启动失败 / 业务 fallback 异常。
 var envVarWithDefaultRe = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)(?::([^}]*))?\}`)
 
-// expandEnvWithDefault 把字符串里所有 ${VAR} 和 ${VAR:default} 展开为对应 env var 值或 default
-//
-// 行为对齐 bash：
-//   - ${VAR}         → os.Getenv(VAR)；未设置 → 空字符串
-//   - ${VAR:default} → os.Getenv(VAR)；未设置 → default 字符串
-//
-// 注意：default 不再做二次展开，避免无限递归 / 配置炸弹。
 func expandEnvWithDefault(s string) string {
 	return envVarWithDefaultRe.ReplaceAllStringFunc(s, func(m string) string {
 		sub := envVarWithDefaultRe.FindStringSubmatch(m)
@@ -73,10 +62,10 @@ type DatabaseConfig struct {
 
 // PoolConfig 数据库连接池配置
 type PoolConfig struct {
-	MaxIdleConns    int `yaml:"max_idle_conns"`     
-	MaxOpenConns    int `yaml:"max_open_conns"`     
-	ConnMaxIdleTime int `yaml:"conn_max_idle_time"` 
-	ConnMaxLifetime int `yaml:"conn_max_lifetime"`  
+	MaxIdleConns    int `yaml:"max_idle_conns"`
+	MaxOpenConns    int `yaml:"max_open_conns"`
+	ConnMaxIdleTime int `yaml:"conn_max_idle_time"`
+	ConnMaxLifetime int `yaml:"conn_max_lifetime"`
 }
 
 // DefaultPoolConfig 默认连接池配置
@@ -87,40 +76,21 @@ type PoolConfig struct {
 var DefaultPoolConfig = PoolConfig{
 	MaxIdleConns:    50,
 	MaxOpenConns:    200,
-	ConnMaxIdleTime: 300,  
-	ConnMaxLifetime: 3600, 
+	ConnMaxIdleTime: 300,
+	ConnMaxLifetime: 3600,
 }
 
-// 默认推理栈配置常量（私域部署基线）
-//
-// 设计目的：当 config.yaml 缺失时（如 Docker 首次启动），由 config 包提供
-// 与 dev 档一致的本地推理栈默认值，避免消费方（dispatcher/embedding/rerank）
-// 各自做兜底硬编码导致契约分裂。
-//
-// 原则：
-//   - 默认值必须指向本地（127.0.0.1），绝不静默走公网
-//   - 维度必须与 pgvector vector(1024) 对齐
-//   - 模型名必须与实际部署的模型一致（Qwen2.5-1.5B-Instruct / bge-m3 / bge-reranker-v2-m3）
-//
-// 端口字面量全部派生自 ports.go（DEVELOPMENT.md §2.4 端口对照表单一源）
-// 默认模型名（dev 档；供外部包通过 DefaultLLMModel/DefaultEmbeddingModel/DefaultRerankModel 引用）
-//
-// 单一源：本 const 块；调整后必须同步：
-//   - config.yaml inference.llm.model / embedding.model / rerank.model
-//   - DEVELOPMENT.md §2.4 端口对照表 + 各应用启动描述
-//   - ports.go 端口字面量
 const (
 	defaultLLMBaseURL       = DefaultLLMBaseURLDev
 	defaultEmbeddingBaseURL = DefaultEmbeddingBaseURLDev
 	defaultRerankBaseURL    = DefaultRerankBaseURLDev
 	defaultEmbeddingDim     = 1024
 
-	defaultLLMModelLocal = "Qwen2.5-1.5B-Instruct"
+	defaultLLMModelLocal       = "Qwen2.5-1.5B-Instruct"
 	defaultEmbeddingModelLocal = "bge-m3"
-	defaultRerankModelLocal = "bge-reranker-v2-m3"
+	defaultRerankModelLocal    = "bge-reranker-v2-m3"
 )
 
-// 内部别名（保留历史命名，供 DefaultInferenceConfig 等内部使用）
 const (
 	defaultLLMModel       = defaultLLMModelLocal
 	defaultEmbeddingModel = defaultEmbeddingModelLocal
@@ -188,7 +158,7 @@ type VectorDatabaseConfig struct {
 type InferenceMode string
 
 const (
-	InferenceModeLocal InferenceMode = "local"
+	InferenceModeLocal  InferenceMode = "local"
 	InferenceModeRemote InferenceMode = "remote"
 )
 
@@ -215,7 +185,7 @@ type InferenceConfig struct {
 //   - dimension:向量维度（默认 1024，与 bge-m3 一致）
 //   - allow_fallback: 是否允许哈希伪向量降级（默认 false，仅单测显式开启）
 type InferenceEmbeddingConfig struct {
-	Mode          InferenceMode `yaml:"mode" json:"mode"` 
+	Mode          InferenceMode `yaml:"mode" json:"mode"`
 	BaseURL       string        `yaml:"base_url" json:"base_url"`
 	Model         string        `yaml:"model" json:"model"`
 	Dimension     int           `yaml:"dimension" json:"dimension"`
@@ -244,15 +214,15 @@ type InferenceRerankConfig struct {
 // 启用 ReAct 适配器（thought/action 文本协议）走工具调用；用户在 config.yaml
 // 设置 inference.llm.no_fc=false 可显式关闭（如果模型已升级支持 FC）。
 type InferenceLLMConfig struct {
-	Mode           InferenceMode `yaml:"mode" json:"mode"`
-	BaseURL        string        `yaml:"base_url" json:"base_url"`
-	Model          string        `yaml:"model" json:"model"`
-	APIKey         string        `yaml:"api_key" json:"api_key"`
-	Temperature    float64       `yaml:"temperature" json:"temperature"`
-	MaxTokens      int           `yaml:"max_tokens" json:"max_tokens"`
-	TimeoutSeconds int           `yaml:"timeout_seconds" json:"timeout_seconds"`
-	MaxRetries     int           `yaml:"max_retries" json:"max_retries"`
-	NoFC           *bool         `yaml:"no_fc" json:"no_fc"`
+	Mode            InferenceMode                  `yaml:"mode" json:"mode"`
+	BaseURL         string                         `yaml:"base_url" json:"base_url"`
+	Model           string                         `yaml:"model" json:"model"`
+	APIKey          string                         `yaml:"api_key" json:"api_key"`
+	Temperature     float64                        `yaml:"temperature" json:"temperature"`
+	MaxTokens       int                            `yaml:"max_tokens" json:"max_tokens"`
+	TimeoutSeconds  int                            `yaml:"timeout_seconds" json:"timeout_seconds"`
+	MaxRetries      int                            `yaml:"max_retries" json:"max_retries"`
+	NoFC            *bool                          `yaml:"no_fc" json:"no_fc"`
 	PrimaryProvider string                         `yaml:"primary_provider" json:"primary_provider"`
 	CloudProviders  []InferenceCloudProviderConfig `yaml:"cloud_providers" json:"cloud_providers"`
 }
@@ -332,10 +302,10 @@ type SecurityConfig struct {
 //	  https_proxy: "http://127.0.0.1:7890"
 //	  no_proxy: "localhost,127.0.0.1,10.0.0.0/8"
 type ProxyConfig struct {
-	Enabled bool `yaml:"enabled" json:"enabled"`
-	HTTPProxy string `yaml:"http_proxy" json:"http_proxy"`
+	Enabled    bool   `yaml:"enabled" json:"enabled"`
+	HTTPProxy  string `yaml:"http_proxy" json:"http_proxy"`
 	HTTPSProxy string `yaml:"https_proxy" json:"https_proxy"`
-	NoProxy string `yaml:"no_proxy" json:"no_proxy"`
+	NoProxy    string `yaml:"no_proxy" json:"no_proxy"`
 }
 
 // GetProxyTransport 返回配置了代理的 http.Transport
@@ -449,16 +419,16 @@ type I18nConfig struct {
 // 启用条件：enabled=true 且 deepl.api_key 非空。
 // 未配置 api_key 时 FallbackBridge 自动禁用，不影响主流程。
 type I18nFallbackConfig struct {
-	Enabled          bool        `yaml:"enabled" json:"enabled"`                       
-	LowResourceLangs []string    `yaml:"low_resource_langs" json:"low_resource_langs"` 
-	Translator       string      `yaml:"translator" json:"translator"`                 
-	DeepL            DeepLConfig `yaml:"deepl" json:"deepl"`                           
+	Enabled          bool        `yaml:"enabled" json:"enabled"`
+	LowResourceLangs []string    `yaml:"low_resource_langs" json:"low_resource_langs"`
+	Translator       string      `yaml:"translator" json:"translator"`
+	DeepL            DeepLConfig `yaml:"deepl" json:"deepl"`
 }
 
 // DeepLConfig DeepL 翻译服务配置。
 type DeepLConfig struct {
-	APIKey  string `yaml:"api_key" json:"api_key"`   
-	BaseURL string `yaml:"base_url" json:"base_url"` 
+	APIKey  string `yaml:"api_key" json:"api_key"`
+	BaseURL string `yaml:"base_url" json:"base_url"`
 }
 
 // I18nEmbeddingConfig 多语言 embedding provider 配置
@@ -470,21 +440,21 @@ type DeepLConfig struct {
 //
 // 向后兼容：provider 为空时回退 "openai"。
 type I18nEmbeddingConfig struct {
-	Provider  string `yaml:"provider" json:"provider"`     
-	Model     string `yaml:"model" json:"model"`           
-	BaseURL   string `yaml:"base_url" json:"base_url"`     
-	APIKey    string `yaml:"api_key" json:"api_key"`       
-	Dimension int    `yaml:"dimension" json:"dimension"`   
-	Normalize bool   `yaml:"normalize" json:"normalize"`   
-	BatchSize int    `yaml:"batch_size" json:"batch_size"` 
+	Provider  string `yaml:"provider" json:"provider"`
+	Model     string `yaml:"model" json:"model"`
+	BaseURL   string `yaml:"base_url" json:"base_url"`
+	APIKey    string `yaml:"api_key" json:"api_key"`
+	Dimension int    `yaml:"dimension" json:"dimension"`
+	Normalize bool   `yaml:"normalize" json:"normalize"`
+	BatchSize int    `yaml:"batch_size" json:"batch_size"`
 }
 
 // I18nCacheConfig 跨语言翻译缓存配置
 type I18nCacheConfig struct {
-	Enabled    bool   `yaml:"enabled" json:"enabled"`         
-	TTL        int    `yaml:"ttl" json:"ttl"`                 
-	KeyPrefix  string `yaml:"key_prefix" json:"key_prefix"`   
-	MaxEntries int    `yaml:"max_entries" json:"max_entries"` 
+	Enabled    bool   `yaml:"enabled" json:"enabled"`
+	TTL        int    `yaml:"ttl" json:"ttl"`
+	KeyPrefix  string `yaml:"key_prefix" json:"key_prefix"`
+	MaxEntries int    `yaml:"max_entries" json:"max_entries"`
 }
 
 // GetLoggingConfig 返回统一日志配置；缺省段时回落到日志包默认配置。
@@ -535,13 +505,6 @@ func SetAppConfig(cfg *AppConfig) {
 
 var appConfig *AppConfig
 
-// loadAppConfigOnce 懒加载：把 yaml 读一遍，结果不写入 appConfig。
-// 多路径 fallback 确保任何 cwd 都能找到 config.yaml（Docker 场景走硬编码 fallback）：
-//   1) cwd/config.yaml  (正常启动)
-//   2) exe 目录/config.yaml  (go run / 二进制同目录)
-//   3) ../config.yaml  (父目录启动，如 hivemtk/ 下 ./user-server/mtk-serve)
-//   4) user-server/config.yaml  (仓库根目录启动)
-// 都找不到才走 Docker 硬编码 fallback（postgres-user:8202）。
 func loadAppConfigOnce() AppConfig {
 	var config AppConfig
 
@@ -577,7 +540,7 @@ func loadAppConfigOnce() AppConfig {
 		config.Database.Postgres.SSLMode = "disable"
 		config.VectorDatabase.Type = VectorDBTypePGVector
 		config.VectorDatabase.PGVector.Table = "knowledge_embeddings"
-		config.VectorDatabase.PGVector.Dimension = 1024 
+		config.VectorDatabase.PGVector.Dimension = 1024
 		config.Inference = DefaultInferenceConfig()
 		return config
 	}
@@ -591,4 +554,3 @@ func loadAppConfigOnce() AppConfig {
 
 	return config
 }
-

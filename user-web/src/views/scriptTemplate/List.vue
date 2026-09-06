@@ -124,8 +124,7 @@ const formRules = {
   content: [{ required: true, message: i18n.global.t('请输入内容'), trigger: 'blur' }]
 }
 
-// 话术分类（后端 CreateScriptTemplateRequest 必需 category；分类表可能为空，故支持输入新建）
-const categories = ref([])
+const categories = ref([]);
 const loadCategories = async () => {
   try {
     const res = await getScriptCategories()
@@ -174,7 +173,6 @@ const submitForm = async () => {
   await formRef.value.validate(async (valid) => {
     if (!valid) return
     try {
-      // 后端 CreateScriptTemplateRequest.Variables 为 []string，前端表单以逗号字符串维护，提交前归一化
       const payload = {
         title: form.value.title,
         category: form.value.category,
@@ -184,7 +182,7 @@ const submitForm = async () => {
           .split(',').map(s => String(s).trim()).filter(Boolean),
         tags: form.value.tags || '',
         is_public: false
-      }
+      };
       if (form.value.id) {
         await updateScript(form.value.id, payload)
       } else {

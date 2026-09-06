@@ -159,7 +159,6 @@ func (c *MigrationController) GetAvailableUpgrades(ctx *gin.Context) {
 		return
 	}
 
-	// 构造可用升级列表
 	type AvailableUpgrade struct {
 		Version     string `json:"version"`
 		Name        string `json:"name"`
@@ -182,4 +181,3 @@ func (c *MigrationController) GetAvailableUpgrades(ctx *gin.Context) {
 		"available_upgrades": upgrades,
 	}, "获取成功")
 }
-

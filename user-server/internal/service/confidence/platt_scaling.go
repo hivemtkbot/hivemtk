@@ -24,8 +24,8 @@ import (
 //   - log1p 防止 sigmoid 在极端值处下溢/上溢
 //   - loss 限幅避免 log(0) → -Inf
 type PlattScaling struct {
-	A float64 // logit 缩放系数
-	B float64 // bias 偏置
+	A float64
+	B float64
 }
 
 // NewPlattScaling 创建 Platt 校准器（默认 A=1, B=0 = 无校准）
@@ -35,8 +35,8 @@ func NewPlattScaling() *PlattScaling {
 
 // PlattSample Platt 校准样本
 type PlattSample struct {
-	DecisionValue float64 // 模型输出（logit 或分数，越大越倾向 y=1）
-	Label         int     // 真实标签：1 = 正例，0 = 反例
+	DecisionValue float64
+	Label         int
 }
 
 // Fit 用 Newton-Raphson MLE 拟合 (A, B)。
@@ -61,10 +61,9 @@ func (p *PlattScaling) Fit(samples []PlattSample) *PlattScaling {
 	if len(samples) == 0 {
 		return p
 	}
-	// 初始化为 identity（A=1, B=0）
+
 	a, b := 1.0, 0.0
 
-	// Newton-Raphson 迭代（Platt 1999 推荐 10 次足够收敛）
 	const maxIter = 50
 	const tol = 1e-7
 	for iter := 0; iter < maxIter; iter++ {
@@ -72,25 +71,21 @@ func (p *PlattScaling) Fit(samples []PlattSample) *PlattScaling {
 		hAA, hBB, hAB := 0.0, 0.0, 0.0
 		for _, s := range samples {
 			z := a*s.DecisionValue + b
-			// 数值稳定 sigmoid
+
 			sig := stableSigmoid(z)
 			err := sig - float64(s.Label)
 			gA += err * s.DecisionValue
 			gB += err
 			sig1ms := sig * (1 - sig)
-			// Hessian of NLL（正定；NLL 是凸函数）
+
 			hAA += sig1ms * s.DecisionValue * s.DecisionValue
 			hBB += sig1ms
 			hAB += sig1ms * s.DecisionValue
 		}
 
-		// 解 2x2 线性系统 H · d = g，即 d = H^(-1) · g
-		// H^(-1) = (1/det) [[hBB, -hAB], [-hAB, hAA]]
-		// dA = (hBB*gA - hAB*gB) / det
-		// dB = (hAA*gB - hAB*gA) / det
 		det := hAA*hBB - hAB*hAB
 		if det < 1e-12 {
-			// Hessian 奇异（样本同值或 N 极小），停止
+
 			break
 		}
 		dA := (hBB*gA - hAB*gB) / det
@@ -98,7 +93,6 @@ func (p *PlattScaling) Fit(samples []PlattSample) *PlattScaling {
 		a -= dA
 		b -= dB
 
-		// 收敛：步长 < tol
 		if math.Abs(dA) < tol && math.Abs(dB) < tol {
 			break
 		}
@@ -167,11 +161,6 @@ func (p *PlattScaling) Parameters() (A, B float64) {
 	return p.A, p.B
 }
 
-// stableSigmoid 数值稳定 sigmoid 实现（避免 exp 溢出）
-//
-// 标准 sigmoid: σ(z) = 1 / (1 + exp(-z))
-// 当 z > 0 时: σ(z) = 1 / (1 + exp(-z)) 但 exp(-z) 在 z 大时易下溢
-// 改写: σ(z) = exp(z) / (1 + exp(z))，对 z < 0 用此形式
 func stableSigmoid(z float64) float64 {
 	if z >= 0 {
 		return 1.0 / (1.0 + math.Exp(-z))

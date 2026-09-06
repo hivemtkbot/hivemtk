@@ -25,7 +25,7 @@ func TestMultiModelVote_MajorityWinsOverQuality(t *testing.T) {
 		{Provider: "premium", Content: "完全不同的另一个答案内容"},
 	}
 	got := d.MultiModelVote(results)
-	// 多数派={cheap,mid}（premium 被否决）；派系内取质量分最高者=mid
+
 	if got != results[0].Content && got != results[1].Content {
 		t.Fatalf("应返回多数派成员的答案，实际返回了 premium 的答案: %q", got)
 	}
@@ -63,7 +63,7 @@ func TestNormalizeVoteText(t *testing.T) {
 	if a != b {
 		t.Fatalf("归一化后应相等（大小写+空白折叠）: %q vs %q", a, b)
 	}
-	c := normalizeVoteText("7天\u200b无理由") // 含零宽字符
+	c := normalizeVoteText("7天\u200b无理由")
 	if c != normalizeVoteText("7天无理由") {
 		t.Fatalf("零宽字符应被剥离: %q", c)
 	}

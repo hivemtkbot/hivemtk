@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -71,5 +70,4 @@ func (m *SessionIDLengthMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// compile-time 接口断言
 var _ migration.Migration = (*SessionIDLengthMigration)(nil)

@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"bytes"
 	"context"
@@ -32,15 +31,15 @@ const BGEM3DefaultModel = "BAAI/bge-m3"
 //   - 本配置面向 i18n 多语言路径，可独立于默认推理栈 inference.embedding
 //   - 新增 normalize / batch_size 参数（bge-m3 专属）
 type BGEM3Config struct {
-	Provider string `yaml:"provider" json:"provider"`
-	Model string `yaml:"model" json:"model"`
-	BaseURL string `yaml:"base_url" json:"base_url"`
-	APIKey string `yaml:"api_key" json:"api_key"`
-	Dimension int `yaml:"dimension" json:"dimension"`
-	Normalize bool `yaml:"normalize" json:"normalize"`
-	BatchSize int `yaml:"batch_size" json:"batch_size"`
-	RequestTimeout int `yaml:"request_timeout" json:"request_timeout"`
-	MaxRetries int `yaml:"max_retries" json:"max_retries"`
+	Provider       string `yaml:"provider" json:"provider"`
+	Model          string `yaml:"model" json:"model"`
+	BaseURL        string `yaml:"base_url" json:"base_url"`
+	APIKey         string `yaml:"api_key" json:"api_key"`
+	Dimension      int    `yaml:"dimension" json:"dimension"`
+	Normalize      bool   `yaml:"normalize" json:"normalize"`
+	BatchSize      int    `yaml:"batch_size" json:"batch_size"`
+	RequestTimeout int    `yaml:"request_timeout" json:"request_timeout"`
+	MaxRetries     int    `yaml:"max_retries" json:"max_retries"`
 }
 
 // DefaultBGEM3Config 默认 bge-m3 配置
@@ -178,7 +177,6 @@ func (v *BGEM3Vectorizer) ValidateEmbedding(embedding []float32) bool {
 // Name 返回 provider 名
 func (v *BGEM3Vectorizer) Name() string { return BGEM3ProviderName }
 
-// embedWithRetry 带重试的 embedding 调用
 func (v *BGEM3Vectorizer) embedWithRetry(ctx context.Context, texts []string) ([][]float32, error) {
 	var lastErr error
 	for attempt := 0; attempt < v.maxRetries; attempt++ {
@@ -203,13 +201,11 @@ func (v *BGEM3Vectorizer) embedWithRetry(ctx context.Context, texts []string) ([
 	return nil, fmt.Errorf("bge-m3 embedding 不可达，已重试 %d 次: %w", v.maxRetries, lastErr)
 }
 
-// bgeM3Request OpenAI 兼容 /v1/embeddings 请求体
 type bgeM3Request struct {
 	Model string   `json:"model"`
 	Input []string `json:"input"`
 }
 
-// bgeM3Response OpenAI 兼容 /v1/embeddings 响应体
 type bgeM3Response struct {
 	Object string `json:"object"`
 	Data   []struct {
@@ -225,7 +221,6 @@ type bgeM3Response struct {
 	} `json:"error,omitempty"`
 }
 
-// callAPI 调用 OpenAI 兼容 /v1/embeddings
 func (v *BGEM3Vectorizer) callAPI(ctx context.Context, texts []string) ([][]float32, error) {
 	v.mu.RLock()
 	baseURL := v.baseURL
@@ -304,7 +299,6 @@ func (v *BGEM3Vectorizer) callAPI(ctx context.Context, texts []string) ([][]floa
 	return vectors, nil
 }
 
-// normalizeVector L2 归一化
 func normalizeVector(vec []float32) []float32 {
 	if len(vec) == 0 {
 		return vec
@@ -324,6 +318,4 @@ func normalizeVector(vec []float32) []float32 {
 	return out
 }
 
-// Compile-time 接口断言：BGEM3Vectorizer 实现 VectorizerInterface
 var _ VectorizerInterface = (*BGEM3Vectorizer)(nil)
-

@@ -73,7 +73,7 @@ func (s *DingTalkAppService) VerifyCallback(ctx context.Context, accountID uint,
 	if acc.Token == "" {
 		return "", errors.New("callback token not configured")
 	}
-	// 钉钉官方回调签名口径：base64(hmac_sha256(token, timestamp+"\n"+nonce))
+
 	mac := hmac.New(sha256.New, []byte(acc.Token))
 	mac.Write([]byte(timestamp + "\n" + nonce))
 	expect := base64.StdEncoding.EncodeToString(mac.Sum(nil))
@@ -129,9 +129,7 @@ func (s *DingTalkAppService) ReceiveMessage(ctx context.Context, accountID uint,
 		ConversationID string `json:"conversationId"`
 		MsgID          string `json:"msgId"`
 		CreateAt       int64  `json:"createAt"`
-		// sessionWebhook 钉钉官方机器人回复通道（临时，有效期见 sessionWebhookExpiredTime）。
-		// 官方文档《机器人回复/发送消息》：回复消息即 POST 该 webhook，
-		// body {"msgtype":"text","text":{"content":"..."}}；过期后只能走 OpenAPI。
+
 		SessionWebhook            string `json:"sessionWebhook"`
 		SessionWebhookExpiredTime int64  `json:"sessionWebhookExpiredTime"`
 		Content                   struct {
@@ -151,8 +149,7 @@ func (s *DingTalkAppService) ReceiveMessage(ctx context.Context, accountID uint,
 	if content == "" {
 		content = "[" + msg.MsgType + "]"
 	}
-	// 发送者归一：企业内部应用回调优先 senderStaffId（员工唯一标识），
-	// 兜底旧协议字段 senderId（2026-08-25 修复：原仅读 senderId，新协议下发时为空导致身份丢失）
+
 	sender := msg.SenderStaffID
 	if sender == "" {
 		sender = msg.SenderID
@@ -176,7 +173,7 @@ func (s *DingTalkAppService) ReceiveMessage(ctx context.Context, accountID uint,
 		AIAgent:        agent,
 		Extra: map[string]any{
 			"account_id": fmt.Sprintf("%d", accountID),
-			// 透传临时回复通道，AI 回复经 sendOutbound case ChannelDingTalk 使用
+
 			"session_webhook":            msg.SessionWebhook,
 			"session_webhook_expired_at": msg.SessionWebhookExpiredTime,
 		},
@@ -184,9 +181,7 @@ func (s *DingTalkAppService) ReceiveMessage(ctx context.Context, accountID uint,
 	if s.webhookSvc == nil {
 		return errors.New("webhook service not configured")
 	}
-	// v3 审计 P2-37 修复：捕获错误 + 显式日志
-	// 原：直接 return，调用方不知道是 dedup 还是真错误
-	// 新：捕获 + log 真实错误（避免钉钉重试风暴）
+
 	if err := s.webhookSvc.ingressHandler(ctx).HandleIngressMessage(ctx, event); err != nil {
 		logger.Errorf("[dingtalk] 入站消息处理失败 accountID=%d eventID=%s: %v", accountID, event.EventID, err)
 		return err
@@ -194,8 +189,6 @@ func (s *DingTalkAppService) ReceiveMessage(ctx context.Context, accountID uint,
 	return nil
 }
 
-// dingTalkDecrypt 钉钉回调 AES 解密（AES/CBC/PKCS7）。
-// aesKey 为 base64 字符串（通常 43 字符，需补 '=' 成合法 base64），解码后取前 32 字节为密钥，IV 取密钥前 16 字节。
 func dingTalkDecrypt(aesKey, cipherText string) (string, error) {
 	key, err := base64.StdEncoding.DecodeString(aesKey + "=")
 	if err != nil {

@@ -27,7 +27,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// setupTestDB 准备 PostgreSQL 测试数据库（每个测试独立）
 func setupTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.WeComAccount{},
@@ -43,8 +42,6 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// computeWeComSignature 计算企微签名
-// sha1(sort([token, timestamp, nonce]).join(”))
 func computeWeComSignature(token, timestamp, nonce string) string {
 	parts := []string{token, timestamp, nonce}
 	sort.Strings(parts)
@@ -52,7 +49,6 @@ func computeWeComSignature(token, timestamp, nonce string) string {
 	return hex.EncodeToString(h[:])
 }
 
-// computeWeComSignatureURL 计算 URL 验证签名（包含 echostr）
 func computeWeComSignatureURL(token, timestamp, nonce, echostr string) string {
 	parts := []string{token, timestamp, nonce, echostr}
 	sort.Strings(parts)
@@ -60,8 +56,6 @@ func computeWeComSignatureURL(token, timestamp, nonce, echostr string) string {
 	return hex.EncodeToString(h[:])
 }
 
-// encryptWeComPlain 用 EncodingAESKey 加密企微明文
-// 结构：IV(16) + AES-CBC(rand(16) + msg_len(4) + msg + receiveid + PKCS7_pad)
 func encryptWeComPlain(t *testing.T, aesKey, receiveID, msg string) string {
 	if len(aesKey) != 43 {
 		t.Fatalf("invalid aes key length: %d", len(aesKey))
@@ -80,7 +74,6 @@ func encryptWeComPlain(t *testing.T, aesKey, receiveID, msg string) string {
 	body := append(header, msgBytes...)
 	body = append(body, []byte(receiveID)...)
 
-	// PKCS#7 填充
 	const blockSize = 32
 	padLen := blockSize - (len(body) % blockSize)
 	if padLen == 0 {
@@ -171,7 +164,7 @@ func TestWeCom_Decrypt_InvalidKeyLength(t *testing.T) {
 
 // TestWeCom_Verify_OK 验签合法
 func TestWeCom_Verify_OK(t *testing.T) {
-	// v3 审计 P1-6 后为四元组口径（token,ts,nonce,encrypt）
+
 	body := []byte(`{"encrypt":"ENC123","timestamp":"1700000123","nonce":"nonce123"}`)
 	ts := "1700000123"
 	nonce := "nonce123"
@@ -724,7 +717,6 @@ func TestWeChat_Verify_Missing(t *testing.T) {
 	}
 }
 
-// computeWeComSignature4 四元组官方口径: sha1(sort(token,ts,nonce,fourth))
 func computeWeComSignature4(token, ts, nonce, fourth string) string {
 	parts := []string{token, ts, nonce, fourth}
 	sortStrings(parts)

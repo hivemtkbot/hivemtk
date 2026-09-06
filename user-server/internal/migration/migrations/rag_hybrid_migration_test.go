@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"strings"
@@ -11,13 +10,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupMigrationTestDB 创建迁移测试 DB（空库，依赖迁移自己创建表）
 func setupMigrationTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	return testutil.NewTestDB(t)
 }
 
-// setupKnowledgeChunksBase 创建 v2.6.0 knowledge_chunks 基础表（v2.7.0 迁移依赖）
 func setupKnowledgeChunksBase(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	stmts := []string{
@@ -67,7 +64,6 @@ func TestRagHybridMigration_UpCreatesAllTables(t *testing.T) {
 		t.Fatalf("Up() failed: %v", err)
 	}
 
-	// 验证 query_rewrite_cache 表存在
 	var exists bool
 	if err := db.Raw(`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'query_rewrite_cache')`).Scan(&exists).Error; err != nil || !exists {
 		t.Errorf("query_rewrite_cache table should exist after Up(): exists=%v err=%v", exists, err)
@@ -77,7 +73,6 @@ func TestRagHybridMigration_UpCreatesAllTables(t *testing.T) {
 		t.Errorf("embedding_cache table should exist after Up(): exists=%v err=%v", exists, err)
 	}
 
-	// 验证 knowledge_chunks 新增列存在
 	var hasCol bool
 	if err := db.Raw(`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'knowledge_chunks' AND column_name = 'content_tsv')`).Scan(&hasCol).Error; err != nil || !hasCol {
 		t.Errorf("knowledge_chunks.content_tsv column should exist after Up(): hasCol=%v err=%v", hasCol, err)
@@ -127,7 +122,6 @@ func TestRagHybridMigration_TriggerMaintainsTSV(t *testing.T) {
 		t.Fatalf("insert chunk failed: %v", err)
 	}
 
-	// 验证 content_tsv 已被触发器自动填充
 	var notNullRow struct {
 		TsvOK  bool `gorm:"column:tsv_ok"`
 		HashOK bool `gorm:"column:hash_ok"`
@@ -161,7 +155,6 @@ func TestRagHybridMigration_QueryRewriteCacheWritable(t *testing.T) {
 		t.Fatalf("insert query_rewrite_cache failed: %v", err)
 	}
 
-	// 读取验证
 	var row struct {
 		HyDEDoc     string `gorm:"column:hyde_doc"`
 		HitCount    int64  `gorm:"column:hit_count"`
@@ -235,7 +228,6 @@ func TestRagHybridMigration_EmbeddingCacheWritable(t *testing.T) {
 		t.Fatalf("insert embedding_cache failed: %v", err)
 	}
 
-	// 读取
 	var dim int
 	err = db.Raw(`SELECT dimension FROM embedding_cache WHERE text_hash = $1 AND model = $2`, "hash123", "bge-m3").Scan(&dim).Error
 	if err != nil {
@@ -267,7 +259,6 @@ func TestRagHybridMigration_DownCleansUp(t *testing.T) {
 		t.Fatalf("Down() failed: %v", err)
 	}
 
-	// 验证缓存表已删除
 	var exists bool
 	if err := db.Raw(`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'query_rewrite_cache')`).Scan(&exists).Error; err != nil || exists {
 		t.Errorf("query_rewrite_cache should be dropped after Down(): exists=%v", exists)
@@ -276,7 +267,6 @@ func TestRagHybridMigration_DownCleansUp(t *testing.T) {
 		t.Errorf("embedding_cache should be dropped after Down(): exists=%v", exists)
 	}
 
-	// 验证 knowledge_chunks 新增列已删除
 	var hasCol bool
 	if err := db.Raw(`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'knowledge_chunks' AND column_name = 'content_tsv')`).Scan(&hasCol).Error; err != nil || hasCol {
 		t.Errorf("content_tsv column should be dropped after Down(): hasCol=%v", hasCol)
@@ -308,7 +298,6 @@ func TestRagHybridMigration_KnowledgeSearchLogsEnhanced(t *testing.T) {
 		t.Fatalf("insert knowledge_search_logs failed: %v", err)
 	}
 
-	// 读取验证
 	var logRow struct {
 		VectorCount int    `gorm:"column:vector_count"`
 		BM25Count   int    `gorm:"column:bm25_count"`
@@ -330,4 +319,3 @@ func TestRagHybridMigration_KnowledgeSearchLogsEnhanced(t *testing.T) {
 		t.Error("cache_hit should be true")
 	}
 }
-

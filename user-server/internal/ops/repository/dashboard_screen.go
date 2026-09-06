@@ -50,7 +50,7 @@ func (r *DashboardScreenRepository) GetAll(page, pageSize int) ([]*model.Dashboa
 // GetByCode 根据编码获取大屏
 func (r *DashboardScreenRepository) GetByCode(code string) (*model.DashboardScreen, error) {
 	var screen model.DashboardScreen
-	// v3 审计 P1：公开访问路由仅允许命中 is_public 屏，防私有屏被 code 爆破
+
 	err := r.db.Where("code = ? AND is_public = ?", code, true).First(&screen).Error
 	return &screen, err
 }
@@ -220,4 +220,3 @@ func (r *MarketTemplateDownloadRepository) GetAll(page, pageSize int) ([]*conten
 
 	return records, total, err
 }
-

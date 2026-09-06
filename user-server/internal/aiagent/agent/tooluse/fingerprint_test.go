@@ -20,7 +20,7 @@ func TestStructuralFingerprint_MapKeyOrderIndependence(t *testing.T) {
 	if fa != fb {
 		t.Errorf("key order should not affect fingerprint:\n  a=%s\n  b=%s", fa, fb)
 	}
-	// c 与 a/b 在前导字段上不同，hash 应不同
+
 	fc := structuralFingerprint(c)
 	if fc == fa {
 		t.Errorf("different content should produce different fingerprint")
@@ -52,13 +52,13 @@ func TestStructuralFingerprint_FloatPrecision(t *testing.T) {
 	if structuralFingerprint(a) != structuralFingerprint(b) {
 		t.Error("identical float should have same fingerprint")
 	}
-	// 1.5 vs 1.50 数字上完全相同，输出也相同
+
 	c := map[string]any{"v": 1.5}
 	d := map[string]any{"v": 1.5}
 	if structuralFingerprint(c) != structuralFingerprint(d) {
 		t.Error("1.5 should equal 1.5 in canonical form")
 	}
-	// 不同值必须产生不同指纹
+
 	e := map[string]any{"v": 1.5}
 	f := map[string]any{"v": 2.5}
 	if structuralFingerprint(e) == structuralFingerprint(f) {
@@ -84,7 +84,7 @@ func TestStructuralFingerprint_NilHandling(t *testing.T) {
 	if structuralFingerprint(a) != structuralFingerprint(b) {
 		t.Error("nil handling should be deterministic")
 	}
-	// 缺失 key vs nil 值 → 不同
+
 	c := map[string]any{"y": 1}
 	if structuralFingerprint(a) == structuralFingerprint(c) {
 		t.Error("missing key must differ from nil value")
@@ -133,7 +133,7 @@ func TestStructuralFingerprint_HashVsJSONMarshal(t *testing.T) {
 		A int
 		B string
 	}
-	// 通过 map 包装以触发不同的 json.Marshal 行为
+
 	a := map[string]any{"args": fakeArgs{A: 1, B: "x"}}
 	b := map[string]any{"args": fakeArgs{B: "x", A: 1}}
 	if structuralFingerprint(a) != structuralFingerprint(b) {
@@ -163,12 +163,12 @@ func TestStructuralFingerprint_LargeFloat(t *testing.T) {
 	if structuralFingerprint(a) != structuralFingerprint(b) {
 		t.Error("MaxFloat64 should be deterministic")
 	}
-	// NaN 比较恒为 false，所以不应该 panic
+
 	c := map[string]any{"v": math.NaN()}
 	d := map[string]any{"v": math.NaN()}
 	_ = structuralFingerprint(c)
 	_ = structuralFingerprint(d)
-	// 实际值非 NaN
+
 	if strings.Contains(structuralFingerprint(c), "NaN") {
 		t.Error("NaN should be formatted, not raw")
 	}

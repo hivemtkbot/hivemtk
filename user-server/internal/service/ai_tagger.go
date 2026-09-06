@@ -112,7 +112,6 @@ func (t *AITagger) TagFromSalesResponse(ctx context.Context, customerID string, 
 	return tags
 }
 
-// applyTag 应用标签（高置信覆盖低置信；写穿持久化，DB 不可用时降级为纯内存）
 func (t *AITagger) applyTag(ctx context.Context, customerID string, tag TagInfo) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -129,7 +128,6 @@ func (t *AITagger) applyTag(ctx context.Context, customerID string, tag TagInfo)
 	t.persistLocked(ctx, customerID, tag)
 }
 
-// ensureLoadedLocked 客户缓存未初始化时从 DB 懒加载（读缓存语义）
 func (t *AITagger) ensureLoadedLocked(ctx context.Context, customerID string) {
 	if _, ok := t.customerTags[customerID]; ok {
 		return
@@ -149,8 +147,6 @@ func (t *AITagger) ensureLoadedLocked(ctx context.Context, customerID string) {
 	t.customerTags[customerID] = m
 }
 
-// persistLocked 将内存中的标签变更写穿到 DB（best-effort：失败不影响内存态）
-// 使用 repo.Upsert 按 (customer_id, tag) 唯一键幂等写入，DB 侧以 GREATEST 保护高置信度不被覆盖
 func (t *AITagger) persistLocked(ctx context.Context, customerID string, tag TagInfo) {
 	if err := t.assignRepo.Upsert(ctx, &model.CustomerTagAssignment{
 		CustomerID: customerID,
@@ -189,7 +185,6 @@ func (t *AITagger) GetByCategory(ctx context.Context, customerID, category strin
 	return result
 }
 
-// matchInterestFromIntent 从意图名匹配兴趣
 func matchInterestFromIntent(intentName string) string {
 	lower := strings.ToLower(intentName)
 	interestMap := map[string]string{
@@ -308,7 +303,6 @@ func (e *OrderIntentExtractor) ExtractFromSalesResponse(ctx context.Context, cus
 	return e.ExtractFromText(ctx, customerID, text)
 }
 
-// categorizeProduct 分类产品
 func categorizeProduct(name string) string {
 	beauty := []string{"光子嫩肤", "水光针", "玻尿酸", "瘦脸针", "双眼皮", "隆鼻", "抽脂", "脱毛", "祛斑", "美牙"}
 	medical := []string{"隐形矫正", "种植牙", "补牙", "洁牙", "体检套餐"}
@@ -337,7 +331,6 @@ func categorizeProduct(name string) string {
 	return "other"
 }
 
-// helpers
 func atof(s string) float64 {
 	var f float64
 	for _, c := range s {
@@ -363,7 +356,6 @@ func atoi(s string) int {
 	return i
 }
 
-// factsToString 把 KeyFacts（map）转成可搜索字符串
 func factsToString(facts map[string]any) string {
 	if len(facts) == 0 {
 		return ""
@@ -397,7 +389,6 @@ func stringifyVal(v any) string {
 	return ""
 }
 
-// roundTo 四舍五入到指定精度（如 0.05）
 func roundTo(value, precision float64) float64 {
 	if precision == 0 {
 		return value

@@ -34,9 +34,9 @@ type ExponentialBackOff struct {
 	MaxInterval         time.Duration
 	MaxElapsedTime      time.Duration
 
-	mu             sync.Mutex
+	mu              sync.Mutex
 	currentInterval time.Duration
-	startTime      time.Time
+	startTime       time.Time
 }
 
 // NewExponentialBackOff 返回带默认值的 ExponentialBackOff。
@@ -63,21 +63,17 @@ func (b *ExponentialBackOff) NextBackOff() (time.Duration, bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	// 首次调用：记录起始时间
 	if b.startTime.IsZero() {
 		b.startTime = time.Now()
 		b.currentInterval = b.InitialInterval
 	}
 
-	// 检查总耗时上限
 	if b.MaxElapsedTime > 0 && time.Since(b.startTime) > b.MaxElapsedTime {
 		return 0, true
 	}
 
-	// 抖动
 	interval := jitter(b.currentInterval, b.RandomizationFactor)
 
-	// 计算下一次间隔
 	next := time.Duration(float64(b.currentInterval) * b.Multiplier)
 	if next > b.MaxInterval {
 		next = b.MaxInterval
@@ -124,7 +120,6 @@ func (s *StopBackOff) NextBackOff() (time.Duration, bool) {
 	return 0, true
 }
 
-// jitter 对 interval 应用 [1-factor, 1+factor] 区间内的随机抖动，避免雷鸣群。
 func jitter(interval time.Duration, factor float64) time.Duration {
 	if factor <= 0 || interval <= 0 {
 		return interval

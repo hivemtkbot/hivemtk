@@ -6,7 +6,7 @@
       </el-button>
     </div>
 
-    <!-- 邮件代理列表 -->
+    
     <el-table :data="tableData" border stripe style="width: 100%">
       <el-table-column prop="name" :label="$t('代理名称')" width="300" />
       <el-table-column prop="server" :label="$t('服务器地址')" width="200" />
@@ -22,7 +22,7 @@
       </el-table-column>
     </el-table>
 
-    <!-- 新增/编辑模态框 -->
+    
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-form-item label="代理名称" prop="name">
@@ -61,27 +61,22 @@ import { Plus } from '@element-plus/icons-vue';
 
 import { emailApi } from '@/api/email';
 
-// 表格数据
 const tableData = ref([]);
 
-// 获取账号数据
 const fetchEmailSmtp = async () => {
   const res = await emailApi.getEmailSmtpList()
-  // 拦截器已解包，res 直接就是数据对象
-  tableData.value = res.list || []
-}
+  tableData.value = res.list || [];
+};
 
 onMounted(() => {
   fetchEmailSmtp()
 })
 
 
-// 模态框状态
 const dialogVisible = ref(false);
 const dialogTitle = ref('新增邮件代理');
 const formRef = ref(null);
 
-// 表单数据
 const form = reactive({
   id: '',
   name: '',
@@ -92,7 +87,6 @@ const form = reactive({
   limit: 50
 });
 
-// 表单验证规则
 const rules = {
   name: [{ required: true, message: i18n.global.t('请输入代理名称'), trigger: 'blur' }],
   server: [{ required: true, message: i18n.global.t('请输入服务器地址'), trigger: 'blur' }],
@@ -105,21 +99,18 @@ const rules = {
   limit: [{ required: true, message: i18n.global.t('请输入代理日限制'), trigger: 'blur' }],
 };
 
-// 新增操作
 const handleAdd = () => {
   dialogTitle.value = '新增邮件代理';
   Object.assign(form, { id: '', name: '', server: '', port: '', username: '', password: '', limit: 50 });
   dialogVisible.value = true;
 };
 
-// 编辑操作
 const handleEdit = (row) => {
   dialogTitle.value = '编辑邮件代理';
   Object.assign(form, { ...row });
   dialogVisible.value = true;
 };
 
-// 删除操作
 const handleDelete = (id) => {
   ElMessageBox.confirm('确定要删除该邮件代理吗？', '警告', {
     confirmButtonText: '确定',
@@ -127,42 +118,36 @@ const handleDelete = (id) => {
     type: 'warning'
   }).then( async () => {
       try {
-        // 调用API删除账号
-        const response = await emailApi.deleteEmailSmtp(id)
-        // 拦截器已解包，response 直接就是数据对象
+        const response = await emailApi.deleteEmailSmtp(id);
         ElMessage({
           type: 'success',
           message: i18n.global.t('删除成功'),
-        })
+        });
         fetchEmailSmtp()
       } catch (error) {
         console.error('删除账号失败:', error)
         ElMessage.error(i18n.global.t('删除账号失败'))
       }
   }).catch((e) => {
-    if (e !== 'cancel' && e !== 'close') throw e // R47: 取消不报未捕获异常
+    if (e !== 'cancel' && e !== 'close')
+      throw e;
   });
 };
 
-// 提交表单
-const  submitForm = () => {
+const submitForm = () => {
   form.limit = Number(form.limit)
   formRef.value.validate(async (valid) => {
     if (valid) {
           if(form.id){
             const res = await emailApi.updateEmailSmtp(form.id,form)
-            // 拦截器已解包，res 直接就是数据对象
-            ElMessage.success(i18n.global.t('更新成功'))
+            ElMessage.success(i18n.global.t('更新成功'));
             dialogVisible.value = false
-            // 刷新账号列表
-            fetchEmailSmtp()
+            fetchEmailSmtp();
           }else{
             const res = await emailApi.addEmailSmtp(form)
-            // 拦截器已解包，res 直接就是数据对象
-            ElMessage.success(i18n.global.t('新增成功'))
+            ElMessage.success(i18n.global.t('新增成功'));
             dialogVisible.value = false
-            // 刷新账号列表
-            fetchEmailSmtp()
+            fetchEmailSmtp();
           }
       dialogVisible.value = false;
     }

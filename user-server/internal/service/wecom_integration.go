@@ -95,7 +95,6 @@ func (s *WeComIntegrationService) IngestMessage(ctx context.Context, req *Ingest
 		return nil, nil, fmt.Errorf("hub push: %w", err)
 	}
 
-	// 2. 推送到统一收件箱
 	var conv *model.InboxConversation
 	if hubMsg != nil {
 		conv, err = s.inbox.UpsertFromHubMessage(ctx, hubMsg)

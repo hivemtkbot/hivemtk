@@ -127,7 +127,6 @@ func (s *PretranslateService) GetTranslated(_ context.Context, chunk *kbmodel.Kn
 	return chunk.Content
 }
 
-// hasTranslation 检查 chunk 是否已存在指定语言的翻译版本
 func (s *PretranslateService) hasTranslation(chunk *kbmodel.KnowledgeChunk, lang string) bool {
 	if chunk == nil || chunk.TranslatedVersions == nil || lang == "" {
 		return false

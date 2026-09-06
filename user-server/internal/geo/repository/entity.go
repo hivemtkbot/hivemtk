@@ -118,7 +118,6 @@ func (r *geoEntityRepo) UpsertRelation(ctx context.Context, rel *model.GeoEntity
 		FirstOrCreate(rel).Error
 }
 
-// CreateRelation entity_extractor.go 使用的名称
 func (r *geoEntityRepo) CreateRelation(ctx context.Context, rel *model.GeoEntityRelation) error {
 	return r.UpsertRelation(ctx, rel)
 }

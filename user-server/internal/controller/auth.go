@@ -54,22 +54,18 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	resp, err := c.authService.Login(context.Background(), &req)
 	if err != nil {
 		middleware.RecordBruteForceFailure(ctx, "auth.login")
-		// R1-D2 修复: 登录失败也写入 login_events 并触发异常登录评估(异步,不阻塞响应)
+
 		c.recordLoginRiskAsync(ctx, req.Username, false, err.Error())
 		response.Error(ctx, http.StatusUnauthorized, err.Error())
 		return
 	}
 
 	middleware.ClearBruteForceFailure(ctx, "auth.login")
-	// R1-D2 修复: 接线 AnomalyLoginDetector(全仓原本 0 生产调用方, login_events 恒空)。
-	// 异步执行: 风险评估含 4 项 DB 查询,不阻塞登录响应; ShouldForceMFA 的同步强制语义为
-	// 破坏性变更,本轮仅恢复"记录+告警"观测链路,强制 MFA 挑战留待专项设计。
+
 	c.recordLoginRiskAsync(ctx, req.Username, true, "")
 	response.Success(ctx, resp, "登录成功")
 }
 
-// recordLoginRiskAsync 异步记录登录事件并触发异常登录检测/三通道告警。
-// R1-D2 修复: 原实现在生产路径零调用,登录事件与告警链路整体为孤儿代码。
 func (c *AuthController) recordLoginRiskAsync(ctx *gin.Context, username string, success bool, reason string) {
 	lctx := &service.LoginRiskContext{
 		Username:  username,
@@ -142,7 +138,6 @@ func (c *AuthController) RefreshToken(ctx *gin.Context) {
 		return
 	}
 
-	// 严格校验 Bearer 前缀
 	const prefix = "Bearer "
 	if !strings.HasPrefix(authHeader, prefix) {
 		response.Error(ctx, http.StatusUnauthorized, "Authorization 头格式错误，应为 Bearer <token>")
@@ -262,7 +257,6 @@ func (c *AuthController) ChangePassword(ctx *gin.Context) {
 
 	response.Success(ctx, nil, "修改密码成功")
 }
-
 
 // SetupMFA 设置 MFA：生成 TOTP 密钥并返回 otpauth URL
 // 用户使用 Google Authenticator 扫描二维码
@@ -440,7 +434,6 @@ func (c *AuthController) GenerateBackupCodes(ctx *gin.Context) {
 	}, "生成成功")
 }
 
-
 // ListLoginEvents 查询登录事件列表
 // GET /api/auth/login-events?page=1&page_size=20
 func (c *AuthController) ListLoginEvents(ctx *gin.Context) {
@@ -526,7 +519,6 @@ func (c *AuthController) ResolveSecurityAlert(ctx *gin.Context) {
 	response.Success(ctx, nil, "告警已处理")
 }
 
-
 // GetPasswordPolicy 查询当前密码策略
 // GET /api/auth/password-policy
 func (c *AuthController) GetPasswordPolicy(ctx *gin.Context) {
@@ -597,7 +589,6 @@ func (c *SystemUserController) GetUsers(ctx *gin.Context) {
 		"page_size": pageSize,
 	}, "获取用户列表成功")
 }
-
 
 // SearchUsers GET /api/users/search?keyword=xxx
 func (c *SystemUserController) SearchUsers(ctx *gin.Context) {
@@ -718,7 +709,6 @@ func (c *SystemUserController) ResetPassword(ctx *gin.Context) {
 		return
 	}
 
-	// 获取新密码
 	var req struct {
 		Password string `json:"password" binding:"required"`
 	}
@@ -794,7 +784,6 @@ func (c *SystemUserController) CreateDefaultAdmin(ctx *gin.Context) {
 		"message":  "默认管理员创建成功（兼容旧路由）",
 	}, "默认管理员创建成功")
 }
-
 
 // CreateDefaultAdmin R39：createDefaultAdmin 别名端点（系统初始化引导），
 // 复用 InitAdmin 语义（仅未初始化系统可执行，重复调用返回已初始化错误）。

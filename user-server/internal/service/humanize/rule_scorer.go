@@ -12,7 +12,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// aiTraces AI 痕迹词（命中则 Naturalness 重罚）
 var aiTraces = []string{
 	"作为 AI", "作为人工智能", "我是一个 AI", "我是一个人工智能",
 	"作为语言模型", "作为大语言模型", "我无法", "我不能",
@@ -24,16 +23,11 @@ var aiTraces = []string{
 	"according to my training", "my training data",
 }
 
-// particles 语气词（口语化标志，提升 Naturalness）
 var particles = []string{
 	"啊", "呢", "啦", "呀", "嘛", "哦", "哎", "嗨",
 	"哟", "嘎", "咯", "喔", "嗷", "吼",
 }
 
-// empathyWords 共情词
-//
-// 注意：仅包含明确的情感共情词，不包含"帮您"/"为您"等功能性词汇
-// （功能性词汇在查询/操作场景会被误命中）
 var empathyWords = []string{
 	"理解", "明白", "抱歉", "对不起", "恭喜", "放心",
 	"感同身受", "确实", "没错", "遗憾", "欣慰",
@@ -41,7 +35,6 @@ var empathyWords = []string{
 	"谅解", "体谅", "包容", "宽慰",
 }
 
-// professionalWords 行业专业词（多行业混合，后续可按 industry 拆分）
 var professionalWords = []string{
 	"成分", "肤质", "保湿", "补水", "美白", "抗老", "维C", "烟酰胺",
 	"玻尿酸", "修护", "防晒", "清洁", "控油",
@@ -51,33 +44,28 @@ var professionalWords = []string{
 	"专业", "认证", "权威", "标准", "工艺",
 }
 
-// salesWords 销售推进词
 var salesWords = []string{
 	"下单", "拍下", "入手", "试试", "咨询", "联系", "回复",
 	"立即", "马上", "现在", "赶紧", "快",
 	"专属", "定制", "推荐", "适合", "选择",
 }
 
-// actionCalls 行动召唤词
 var actionCalls = []string{
 	"下单", "拍下", "入手", "试试", "咨询", "联系", "回复",
 	"点击", "领取", "抢购", "预约", "购买", "加入",
 }
 
-// benefitWords 利益词
 var benefitWords = []string{
 	"优惠", "折扣", "活动", "省", "划算", "限时", "包邮",
 	"赠送", "赠品", "满减", "立减", "立省", "免邮",
 }
 
-// complaintKeywords 投诉关键词（触发共情强制要求）
 var complaintKeywords = []string{
 	"投诉", "差评", "退款", "退货", "举报", "骗子", "假货",
 	"维权", "315", "12315", "工商", "客服", "经理",
 	"不满", "失望", "气愤", "愤怒", "恶心", "糟糕",
 }
 
-// intentExpectedLength 各意图期望字数范围（用于 Conciseness 评分）
 var intentExpectedLength = map[string][2]int{
 	"complaint":     {20, 200},
 	"churn":         {30, 250},
@@ -133,14 +121,6 @@ func (s *RuleScorerImpl) Evaluate(ctx context.Context, input *dto.HumanizeEvalIn
 	}, nil
 }
 
-// computeNaturalness 自然度评分
-//
-// 评分公式：
-//
-//	base = 0.85
-//	- AI 痕迹词每命中一次扣 0.30（最多扣到 0.0）
-//	- burstiness < 0.3 扣 0.15（句长过于均匀 = 机械感）
-//	- 语气词密度奖励：每 50 字 1 个语气词 +0.05（最多 +0.10）
 func (s *RuleScorerImpl) computeNaturalness(reply string) float64 {
 	score := 0.85
 	lowered := strings.ToLower(reply)
@@ -166,13 +146,6 @@ func (s *RuleScorerImpl) computeNaturalness(reply string) float64 {
 	return clampScore(score)
 }
 
-// computeConciseness 简洁性评分
-//
-// 评分公式：
-//
-//	字数在期望范围内 → 0.85-1.00
-//	字数低于下限的 50% → 扣分（敷衍）
-//	字数超过上限的 200% → 扣分（冗长）
 func (s *RuleScorerImpl) computeConciseness(reply, intent string) float64 {
 	runeCount := countRunes(reply)
 	expected, ok := intentExpectedLength[intent]
@@ -208,11 +181,6 @@ func (s *RuleScorerImpl) computeConciseness(reply, intent string) float64 {
 	return clampScore(score)
 }
 
-// computeEmpathy 共情度评分
-//
-// 评分规则：
-//   - 投诉场景：必须有共情词，否则直接 ≤ 0.40（A-04 标准）
-//   - 非投诉场景：按共情词密度评分
 func (s *RuleScorerImpl) computeEmpathy(reply, customerMessage string) float64 {
 	empathyCount := 0
 	for _, w := range empathyWords {
@@ -243,13 +211,6 @@ func (s *RuleScorerImpl) computeEmpathy(reply, customerMessage string) float64 {
 	return clampScore(score)
 }
 
-// computeProfessionalism 专业度评分
-//
-// 评分公式：
-//
-//	base = 0.50
-//	+ 专业词密度 * 0.30（每 50 字 1 个专业词加 0.10，最多 +0.30）
-//	+ 销售推进词密度 * 0.20
 func (s *RuleScorerImpl) computeProfessionalism(reply string) float64 {
 	runeCount := countRunes(reply)
 	if runeCount == 0 {
@@ -270,13 +231,6 @@ func (s *RuleScorerImpl) computeProfessionalism(reply string) float64 {
 	return clampScore(score)
 }
 
-// computePersuasiveness 说服力评分
-//
-// 评分公式：
-//
-//	base = 0.40
-//	+ 行动召唤命中 +0.30
-//	+ 利益词密度 * 0.30
 func (s *RuleScorerImpl) computePersuasiveness(reply string) float64 {
 	runeCount := countRunes(reply)
 	if runeCount == 0 {
@@ -302,7 +256,6 @@ func (s *RuleScorerImpl) computePersuasiveness(reply string) float64 {
 	return clampScore(score)
 }
 
-// normalizeIntent 归一化意图标签
 func normalizeIntent(intent string) string {
 	intent = strings.TrimSpace(strings.ToLower(intent))
 	if intent == "" {
@@ -311,7 +264,6 @@ func normalizeIntent(intent string) string {
 	return intent
 }
 
-// countRunes 统计字符数（不含空白）
 func countRunes(s string) int {
 	count := 0
 	for _, r := range s {
@@ -322,7 +274,6 @@ func countRunes(s string) int {
 	return count
 }
 
-// splitSentences 分句（按。！？.!? 换行）
 var sentenceEndRegex = regexp.MustCompile(`[。！？.!?!\n]+`)
 
 func splitSentences(s string) []string {
@@ -340,10 +291,6 @@ func splitSentences(s string) []string {
 	return out
 }
 
-// computeBurstiness 计算 burstiness（句长方差/均值）
-//
-// 业界参考：AI 文本 burstiness < 人类文本（A-07 标准）
-// 公式：variance(sentence_lengths) / mean(sentence_lengths)
 func computeBurstiness(s string) float64 {
 	sentences := splitSentences(s)
 	if len(sentences) < 2 {

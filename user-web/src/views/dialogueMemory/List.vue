@@ -1,6 +1,6 @@
 <template>
   <div class="dialogue-memory-page">
-    <!-- 页面头部 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="header-content">
         <div>
@@ -16,7 +16,7 @@
       </div>
     </el-card>
 
-    <!-- 统计卡片 -->
+    
     <el-row :gutter="16" class="stats-row">
       <el-col :span="6">
         <el-card shadow="hover" class="stat-card">
@@ -44,7 +44,7 @@
       </el-col>
     </el-row>
 
-    <!-- 客户记忆列表 -->
+    
     <el-card shadow="never">
       <template #header>
         <div class="card-header">
@@ -119,10 +119,10 @@
       </div>
     </el-card>
 
-    <!-- 记忆详情对话框 -->
+    
     <el-dialog v-model="detailVisible" title="客户对话记忆详情" width="920px" top="5vh" v-loading="detailLoading">
       <template v-if="currentMemory">
-        <!-- 基本信息 -->
+        
         <el-descriptions :column="3" border size="small">
           <el-descriptions-item label="客户 ID">{{ currentMemory.customer_id || '-' }}</el-descriptions-item>
           <el-descriptions-item label="客户姓名">{{ currentMemory.customer_name || '-' }}</el-descriptions-item>
@@ -152,7 +152,7 @@
         </div>
 
         <el-tabs v-model="activeTab" class="detail-tabs">
-          <!-- 短期记忆消息流 -->
+          
           <el-tab-pane label="短期记忆" name="short">
             <div class="message-stream" v-loading="shortLoading">
               <template v-if="shortMessages.length">
@@ -172,7 +172,7 @@
             </div>
           </el-tab-pane>
 
-          <!-- 长期记忆摘要 -->
+          
           <el-tab-pane label="长期记忆" name="long">
             <div v-loading="longLoading">
               <template v-if="longTermText">
@@ -182,7 +182,7 @@
             </div>
           </el-tab-pane>
 
-          <!-- 关键事实 -->
+          
           <el-tab-pane label="关键事实" name="facts">
             <template v-if="keyFactsList.length">
               <el-descriptions :column="2" border size="small">
@@ -194,7 +194,7 @@
             <el-empty v-else description="暂无关键事实" :image-size="80" />
           </el-tab-pane>
 
-          <!-- 异议记录 -->
+          
           <el-tab-pane :label="`异议记录 (${(currentMemory.objections || []).length})`" name="objections">
             <template v-if="(currentMemory.objections || []).length">
               <el-timeline>
@@ -212,7 +212,7 @@
             <el-empty v-else description="暂无异义记录" :image-size="80" />
           </el-tab-pane>
 
-          <!-- 购买意向 -->
+          
           <el-tab-pane label="购买意向" name="purchase">
             <div class="intent-block">
               <div class="intent-current">
@@ -230,7 +230,7 @@
             </div>
           </el-tab-pane>
 
-          <!-- 意图轨迹 -->
+          
           <el-tab-pane :label="`意图轨迹 (${(currentMemory.intent_trail || []).length})`" name="trail">
             <template v-if="(currentMemory.intent_trail || []).length">
               <div class="intent-trail">
@@ -249,7 +249,7 @@
             <el-empty v-else description="暂无意图轨迹" :image-size="80" />
           </el-tab-pane>
 
-          <!-- SOP 历史 -->
+          
           <el-tab-pane :label="`SOP 历史 (${(currentMemory.sop_history || []).length})`" name="sop">
             <template v-if="(currentMemory.sop_history || []).length">
               <el-timeline>
@@ -285,8 +285,7 @@ const memoryList = ref([])
 const filterCustomerID = ref('')
 const pagination = ref({ page: 1, pageSize: 20, total: 0 })
 
-// 详情
-const detailVisible = ref(false)
+const detailVisible = ref(false);
 const detailLoading = ref(false)
 const currentMemory = ref(null)
 const activeTab = ref('short')
@@ -394,8 +393,7 @@ const loadList = async () => {
     }
     if (filterCustomerID.value) params.customer_id = filterCustomerID.value
     const res = await memoryApi.list(params)
-    // 后端列表接口返回 {list, total}
-    memoryList.value = res?.list || []
+    memoryList.value = res?.list || [];
     pagination.value.total = res?.total || 0
   } catch (e) {
     ElMessage.error('加载记忆列表失败：' + (e.message || '未知错误'))

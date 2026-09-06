@@ -95,4 +95,3 @@ func (c *ShortLinkStatsController) ShareShortLink(ctx *gin.Context) {
 
 	response.Success(ctx, share, "获取短链分享信息成功")
 }
-

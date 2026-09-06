@@ -33,7 +33,7 @@
       </template>
 
       <div class="editor-body">
-        <!-- 左侧：节点列表 -->
+        
         <div class="palette">
           <h4>{{ $t('节点类型') }}</h4>
           <div
@@ -63,7 +63,7 @@
           </div>
         </div>
 
-        <!-- 中间：画布 -->
+        
         <div class="canvas">
           <div class="canvas-header">
             <span>{{ $t('画布') }} · 节点 {{ nodes.length }} · 连线 {{ edges.length }}</span>
@@ -74,7 +74,7 @@
             @pointermove="onPointerMove"
             @pointerup="onPointerUp"
           >
-            <!-- SVG 连线层 -->
+            
             <svg class="edge-svg">
               <defs>
                 <marker
@@ -105,7 +105,7 @@
                 :y="edge.labelY"
                 class="edge-label"
               >{{ edge.label || '' }}</text>
-              <!-- 临时连线：从 source 节点到当前鼠标位置 -->
+              
               <path
                 v-if="linking.active"
                 :d="tempEdgePath"
@@ -135,7 +135,7 @@
               >
                 <el-icon><Delete /></el-icon>
               </el-button>
-              <!-- 连线起始手柄（右） -->
+              
               <span
                 class="node-handle handle-out"
                 @pointerdown.stop.prevent="onLinkStart(idx, $event)"
@@ -147,7 +147,7 @@
           </div>
         </div>
 
-        <!-- 右侧：属性面板 -->
+        
         <div class="properties">
           <h4>{{ $t('节点属性') }}</h4>
           <template v-if="selectedNodeIdx >= 0 && nodes[selectedNodeIdx]">
@@ -219,22 +219,19 @@ const versions = ref([])
 const currentVersion = ref(null)
 const definition = reactive({ nodes: [], edges: [] })
 
-// 节点框尺寸（用于 SVG 连线定位与边界）
-const NODE_W = 140
+const NODE_W = 140;
 const NODE_H = 56
 
 const canvasBodyRef = ref(null)
 
-// 拖拽状态
 const dragging = reactive({
   active: false,
   idx: -1,
   offsetX: 0,
   offsetY: 0,
   pointerId: -1
-})
+});
 
-// 连线拖拽状态
 const linking = reactive({
   active: false,
   sourceIdx: -1,
@@ -243,7 +240,7 @@ const linking = reactive({
   curX: 0,
   curY: 0,
   hoverTargetIdx: -1
-})
+});
 
 const nodes = computed({
   get: () => definition.nodes,
@@ -256,7 +253,6 @@ const edges = computed({
 
 const definitionJson = computed(() => JSON.stringify(definition, null, 2))
 
-// === 连线 SVG 计算属性：source/target 节点中心 -> 贝塞尔曲线 ===
 const edgePaths = computed(() => {
   return definition.edges.map((edge) => {
     const sNode = definition.nodes.find((n) => n.id === edge.source)
@@ -276,9 +272,8 @@ const edgePaths = computed(() => {
     const labelY = (sy + ty) / 2 - 4
     return { path, labelX, labelY, label: edge.label || '' }
   })
-})
+});
 
-// === 画布拖拽 ===
 const onPointerDown = (idx, ev) => {
   const node = definition.nodes[idx]
   if (!node) return
@@ -288,14 +283,12 @@ const onPointerDown = (idx, ev) => {
   const canvasRect = canvasBodyRef.value?.getBoundingClientRect()
   const canvasLeft = canvasRect ? canvasRect.left : 0
   const canvasTop = canvasRect ? canvasRect.top : 0
-  // 鼠标相对画布坐标 - 节点左上角坐标 = 偏移
-  dragging.offsetX = ev.clientX - canvasLeft - (node.x || 0)
+  dragging.offsetX = ev.clientX - canvasLeft - (node.x || 0);
   dragging.offsetY = ev.clientY - canvasTop - (node.y || 0)
   try { ev.target.setPointerCapture?.(ev.pointerId) } catch (_) {}
-}
+};
 
 const onPointerMove = (ev) => {
-  // 节点拖拽
   if (dragging.active && dragging.idx >= 0) {
     const node = definition.nodes[dragging.idx]
     if (!node) { dragging.active = false; dragging.idx = -1; return }
@@ -309,7 +302,6 @@ const onPointerMove = (ev) => {
     node.y = Math.round(y)
     return
   }
-  // 连线拖拽：更新临时线尾端坐标
   if (linking.active) {
     const canvasRect = canvasBodyRef.value?.getBoundingClientRect()
     if (!canvasRect) return
@@ -326,17 +318,15 @@ const onPointerUp = (ev) => {
   }
   if (linking.active) {
     try { ev.target?.releasePointerCapture?.(linking.pointerId) } catch (_) {}
-    // 若悬停在某个非 source 节点上，则建立连线
-    const targetIdx = linking.hoverTargetIdx
+    const targetIdx = linking.hoverTargetIdx;
     if (targetIdx >= 0 && targetIdx !== linking.sourceIdx) {
       const sourceId = linking.sourceId
       const targetNode = definition.nodes[targetIdx]
       const targetId = targetNode?.id
       if (sourceId && targetId && sourceId !== targetId) {
-        // 校验：禁止重复连线
         const exists = definition.edges.some(e =>
           (e.source || e.from) === sourceId && (e.target || e.to) === targetId
-        )
+        );
         if (exists) {
           ElMessage.warning('已存在相同连线')
         } else {
@@ -358,7 +348,6 @@ onBeforeUnmount(() => {
   linking.active = false
 })
 
-// === 连线创建 ===
 const onLinkStart = (idx, ev) => {
   const node = definition.nodes[idx]
   if (!node) return
@@ -370,7 +359,7 @@ const onLinkStart = (idx, ev) => {
   linking.curX = ev.clientX - (canvasRect?.left || 0)
   linking.curY = ev.clientY - (canvasRect?.top || 0)
   try { ev.target.setPointerCapture?.(ev.pointerId) } catch (_) {}
-}
+};
 
 const onNodeEnter = (idx) => {
   if (linking.active) linking.hoverTargetIdx = idx
@@ -388,7 +377,6 @@ const isLinkedFromSource = (idx) => {
   )
 }
 
-// 临时连线路径：从 source 节点右侧中心到当前鼠标位置
 const tempEdgePath = computed(() => {
   if (!linking.active) return ''
   const sNode = definition.nodes[linking.sourceIdx]
@@ -401,7 +389,7 @@ const tempEdgePath = computed(() => {
   const c1x = sx + dx
   const c2x = tx - dx
   return `M ${sx} ${sy} C ${c1x} ${sy}, ${c2x} ${ty}, ${tx} ${ty}`
-})
+});
 
 const editEdgeLabel = async (idx) => {
   const edge = definition.edges[idx]
@@ -416,8 +404,7 @@ const editEdgeLabel = async (idx) => {
   } catch (_) {}
 }
 
-// === 节点操作 ===
-let idCounter = 1
+let idCounter = 1;
 const addNode = () => {
   const type = selectedNodeType.value
   const newNode = {
@@ -435,7 +422,6 @@ const addNode = () => {
 const removeNode = (idx) => {
   const removedId = definition.nodes[idx]?.id
   definition.nodes.splice(idx, 1)
-  // 清理相关连线（以 source/target 字段为准，兼容旧 from/to）
   if (removedId) {
     definition.edges = definition.edges.filter(e => (e.source || e.from) !== removedId && (e.target || e.to) !== removedId)
   }
@@ -455,12 +441,10 @@ const clearAll = async () => {
   } catch (_) {}
 }
 
-// === 自动布局：按层级分层排列 ===
 const autoLayout = () => {
   const nodeCount = definition.nodes.length
   if (nodeCount === 0) return
-  // 按入度做简单分层（拓扑顺序）
-  const inDegree = {}
+  const inDegree = {};
   const adj = {}
   definition.nodes.forEach(n => { inDegree[n.id] = 0; adj[n.id] = [] })
   definition.edges.forEach(e => {
@@ -471,12 +455,10 @@ const autoLayout = () => {
       if (adj[s]) adj[s].push(t)
     }
   })
-  // 按入度 0 起做 BFS 分层（无入度的节点都在第 0 层）
-  const layers = {}
+  const layers = {};
   let frontier = definition.nodes.filter(n => inDegree[n.id] === 0).map(n => n.id)
   frontier.forEach(id => { layers[id] = 0 })
-  // 防止死循环：限制迭代次数
-  let iter = 0
+  let iter = 0;
   while (frontier.length > 0 && iter < nodeCount * 2) {
     const next = []
     frontier.forEach(s => {
@@ -491,12 +473,10 @@ const autoLayout = () => {
     frontier = [...new Set(next)]
     iter++
   }
-  // 兜底：孤立节点（未被分层的）放到第 0 层
   definition.nodes.forEach(n => {
     if (layers[n.id] === undefined) layers[n.id] = 0
-  })
-  // 按层分组，每层在水平方向均匀分布
-  const byLayer = {}
+  });
+  const byLayer = {};
   definition.nodes.forEach(n => {
     const d = layers[n.id]
     if (!byLayer[d]) byLayer[d] = []
@@ -513,36 +493,30 @@ const autoLayout = () => {
       n.y = START_Y + i * ROW_H
     })
   })
-}
+};
 
-// === 加载版本 ===
 const loadVersions = async () => {
   try {
     const result = await workflowOrchestratorApi.listVersions(workflowId.value)
-    // request.js 拦截器已解包为 data.data（后端 SuccessWithList 返回数组本体），
-    // 此处需兼容数组 / {list} / {data} 三种形态，否则 versions 恒空 → currentVersion 恒 null
-    // → 保存按钮永远报"没有版本可保存"（R54 实测）
     versions.value = Array.isArray(result)
       ? result
       : (Array.isArray(result?.list) ? result.list
-        : (Array.isArray(result?.data) ? result.data : []))
+        : (Array.isArray(result?.data) ? result.data : []));
     if (versions.value.length > 0) {
-      // 默认选择草稿或最新版本
-      const draft = versions.value.find(v => v.status === 'draft')
+      const draft = versions.value.find(v => v.status === 'draft');
       currentVersion.value = draft || versions.value[versions.value.length - 1]
       loadDefinition()
     }
   } catch (e) {
     ElMessage.error('加载版本失败: ' + (e?.message || ''))
   }
-}
+};
 
 const loadDefinition = () => {
   if (!currentVersion.value) return
   const def = currentVersion.value.definition || {}
   const rawNodes = Array.isArray(def.nodes) ? def.nodes : []
   const rawEdges = Array.isArray(def.edges) ? def.edges : []
-  // 兼容旧 from/to -> source/target，并补齐 x/y/config_text
   definition.nodes = rawNodes.map((n) => {
     const cfg = n.config || {}
     let configText = ''
@@ -557,7 +531,7 @@ const loadDefinition = () => {
       y: typeof n.y === 'number' ? n.y : 100,
       config_text: configText
     }
-  })
+  });
   definition.edges = rawEdges.map((e) => ({
     source: e.source || e.from || '',
     target: e.target || e.to || '',
@@ -571,14 +545,12 @@ const onVersionChange = () => {
 
 const statusText = (s) => ({ draft: '草稿', published: '已发布', archived: '已归档' }[s] || s)
 
-// === 保存 ===
 const validateDefinition = () => {
   const ids = new Set(definition.nodes.map(n => n.id))
   if (ids.size !== definition.nodes.length) {
     return '存在重复的节点 ID'
   }
-  // 检查连线端点引用是否存在；self-loop 检查；重复连线检查
-  const seen = new Set()
+  const seen = new Set();
   for (const e of definition.edges) {
     const s = e.source || e.from
     const t = e.target || e.to
@@ -590,7 +562,7 @@ const validateDefinition = () => {
     seen.add(key)
   }
   return ''
-}
+};
 
 const save = async () => {
   if (!currentVersion.value) {
@@ -602,7 +574,6 @@ const save = async () => {
     ElMessage.error(err)
     return
   }
-  // 序列化：config_text -> config，节点保留 x/y/label/id/type，edges 用 source/target/label
   const payloadNodes = definition.nodes.map((n) => {
     let config = {}
     if (n.config_text) {
@@ -622,7 +593,7 @@ const save = async () => {
       y: n.y || 0,
       config
     }
-  })
+  });
   const payloadEdges = definition.edges.map((e) => ({
     source: e.source || e.from || '',
     target: e.target || e.to || '',

@@ -51,22 +51,22 @@ func IsValidAlertChannel(c string) bool {
 //   - targets: 通知目标 JSON（邮箱列表 / 钉钉 webhook / webhook url）
 //   - enabled: 启用开关
 type AlertRule struct {
-	ID             uint                 `json:"id" gorm:"primaryKey"`
-	Name           string               `json:"name" gorm:"size:100;not null;uniqueIndex"`
-	Description    string               `json:"description" gorm:"size:500"`
-	Source         string               `json:"source" gorm:"size:100;not null;index"`
-	Operator       string               `json:"operator" gorm:"size:10;not null;default:'gt'"`
-	Threshold      float64              `json:"threshold" gorm:"not null;default:0"`
-	WindowSeconds  int                  `json:"window_seconds" gorm:"not null;default:60"`
-	CooldownSeconds int                  `json:"cooldown_seconds" gorm:"not null;default:300"`
-	Severity       AlertRuleSeverity    `json:"severity" gorm:"size:20;default:'warning'"`
-	Channels       string               `json:"channels" gorm:"type:jsonb;default:'[]'"`
-	Targets        string               `json:"targets" gorm:"type:jsonb;default:'{}'"`
-	Enabled        bool                 `json:"enabled" gorm:"default:true;not null"`
-	LastTriggeredAt *time.Time          `json:"last_triggered_at"`
-	CreatedBy      uint                 `json:"created_by" gorm:"default:0"`
-	CreatedAt      time.Time            `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt      time.Time            `json:"updated_at" gorm:"autoUpdateTime"`
+	ID              uint              `json:"id" gorm:"primaryKey"`
+	Name            string            `json:"name" gorm:"size:100;not null;uniqueIndex"`
+	Description     string            `json:"description" gorm:"size:500"`
+	Source          string            `json:"source" gorm:"size:100;not null;index"`
+	Operator        string            `json:"operator" gorm:"size:10;not null;default:'gt'"`
+	Threshold       float64           `json:"threshold" gorm:"not null;default:0"`
+	WindowSeconds   int               `json:"window_seconds" gorm:"not null;default:60"`
+	CooldownSeconds int               `json:"cooldown_seconds" gorm:"not null;default:300"`
+	Severity        AlertRuleSeverity `json:"severity" gorm:"size:20;default:'warning'"`
+	Channels        string            `json:"channels" gorm:"type:jsonb;default:'[]'"`
+	Targets         string            `json:"targets" gorm:"type:jsonb;default:'{}'"`
+	Enabled         bool              `json:"enabled" gorm:"default:true;not null"`
+	LastTriggeredAt *time.Time        `json:"last_triggered_at"`
+	CreatedBy       uint              `json:"created_by" gorm:"default:0"`
+	CreatedAt       time.Time         `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt       time.Time         `json:"updated_at" gorm:"autoUpdateTime"`
 
 	Managers []AlertRuleManager `json:"managers,omitempty" gorm:"-"`
 }
@@ -86,20 +86,20 @@ type AlertRuleManager struct {
 //
 // 记录每次规则触发的快照，用于审计、恢复通知、查重。
 type AlertHistory struct {
-	ID         uint      `json:"id" gorm:"primaryKey"`
-	RuleID     uint      `json:"rule_id" gorm:"not null;index"`
-	RuleName   string    `json:"rule_name" gorm:"size:100"`
-	Source     string    `json:"source" gorm:"size:100;index"`
-	Value      float64   `json:"value"`
-	Threshold  float64   `json:"threshold"`
-	Severity   AlertRuleSeverity `json:"severity" gorm:"size:20;index"`
-	Message    string    `json:"message" gorm:"type:text"`
-	Status     string    `json:"status" gorm:"size:20;default:'firing';index"`
-	Channels   string    `json:"channels" gorm:"type:jsonb;default:'[]'"`
-	NotifyResult string  `json:"notify_result" gorm:"type:text"`
-	TriggeredAt time.Time `json:"triggered_at" gorm:"not null;index"`
-	ResolvedAt  *time.Time `json:"resolved_at"`
-	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
+	ID           uint              `json:"id" gorm:"primaryKey"`
+	RuleID       uint              `json:"rule_id" gorm:"not null;index"`
+	RuleName     string            `json:"rule_name" gorm:"size:100"`
+	Source       string            `json:"source" gorm:"size:100;index"`
+	Value        float64           `json:"value"`
+	Threshold    float64           `json:"threshold"`
+	Severity     AlertRuleSeverity `json:"severity" gorm:"size:20;index"`
+	Message      string            `json:"message" gorm:"type:text"`
+	Status       string            `json:"status" gorm:"size:20;default:'firing';index"`
+	Channels     string            `json:"channels" gorm:"type:jsonb;default:'[]'"`
+	NotifyResult string            `json:"notify_result" gorm:"type:text"`
+	TriggeredAt  time.Time         `json:"triggered_at" gorm:"not null;index"`
+	ResolvedAt   *time.Time        `json:"resolved_at"`
+	CreatedAt    time.Time         `json:"created_at" gorm:"autoCreateTime"`
 
 	// 软删除（与全局 SoftDelete 迁移对齐：用 deleted_at）
 	DeletedAt *time.Time `json:"deleted_at" gorm:"index"`
@@ -112,6 +112,6 @@ func (AlertHistory) TableName() string {
 
 // AlertHistoryStatus 告警历史状态
 const (
-	AlertHistoryFiring  = "firing"
+	AlertHistoryFiring   = "firing"
 	AlertHistoryResolved = "resolved"
 )

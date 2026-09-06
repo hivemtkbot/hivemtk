@@ -45,9 +45,6 @@ func NewRagRecallMonitorRepository(db *gorm.DB) RagRecallMonitorRepository {
 	return &ragRecallMonitorRepo{db: db}
 }
 
-// AggregateRecallLogs 聚合时间窗口内的召回日志
-//
-// SQL 与原实现保持一致：使用 COUNT(*) FILTER (WHERE ...) 统计 zero_hit / low_recall / top1_hit
 func (r *ragRecallMonitorRepo) AggregateRecallLogs(ctx context.Context, start, end time.Time) (*RagRecallAggRow, error) {
 	row := &RagRecallAggRow{}
 	if err := r.db.WithContext(ctx).
@@ -69,9 +66,6 @@ func (r *ragRecallMonitorRepo) AggregateRecallLogs(ctx context.Context, start, e
 	return row, nil
 }
 
-// PluckP95Latency 取 延迟
-//
-// 通过 Order + Offset + Limit(1) + Pluck 实现偏移法取百分位
 func (r *ragRecallMonitorRepo) PluckP95Latency(ctx context.Context, start, end time.Time, offset int) (int64, error) {
 	var p95 int64
 	if err := r.db.WithContext(ctx).
@@ -86,12 +80,10 @@ func (r *ragRecallMonitorRepo) PluckP95Latency(ctx context.Context, start, end t
 	return p95, nil
 }
 
-// CreateSnapshot 创建一条监控快照
 func (r *ragRecallMonitorRepo) CreateSnapshot(ctx context.Context, row map[string]any) error {
 	return r.db.WithContext(ctx).Table(RagRecallMonitorTableName).Create(row).Error
 }
 
-// ListSnapshots 列出最近 N 条快照
 func (r *ragRecallMonitorRepo) ListSnapshots(ctx context.Context, limit int) ([]map[string]any, error) {
 	var rows []map[string]any
 	if err := r.db.WithContext(ctx).
@@ -104,10 +96,6 @@ func (r *ragRecallMonitorRepo) ListSnapshots(ctx context.Context, limit int) ([]
 	return rows, nil
 }
 
-// EnsureSchema 确保监控表存在
-//
-// 监控表不是核心业务表，使用 CREATE TABLE IF NOT EXISTS 模式，部署初始化时调用一次即可。
-// 保留原 service 层的 DDL 文本以不改运行时行为。
 func (r *ragRecallMonitorRepo) EnsureSchema(ctx context.Context) error {
 	stmt := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s (
@@ -132,5 +120,4 @@ func (r *ragRecallMonitorRepo) EnsureSchema(ctx context.Context) error {
 	return r.db.WithContext(ctx).Exec(stmt).Error
 }
 
-// 编译期断言
 var _ RagRecallMonitorRepository = (*ragRecallMonitorRepo)(nil)

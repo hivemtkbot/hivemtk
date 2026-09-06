@@ -1,6 +1,5 @@
 package controller
 
-
 import (
 	"net/http"
 	"strconv"
@@ -160,7 +159,6 @@ func (c *KnowledgeBaseController) ListByType(ctx *gin.Context) {
 	response.Success(ctx, list, "查询成功")
 }
 
-// knowledgeBaseCreateReq 创建请求体
 type knowledgeBaseCreateReq struct {
 	KBCode       string `json:"kb_code" binding:"required"`
 	Type         string `json:"type" binding:"required"`
@@ -194,7 +192,6 @@ func (c *KnowledgeBaseController) Create(ctx *gin.Context) {
 	response.Success(ctx, kb, "创建成功")
 }
 
-// knowledgeBaseUpdateReq 更新请求体 (全量替换字段)
 type knowledgeBaseUpdateReq struct {
 	Type         string `json:"type"`
 	Name         string `json:"name"`
@@ -245,7 +242,6 @@ func (c *KnowledgeBaseController) Delete(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"id": id}, "删除成功")
 }
 
-// knowledgeBaseBindReq 绑定请求体
 type knowledgeBaseBindReq struct {
 	AgentID uint `json:"agent_id" binding:"required"`
 }
@@ -295,4 +291,3 @@ func (c *KnowledgeBaseController) UnbindFromAgent(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"kb_id": kbID, "agent_id": req.AgentID}, "解绑成功")
 }
-

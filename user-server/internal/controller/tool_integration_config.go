@@ -9,7 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
 // ToolIntegrationConfigController 工具集成配置控制器
 type ToolIntegrationConfigController struct{}
 
@@ -41,4 +40,3 @@ func (c *ToolIntegrationConfigController) SaveConfig(ctx *gin.Context) {
 	}
 	response.Success(ctx, cfg, "ok")
 }
-

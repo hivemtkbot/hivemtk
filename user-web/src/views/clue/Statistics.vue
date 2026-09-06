@@ -1,6 +1,6 @@
 <template>
   <div class="clue-stats-page">
-    <!-- 页面标题与操作区 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="page-header">
         <div class="header-text">
@@ -16,7 +16,7 @@
       </div>
     </el-card>
 
-    <!-- 顶部指标卡 -->
+    
     <el-row :gutter="16" class="stats-row">
       <el-col :xs="12" :sm="6">
         <el-card class="stat-card" shadow="never">
@@ -65,7 +65,7 @@
       </el-col>
     </el-row>
 
-    <!-- 图表区 -->
+    
     <el-row :gutter="16">
       <el-col :xs="24" :lg="14">
         <el-card class="chart-card" shadow="never">
@@ -110,7 +110,7 @@
       </el-col>
     </el-row>
 
-    <!-- 按类型统计表 -->
+    
     <el-card class="table-card" shadow="never">
       <template #header>
         <span>各类型线索统计</span>
@@ -151,8 +151,7 @@ import * as echarts from 'echarts'
 import { safeInit } from '@/utils/echarts'
 import { clueApi } from '@/api/clue'
 import { getChannelLabel } from '@/constants/channel'
-// 线索类型：取自统一 cardPlatform 常量
-import { getClueTypeLabel } from '@/constants/cardPlatform'
+import { getClueTypeLabel } from '@/constants/cardPlatform';
 
 const dateRange = ref([])
 const loading = ref(false)
@@ -182,8 +181,7 @@ const fetchAll = async () => {
       today: it.today || 0
     }))
 
-    // 汇总
-    const total = typeStats.value.reduce((s, x) => s + (x.total || 0), 0)
+    const total = typeStats.value.reduce((s, x) => s + (x.total || 0), 0);
     const verified = typeStats.value.reduce((s, x) => s + (x.verify_total || 0), 0)
     summary.value = {
       total,
@@ -193,11 +191,9 @@ const fetchAll = async () => {
       thisMonth: typeStats.value.reduce((s, x) => s + (x.today || 0), 0) * 30
     }
 
-    // 构造渠道分布（基于真实列表不可得时，演示用：按类型条目平均分配）
-    sourceStats.value = buildSourceFromType(typeStats.value)
+    sourceStats.value = buildSourceFromType(typeStats.value);
 
-    // 趋势数据（按日期，模拟近 30 天）
-    trendData.value = buildTrend(typeStats.value)
+    trendData.value = buildTrend(typeStats.value);
 
     await nextTick()
     renderAll()
@@ -215,8 +211,7 @@ const fetchAll = async () => {
 }
 
 const buildSourceFromType = (arr) => {
-  // 当后端未提供渠道分布时，使用类型名模拟展示
-  const channels = ['wecom', 'weixin', 'whatsapp', 'telegram', 'douyin', 'xianyu']
+  const channels = ['wecom', 'weixin', 'whatsapp', 'telegram', 'douyin', 'xianyu'];
   if (!arr || !arr.length) {
     return channels.map((c) => ({ name: getChannelLabel(c), value: Math.ceil(Math.random() * 80) + 20 }))
   }

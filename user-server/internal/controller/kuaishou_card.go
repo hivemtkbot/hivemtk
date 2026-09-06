@@ -223,4 +223,3 @@ func (c *KuaishouCardController) SharePage(ctx *gin.Context) {
 	}
 	renderCardChatPage(ctx, c.service.GenerateCardChatPage, uint(id), buildBaseURL(ctx))
 }
-

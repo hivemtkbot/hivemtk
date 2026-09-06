@@ -1,9 +1,9 @@
 <template>
   <div class="reach-pipeline-page">
     <el-tabs v-model="activeTab" @tab-change="handleTabChange" class="rp-tabs">
-      <!-- ============ Tab 1: Pipeline 管理 ============ -->
+      
       <el-tab-pane :label="$t('Pipeline 管理')" name="pipelines">
-        <!-- 统计卡片 -->
+        
         <el-row :gutter="16" class="stats-row">
           <el-col :xs="12" :sm="12" :md="6">
             <el-card shadow="hover" class="stat-card">
@@ -167,7 +167,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- ============ Tab 2: 任务监控 ============ -->
+      
       <el-tab-pane label="任务监控" name="jobs">
         <el-card>
           <div class="toolbar">
@@ -266,7 +266,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- ============ Tab 3: 统计分析 ============ -->
+      
       <el-tab-pane label="统计分析" name="stats">
         <el-row :gutter="16" class="stats-row">
           <el-col :xs="12" :sm="8" :md="6">
@@ -349,7 +349,7 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- ============ 创建 Pipeline 对话框 ============ -->
+    
     <el-dialog
       v-model="pipeDialogVisible"
       :title="pipeDialogTitle"
@@ -437,7 +437,7 @@
       </template>
     </el-dialog>
 
-    <!-- ============ Pipeline 详情对话框 ============ -->
+    
     <el-dialog v-model="pipeDetailVisible" title="Pipeline 详情" width="820px">
       <el-descriptions v-if="currentPipe" :column="2" border>
         <el-descriptions-item label="ID">{{ currentPipe.id }}</el-descriptions-item>
@@ -476,7 +476,7 @@
       </el-descriptions>
     </el-dialog>
 
-    <!-- ============ 加入任务对话框 ============ -->
+    
     <el-dialog
       v-model="jobDialogVisible"
       title="加入任务"
@@ -526,7 +526,7 @@
       </template>
     </el-dialog>
 
-    <!-- ============ 任务详情对话框 ============ -->
+    
     <el-dialog v-model="jobDetailVisible" title="任务详情" width="860px">
       <el-descriptions v-if="currentJob" :column="2" border>
         <el-descriptions-item label="ID">{{ currentJob.id }}</el-descriptions-item>
@@ -589,12 +589,11 @@ import {
 import { reachPipelineApi } from '@/api/reachPipeline.js'
 import { CHANNEL_OPTIONS, getChannelLabel } from '@/constants/channel'
 
-// ====== 常量映射 ======
-
 const stepOptions = [
-  // R57: label 不带编号 — 详情弹窗 `{{ i+1 }}.` 与表格列各自负责编号，
-  // label 里再带数字会产生 "1. 1. 受众筛选" 双重编号
-  { value: 'audience', label: '受众筛选' },
+  {
+    value: 'audience',
+    label: '受众筛选'
+  },
   { value: 'content_prepare', label: '内容准备' },
   { value: 'account_select', label: '账号选择' },
   { value: 'rate_limit', label: '限流控制' },
@@ -603,7 +602,7 @@ const stepOptions = [
   { value: 'track_result', label: '结果追踪' },
   { value: 'retry', label: '失败重试' },
   { value: 'report', label: '汇总报告' }
-]
+];
 
 const jobStateOptions = [
   { value: 'pending', label: '排队' },
@@ -654,15 +653,12 @@ const formatJSON = (obj) => {
   }
 }
 
-// ====== 统计 ======
-const stats = ref({})
+const stats = ref({});
 const loadStats = async () => {
   try {
     const res = await reachPipelineApi.getStats()
     stats.value = res || {}
-  } catch (e) {
-    // 静默处理，不阻断主流程
-  }
+  } catch (e) {}
 }
 const archivedCount = computed(() => {
   const total = Number(stats.value.total || 0)
@@ -684,15 +680,13 @@ const overallFailureRate = computed(() => {
   return ((fail / total) * 100).toFixed(1)
 })
 
-// ====== 标签页 ======
-const activeTab = ref('pipelines')
+const activeTab = ref('pipelines');
 const handleTabChange = (name) => {
   if (name === 'jobs' && !jobs.value.length) loadJobs()
   if (name === 'stats') loadStatsSample()
 }
 
-// ====== Pipelines ======
-const pipelines = ref([])
+const pipelines = ref([]);
 const pipeLoading = ref(false)
 const pipeFilter = reactive({ keyword: '', channel: '', status: '' })
 const pipePager = reactive({ page: 1, page_size: 20, total: 0 })
@@ -714,12 +708,11 @@ const loadPipelines = async () => {
     pipeLoading.value = false
   }
 }
-// 名称关键字在后端不支持，前端在当前页做补充筛选
 const filteredPipelines = computed(() => {
   const kw = (pipeFilter.keyword || '').trim().toLowerCase()
   if (!kw) return pipelines.value
   return pipelines.value.filter((p) => (p.name || '').toLowerCase().includes(kw))
-})
+});
 const onPipeFilterChange = () => {
   pipePager.page = 1
   loadPipelines()
@@ -737,8 +730,7 @@ const pipelineName = (id) => {
   return p ? p.name : `#${id}`
 }
 
-// ====== Pipeline 表单 ======
-const pipeDialogVisible = ref(false)
+const pipeDialogVisible = ref(false);
 const pipeDialogTitle = ref('新建 Pipeline')
 const pipeFormRef = ref()
 const pipeSubmitting = ref(false)
@@ -837,7 +829,6 @@ const deletePipe = async (row) => {
   }
 }
 
-// 重置限流（后端要求 channel query 参数非空）
 const resetRateLimit = async () => {
   if (!pipeFilter.channel) {
     ElMessage.warning(i18n.global.t('请先在渠道筛选中选择一个渠道'))
@@ -850,10 +841,9 @@ const resetRateLimit = async () => {
   } catch (e) {
     if (e !== 'cancel') ElMessage.error(e.message || '操作失败')
   }
-}
+};
 
-// ====== Pipeline 详情 ======
-const pipeDetailVisible = ref(false)
+const pipeDetailVisible = ref(false);
 const currentPipe = ref(null)
 const viewPipe = async (row) => {
   try {
@@ -872,8 +862,7 @@ const pipeCompletionRate = (p) => {
   return ((succ / runs) * 100).toFixed(1)
 }
 
-// ====== Jobs ======
-const jobs = ref([])
+const jobs = ref([]);
 const jobLoading = ref(false)
 const jobFilter = reactive({ pipeline_id: null, channel: '', state: '' })
 const jobPager = reactive({ page: 1, page_size: 20, total: 0 })
@@ -895,11 +884,10 @@ const loadJobs = async () => {
     jobLoading.value = false
   }
 }
-// Pipeline 下拉为客户端筛选（后端 ListJobs 仅支持 channel/state 参数）
 const filteredJobs = computed(() => {
   if (!jobFilter.pipeline_id) return jobs.value
   return jobs.value.filter((j) => j.pipeline_id === jobFilter.pipeline_id)
-})
+});
 const onJobFilterChange = () => {
   jobPager.page = 1
   loadJobs()
@@ -948,8 +936,7 @@ const retryJob = async (row) => {
   }
 }
 
-// ====== Job 表单 ======
-const jobDialogVisible = ref(false)
+const jobDialogVisible = ref(false);
 const jobFormRef = ref()
 const jobSubmitting = ref(false)
 const jobForm = reactive({ pipeline_id: null, channel: '', customer_id: '', account_id: '', max_retry: 0, payloadStr: '{}' })
@@ -1002,8 +989,7 @@ const submitJob = async () => {
   })
 }
 
-// ====== Job 详情 ======
-const jobDetailVisible = ref(false)
+const jobDetailVisible = ref(false);
 const currentJob = ref(null)
 const viewJob = async (row) => {
   try {
@@ -1016,14 +1002,12 @@ const viewJob = async (row) => {
 }
 const jobStepResults = (j) => (Array.isArray(j && j.step_results) ? j.step_results : [])
 
-// ====== Tab 3 统计分析 ======
-const statsSample = ref([])
+const statsSample = ref([]);
 const statsLoading = ref(false)
 const loadStatsSample = async () => {
   statsLoading.value = true
   try {
-    // 拉取较大样本用于渠道维度统计（后端统计接口为聚合数据，无渠道维度拆分）
-    const res = await reachPipelineApi.getJobs({ page: 1, page_size: 200 })
+    const res = await reachPipelineApi.getJobs({ page: 1, page_size: 200 });
     statsSample.value = res.list || []
   } catch (e) {
     ElMessage.error(e.message || '获取统计样本失败')
@@ -1066,12 +1050,11 @@ const channelStats = computed(() => {
   })
 })
 
-// ====== 初始化 ======
 onMounted(() => {
   loadStats()
   loadPipelines()
   loadJobs()
-})
+});
 </script>
 
 <style scoped lang="scss">

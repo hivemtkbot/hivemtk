@@ -320,7 +320,6 @@ func IsValidSSETopic(topic string) bool {
 	return false
 }
 
-// splitComma 按逗号分割字符串（去除空白）
 func splitComma(s string) []string {
 	var out []string
 	current := make([]rune, 0, len(s))

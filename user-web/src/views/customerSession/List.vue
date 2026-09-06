@@ -6,7 +6,7 @@
         <p class="subtitle">统一管理多渠道客户对话 · 集成坐席状态 / 快捷回复 / 标签 / AI 建议 / 三栏看板</p>
       </div>
       <div class="header-actions">
-        <!-- P1-4 G8 AgentStatus: 我的状态快速切换 -->
+        
         <el-select
           v-model="myStatus"
           size="default"
@@ -23,7 +23,7 @@
             <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#94A3B8;margin-right:8px;vertical-align:middle;"></span>{{ $t('离线') }}
           </el-option>
         </el-select>
-        <!-- C2：黑名单管理入口 -->
+        
         <el-button @click="openBlacklistDialog">
           <el-icon><Warning /></el-icon>
           黑名单管理
@@ -36,7 +36,7 @@
     </el-card>
 
     <div class="main-content">
-      <!-- 左栏：会话排队列表 -->
+      
       <div class="session-list">
         <el-card>
           <template #header>
@@ -69,7 +69,7 @@
               </div>
               <div class="preview">{{ session.lastMessage }}</div>
               <div class="session-meta">
-                <!-- 方向10：handler_type 标签 -->
+                
                 <el-tag
                   :type="session.handlerType === 'human' ? 'success' : 'info'"
                   size="small"
@@ -81,7 +81,7 @@
                   {{ session.handlerType === 'human' ? '人工' : 'AI' }}
                 </el-tag>
                 <el-tag size="small" effect="plain">{{ getChannelLabel(session.channel) }}</el-tag>
-                <!-- C2：拉黑后会话状态变更展示 -->
+                
                 <el-tag
                   v-if="blacklistedSessionIds.includes(session.id)"
                   size="small"
@@ -96,16 +96,16 @@
         </el-card>
       </div>
 
-      <!-- 中栏：标准全媒体聊天窗 -->
+      
       <div class="chat-area">
         <el-card v-if="currentSession">
-          <!-- 方向10：AI/人工切换顶栏 -->
+          
           <template #header>
             <div class="chat-header">
               <div class="customer-info">
                 <h3>{{ currentSession.customerName }}</h3>
                 <span class="channel">{{ getChannelLabel(currentSession.channel) }}</span>
-                <!-- AI/人工状态指示器：含状态点指示灯（AI 托管=绿灯脉冲 / 人工接管=蓝灯） -->
+                
                 <el-tag
                   :type="currentHandler === 'human' ? 'success' : 'info'"
                   size="small"
@@ -118,7 +118,7 @@
                   </el-icon>
                   {{ currentHandler === 'human' ? '人工接管' : 'AI 托管' }}
                 </el-tag>
-                <!-- 标签展示 + 添加 -->
+                
                 <div class="session-tags">
                   <el-tag
                     v-for="tag in sessionTags"
@@ -151,7 +151,7 @@
                 </div>
               </div>
               <div class="header-actions">
-                <!-- 方向10：核心 AI/人工切换按钮 -->
+                
                 <el-button
                   v-if="currentHandler === 'ai'"
                   type="success"
@@ -177,7 +177,7 @@
             </div>
           </template>
 
-          <!-- P1-4 G8 AI 建议浮层：显示在消息流上方 -->
+          
           <div v-if="aiSuggestions.length > 0" class="ai-suggestion-bar">
             <div class="ai-bar-title">
               <el-icon style="color: #4F46E5"><MagicStick /></el-icon>
@@ -230,7 +230,7 @@
             </div>
           </div>
 
-          <!-- 方向10：输入区在 AI 托管时禁用，提示"AI 正在回复" -->
+          
           <div class="input-area">
             <div v-if="quickReplies.length > 0" class="quick-replies-bar">
               <el-dropdown
@@ -269,7 +269,7 @@
               />
             </div>
 
-            <!-- AI 托管模式：禁止坐席直接输入，必须先接管 -->
+            
             <el-alert
               v-if="currentHandler === 'ai'"
               type="info"
@@ -305,7 +305,7 @@
         <el-empty v-else description="请从左侧选择会话" />
       </div>
 
-      <!-- 方向10：右栏：客户 360° 画像 + SOP 控制 -->
+      
       <div v-if="currentSession" class="customer-profile">
         <el-card>
           <template #header>
@@ -315,7 +315,7 @@
             </div>
           </template>
 
-          <!-- 基本信息 -->
+          
           <div class="profile-section">
             <div class="profile-row">
               <span class="label">客户ID</span>
@@ -343,7 +343,7 @@
             </div>
           </div>
 
-          <!-- 长期画像标签 -->
+          
           <div class="profile-section">
             <div class="section-title">长期画像</div>
             <div v-if="profileTags.length === 0" class="empty-hint">暂无画像标签</div>
@@ -360,7 +360,7 @@
             </div>
           </div>
 
-          <!-- SOP 当前阶段 -->
+          
           <div class="profile-section">
             <div class="section-title">当前 SOP 阶段</div>
             <el-radio-group v-model="sopStage" size="small" style="display: flex; flex-direction: column; gap: 6px">
@@ -380,7 +380,7 @@
             </el-button>
           </div>
 
-          <!-- 工具栏 -->
+          
           <div class="profile-section">
             <div class="section-title">快捷操作</div>
             <el-button-group style="width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 6px">
@@ -414,7 +414,7 @@
       </div>
     </div>
 
-    <!-- C2：黑名单管理弹窗（列表 + 解黑） -->
+    
     <el-dialog
       v-model="blacklistDialogVisible"
       title="黑名单管理"
@@ -501,55 +501,40 @@ import {
 import AgentSocket from '@/utils/agentSocket'
 import { getChannelLabel } from '@/constants/channel'
 
-// ===== 会话核心状态 =====
-const sessions = ref([])
+const sessions = ref([]);
 const currentSession = ref(null)
 const messages = ref([])
 const inputMsg = ref('')
 const filterStatus = ref('')
 const messagesRef = ref()
 
-// 方向10：AI/人工切换状态
-// currentHandler: 'ai' | 'human'，从 currentSession.handlerType 派生
-// handlerSwitching: 切换中 loading 态，防止重复点击
 const currentHandler = computed(() => {
   return currentSession.value?.handlerType === 'human' ? 'human' : 'ai'
-})
+});
 const handlerSwitching = ref(false)
 
-// 方向10：客户 360° 画像
-const profileStats = ref({ messageCount: 0, sessionCount: 0, aiReplyCount: 0 })
+const profileStats = ref({ messageCount: 0, sessionCount: 0, aiReplyCount: 0 });
 const profileTags = ref([])
 const sopStage = ref('')
 
-// ===== G8 AgentStatus =====
-const myStatus = ref('offline')
+const myStatus = ref('offline');
 const myAgentId = ref(null)
 
-// ===== G8 SessionTag =====
-const allTags = ref([]) // 系统全部标签
-const sessionTags = ref([]) // 当前会话的标签
+const allTags = ref([]);
+const sessionTags = ref([]);
 const tagToAdd = ref(null)
 
-// ===== G8 QuickReply =====
-const quickReplies = ref([])
-const allQuickReplies = ref([]) // 用于关键词搜索
+const quickReplies = ref([]);
+const allQuickReplies = ref([]);
 const quickReplySearch = ref('')
 
-// ===== G8 AISuggestion =====
-const aiSuggestions = ref([])
+const aiSuggestions = ref([]);
 
-// ===== C2：黑名单管理 =====
-// blacklistDialogVisible: 黑名单管理弹窗显隐
-// blacklistItems: 黑名单分页列表
-// blacklistLoading: 列表加载中
-// blacklistedSessionIds: 已拉黑会话 ID 数组（用于列表项状态标记，用数组保证响应式）
-const blacklistDialogVisible = ref(false)
+const blacklistDialogVisible = ref(false);
 const blacklistItems = ref([])
 const blacklistLoading = ref(false)
 const blacklistedSessionIds = ref([])
 
-// ===== 会话状态元数据（USR-WB-01b：与后端 CustomerSession.SessionStatus 对齐）=====
 const SESSION_STATUS_META = {
   pending: { label: '待处理', tagType: 'info' },
   ai_handling: { label: 'AI处理', tagType: 'primary' },
@@ -557,13 +542,12 @@ const SESSION_STATUS_META = {
   waiting: { label: '等待', tagType: 'warning' },
   resolved: { label: '已解决', tagType: 'success' },
   closed: { label: '已关闭', tagType: 'info' }
-}
+};
 
 const getSessionStatusLabel = (status) => SESSION_STATUS_META[status]?.label || status
 const getSessionStatusTagType = (status) => SESSION_STATUS_META[status]?.tagType || 'info'
 
-// ===== 过滤会话 =====
-const ACTIVE_STATUSES = ['pending', 'ai_handling', 'human_handling', 'waiting']
+const ACTIVE_STATUSES = ['pending', 'ai_handling', 'human_handling', 'waiting'];
 
 const filteredSessions = computed(() => {
   if (!filterStatus.value) return sessions.value
@@ -573,7 +557,6 @@ const filteredSessions = computed(() => {
   return sessions.value.filter((s) => s.status === filterStatus.value)
 })
 
-// ===== 时间格式化 =====
 const formatTime = (time) => {
   if (!time) return ''
   const d = new Date(time)
@@ -582,10 +565,9 @@ const formatTime = (time) => {
     return d.toTimeString().substring(0, 5)
   }
   return `${d.getMonth() + 1}/${d.getDate()}`
-}
+};
 
-// ===== 坐席实时 WebSocket：接收后端推送的新会话/新消息/会话更新/AI 建议 =====
-let agentSocketInst = null
+let agentSocketInst = null;
 
 const mapSession = (s) => {
   if (!s) return null
@@ -596,13 +578,13 @@ const mapSession = (s) => {
     customerName: s.UserName ?? s.user_name ?? '访客',
     channel: s.Platform ?? s.platform ?? '',
     status: s.Status ?? s.status ?? 'waiting',
-    handlerType: s.HandlerType ?? s.handler_type ?? 'ai', // 方向10
+    handlerType: s.HandlerType ?? s.handler_type ?? 'ai',
     lastMessage: s.LastMessage ?? s.last_message ?? '',
     lastTime: s.LastMessageAt ?? s.last_message_at ?? s.CreatedAt ?? s.created_at ?? '',
     createdAt: s.CreatedAt ?? s.created_at,
     unread: s.unread_count ?? s.unread ?? 0,
     tags: s.Tags ?? s.tags ?? []
-  }
+  };
 }
 
 const findSession = (sessionId) => {
@@ -662,9 +644,6 @@ const onAgentNewMessage = (payload) => {
   }
 }
 
-// 方向10：监听 session_update 事件中的 handler_type 变更
-// 后端在 takeover/release 时通过 NotifySessionUpdate 推送：
-//   { session_id, handler_type, event, status }
 const onAgentSessionUpdate = (payload) => {
   const session = findSession(payload.session_id)
   if (!session) return
@@ -672,13 +651,12 @@ const onAgentSessionUpdate = (payload) => {
   if (payload.handlerType) session.handlerType = payload.handlerType
   if (payload.status) session.status = payload.status
   if (payload.transferred) session.transferred = payload.transferred
-  // 当前会话的 handler 变了，刷新本地（让 inputArea disabled 状态正确）
   if (currentSession.value && (currentSession.value.sessionId === payload.session_id || String(currentSession.value.id) === String(payload.session_id))) {
     if (payload.handler_type) currentSession.value.handlerType = payload.handler_type
     if (payload.handlerType) currentSession.value.handlerType = payload.handlerType
     if (payload.status) currentSession.value.status = payload.status
   }
-}
+};
 
 const onAgentAISuggestion = () => {
   if (currentSession.value) loadAiSuggestions()
@@ -691,12 +669,11 @@ const setupAgentSocket = () => {
     onNewMessage: onAgentNewMessage,
     onSessionUpdate: onAgentSessionUpdate,
     onAISuggestion: onAgentAISuggestion,
-    onError: (e) => { console.warn('[agentSocket]', e) } // 实时失败仅日志，不影响 REST 列表
+    onError: (e) => { console.warn('[agentSocket]', e) }
   })
   agentSocketInst.connect()
 }
 
-// ===== R48: AI摘要/转录导出/暂缓/优先级 =====
 const aiSummaryCurrent = async () => {
   if (!currentSession.value) return ElMessage.warning('请先选择会话')
   const sid = currentSession.value.sessionId || currentSession.value.session_id
@@ -708,7 +685,7 @@ const aiSummaryCurrent = async () => {
   } catch (e) {
     ElMessage.error(e?.message || '摘要生成失败')
   } finally { loading.value = false }
-}
+};
 
 const exportTranscriptCurrent = () => {
   if (!currentSession.value) return ElMessage.warning('请先选择会话')
@@ -738,12 +715,10 @@ const setPriorityCurrent = async () => {
   }
 }
 
-// ===== 会话操作 =====
 const loadSessions = async () => {
   try {
     const res = await getSessions()
-    // request.js 拦截器已自动解包 data.data，因此 res 直接是 { list: [...] } 或 [...]
-    const list = Array.isArray(res) ? res : (res?.list || [])
+    const list = Array.isArray(res) ? res : (res?.list || []);
     sessions.value = list.map((s) => ({
       id: s.id,
       sessionId: s.session_id,
@@ -762,7 +737,7 @@ const loadSessions = async () => {
     console.error('加载会话列表失败:', e)
     sessions.value = []
   }
-}
+};
 
 const selectSession = async (session) => {
   currentSession.value = session
@@ -777,8 +752,7 @@ const selectSession = async (session) => {
       content: m.content,
       createdAt: formatTime(m.created_at)
     }))
-    // 加载会话相关数据：标签、消息建议、客户画像
-    await Promise.all([loadSessionTags(), loadAiSuggestions(), loadCustomerProfile()])
+    await Promise.all([loadSessionTags(), loadAiSuggestions(), loadCustomerProfile()]);
     await nextTick()
     scrollToBottom()
   } catch (e) {
@@ -789,7 +763,6 @@ const selectSession = async (session) => {
 
 const sendMessage = async () => {
   if (!inputMsg.value.trim() || !currentSession.value) return
-  // 方向10：AI 托管时禁止发送（前端二次防护，后端也会拦截）
   if (currentHandler.value === 'ai') {
     ElMessage.warning('AI 托管中，请先接管会话')
     return
@@ -815,8 +788,7 @@ const sendMessage = async () => {
     await nextTick()
     scrollToBottom()
   } catch (e) {
-    // 发送失败：恢复输入框内容并提示，避免消息丢失且无反馈
-    inputMsg.value = content
+    inputMsg.value = content;
     ElMessage.error('发送失败：' + (e?.message || ''))
   }
 }
@@ -859,17 +831,6 @@ const closeSession = async () => {
   }
 }
 
-// ===== 方向10 / C3：AI/人工切换处理 =====
-// 统一走 POST /api/customer-sessions/:id/switch-handler（后端推荐入口）
-//   handler_type=human → 等价 Takeover
-//   handler_type=ai    → 等价 Release
-// agent_id 由后端从 JWT 派生，前端不可伪造
-// 切换后后端推 WebSocket(session_update)，前端 onAgentSessionUpdate 同步本地状态
-
-/**
- * 接管 AI 会话（切换到人工）
- * 后端：POST /api/customer-sessions/:id/switch-handler  handler_type=human
- */
 const handleTakeover = async () => {
   if (!currentSession.value) return
   if (currentHandler.value === 'human') {
@@ -879,8 +840,7 @@ const handleTakeover = async () => {
   try {
     handlerSwitching.value = true
     await switchSessionHandler(currentSession.value.id, 'human', '坐席主动接管')
-    // 本地乐观更新：handler 立即切到 human（WebSocket 推送到达后会再次校正）
-    currentSession.value.handlerType = 'human'
+    currentSession.value.handlerType = 'human';
     if (currentSession.value.status !== 'human_handling') {
       currentSession.value.status = 'human_handling'
     }
@@ -890,12 +850,8 @@ const handleTakeover = async () => {
   } finally {
     handlerSwitching.value = false
   }
-}
+};
 
-/**
- * 释放会话回 AI（切换到 AI 托管）
- * 后端：POST /api/customer-sessions/:id/switch-handler  handler_type=ai
- */
 const handleRelease = async () => {
   if (!currentSession.value) return
   if (currentHandler.value === 'ai') {
@@ -914,13 +870,11 @@ const handleRelease = async () => {
   } finally {
     handlerSwitching.value = false
   }
-}
+};
 
-// ===== 方向10：客户 360° 画像加载 =====
 const loadCustomerProfile = async () => {
   if (!currentSession.value) return
   const uid = currentSession.value.customerId || currentSession.value.sessionId
-  // 并行：stats + tags
   try {
     const [statsRes, tagsRes] = await Promise.all([
       getCustomerStats(uid).catch(() => null),
@@ -932,22 +886,18 @@ const loadCustomerProfile = async () => {
   } catch (e) {
     console.warn('[profile] load failed:', e)
   }
-}
+};
 
-// ===== 方向10：SOP 阶段保存（前端预留 UI；后端通过 SOP 路由对接） =====
 const saveSopStage = async () => {
   if (!currentSession.value || !sopStage.value) return
-  // 注：完整 SOP 写回通过 /api/sop/step 调用，本处仅前端 UI 状态管理
-  ElMessage.success(`已标记 SOP 阶段：${sopStage.value}`)
-}
+  ElMessage.success(`已标记 SOP 阶段：${sopStage.value}`);
+};
 
-// ===== 方向10：快捷操作占位（发券/发商品卡/拉黑） =====
 const sendCoupon = () => {
   if (!currentSession.value) return
-  // 真正发送通过 SendMessage 走坐席消息
-  inputMsg.value = '【优惠券】新人专享 8 折，输入 COUPON8 立减'
+  inputMsg.value = '【优惠券】新人专享 8 折，输入 COUPON8 立减';
   ElMessage.success('已准备优惠券话术，可直接发送')
-}
+};
 const sendProductCard = () => {
   if (!currentSession.value) return
   inputMsg.value = '【商品卡片】热卖推荐：XXX 蓝莓味爆款 ¥99'
@@ -957,23 +907,18 @@ const blacklist = async () => {
   if (!currentSession.value) return
   let reason = ''
   try {
-    // 弹出 prompt 输入拉黑原因（对应设计文档 §4.4 前端交互）
     const promptRes = await ElMessageBox.prompt('请输入拉黑原因（选填）', '拉黑访客', {
       type: 'warning',
       confirmButtonText: '确认拉黑',
       cancelButtonText: '取消',
       inputPlaceholder: '例如：恶意刷屏 / 辱骂客服 / 欺诈风险'
-    })
+    });
     reason = promptRes?.value || ''
   } catch (e) {
-    // 用户取消 prompt
-    return
+    return;
   }
   try {
-    // 调 POST /api/customer-sessions/:id/blacklist
-    // 后端会关闭该会话 + 写黑名单 + 推 WebSocket(event=blacklisted)
-    await blacklistSession(currentSession.value.id, reason, 0)
-    // 本地状态变更展示：会话标记为已拉黑 + 状态置为 closed
+    await blacklistSession(currentSession.value.id, reason, 0);
     if (!blacklistedSessionIds.value.includes(currentSession.value.id)) {
       blacklistedSessionIds.value = [...blacklistedSessionIds.value, currentSession.value.id]
     }
@@ -985,22 +930,16 @@ const blacklist = async () => {
   }
 }
 
-// ===== C2：黑名单管理弹窗（列表 + 解黑） =====
-/**
- * 打开黑名单管理弹窗并加载列表
- * 后端：GET /api/customer-sessions/blacklist
- */
 const openBlacklistDialog = async () => {
   blacklistDialogVisible.value = true
   await loadBlacklist()
-}
+};
 
 const loadBlacklist = async () => {
   blacklistLoading.value = true
   try {
     const res = await listBlacklist({ page: 1, page_size: 50 })
-    // 兼容 res 直接是数组或 { list: [] } 两种包装
-    const list = Array.isArray(res) ? res : (res?.list || res?.data || [])
+    const list = Array.isArray(res) ? res : (res?.list || res?.data || []);
     blacklistItems.value = list
   } catch (e) {
     blacklistItems.value = []
@@ -1010,10 +949,6 @@ const loadBlacklist = async () => {
   }
 }
 
-/**
- * 解除拉黑
- * 后端：POST /api/customer-sessions/blacklist/remove
- */
 const handleUnblacklist = async (item) => {
   const userId = item.user_id ?? item.UserID ?? item.userId
   const platform = item.platform ?? item.Platform ?? 'web'
@@ -1029,12 +964,10 @@ const handleUnblacklist = async (item) => {
   } catch (e) {
     if (e !== 'cancel') ElMessage.error('解除失败：' + (e?.message || ''))
   }
-}
+};
 
-// ===== G8 AgentStatus: 我的状态切换 =====
 const handleStatusChange = async (newStatus) => {
   try {
-    // 尝试取一个已存在的坐席作为"我"（无登录态时降级为列表首位）
     if (myAgentId.value) {
       if (newStatus === 'online') {
         await goOnline(myAgentId.value)
@@ -1049,24 +982,20 @@ const handleStatusChange = async (newStatus) => {
     }
   } catch (e) {
     ElMessage.error('状态切换失败：' + (e?.message || ''))
-    // 回滚 UI
-    myStatus.value = 'offline'
+    myStatus.value = 'offline';
   }
-}
+};
 
-// ===== G8 SessionTag: 加载 + 添加 + 移除 =====
 const loadAllTags = async () => {
   try {
     const res = await getSessionTags()
-    // 修复：res 即业务数据本身
-    const data = res || []
+    const data = res || [];
     allTags.value = Array.isArray(data) ? data : data.list || []
   } catch (e) {
     allTags.value = []
   }
-}
+};
 
-// 当前会话的 tags 是 JSON 字符串（来自后端 TagSession 持久化）
 const loadSessionTags = () => {
   if (!currentSession.value) {
     sessionTags.value = []
@@ -1080,7 +1009,7 @@ const loadSessionTags = () => {
     ids = []
   }
   sessionTags.value = (allTags.value || []).filter((t) => ids.includes(t.id))
-}
+};
 
 const addSessionTag = async (tagId) => {
   if (!tagId || !currentSession.value) return
@@ -1104,17 +1033,13 @@ const removeSessionTag = async (tag) => {
 }
 
 const persistSessionTags = async () => {
-  // 复用后端 TagSession 接口
-  const tagService = await import('@/api/customerService.js')
+  const tagService = await import('@/api/customerService.js');
   const ids = sessionTags.value.map((t) => t.id)
   try {
     await tagService.tagSession(currentSession.value.id, { tags: ids })
-  } catch (e) {
-    // 静默失败：UI 仍可工作
-  }
+  } catch (e) {}
 }
 
-// ===== G8 QuickReply: 加载 + 搜索 + 插入 =====
 const loadQuickReplies = async () => {
   try {
     const [rRes] = await Promise.all([
@@ -1128,7 +1053,7 @@ const loadQuickReplies = async () => {
     allQuickReplies.value = []
     quickReplies.value = []
   }
-}
+};
 
 const onQuickReplySearch = () => {
   const kw = quickReplySearch.value.trim().toLowerCase()
@@ -1136,13 +1061,12 @@ const onQuickReplySearch = () => {
     quickReplies.value = allQuickReplies.value
     return
   }
-  // 关键词触发：标题或内容包含关键词
   quickReplies.value = allQuickReplies.value.filter(
     (r) =>
       r.title?.toLowerCase().includes(kw) ||
       r.content?.toLowerCase().includes(kw) ||
       r.category?.toLowerCase().includes(kw)
-  )
+  );
 }
 
 const insertQuickReply = (reply) => {
@@ -1151,7 +1075,6 @@ const insertQuickReply = (reply) => {
   ElMessage.success(`已插入：${reply.title}`)
 }
 
-// ===== G8 AISuggestion: 加载 + 采纳 =====
 const loadAiSuggestions = async () => {
   if (!currentSession.value) {
     aiSuggestions.value = []
@@ -1159,13 +1082,12 @@ const loadAiSuggestions = async () => {
   }
   try {
     const res = await getAISuggestions(currentSession.value.sessionId || currentSession.value.id)
-    // 修复：res 即业务数据本身
-    const data = res || []
+    const data = res || [];
     aiSuggestions.value = Array.isArray(data) ? data : data.list || []
   } catch (e) {
     aiSuggestions.value = []
   }
-}
+};
 
 const useAiSuggestion = async (suggestion) => {
   if (!suggestion || suggestion.is_used) return
@@ -1173,8 +1095,7 @@ const useAiSuggestion = async (suggestion) => {
     if (useAISuggestion) {
       await useAISuggestion(suggestion.id)
     }
-    // 把建议文本填入输入框，由客服检查后发送
-    inputMsg.value = suggestion.suggestion
+    inputMsg.value = suggestion.suggestion;
     suggestion.is_used = true
     ElMessage.success(i18n.global.t('已采纳，可直接发送'))
   } catch (e) {
@@ -1182,48 +1103,37 @@ const useAiSuggestion = async (suggestion) => {
   }
 }
 
-// ===== 初始化 =====
 onMounted(async () => {
   await loadSessions()
-  // 并行加载 4 个子模块的数据
-  await Promise.all([loadAllTags(), loadQuickReplies()])
-  // 接入登录态：优先用当前登录用户对应的坐席身份，杜绝"在线列表首位猜测"
+  await Promise.all([loadAllTags(), loadQuickReplies()]);
   try {
     const res = await getMyAgent()
-    // 修复：res 即业务数据本身
-    const me = res
+    const me = res;
     if (me?.agent_id) {
       myAgentId.value = me.agent_id
       myStatus.value = me.status || 'offline'
       setupAgentSocket()
       return
     }
-  } catch (e) {
-    // 登录态取不到时降级到在线列表兜底
-  }
-  // 降级：未取到登录态坐席时，才用在线列表首位代表登录客服
+  } catch (e) {}
   try {
     const res = await getOnlineAgents()
-    // 修复：res 即业务数据本身
-    const list = res || []
+    const list = res || [];
     const arr = Array.isArray(list) ? list : list.list || []
     if (arr.length > 0) {
       myAgentId.value = arr[0].agent_id
       myStatus.value = arr[0].status || 'offline'
       setupAgentSocket()
     }
-  } catch (e) {
-    // 静默失败
-  }
-})
+  } catch (e) {}
+});
 
-// 切换会话后刷新 AI 建议 + 客户画像
 watch(currentSession, (newVal, oldVal) => {
   if (newVal && newVal.id !== oldVal?.id) {
     loadAiSuggestions()
     loadCustomerProfile()
   }
-})
+});
 
 onUnmounted(() => {
   if (agentSocketInst) { agentSocketInst.close(); agentSocketInst = null }

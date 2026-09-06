@@ -61,8 +61,6 @@ func GlobalIsRedis() bool {
 	return globalRedis
 }
 
-// cacheCloser 可选关闭接口：内存缓存实现 Close() 停止清理协程。
-// Cache 接口本身未包含 Close，故通过类型断言按需调用，避免改动接口契约。
 type cacheCloser interface {
 	Close()
 }

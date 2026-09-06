@@ -57,7 +57,6 @@ func TestSendMail(t *testing.T) {
 		Password: "test_password",
 	}
 
-
 	err := SendMail(cfg, []string{"recipient@example.com"}, "Test Subject", "Test Body", false)
 	if err == nil {
 		t.Log("Expected SMTP connection to fail with fake credentials")
@@ -232,4 +231,3 @@ func TestBuildTraceEmptyHTML(t *testing.T) {
 		t.Errorf("BuildTrace() with empty HTML = %v, want %v", result, expectedImage)
 	}
 }
-

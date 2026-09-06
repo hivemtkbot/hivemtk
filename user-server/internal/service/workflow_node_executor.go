@@ -193,8 +193,6 @@ func ParseWorkflowDefinition(m model.JSONMap) (*WorkflowDefinition, error) {
 	return &def, nil
 }
 
-// === 辅助函数：副作用幂等性 ===
-
 // WorkflowSideEffectKey 生成副作用键
 func WorkflowSideEffectKey(ctx *WorkflowExecContext, action string) string {
 	if ctx == nil || ctx.Execution == nil {
@@ -203,7 +201,6 @@ func WorkflowSideEffectKey(ctx *WorkflowExecContext, action string) string {
 	return fmt.Sprintf("wf_%d_%s_%s", ctx.Execution.ID, ctx.NodeID, action)
 }
 
-// extractWorkflowSideEffects 从 WorkflowExecution.Context 中提取副作用列表
 func extractWorkflowSideEffects(data model.JSONMap) []string {
 	if data == nil {
 		return nil

@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"crypto/sha256"
@@ -13,13 +12,12 @@ import (
 	"time"
 )
 
-
 // RetrievedDoc 检索得到的候选文档（含来源/原始分数，便于多路融合）
 type RetrievedDoc struct {
-	ID       string  
-	Content  string  
-	Score    float64 
-	Source   string  
+	ID       string
+	Content  string
+	Score    float64
+	Source   string
 	Metadata map[string]any
 }
 
@@ -27,11 +25,11 @@ type RetrievedDoc struct {
 type RankedDoc struct {
 	ID         string
 	Content    string
-	Score      float64 
-	Rank       int     
-	Original   float64 
-	Strategy   string  
-	Recomputed bool    
+	Score      float64
+	Rank       int
+	Original   float64
+	Strategy   string
+	Recomputed bool
 }
 
 // Reranker 高级别重排接口（C 域）
@@ -45,14 +43,6 @@ type Reranker interface {
 	Strategy() string
 }
 
-
-// rerankScoreCache 进程内 LRU+TTL 缓存：key=queryHash+":"+docID → score
-//
-// 设计：
-//   - 容量 2048 条（典型查询 × doc 对数，足以覆盖热门 query）
-//   - TTL 1 小时（业务允许 stale score，文档变更周期 > 1h）
-//   - 命中后异步刷新（不阻塞主流程，避免缓存穿透）
-//   - 私域部署无 Redis 依赖，进程内缓存足够（单实例足够；多实例各有缓存可接受）
 type rerankScoreCache struct {
 	mu       sync.RWMutex
 	items    map[string]rerankCacheEntry
@@ -65,7 +55,6 @@ type rerankCacheEntry struct {
 	expires time.Time
 }
 
-// newRerankScoreCache 构造缓存
 func newRerankScoreCache(capacity int, ttl time.Duration) *rerankScoreCache {
 	if capacity <= 0 {
 		capacity = 2048
@@ -80,7 +69,6 @@ func newRerankScoreCache(capacity int, ttl time.Duration) *rerankScoreCache {
 	}
 }
 
-// Get 命中返回 score, true；未命中/过期返回 0, false
 func (c *rerankScoreCache) Get(key string) (float64, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -94,7 +82,6 @@ func (c *rerankScoreCache) Get(key string) (float64, bool) {
 	return e.score, true
 }
 
-// Set 写入缓存；超出容量时按 FIFO 淘汰（简单稳定，避免 LRU 在锁内的复杂度）
 func (c *rerankScoreCache) Set(key string, score float64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -122,48 +109,42 @@ func (c *rerankScoreCache) Set(key string, score float64) {
 	c.items[key] = rerankCacheEntry{score: score, expires: time.Now().Add(c.ttl)}
 }
 
-// Clear 清空缓存
 func (c *rerankScoreCache) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.items = make(map[string]rerankCacheEntry, c.capacity)
 }
 
-// Len 当前缓存数量（测试用）
 func (c *rerankScoreCache) Len() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return len(c.items)
 }
 
-// hashQuery 计算 query 哈希（用作缓存 key 的一部分）
 func hashQuery(query string) string {
 	h := sha256.Sum256([]byte(query))
-	return hex.EncodeToString(h[:])[:16] 
+	return hex.EncodeToString(h[:])[:16]
 }
 
-// cacheKey 构造缓存键
 func cacheKey(query, docID string) string {
 	return hashQuery(query) + ":" + docID
 }
-
 
 // RerankStrategy 重排策略
 type RerankStrategy string
 
 const (
 	StrategyCrossEncoder RerankStrategy = "cross_encoder"
-	StrategyRRF RerankStrategy = "rrf"
-	StrategyHybrid RerankStrategy = "hybrid"
+	StrategyRRF          RerankStrategy = "rrf"
+	StrategyHybrid       RerankStrategy = "hybrid"
 )
-
 
 // CrossEncoderScorer 通过 RerankerInterface（LocalReranker）给 query-doc 对打分
 //
 // LocalReranker.Rerank(ctx, query, []RerankDoc) 返回 []RerankResult{ID, Score}
 // 内部走本地 TEI /rerank 端点（bge-reranker-v2-m3 跨编码器）
 type CrossEncoderScorer struct {
-	delegate RerankerInterface 
+	delegate RerankerInterface
 	cache    *rerankScoreCache
 }
 
@@ -222,12 +203,11 @@ func (s *CrossEncoderScorer) Score(ctx context.Context, query string, docs []Ret
 	return scores, nil
 }
 
-
 // CrossEncoderReranker 纯 Cross-Encoder 重排
 type CrossEncoderReranker struct {
 	scorer     *CrossEncoderScorer
 	cache      *rerankScoreCache
-	scoreFloor float64 // 分数地板（≤0 关闭；显式开启见 SetScoreFloor）
+	scoreFloor float64
 }
 
 // NewCrossEncoderReranker 构造纯 Cross-Encoder 重排器
@@ -284,16 +264,8 @@ func (r *CrossEncoderReranker) Rerank(ctx context.Context, query string, docs []
 	return finalize(applyScoreFloor(r.scoreFloor, ranked), topK), nil
 }
 
-// rerankScoreFloorDefault 分数地板建议值（业界共识 ~0.3，模型相关）。
-// 默认关闭（scoreFloor=0）：cross-encoder 打分体系因 delegate 实现而异，
-// 硬地板必须由部署方按实际分域显式开启，避免破坏既有排序契约。
 const rerankScoreFloorDefault = 0.3
 
-// applyScoreFloor 对已排序结果应用分数地板截断。
-//
-// floor<=0 时不截断（默认，保持向后兼容）；floor>0 时低于该值的候选视为噪声剔除——
-// "短上下文×高相关"优于"长上下文×掺噪声"。
-// 安全阀：若截断后为空则保留排序首条（宁滥勿缺，避免空上下文诱发幻觉）。
 func applyScoreFloor(floor float64, ranked []RankedDoc) []RankedDoc {
 	if floor <= 0 || len(ranked) == 0 {
 		return ranked
@@ -305,7 +277,7 @@ func applyScoreFloor(floor float64, ranked []RankedDoc) []RankedDoc {
 		}
 	}
 	if len(kept) == 0 {
-		// 全部低于地板：保留首条而非返回空（空上下文的幻觉风险大于低相关噪声）
+
 		return ranked[:1]
 	}
 	return kept
@@ -358,7 +330,6 @@ func (r *RRFReranker) Rerank(ctx context.Context, query string, docs []Retrieved
 		bySource[src] = append(bySource[src], d)
 	}
 
-	// 2) 每路按 Original 降序得到 rank，应用 RRF 公式
 	type entry struct {
 		doc   RetrievedDoc
 		score float64
@@ -378,7 +349,7 @@ func (r *RRFReranker) Rerank(ctx context.Context, query string, docs []Retrieved
 				merged[d.ID] = &entry{doc: d, score: rrfScore}
 			}
 		}
-		_ = src 
+		_ = src
 	}
 
 	ranked := make([]RankedDoc, 0, len(merged))
@@ -397,7 +368,7 @@ func (r *RRFReranker) Rerank(ctx context.Context, query string, docs []Retrieved
 		if ranked[i].Score != ranked[j].Score {
 			return ranked[i].Score > ranked[j].Score
 		}
-		return ranked[i].ID < ranked[j].ID 
+		return ranked[i].ID < ranked[j].ID
 	})
 	return finalize(ranked, topK), nil
 }
@@ -412,7 +383,7 @@ type HybridReranker struct {
 	rrf        *RRFReranker
 	crossEnc   *CrossEncoderReranker
 	cache      *rerankScoreCache
-	crossRatio int 
+	crossRatio int
 	maxCross   int
 }
 
@@ -478,7 +449,7 @@ func (r *HybridReranker) Rerank(ctx context.Context, query string, docs []Retrie
 		candidates = append(candidates, RetrievedDoc{
 			ID:      rd.ID,
 			Content: rd.Content,
-			Score:   rd.Score, 
+			Score:   rd.Score,
 			Source:  "rrf",
 		})
 	}
@@ -496,14 +467,13 @@ func (r *HybridReranker) Rerank(ctx context.Context, query string, docs []Retrie
 	return finalize(ceRanked, topK), nil
 }
 
-
 // DefaultReranker 默认 Reranker（混合策略）
 //
 // 用 LocalReranker（rerank.go）作为 Cross-Encoder 底层评估器
 // 当 LocalReranker 配置不可达（DefaultRerankConfig().Enabled=false）时，
 // 自动降级为纯 RRF 策略（仍可用，只是不走 LLM 精排）
 func DefaultReranker() Reranker {
-	delegate := NewLocalReranker() 
+	delegate := NewLocalReranker()
 	cache := newRerankScoreCache(2048, time.Hour)
 	return NewHybridReranker(60, delegate, cache)
 }
@@ -516,14 +486,12 @@ func NewDefaultRerankerWithConfig(delegate RerankerInterface) Reranker {
 	return NewHybridReranker(60, delegate, cache)
 }
 
-
 const (
 	maxTopK             = 20
 	maxDocs             = 100
 	defaultCrossEncTopN = 20
 )
 
-// clampTopK 限制 topK ≤ 20，≤0 用默认 20
 func clampTopK(topK int) int {
 	if topK <= 0 {
 		return defaultCrossEncTopN
@@ -534,7 +502,6 @@ func clampTopK(topK int) int {
 	return topK
 }
 
-// clampDocs 限制 docs ≤ 100（保留前 100 个）
 func clampDocs(docs []RetrievedDoc) []RetrievedDoc {
 	if len(docs) <= maxDocs {
 		return docs
@@ -542,7 +509,6 @@ func clampDocs(docs []RetrievedDoc) []RetrievedDoc {
 	return docs[:maxDocs]
 }
 
-// finalize 截断到 topK 并填充 Rank 字段（1-based）
 func finalize(ranked []RankedDoc, topK int) []RankedDoc {
 	if topK > 0 && len(ranked) > topK {
 		ranked = ranked[:topK]
@@ -553,9 +519,6 @@ func finalize(ranked []RankedDoc, topK int) []RankedDoc {
 	return ranked
 }
 
-// fallbackByOriginal 按 Original 分数降序排列（降级策略）
-//
-// 当 Cross-Encoder 不可用时使用；标记 Recomputed=false
 func fallbackByOriginal(docs []RetrievedDoc, topK int, strategy string) []RankedDoc {
 	ranked := make([]RankedDoc, 0, len(docs))
 	for _, d := range docs {
@@ -576,7 +539,6 @@ func fallbackByOriginal(docs []RetrievedDoc, topK int, strategy string) []Ranked
 	})
 	return finalize(ranked, topK)
 }
-
 
 // RerankerToInterfaceAdapter 把高级 Reranker 适配为旧的 RerankerInterface
 //
@@ -610,14 +572,12 @@ func (a *RerankerToInterfaceAdapter) Rerank(ctx context.Context, query string, d
 	return out, nil
 }
 
-// Compile-time 接口断言
 var (
 	_ Reranker          = (*CrossEncoderReranker)(nil)
 	_ Reranker          = (*RRFReranker)(nil)
 	_ Reranker          = (*HybridReranker)(nil)
 	_ RerankerInterface = (*RerankerToInterfaceAdapter)(nil)
 )
-
 
 // ChunksToRetrievedDocs 把 []Chunk 转为 []RetrievedDoc
 //
@@ -676,4 +636,3 @@ func TrimStrategyName(s string) string {
 	}
 	return strings.TrimSpace(s)
 }
-

@@ -53,7 +53,7 @@ func (s *PasswordResetService) RequestPasswordReset(ctx context.Context, req *Re
 		logger.Ctx(ctx).Warn().Str("email", req.Email).Msg("password reset requested for non-existent email")
 		return nil
 	}
-	// 修复 A3：user 现在是 *model.SystemUser，ID 为 uint，转 string 存入 PasswordResetToken.UserID
+
 	userIDStr := strconv.FormatUint(uint64(user.ID), 10)
 
 	activeCount, err := s.tokenRepo.CountActiveTokensByUserID(ctx, userIDStr, time.Now())
@@ -76,7 +76,6 @@ func (s *PasswordResetService) RequestPasswordReset(ctx context.Context, req *Re
 		Str("token_id", resetToken.ID).
 		Msg("password reset token created")
 
-	// 修复 A2：发邮件通知用户（失败不影响 token 创建，方便开发/测试场景）
 	resetURL := fmt.Sprintf("%s/reset-password?token=%s", getFrontendBaseURL(), resetToken.Token)
 	subject := "重置您的 HiveMTK 密码"
 	body := fmt.Sprintf("您请求了密码重置。请点击以下链接完成重置：\n%s\n\n链接将在 24 小时后失效。", resetURL)

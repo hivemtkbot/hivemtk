@@ -13,7 +13,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// setupTelegramTestDB 准备 PostgreSQL 测试 DB + Telegram 相关表
 func setupTelegramTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.MessageHub{},
@@ -85,7 +84,6 @@ func TestDispatchTelegram_JoinEvent_NewChatMembers(t *testing.T) {
 		t.Error("expected non-empty event content")
 	}
 
-	// 验证数据库已写入
 	var count int64
 	db.Model(&model.MessageHub{}).Where("platform = ? AND msg_type = ?", "telegram", "event").Count(&count)
 	if count != 1 {

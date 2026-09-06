@@ -15,7 +15,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// 异常登录阈值
 const (
 	abnormalHourStart = 2
 	abnormalHourEnd   = 5
@@ -197,13 +196,11 @@ func (s *LoginRiskService) Evaluate(ctx context.Context, riskCtx *LoginRiskConte
 	return result, nil
 }
 
-// isAbnormalHour 判断是否在凌晨异常时段
 func (s *LoginRiskService) isAbnormalHour(ctx context.Context, t time.Time) bool {
 	hour := t.Hour()
 	return hour >= abnormalHourStart && hour < abnormalHourEnd
 }
 
-// countRecentFailures 统计最近 1 小时内同一用户名（或 user_id）的失败次数
 func (s *LoginRiskService) countRecentFailures(ctx context.Context, userID uint, username string, now time.Time) (int64, error) {
 	if s.repo == nil {
 		return 0, errors.New("repo 为空")
@@ -211,7 +208,6 @@ func (s *LoginRiskService) countRecentFailures(ctx context.Context, userID uint,
 	return s.repo.CountRecentFailures(ctx, userID, username, now.Add(-frequentFailureWindow))
 }
 
-// getPreviousLoginLocation 获取上次成功登录的地点和 IP
 func (s *LoginRiskService) getPreviousLoginLocation(ctx context.Context, userID uint) (location, ip string, hasPrev bool) {
 	if s.repo == nil || userID == 0 {
 		return "", "", false
@@ -224,8 +220,6 @@ func (s *LoginRiskService) getPreviousLoginLocation(ctx context.Context, userID 
 	return loc, ipAddr, found
 }
 
-// isDeviceFingerprintChanged 检查设备指纹是否为 7 天内首次出现
-// 如果是首次出现，则返回 true
 func (s *LoginRiskService) isDeviceFingerprintChanged(ctx context.Context, userID uint, fingerprint string, now time.Time) bool {
 	if s.repo == nil || userID == 0 || fingerprint == "" {
 		return false
@@ -239,9 +233,6 @@ func (s *LoginRiskService) isDeviceFingerprintChanged(ctx context.Context, userI
 	return count == 0
 }
 
-// resolveLocation 根据 IP 解析地理位置
-// 私域部署简化版：根据 IP 前缀做粗略地理分类
-// 生产环境应接入专业 IP 库（如阿里云 IP 库 / MaxMind GeoIP）
 func (s *LoginRiskService) resolveLocation(ctx context.Context, ip string) string {
 	if ip == "" {
 		return "unknown"
@@ -259,8 +250,6 @@ func (s *LoginRiskService) resolveLocation(ctx context.Context, ip string) strin
 	return fmt.Sprintf("geo(%.4f,%.4f)", lat, lon)
 }
 
-// calculateDistance 计算两个 location 字符串之间的距离（千米）
-// 简化版：使用 Haversine 公式
 func (s *LoginRiskService) calculateDistance(ctx context.Context, loc1, loc2 string) float64 {
 	lat1, lon1, ok1 := s.parseGeo(ctx, loc1)
 	lat2, lon2, ok2 := s.parseGeo(ctx, loc2)
@@ -281,7 +270,6 @@ func (s *LoginRiskService) calculateDistance(ctx context.Context, loc1, loc2 str
 	return earthRadiusKm * c
 }
 
-// parseGeo 解析 "geo(lat,lon)" 格式
 func (s *LoginRiskService) parseGeo(ctx context.Context, s_ string) (float64, float64, bool) {
 	var lat, lon float64
 	if _, err := fmt.Sscanf(s_, "geo(%f,%f)", &lat, &lon); err != nil {
@@ -290,12 +278,10 @@ func (s *LoginRiskService) parseGeo(ctx context.Context, s_ string) (float64, fl
 	return lat, lon, true
 }
 
-// toRadians 角度转弧度
 func toRadians(deg float64) float64 {
 	return deg * math.Pi / 180.0
 }
 
-// upgradeRisk 升级风险等级（只升不降）
 func (s *LoginRiskService) upgradeRisk(ctx context.Context, current, target model.RiskLevel) model.RiskLevel {
 	order := map[model.RiskLevel]int{
 		model.RiskLevelLow:      0,
@@ -309,7 +295,6 @@ func (s *LoginRiskService) upgradeRisk(ctx context.Context, current, target mode
 	return current
 }
 
-// buildAlertTitle 构建告警标题
 func (s *LoginRiskService) buildAlertTitle(ctx context.Context, riskCtx *LoginRiskContext, level model.RiskLevel) string {
 	username := riskCtx.Username
 	if username == "" {
@@ -318,7 +303,6 @@ func (s *LoginRiskService) buildAlertTitle(ctx context.Context, riskCtx *LoginRi
 	return fmt.Sprintf("[%s] 异常登录告警: %s", strings.ToUpper(string(level)), username)
 }
 
-// buildAlertDescription 构建告警描述
 func (s *LoginRiskService) buildAlertDescription(ctx context.Context, riskCtx *LoginRiskContext, result *LoginRiskResult) string {
 	parts := []string{
 		fmt.Sprintf("用户: %s", riskCtx.Username),
@@ -332,8 +316,6 @@ func (s *LoginRiskService) buildAlertDescription(ctx context.Context, riskCtx *L
 	return strings.Join(parts, "\n")
 }
 
-// pushNotification 推送站内通知
-// 私域部署简化版：写入 notifications 表（用户 ID 为 0 表示管理员广播）
 func (s *LoginRiskService) pushNotification(ctx context.Context, alert *model.SecurityAlert) {
 	if alert == nil {
 		return

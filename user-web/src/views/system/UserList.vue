@@ -129,7 +129,7 @@
       />
     </el-card>
 
-    <!-- 新建/编辑对话框 -->
+    
     <el-dialog
       v-model="dialogVisible"
       :title="form.id ? t('systemUser.editDialogTitle') : t('systemUser.createDialogTitle')"
@@ -199,16 +199,13 @@ import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled'
 
 const { t, locale } = useI18n()
 
-// 角色选项须与后端 CreateUserByAdminRequest.Role 校验严格一致（oneof=admin customer_service staff），
-// 不能暴露 owner/supervisor/agent 等不可分配角色，否则创建/更新会返回 400。
 const editableRoleOptions = ['admin', 'customer_service', 'staff'].map((v) => ({
   value: v,
   label: getRoleLabel(v)
-}))
-// 筛选下拉：与可分配角色保持一致
+}));
 const filterRoleOptions = editableRoleOptions.filter((o) =>
   ['admin', 'customer_service', 'staff'].includes(o.value)
-)
+);
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -276,13 +273,12 @@ const refreshData = async () => {
     const list = res?.list || res?.data?.list || res?.items || []
     users.value = list
     pagination.total = res?.total ?? res?.data?.total ?? list.length
-    // 统计：基于当前可见数据（轻量），避免额外接口
     stats.value = {
       total: pagination.total,
       admins: list.filter((u) => u.role === 'admin').length,
       agents: list.filter((u) => u.role === 'customer_service').length,
       disabled: list.filter((u) => Number(u.status) === 0).length
-    }
+    };
   } catch (e) {
     error.value = t('systemUser.loadFailed')
     users.value = []
@@ -356,8 +352,7 @@ const resetPassword = async (row) => {
       t('systemUser.resetConfirmTitle'),
       { type: 'warning' }
     )
-    // 密码重置走 updateSystemUser 的 password 子集；后端若已提供专用 reset 接口，可在此切换
-    await updateSystemUser(row.id, { reset_password: true })
+    await updateSystemUser(row.id, { reset_password: true });
     ElMessage.success(t('systemUser.resetPasswordSuccess'))
   } catch (e) {
     if (e !== 'cancel' && e !== 'close') ElMessage.error(t('systemUser.resetFailed'))

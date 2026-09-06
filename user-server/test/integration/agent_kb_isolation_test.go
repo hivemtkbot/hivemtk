@@ -1,8 +1,9 @@
 // Package integration 知识库隔离集成测试 (Task 35)
 //
 // 目标: 验证多智能体场景下, 知识库严格按 owner_agent_id 隔离,
-//   共享知识库 (owner_type=shared) 可被多个智能体通过 agent_kb_bindings 访问,
-//   私有知识库 (owner_type=private) 只能被其 owner_agent_id 对应智能体访问.
+//
+//	共享知识库 (owner_type=shared) 可被多个智能体通过 agent_kb_bindings 访问,
+//	私有知识库 (owner_type=private) 只能被其 owner_agent_id 对应智能体访问.
 //
 // 依赖: 真实 PostgreSQL (由 testutil.NewTestDB 注入), 不依赖 user-server 运行实例.
 //
@@ -30,7 +31,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupIsolationDB 准备隔离测试 DB
 func setupIsolationDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := testutil.NewTestDBOrSkip(t,
@@ -45,8 +45,6 @@ func setupIsolationDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// seedAgents 模拟创建两个智能体 (使用 ai_agents 表? 这里直接用业务 Service mock)
-// 真实场景中 ai_agents 由其他模块维护, 本测试只关心 KB 隔离, 所以用 uint 模拟.
 func newIsolationSetup(t *testing.T, db *gorm.DB) (*service.KnowledgeBaseService, *service.AgentKBBindingService) {
 	t.Helper()
 	kbRepo := repository.NewKnowledgeBaseRepository(db)
@@ -56,7 +54,6 @@ func newIsolationSetup(t *testing.T, db *gorm.DB) (*service.KnowledgeBaseService
 	bindSvc := service.NewAgentKBBindingServiceWithRepos(kbRepo, bindRepo, db)
 	return kbSvc, bindSvc
 }
-
 
 // TestIsolation_PrivateKB_NotVisibleToOtherAgent 验证私有 KB 严格隔离
 //
@@ -121,8 +118,9 @@ func TestIsolation_PrivateKB_NotVisibleToOtherAgent(t *testing.T) {
 // TestIsolation_PrivateKB_GetByID_OtherAgentShouldStillGetIt 验证 GetByID 无 owner 校验
 //
 // 业务说明: GetByID 是管理 API, 不做 owner 校验.
-//   隔离靠 ListByAgent 过滤, 而不是 GetByID.
-//   业务调用方应使用 ListByAgent 而非 GetByID 来避免越权.
+//
+//	隔离靠 ListByAgent 过滤, 而不是 GetByID.
+//	业务调用方应使用 ListByAgent 而非 GetByID 来避免越权.
 func TestIsolation_PrivateKB_GetByID_OtherAgentShouldStillGetIt(t *testing.T) {
 	db := setupIsolationDB(t)
 	ctx := context.Background()
@@ -288,9 +286,10 @@ func TestIsolation_DeleteKB_CascadesBindings(t *testing.T) {
 // TestIsolation_PrivateKB_ReassignOwner_NotAllowed 验证私有 KB 不能被改成 shared
 //
 // 业务规则: 业务上, private KB 的 owner_agent_id 一旦设定, 不应允许改为 shared
-//   (避免安全漏洞: 智能体私有数据被"开放"为共享数据)
 //
-//   当前 service 不强制此约束, 但记录为业务约束, 验证 ListByAgent 仍按 owner 过滤
+//	(避免安全漏洞: 智能体私有数据被"开放"为共享数据)
+//
+//	当前 service 不强制此约束, 但记录为业务约束, 验证 ListByAgent 仍按 owner 过滤
 func TestIsolation_PrivateKB_ReassignOwner_NotAllowed(t *testing.T) {
 	db := setupIsolationDB(t)
 	ctx := context.Background()
@@ -384,6 +383,4 @@ func TestIsolation_DisableKB_FilteredOut(t *testing.T) {
 	}
 }
 
-
 func boolPtr(b bool) *bool { return &b }
-

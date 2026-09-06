@@ -100,7 +100,6 @@ func (r *FAQRepository) ScoreCandidates(ctx context.Context, entries []model.FAQ
 	return r.scoreAndRank(context.Background(), entries, msg, topK)
 }
 
-// listEnabledForAgent 按 agentID 过滤启用的 FAQ
 func (r *FAQRepository) listEnabledForAgent(ctx context.Context, agentID uint, limit int) ([]model.FAQEntry, error) {
 	if limit <= 0 || limit > 10000 {
 		limit = 10000
@@ -199,7 +198,6 @@ func (r *FAQRepository) ListByAgent(ctx context.Context, agentID uint, limit int
 	return entries, err
 }
 
-// scoreAndRank 内部打分+排序 (MatchByKeyword 共用)
 func (r *FAQRepository) scoreAndRank(ctx context.Context, all []model.FAQEntry, msg string, topK int) ([]model.FAQEntry, error) {
 	msgTokens := tokenize(msg)
 	if len(msgTokens) == 0 {
@@ -361,10 +359,6 @@ func (r *FAQRepository) IncrementNegativeHit(ctx context.Context, id uint) error
 		Error
 }
 
-// tokenize 中文 bigram 切词 (简化版, 无 jieba 依赖)
-//
-// 输入: "韵达发货吗" -> ["韵达", "达发", "发货", "货吗"]
-// 输入: "abc def" -> ["abc", "def"]
 func tokenize(s string) []string {
 	s = strings.ToLower(strings.TrimSpace(s))
 	if s == "" {
@@ -406,7 +400,6 @@ func isCJK(r rune) bool {
 	return r >= 0x4E00 && r <= 0x9FFF
 }
 
-// jaccardSimilarity Jaccard 相似度
 func jaccardSimilarity(a, b []string) float64 {
 	if len(a) == 0 || len(b) == 0 {
 		return 0
@@ -432,7 +425,6 @@ func jaccardSimilarity(a, b []string) float64 {
 	return float64(inter) / float64(union)
 }
 
-// logPlus 自然对数平滑 (避免负值, 让 hit_count=0 时返回 0)
 func logPlus(n int64) float64 {
 	if n <= 0 {
 		return 0

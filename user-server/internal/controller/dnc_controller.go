@@ -28,7 +28,7 @@ func (c *DNCController) List(ctx *gin.Context) {
 	if HandleServiceError(ctx, err) {
 		return
 	}
-	// service 层 ListBlocks 没有 LIMIT 200，在此截断保持原行为
+
 	if len(list) > 200 {
 		list = list[:200]
 	}

@@ -38,7 +38,6 @@ type Metric interface {
 	Write(w io.Writer)
 }
 
-// labelsKey 计算 labels 对应的 map key
 func labelsKey(values []string) string {
 	if len(values) == 0 {
 		return ""
@@ -46,8 +45,6 @@ func labelsKey(values []string) string {
 	return strings.Join(values, "\x00")
 }
 
-// writeLabels 写指标标签字符串
-// values 与 labelNames 顺序对应
 func writeLabels(sb *strings.Builder, labelNames, values []string) {
 	if len(labelNames) == 0 {
 		return
@@ -65,7 +62,6 @@ func writeLabels(sb *strings.Builder, labelNames, values []string) {
 	sb.WriteByte('}')
 }
 
-// writeLabelsWithExtra 写带额外 label（如 le） 的 label 字符串
 func writeLabelsWithExtra(sb *strings.Builder, labelNames, values []string, extraName, extraValue string) {
 	sb.WriteByte('{')
 	first := true
@@ -100,12 +96,11 @@ func formatFloat(f float64) string {
 	return fmt.Sprintf("%g", f)
 }
 
-
 // CounterVec 计数器集合
 type CounterVec struct {
 	name      string
 	help      string
-	labelKeys []string 
+	labelKeys []string
 	mu        sync.RWMutex
 	values    map[string]*counterCell
 }
@@ -182,8 +177,8 @@ func (c *CounterVec) Write(w io.Writer) {
 		return
 	}
 	type entry struct {
-		key    string
-		cell   *counterCell
+		key  string
+		cell *counterCell
 	}
 	entries := make([]entry, 0, len(c.values))
 	for k, v := range c.values {
@@ -198,7 +193,6 @@ func (c *CounterVec) Write(w io.Writer) {
 		fmt.Fprintf(w, "%s %d\n", sb.String(), e.cell.v.Load())
 	}
 }
-
 
 // GaugeVec 仪表集合
 type GaugeVec struct {
@@ -316,13 +310,12 @@ func (g *GaugeVec) Write(w io.Writer) {
 	}
 }
 
-
 // HistogramVec 直方图集合
 type HistogramVec struct {
 	name      string
 	help      string
 	labelKeys []string
-	buckets   []float64 
+	buckets   []float64
 	mu        sync.RWMutex
 	values    map[string]*histogramCell
 }
@@ -331,7 +324,7 @@ type histogramCell struct {
 	mu     sync.Mutex
 	count  atomic.Uint64
 	sumPtr atomic.Pointer[float64]
-	counts []atomic.Uint64 
+	counts []atomic.Uint64
 	values []string
 }
 
@@ -462,7 +455,6 @@ func (h *HistogramVec) Write(w io.Writer) {
 		fmt.Fprintf(w, "%s %d\n", sb.String(), e.cell.count.Load())
 	}
 }
-
 
 var (
 	registryMu sync.RWMutex
@@ -619,7 +611,6 @@ type Sample struct {
 	Agg       string
 }
 
-// samples 返回 CounterVec 所有 label 序列的当前值快照
 func (c *CounterVec) samples() []Sample {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -636,7 +627,6 @@ func (c *CounterVec) samples() []Sample {
 	return out
 }
 
-// samples 返回 GaugeVec 所有 label 序列的当前值快照
 func (g *GaugeVec) samples() []Sample {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -653,7 +643,6 @@ func (g *GaugeVec) samples() []Sample {
 	return out
 }
 
-// samples 返回 HistogramVec 所有 label 序列的 count/sum 快照
 func (h *HistogramVec) samples() []Sample {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -705,5 +694,3 @@ func CollectSamples() []Sample {
 	})
 	return out
 }
-
-

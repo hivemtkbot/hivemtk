@@ -79,7 +79,7 @@ func TestIngestMessage_ToEventFull(t *testing.T) {
 		Channel: "xianyu", AccountID: "a", ConversationID: "c",
 		History: []*HistoryItem{
 			{EventID: "h-1", Content: "轮次1", SenderType: "customer", Timestamp: 1700000000000},
-			nil, 
+			nil,
 			{EventID: "h-2", Content: "轮次2", SenderType: "self", Direction: "outbound"},
 		},
 	}
@@ -242,4 +242,3 @@ func indexOf(s, sub string) int {
 	}
 	return -1
 }
-

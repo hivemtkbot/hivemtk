@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 
@@ -42,6 +41,4 @@ func (m *ADomainP1Migration) Down(ctx context.Context) error {
 	return nil
 }
 
-// compile-time 接口断言
 var _ migration.Migration = (*ADomainP1Migration)(nil)
-

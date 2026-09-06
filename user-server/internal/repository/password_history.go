@@ -28,12 +28,10 @@ func NewPasswordHistoryRepository() PasswordHistoryRepository {
 	return &passwordHistoryRepo{db: db.GetDB()}
 }
 
-// Create 创建一条历史记录
 func (r *passwordHistoryRepo) Create(ctx context.Context, h *model.PasswordHistory) error {
 	return r.db.WithContext(ctx).Create(h).Error
 }
 
-// ListRecent 查询用户最近 N 条历史
 func (r *passwordHistoryRepo) ListRecent(ctx context.Context, userID uint, limit int) ([]model.PasswordHistory, error) {
 	var list []model.PasswordHistory
 	q := r.db.WithContext(ctx).
@@ -48,7 +46,6 @@ func (r *passwordHistoryRepo) ListRecent(ctx context.Context, userID uint, limit
 	return list, nil
 }
 
-// Latest 查询用户最近一次密码变更记录
 func (r *passwordHistoryRepo) Latest(ctx context.Context, userID uint) (*model.PasswordHistory, error) {
 	var h model.PasswordHistory
 	err := r.db.WithContext(ctx).
@@ -64,5 +61,4 @@ func (r *passwordHistoryRepo) Latest(ctx context.Context, userID uint) (*model.P
 	return &h, nil
 }
 
-// compile-time 接口断言
 var _ PasswordHistoryRepository = (*passwordHistoryRepo)(nil)

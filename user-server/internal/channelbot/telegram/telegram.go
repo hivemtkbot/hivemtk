@@ -20,13 +20,13 @@ import (
 )
 
 const (
-	defaultAPIBase = "https://api.telegram.org"
-	TGMessageMaxLength = 4096
+	defaultAPIBase           = "https://api.telegram.org"
+	TGMessageMaxLength       = 4096
 	TGInlineRowsMax          = 100
 	TGInlineButtonsPerRowMax = 8
-	tgSendMaxRetries  = 3
-	tgSendInitialWait = 200 * time.Millisecond
-	tgSendMaxWait     = 5 * time.Second
+	tgSendMaxRetries         = 3
+	tgSendInitialWait        = 200 * time.Millisecond
+	tgSendMaxWait            = 5 * time.Second
 )
 
 // Client Telegram Bot API 客户端
@@ -100,7 +100,6 @@ func (c *Client) SendMessage(ctx context.Context, chatID int64, text string, opt
 	return firstID, nil
 }
 
-// sendSingle 实际调用 sendMessage（带重试 + Markdown→HTML）
 func (c *Client) sendSingle(ctx context.Context, chatID int64, text string, opt SendMessageOptions) (int64, error) {
 	body := text
 	parseMode := opt.ParseMode
@@ -184,10 +183,6 @@ func (c *Client) sendSingle(ctx context.Context, chatID int64, text string, opt 
 	return 0, fmt.Errorf("tg send exhausted %d retries: %w", tgSendMaxRetries, lastErr)
 }
 
-// splitMessage 按字符上限切分文本，优先在"段落 / 行 / 句子 / 单词"边界切
-//
-// 全部基于 rune 计算（CJK 一个字符多字节，不能用 byte 偏移）；
-// 硬切分兜底只在 limit 个 rune 范围内找最近边界，避免越界。
 func splitMessage(text string, limit int) []string {
 	if limit <= 0 {
 		limit = TGMessageMaxLength
@@ -249,7 +244,6 @@ func splitMessage(text string, limit int) []string {
 	return out
 }
 
-// isSentenceSep 中英文常见句子分隔符
 func isSentenceSep(r rune) bool {
 	switch r {
 	case '。', '！', '？', '\n', '.', '!', '?':
@@ -265,7 +259,6 @@ func min(a, b int) int {
 	return b
 }
 
-// buildInlineKeyboard 把业务侧按钮序列化为 Telegram reply_markup.inline_keyboard
 func buildInlineKeyboard(rows [][]InlineButton) map[string]any {
 	if len(rows) == 0 {
 		return nil
@@ -303,7 +296,6 @@ func buildInlineKeyboard(rows [][]InlineButton) map[string]any {
 	return map[string]any{"inline_keyboard": out}
 }
 
-// parseRetryAfter 从 429 响应体解析 retry_after（秒）
 func parseRetryAfter(body []byte) int {
 	var r struct {
 		Parameters struct {
@@ -314,7 +306,6 @@ func parseRetryAfter(body []byte) int {
 	return r.Parameters.RetryAfter
 }
 
-// sleepCtx 带 ctx 取消的 sleep
 func sleepCtx(ctx context.Context, d time.Duration) error {
 	if d <= 0 {
 		return nil
@@ -329,7 +320,6 @@ func sleepCtx(ctx context.Context, d time.Duration) error {
 	}
 }
 
-// tgMdXxx 把 LLM 常见 Markdown 片段转换为 Telegram HTML 标签。
 var (
 	tgMdInlineCode = regexp.MustCompile("`([^`]+)`")
 	tgMdBold       = regexp.MustCompile(`\*\*([^*\n]+?)\*\*`)
@@ -337,9 +327,6 @@ var (
 	tgMdLink       = regexp.MustCompile(`\[([^\]]+)\]\(([^)\s]+)\)`)
 )
 
-// markdownToTelegramHTML 将常见 Markdown（粗体/斜体/行内代码/链接）转换为 Telegram HTML。
-// 先对全文做 HTML 转义（防止 < > & 原样泄漏或破坏标签），再注入受支持的标签。
-// 未匹配的 ** / * 会保留为字面量（不转换），因此总能产出合法 HTML。
 func markdownToTelegramHTML(md string) string {
 	s := html.EscapeString(md)
 	s = tgMdInlineCode.ReplaceAllString(s, "<code>$1</code>")
@@ -349,7 +336,6 @@ func markdownToTelegramHTML(md string) string {
 	return s
 }
 
-// parseSendMessageID 从 sendMessage 响应中解析 message_id（解析失败返回 0）。
 func parseSendMessageID(body []byte) int64 {
 	var r struct {
 		OK     bool `json:"ok"`
@@ -421,7 +407,7 @@ func (c *Client) DeleteWebhook(ctx context.Context) error {
 // 新：必须显式 ALLOW_INSECURE_TELEGRAM_WEBHOOK=true 才放行；否则 401
 func VerifyWebhook(secret, headerSecret string) bool {
 	if secret == "" {
-		// 必须显式开启才能放行（避免 GIN_MODE 拼错导致绕过）
+
 		if os.Getenv("ALLOW_INSECURE_TELEGRAM_WEBHOOK") == "true" {
 			logger.Warnf("[telegram] ALLOW_INSECURE_TELEGRAM_WEBHOOK=true 启用，跳过 secret 校验")
 			return true
@@ -430,7 +416,6 @@ func VerifyWebhook(secret, headerSecret string) bool {
 	}
 	return core.SecureEqual(secret, headerSecret)
 }
-
 
 // Update Telegram webhook 推送的 Update 结构（精简版）
 type Update struct {
@@ -593,4 +578,3 @@ func (u *Update) Ingress(ctx context.Context, h core.IngressHandler, accountID s
 	}
 	return h.HandleIngressMessage(ctx, event)
 }
-

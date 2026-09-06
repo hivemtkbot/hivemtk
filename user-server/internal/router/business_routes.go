@@ -9,12 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// setupBatchRoutes 批量操作路由
-//
-// 权限分级（2026-08-31 P0-26 四轮加固）：
-//   - 批量删除 / 批量更新 / 批量导入 / 批量取消历史 全部 admin only（staff 能批量
-//     删除客户数据 = 数据灾难）。
-//   - 批量导出 / 批量预览 保留任意登录（运营日常需要导出分析）。
 func setupBatchRoutes(auth *gin.RouterGroup) {
 	batchImportCtrl := contentctrl.NewBatchImportController()
 	batchExportCtrl := contentctrl.NewBatchExportController()
@@ -36,11 +30,6 @@ func setupBatchRoutes(auth *gin.RouterGroup) {
 	}
 }
 
-// setupAIContentRoutes AI 内容创作路由
-//
-// 权限分级（2026-08-18 三轮发现）：GenerateContent / SaveRecord admin only
-// （AI 生成调 LLM 烧 token；SaveRecord 写入正式文案库 → 客户可见，防 staff 投毒）。
-// history 列表 / 模板列表 / 收藏评分等读写操作任意登录。
 func setupAIContentRoutes(auth *gin.RouterGroup) {
 	aiContentCtrl := contentctrl.NewAIContentController()
 	auth.GET("/ai/history", aiContentCtrl.GetGenerationHistory)
@@ -62,10 +51,6 @@ func setupAIContentRoutes(auth *gin.RouterGroup) {
 	}
 }
 
-// setupUserSegmentRoutes 用户分层 RFM 路由
-//
-// 权限分级（2026-08-18 三轮发现）：RFM 规则 / 批量计算 admin only
-// （RFM 规则是分组营销的判定标准，staff 改规则会污染分群结果）。
 func setupUserSegmentRoutes(auth *gin.RouterGroup) {
 	userSegmentCtrl := controller.NewUserSegmentController()
 	auth.GET("/user-segment/rfm/rule", userSegmentCtrl.GetRFMRule)
@@ -83,16 +68,12 @@ func setupUserSegmentRoutes(auth *gin.RouterGroup) {
 	}
 }
 
-// setupMarketingFlowRoutes 营销自动化流程路由
-//
-// 权限分级（2026-08-18 三轮发现）：写操作（Create/Update/Delete/Activate/Pause/Stop）admin only
-// 防 staff 误触发批量营销活动 / 删 SOP / 暂停客服流程。
 func setupMarketingFlowRoutes(auth *gin.RouterGroup) {
 	marketingFlowCtrl := contentctrl.NewMarketingFlowController()
-	// R39 零散补齐
+
 	extrasCtrl := controller.NewCustomerEventBatchController()
 	auth.POST("/customer-events/batch", extrasCtrl.TrackBatch)
-	// R39: AI 销冠驾驶舱聚合
+
 	auth.GET("/ai/sales-cockpit", controller.NewSalesCockpitController().GetCockpit)
 	wvCtrl := controller.NewWebVitalsController()
 	auth.POST("/monitor/web-vitals", wvCtrl.Report)
@@ -115,7 +96,6 @@ func setupMarketingFlowRoutes(auth *gin.RouterGroup) {
 	}
 }
 
-// setupCustomReportRoutes 自定义报表路由
 func setupCustomReportRoutes(auth *gin.RouterGroup) {
 	customReportCtrl := opsctrl.NewCustomReportController()
 	auth.GET("/custom-reports", customReportCtrl.GetReportList)
@@ -129,7 +109,6 @@ func setupCustomReportRoutes(auth *gin.RouterGroup) {
 	auth.GET("/custom-reports/:id/export", customReportCtrl.ExportCSV)
 }
 
-// setupDashboardRoutes 数据大屏路由
 func setupDashboardRoutes(auth *gin.RouterGroup, public *gin.RouterGroup) {
 	dashboardCtrl := opsctrl.NewDashboardScreenController()
 	auth.GET("/dashboards", dashboardCtrl.GetScreenList)
@@ -144,7 +123,6 @@ func setupDashboardRoutes(auth *gin.RouterGroup, public *gin.RouterGroup) {
 	public.GET("/dashboards/public/:code", dashboardCtrl.PublicViewScreen)
 }
 
-// setupTemplateRoutes 模板市场路由
 func setupTemplateRoutes(auth *gin.RouterGroup) {
 	templateCtrl := contentctrl.NewTemplateMarketController()
 	auth.GET("/templates", templateCtrl.GetTemplateList)
@@ -157,7 +135,6 @@ func setupTemplateRoutes(auth *gin.RouterGroup) {
 	auth.GET("/templates/my-downloads", templateCtrl.GetMyDownloads)
 }
 
-// setupScriptRoutes 话术库路由
 func setupScriptRoutes(auth *gin.RouterGroup) {
 	scriptCtrl := contentctrl.NewScriptTemplateController()
 	auth.GET("/scripts", scriptCtrl.GetTemplateList)
@@ -171,7 +148,6 @@ func setupScriptRoutes(auth *gin.RouterGroup) {
 	auth.POST("/scripts/recommend", scriptCtrl.RecommendScript)
 	auth.POST("/scripts/sync-to-library", scriptCtrl.SyncToLibrary)
 
-	// T-6/T-7 话术版本管理 + AB 曝光统计（script-library 域）
 	scriptLibCtrl := controller.NewScriptLibraryController()
 	auth.GET("/script-library/:id/versions", scriptLibCtrl.ListVersions)
 	auth.POST("/script-library/:id/versions", scriptLibCtrl.CreateVersion)
@@ -181,12 +157,6 @@ func setupScriptRoutes(auth *gin.RouterGroup) {
 	auth.PUT("/script-library/:id/ab-config", scriptLibCtrl.UpdateABConfig)
 	auth.POST("/script-ab/conversion", scriptLibCtrl.RecordConversion)
 
-	// K2 Feature Flags（Unleash/GrowthBook 管理端最小完备集）
-	//
-	// P0-10 权限分级（2026-08-31 四轮加固）：
-	//   - 读（List/Get/Stale/Audit/EvalLogs/CodeReferences）：任意登录用户
-	//   - 写（Create/Update/Delete/Enable/Disable/Rollout/Evaluate/RegisterCodeReference）：admin only
-	// Feature Flag 控制全系统功能开关，staff 不能随意启停。
 	flagCtrl := controller.NewFeatureFlagController()
 	auth.GET("/feature-flags", flagCtrl.List)
 	auth.GET("/feature-flags/stale", flagCtrl.Stale)
@@ -208,18 +178,13 @@ func setupScriptRoutes(auth *gin.RouterGroup) {
 	}
 }
 
-// setupABTestRoutes A/B 测试路由
-//
-// 权限分级（2026-08-18 多角度审计修复）：
-//   - 写操作（Create/Update/Delete/Start/Pause/Stop）必须 admin
-//   - 读操作（List/Get/Results/ConversionEvents）任意登录用户
 func setupABTestRoutes(auth *gin.RouterGroup) {
 	abCtrl := opsctrl.NewABExperimentController()
 	auth.GET("/ab-experiments", abCtrl.GetExperimentList)
 	auth.GET("/ab-experiments/:id", abCtrl.GetExperiment)
 	auth.GET("/ab-experiments/:id/results", abCtrl.GetExperimentResults)
 	auth.GET("/ab-experiments/:id/conversion-events", abCtrl.GetConversionEvents)
-	// K5 AB 高级统计（GrowthBook 轻量版）
+
 	auth.GET("/ab-experiments/:id/stats", abCtrl.GetAdvancedStats)
 	auth.GET("/ab-experiments/:id/diagnostics", abCtrl.GetExperimentDiagnostics)
 	auth.GET("/ab-experiments/:id/cuped", abCtrl.GetExperimentCUPED)
@@ -238,11 +203,6 @@ func setupABTestRoutes(auth *gin.RouterGroup) {
 	}
 }
 
-// setupChurnRoutes 流失预警路由
-//
-// 权限分级（2026-08-31 P0-27 四轮加固）：
-//   - 流失模型配置写（POST /churn/model-config）admin only。
-//   - 流失处理（POST /churn/warnings/:id/handle /intervene）保留任意登录（客服日常标记）。
 func setupChurnRoutes(auth *gin.RouterGroup) {
 	churnCtrl := opsctrl.NewChurnPredictionController()
 	auth.GET("/churn/prediction", churnCtrl.GetChurnPrediction)
@@ -260,16 +220,11 @@ func setupChurnRoutes(auth *gin.RouterGroup) {
 	admin.POST("/churn/model-config", churnCtrl.SaveModelConfig)
 }
 
-// setupIntegrationRoutes 第三方对接路由
-//
-// 权限分级（2026-08-18 多角度审计修复）：
-//   - 写操作（Create/Update/Delete/Test/Sync）必须 admin（含 corp_secret 等敏感凭据）
-//   - 读操作（List/Get/SyncLogs/ExternalXxx）任意登录用户（业务查询需要）
 func setupIntegrationRoutes(auth *gin.RouterGroup) {
 	integrationCtrl := controller.NewIntegrationController()
 	auth.GET("/integrations", integrationCtrl.GetAccountList)
 	auth.GET("/integrations/:id", integrationCtrl.GetAccountByID)
-	// G8: 集成生态前端页 - 模板与分类
+
 	auth.GET("/integrations/templates", integrationCtrl.GetTemplates)
 	auth.GET("/integrations/categories", integrationCtrl.GetCategories)
 	auth.GET("/integration/sync-logs", integrationCtrl.GetSyncLogs)
@@ -289,12 +244,6 @@ func setupIntegrationRoutes(auth *gin.RouterGroup) {
 	auth.POST("/integration/order-webhook/:platform", integrationCtrl.ReceiveOrderWebhook)
 }
 
-// setupCommunityRoutes 社群管理路由
-//
-// 权限分级（2026-08-18 三轮发现 + 2026-08-31 P0-28 四轮加固）：
-//   - 写操作（Create/Update/Delete group / AddMember / RemoveMember / Import / UpdateMember / Export）
-//     全部 admin only。staff 不能改社群成员、不能导数据。
-//   - 读操作（GET groups/members/messages/stats）保留任意登录。
 func setupCommunityRoutes(auth *gin.RouterGroup) {
 	communityCtrl := controller.NewCommunityController()
 	auth.GET("/community/groups", communityCtrl.GetGroups)
@@ -317,16 +266,13 @@ func setupCommunityRoutes(auth *gin.RouterGroup) {
 	}
 }
 
-
-// setupEventRoutes 客户事件追踪(CDP)路由
-// 提供 8 个事件端点 + 历史查询/统计
 func setupEventRoutes(auth *gin.RouterGroup) {
 	eventCtrl := controller.NewCustomerEventController()
 	auth.POST("/events/track", eventCtrl.TrackEvent)
 	auth.GET("/events/customer/:id", eventCtrl.GetEventHistory)
-	// R41: 全局分页事件流（替代前端 N+1 全客户拉取）
+
 	auth.GET("/customer-events/list", eventCtrl.ListGlobal)
-	// P0-11 DELETE /events/customer/:id admin only（防 staff 删客户行为数据）
+
 	admin := auth.Group("", middleware.AdminAuthMiddleware())
 	admin.DELETE("/events/customer/:id", eventCtrl.DeleteEvent)
 	auth.GET("/events/stats", eventCtrl.GetEventStats)
@@ -338,20 +284,14 @@ func setupEventRoutes(auth *gin.RouterGroup) {
 	auth.POST("/events/add-to-cart", eventCtrl.TrackAddToCart)
 }
 
-// setupRateQuotaRoutes G11: 限流配额面板路由
 func setupRateQuotaRoutes(auth *gin.RouterGroup) {
 	ctrl := controller.NewRateQuotaController()
 	auth.GET("/system/rate-quota", ctrl.GetRateQuota)
 }
 
-// setupPromptRoutes G13: Prompt 版本管理 + A/B 实验路由
-//
-// 权限分级（2026-08-31 P0-29 四轮加固 + 2026-09-02 D1 断点修复）：
-//   - 读端点（GET）auth 即可访问
-//   - 写端点（POST/PUT/DELETE/publish）收敛为 admin only
 func setupPromptRoutes(auth *gin.RouterGroup) {
 	ctrl := controller.NewPromptController()
-	// auth 层开放读端点
+
 	auth.GET("/prompts", ctrl.List)
 	auth.GET("/prompts/:id", ctrl.GetByID)
 	auth.GET("/prompts/ab-experiments", ctrl.GetABExperiments)
@@ -364,12 +304,10 @@ func setupPromptRoutes(auth *gin.RouterGroup) {
 	admin.POST("/:id/publish", ctrl.Publish)
 }
 
-// setupTypingPredictRoutes G15: 打字预回复 SSE 路由
 func setupTypingPredictRoutes(auth *gin.RouterGroup) {
 	ctrl := controller.NewTypingPredictController()
-	// 同步预测（主通路，最简单可靠）
+
 	auth.POST("/chat/typing-predict/predict", ctrl.Predict)
-	// SSE 长连接（预留，高实时场景可选）
+
 	auth.GET("/chat/typing-predict/sse", ctrl.SSEStream)
 }
-

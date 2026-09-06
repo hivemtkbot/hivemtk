@@ -10,7 +10,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// mockCompensableExecutor 测试用：可补偿的执行器
 type mockCompensableExecutor struct {
 	nodeType     string
 	executeFn    func(ctx context.Context, execCtx *ExecutionContext) (*NodeExecResult, error)
@@ -32,7 +31,6 @@ func (m *mockCompensableExecutor) Compensate(ctx context.Context, execCtx *Execu
 	return nil
 }
 
-// mockNonCompensableExecutor 测试用：不可补偿
 type mockNonCompensableExecutor struct {
 	nodeType string
 }
@@ -198,8 +196,7 @@ func TestCompensationManager_Run_FullSaga(t *testing.T) {
 	if len(result.Records) != 3 {
 		t.Errorf("expected 3 records, got %d", len(result.Records))
 	}
-	// 反向顺序：log (skipped) → create_order → send_sms
-	// 注意：plan 已按反向传入，所以执行顺序：step1 → step2 → step3
+
 	if result.Records[0].Status != CompensationStatusCompleted {
 		t.Errorf("[0] should be completed, got %s", result.Records[0].Status)
 	}
@@ -290,7 +287,7 @@ func TestCompensationManager_Run_ContextCancellation(t *testing.T) {
 	m := NewCompensationManager(cfg)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // 立即取消
+	cancel()
 
 	plan := []CompensationRecord{{NodeID: "step1", NodeType: "send_sms"}}
 	getExecutor := func(_ string) NodeExecutor {
@@ -308,7 +305,7 @@ func TestCompensationManager_Run_ContextCancellation(t *testing.T) {
 	}
 
 	result := m.Run(ctx, 100, plan, getExecutor, execCtxFor)
-	// 取消后 Compensate 节点应被跳过（带 aborted 错误）
+
 	if len(result.Records) == 0 {
 		t.Fatal("expected at least 1 record (aborted), got 0")
 	}
@@ -379,7 +376,6 @@ func TestCompensationManager_Summary(t *testing.T) {
 		t.Errorf("empty manager should have 0 plans, got %d", summary.TotalPlans)
 	}
 
-	// 添加一个成功 plan
 	plan1 := []CompensationRecord{
 		{NodeID: "n1", NodeType: "send_sms"},
 		{NodeID: "n2", NodeType: "create_order"},
@@ -388,7 +384,6 @@ func TestCompensationManager_Summary(t *testing.T) {
 		func(_ string) NodeExecutor { return &mockCompensableExecutor{} },
 		func(id string) *ExecutionContext { return newTestExecCtx(id, "") })
 
-	// 添加一个失败 plan
 	plan2 := []CompensationRecord{{NodeID: "n3", NodeType: "send_sms"}}
 	m.Run(context.Background(), 2, plan2,
 		func(_ string) NodeExecutor {
@@ -414,7 +409,7 @@ func TestCompensationManager_Summary(t *testing.T) {
 
 // TestCompensationManager_DefaultConfig 验证默认配置归一化
 func TestCompensationManager_DefaultConfig(t *testing.T) {
-	m := NewCompensationManager(CompensationConfig{}) // 全零配置
+	m := NewCompensationManager(CompensationConfig{})
 	if m.config.MaxAttempts != 3 {
 		t.Errorf("MaxAttempts should default to 3, got %d", m.config.MaxAttempts)
 	}
@@ -433,6 +428,5 @@ func TestCompensableInterface_Assertion(t *testing.T) {
 	var _ NodeExecutor = (*mockCompensableExecutor)(nil)
 	var _ Compensable = (*mockCompensableExecutor)(nil)
 
-	// 不可补偿的执行器不应实现 Compensable
 	var _ NodeExecutor = (*mockNonCompensableExecutor)(nil)
 }

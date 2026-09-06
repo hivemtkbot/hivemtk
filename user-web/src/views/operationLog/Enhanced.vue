@@ -62,7 +62,7 @@
       />
     </el-card>
 
-    <!-- Diff 弹窗 -->
+    
     <el-dialog v-model="diffVisible" title="变更对比" width="800px">
       <el-table :data="diffData">
         <el-table-column prop="field" label="字段" width="160" />
@@ -78,10 +78,7 @@
 </template>
 
 <script setup>
-/**
- * 操作日志强化（USR-SY-01）
- */
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, Refresh } from '@element-plus/icons-vue'
 import { http } from '@/utils/request'

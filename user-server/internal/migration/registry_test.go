@@ -107,7 +107,7 @@ func TestMigrationRegistry_Validate_Duplicate(t *testing.T) {
 
 	m := &testMigration{version: "v1.0.0", name: "Initial"}
 	registry.migrations["v1.0.0"] = m
-	registry.migrations["v1.0.0"] = m 
+	registry.migrations["v1.0.0"] = m
 
 	err := registry.Validate()
 	if err != nil {
@@ -128,7 +128,6 @@ func TestMigrationRegistry_Validate_DetectDuplicate(t *testing.T) {
 	}
 }
 
-// testMigration 测试用 Migration 实现（用于验证注册表机制，非伪造外部系统）
 type testMigration struct {
 	version     string
 	name        string
@@ -198,7 +197,6 @@ func TestTestMigration_WithErrors(t *testing.T) {
 	}
 }
 
-// testError 测试用错误类型
 type testError struct {
 	msg string
 }
@@ -209,7 +207,7 @@ func (e *testError) Error() string {
 
 // TestMigrationInterface 测试 Migration 接口实现
 func TestMigrationInterface(t *testing.T) {
-	// 验证 testMigration 实现 Migration 接口
+
 	var _ Migration = (*testMigration)(nil)
 }
 
@@ -304,4 +302,3 @@ func TestMigrationService_Mechanics(t *testing.T) {
 		t.Error("Expected registry to be set")
 	}
 }
-

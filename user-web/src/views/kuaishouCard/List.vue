@@ -15,7 +15,7 @@
         </div>
       </template>
 
-      <!-- 搜索表单 -->
+      
       <el-form :inline="true" :model="searchForm" class="search-form">
         <el-form-item label="关键词">
           <el-input v-model="searchForm.keyword" placeholder="标题、描述或标签" clearable />
@@ -32,7 +32,7 @@
         </el-form-item>
       </el-form>
 
-      <!-- 快手卡片列表 -->
+      
       <el-table :data="tableData" style="width: 100%" v-loading="loading">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="title" label="标题" min-width="200">
@@ -106,7 +106,7 @@
         </template>
       </el-table>
 
-      <!-- 分页 -->
+      
       <div class="pagination-container">
         <el-pagination
           v-model:current-page="pagination.currentPage"
@@ -120,7 +120,7 @@
       </div>
     </el-card>
 
-    <!-- 添加/编辑卡片对话框 -->
+    
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
@@ -217,14 +217,13 @@
 
 <script setup>
 
-// R41: 占位外链图(img.example.com 等)不可达时显示内置占位 SVG
 const onImgError = (e) => {
   const img = e.target
   if (img && !img.dataset.fallback) {
     img.dataset.fallback = '1'
     img.src = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="%23f0f2f5"/><text x="40" y="46" font-size="12" text-anchor="middle" fill="%2390a0b0">%E6%97%A0%E5%9B%BE</text></svg>')
   }
-}
+};
 import i18n from '@/i18n'
 
 import { ref, reactive, onMounted, computed } from 'vue'
@@ -235,7 +234,6 @@ import KuaishouCardPreview from '@/components/KuaishouCardPreview.vue'
 import { domainPoolApi } from '@/api/domainPool'
 import * as kuaishouCardApi from '@/api/kuaishouCard'
 
-// 本地日期格式化函数
 const formatDate = (date, format) => {
   if (!date) return ''
   const d = new Date(date)
@@ -247,37 +245,30 @@ const formatDate = (date, format) => {
     return `${year}-${month}-${day}`
   }
   return new Date(date).toLocaleDateString()
-}
+};
 
-// 初始化router
-const router = useRouter()
+const router = useRouter();
 
-// 响应式数据
-const loading = ref(false)
+const loading = ref(false);
 const dialogVisible = ref(false)
 const formRef = ref(null)
 const currentCardId = ref(null)
 
-// 域名池数据
-const domainPoolOptions = ref([])
+const domainPoolOptions = ref([]);
 
-// 搜索表单
 const searchForm = reactive({
   keyword: '',
   is_active: null
-})
+});
 
-// 分页数据
 const pagination = reactive({
   currentPage: 1,
   pageSize: 10,
   total: 0
-})
+});
 
-// 表格数据
-const tableData = ref([])
+const tableData = ref([]);
 
-// 表单数据
 const formData = reactive({
   title: '',
   description: '',
@@ -286,9 +277,8 @@ const formData = reactive({
   tags: '',
   is_active: true,
   domain_pool_id: null
-})
+});
 
-// 表单验证规则
 const rules = {
   title: [
     { required: true, message: i18n.global.t('请输入卡片标题'), trigger: 'blur' },
@@ -309,14 +299,12 @@ const rules = {
   tags: [
     { max: 255, message: i18n.global.t('标签长度不能超过255个字符'), trigger: 'blur' }
   ]
-}
+};
 
-// 计算属性
 const dialogTitle = computed(() => {
   return currentCardId.value ? '编辑快手卡片' : '添加快手卡片'
-})
+});
 
-// 方法
 const loadData = async () => {
   loading.value = true
   try {
@@ -326,8 +314,7 @@ const loadData = async () => {
       page_size: pagination.pageSize
     }
     const res = await kuaishouCardApi.getKuaishouCardList(params)
-    // 拦截器已解包，res 直接就是数据对象
-    tableData.value = res.list || []
+    tableData.value = res.list || [];
     pagination.total = res.total || 0
   } catch (error) {
     ElMessage.error(i18n.global.t('获取数据失败'))
@@ -335,7 +322,7 @@ const loadData = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
 const handleSearch = () => {
   pagination.currentPage = 1
@@ -384,9 +371,7 @@ const handleStats = (row) => {
 
 const handleCopyLink = async (row) => {
   try {
-    // 获取卡片链接，这里假设有一个API可以获取卡片链接
-    // 如果没有，我们可以使用当前域名和卡片ID构建链接
-    const cardLink = `${window.location.origin}/kuaishou/card/${row.id}`
+    const cardLink = `${window.location.origin}/kuaishou/card/${row.id}`;
     
     await navigator.clipboard.writeText(cardLink)
     ElMessage.success(i18n.global.t('链接已复制到剪贴板'))
@@ -408,8 +393,7 @@ const handleDelete = async (row) => {
       }
     )
     const res = await kuaishouCardApi.deleteKuaishouCard(row.id)
-    // 拦截器已解包，res 直接就是数据对象
-    ElMessage.success(i18n.global.t('删除成功'))
+    ElMessage.success(i18n.global.t('删除成功'));
     loadData()
   } catch (error) {
     if (error !== 'cancel') {
@@ -423,9 +407,7 @@ const handleStatusChange = async (row) => {
     const res = await kuaishouCardApi.updateKuaishouCard({
       id: row.id,
       is_active: row.is_active
-    })
-    // 拦截器已解包，res 直接就是数据对象
-    // 成功无需处理
+    });
   } catch (error) {
     row.is_active = !row.is_active
     ElMessage.error(i18n.global.t('更新失败'))
@@ -445,8 +427,7 @@ const handleSubmit = async () => {
     } else {
       res = await kuaishouCardApi.createKuaishouCard(formData)
     }
-    // 拦截器已解包，res 直接就是数据对象
-    ElMessage.success(currentCardId.value ? '更新成功' : '创建成功')
+    ElMessage.success(currentCardId.value ? '更新成功' : '创建成功');
     dialogVisible.value = false
     loadData()
   } catch (error) {
@@ -457,12 +438,11 @@ const handleSubmit = async () => {
 
 
 
-// 图片URL变化时验证
 const handleImageUrlChange = () => {
   if (formRef.value && formData.image_url) {
     formRef.value.validateField('image_url')
   }
-}
+};
 
 const resetForm = () => {
   if (formRef.value) {
@@ -477,28 +457,24 @@ const resetForm = () => {
   formData.domain_pool_id = null
 }
 
-// 获取域名池列表
 const getDomainPoolList = async () => {
   try {
     const res = await domainPoolApi.getList({ page: 1, page_size: 100 })
-    // 拦截器已解包，res 直接就是数据对象
-    domainPoolOptions.value = res.list || []
+    domainPoolOptions.value = res.list || [];
   } catch (error) {
     ElMessage.error(i18n.global.t('获取域名池列表失败'))
     console.error('获取域名池列表失败:', error)
   }
-}
+};
 
 const goToStats = () => {
   router.push('/kuaishou/stats')
 }
 
-// 生命周期
 onMounted(async () => {
-  // 先获取域名池列表，再加载数据
-  await getDomainPoolList()
+  await getDomainPoolList();
   loadData()
-})
+});
 </script>
 
 <style scoped>

@@ -74,7 +74,6 @@ func (s *ConfigService) UpdateConfig(ctx context.Context, brand, brandDescriptio
 	return s.configRepo.Update(existing)
 }
 
-// configOptimizeResult 配置优化结果结构
 type configOptimizeResult struct {
 	Summary             string           `json:"summary"`
 	Suggestions         map[string]any   `json:"suggestions"`
@@ -100,7 +99,6 @@ func (s *ConfigService) OptimizeConfig(ctx context.Context, brandName, advantage
 	return configOptimizeToMap(parsed, resp.Provider, resp.Model), nil
 }
 
-// configOptimizeToMap 将配置优化结果转为 map
 func configOptimizeToMap(r *configOptimizeResult, provider, model string) map[string]any {
 	return map[string]any{
 		"provider":             provider,

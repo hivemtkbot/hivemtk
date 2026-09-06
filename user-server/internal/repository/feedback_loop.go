@@ -163,17 +163,8 @@ func (r *FeedbackLoopRepository) PersistFeedback(ctx context.Context, event *mod
 	})
 }
 
-// upsertFeedbackSignal 按 session_id 聚合：存在则累加 reward/count，不存在则插入
-//
-// 实现（PostgreSQL 原子 upsert + 行级锁）：
-//  1. INSERT ... ON CONFLICT (session_id) DO NOTHING 先尝试插入；若已存在则 no-op
-//  2. SELECT ... FOR UPDATE 锁定该行（已存在的或刚插入的），串行化后续 UPDATE
-//  3. 在 Go 中合并 breakdown JSON，UPDATE 写回
-//
-// ON CONFLICT 路径下 PostgreSQL 会自动获取行级锁，保证同一 session_id 的并发
-// upsert 串行执行，从而确保 SignalCount 和 AggregatedReward 的最终一致性。
 func upsertFeedbackSignal(tx *gorm.DB, sig FeedbackSignalUpsert) error {
-	// Step 1: 解析 breakdown JSON
+
 	var breakdown model.JSONMap
 	if err := json.Unmarshal([]byte(sig.BreakdownJSON), &breakdown); err != nil {
 		breakdown = model.JSONMap{}
@@ -197,7 +188,6 @@ func upsertFeedbackSignal(tx *gorm.DB, sig FeedbackSignalUpsert) error {
 		return fmt.Errorf("upsert signal insert: %w", err)
 	}
 
-	// Step 3: SELECT FOR UPDATE 锁定行（无论 Step 2 是插入还是 no-op，此时行必存在）
 	var existing model.FeedbackSignal
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("session_id = ?", sig.SessionID).
@@ -408,4 +398,3 @@ func (r *FeedbackLoopRepository) RollbackABTest(ctx context.Context, testID uint
 		return nil
 	})
 }
-

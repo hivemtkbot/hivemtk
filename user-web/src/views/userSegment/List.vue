@@ -17,7 +17,7 @@
       </div>
     </el-card>
 
-    <!-- RFM 概览 -->
+    
     <el-row :gutter="20" class="overview-row">
       <el-col :xs="12" :sm="6">
         <el-card class="stat-card">
@@ -45,7 +45,7 @@
       </el-col>
     </el-row>
 
-    <!-- RFM 矩阵 -->
+    
     <el-card class="matrix-card">
       <template #header>
         <span>RFM 客户分群矩阵</span>
@@ -111,7 +111,7 @@
       </div>
     </el-card>
 
-    <!-- 分群列表 -->
+    
     <el-card class="segments-card">
       <template #header>
         <div class="card-header">
@@ -149,7 +149,7 @@
       </el-table>
     </el-card>
 
-    <!-- 创建/编辑分群对话框 -->
+    
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="700px">
       <el-form :model="form" :rules="formRules" ref="formRef" label-width="100px">
         <el-form-item label="分群名称" prop="name">
@@ -189,7 +189,7 @@
       </template>
     </el-dialog>
 
-    <!-- 查看分群用户列表对话框 -->
+    
     <el-dialog
       v-model="viewUsersDialogVisible"
       :title="'分群 ' + (currentSegment?.name) + ' 的用户列表'"
@@ -238,8 +238,12 @@ import {
   getSegmentUsers
 } from '@/api/userSegment.js'
 import { toList } from '@/utils/list.js'
-// 统一枚举：分群类型/启用状态
-import { SEGMENT_TYPE, GROUP_STATUS, getStatusLabel as getStatusLabelFromArr, getStatusTagType as getStatusTagTypeFromArr } from '@/constants/status'
+import {
+  SEGMENT_TYPE,
+  GROUP_STATUS,
+  getStatusLabel as getStatusLabelFromArr,
+  getStatusTagType as getStatusTagTypeFromArr,
+} from '@/constants/status';
 import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled'
 
 const router = useRouter()
@@ -278,17 +282,14 @@ const filteredSegments = computed(() => {
   return segments.value.filter(s => s.name.includes(searchKeyword.value))
 })
 
-// 分群类型 label/type：取自统一 status 集（SEGMENT_TYPE）
-// 同时兼容旧的 RFM/CUSTOM/BEHAVIOR 三个值（业务约定），未命中时回退 SEGMENT_TYPE
-const LEGACY_SEGMENT_TYPE = { RFM: 'RFM', CUSTOM: '自定义', BEHAVIOR: '行为' }
+const LEGACY_SEGMENT_TYPE = { RFM: 'RFM', CUSTOM: '自定义', BEHAVIOR: '行为' };
 const getTypeLabel = (type) => LEGACY_SEGMENT_TYPE[type] || getStatusLabelFromArr(type, SEGMENT_TYPE)
 const getTypeTagType = (type) => {
   const map = { RFM: 'success', CUSTOM: 'primary', BEHAVIOR: 'warning' }
   return map[type] || getStatusTagTypeFromArr(type, SEGMENT_TYPE) || 'info'
 }
 
-// 分群启用/禁用 label/type：取自统一 enabled 模块（兼容 active/disabled 与 1/0）
-const getStatusLabel = (s) => getEnabledLabel(s)
+const getStatusLabel = (s) => getEnabledLabel(s);
 const getStatusTagType = (s) => getEnabledTagType(s)
 
 const refreshData = async () => {
@@ -327,8 +328,7 @@ const onCellClick = (key) => {
     churn: '流失客户'
   }
   ElMessage.info(`查看分群：${map[key] || key}`)
-  // 跳转到分群列表并预填筛选
-  const fakeSegment = { id: key, name: map[key] }
+  const fakeSegment = { id: key, name: map[key] };
   viewUsers(fakeSegment)
 }
 
@@ -391,8 +391,7 @@ const viewUsers = async (row) => {
 }
 
 const viewUserDetail = (user) => {
-  // 跳转到客户 360 详情页
-  router.push({ path: '/customer360', query: { id: user.id, name: user.name } })
+  router.push({ path: '/customer360', query: { id: user.id, name: user.name } });
 }
 
 onMounted(() => {

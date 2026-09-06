@@ -114,7 +114,6 @@ func (s *RagHealthService) GetHealth(ctx context.Context, window time.Duration) 
 		return nil, fmt.Errorf("query recall metrics: %w", err)
 	}
 
-	// 2) 查询向量化失败率 (私域: 无外部告警通道, 通过 recallMetrics 推算)
 	var embedFailRate float64
 	var embedTotal int64
 	if recallMetrics != nil {
@@ -173,7 +172,6 @@ func (s *RagHealthService) GetHealthCached(ctx context.Context, window time.Dura
 	return r, nil
 }
 
-// computeDimensions 计算 6 个维度的子分数
 func (s *RagHealthService) computeDimensions(ctx context.Context,
 	recall *RecallMetrics,
 	embedFailRate float64,
@@ -316,7 +314,6 @@ func (s *RagHealthService) computeDimensions(ctx context.Context,
 	return dims
 }
 
-// makeDimension 构造一个维度
 func makeDimension(key, name string, score int, weight, metric float64, desc, status string) RagHealthDimension {
 	return RagHealthDimension{
 		Name:          name,
@@ -330,7 +327,6 @@ func makeDimension(key, name string, score int, weight, metric float64, desc, st
 	}
 }
 
-// scoreToGrade 分数转分级
 func scoreToGrade(score int) string {
 	switch {
 	case score >= 90:
@@ -344,7 +340,6 @@ func scoreToGrade(score int) string {
 	}
 }
 
-// buildHealthSummary 构建文字摘要
 func buildHealthSummary(r *RagHealthReport) string {
 	gradeText := map[string]string{
 		RagHealthGradeA: "优秀",
@@ -373,7 +368,6 @@ func buildHealthSummary(r *RagHealthReport) string {
 	return summary
 }
 
-// getChunkCount 查询知识库 chunk 总数
 func (s *RagHealthService) getChunkCount(ctx context.Context) (int64, error) {
 	return s.repo.CountKnowledgeChunks(ctx)
 }

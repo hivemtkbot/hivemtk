@@ -6,19 +6,16 @@ import (
 	"time"
 )
 
-// N-1 决策源：docs/architecture/MASTER_COMPETITIVE_DECISIONS.md M3 表 N-1
-// 双 channel：online(cap=并发-1) 与 batch(cap=1)；batch 任务让路在线检索。
-
 func TestNewEmbeddingLanesFrom_Capacities(t *testing.T) {
 	cases := []struct {
 		n          int
 		wantOnline int
 		wantBatch  int
 	}{
-		{n: 1, wantOnline: 1, wantBatch: 1}, // 保底：online 永不为 0
+		{n: 1, wantOnline: 1, wantBatch: 1},
 		{n: 2, wantOnline: 1, wantBatch: 1},
 		{n: 4, wantOnline: 3, wantBatch: 1},
-		{n: 0, wantOnline: 1, wantBatch: 1}, // 非法输入回退保底
+		{n: 0, wantOnline: 1, wantBatch: 1},
 	}
 	for _, c := range cases {
 		lanes := newEmbeddingLanesFrom(c.n)
@@ -34,12 +31,10 @@ func TestNewEmbeddingLanesFrom_Capacities(t *testing.T) {
 func TestEmbeddingLanes_Isolation_OnlineNotStarvedByBatch(t *testing.T) {
 	lanes := newEmbeddingLanesFrom(2)
 
-	// batch 车道被占满（cap=1，一个批量任务在飞）
 	if err := acquireEmbeddingSlot(context.Background(), lanes.batch); err != nil {
 		t.Fatalf("acquire batch: %v", err)
 	}
 
-	// online 车道不受 batch 占用影响，仍可获取槽位
 	onlineCh := lanes.laneChannel(EmbeddingLaneOnline)
 	done := make(chan error, 1)
 	go func() { done <- acquireEmbeddingSlot(context.Background(), onlineCh) }()
@@ -52,7 +47,6 @@ func TestEmbeddingLanes_Isolation_OnlineNotStarvedByBatch(t *testing.T) {
 		t.Fatal("online acquire blocked while only batch lane was busy: N-1 隔离失效")
 	}
 
-	// batch 车道 cap=1：批量槽位被占期间，后续 batch 请求必须阻塞
 	batchCh := lanes.laneChannel(EmbeddingLaneBatch)
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
@@ -74,7 +68,7 @@ func TestEmbeddingLanes_Isolation_OnlineNotStarvedByBatch(t *testing.T) {
 }
 
 func TestEmbeddingLanes_OnlineCapRespected(t *testing.T) {
-	lanes := newEmbeddingLanesFrom(4) // online cap=3
+	lanes := newEmbeddingLanesFrom(4)
 
 	for i := 0; i < 3; i++ {
 		if err := acquireEmbeddingSlot(context.Background(), lanes.online); err != nil {
@@ -82,7 +76,6 @@ func TestEmbeddingLanes_OnlineCapRespected(t *testing.T) {
 		}
 	}
 
-	// 第 4 个 online 请求必须阻塞（超出容量）
 	blocked := make(chan error, 1)
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()

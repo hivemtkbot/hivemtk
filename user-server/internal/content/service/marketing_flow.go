@@ -308,7 +308,6 @@ func (s *MarketingFlowService) executeFlow(ctx context.Context, execution *model
 		}
 	}()
 
-	// 解析流程定义
 	var flowDef model.FlowDefinition
 	if err := json.Unmarshal([]byte(flow.FlowData), &flowDef); err != nil {
 		execution.Status = "failed"
@@ -317,7 +316,6 @@ func (s *MarketingFlowService) executeFlow(ctx context.Context, execution *model
 		return
 	}
 
-	// [P2-FIX] 用 NextNodes 做拓扑排序 + 分层并行执行（替代原先按数组顺序线性遍历）
 	levels := topologicalLevels(flowDef.Nodes)
 	if len(levels) == 0 {
 		execution.Status = "failed"
@@ -335,7 +333,7 @@ func (s *MarketingFlowService) executeFlow(ctx context.Context, execution *model
 		var levelMu sync.Mutex
 
 		for i := range level {
-			node := level[i] // level 是 []*model.FlowNode，已经是指针
+			node := level[i]
 			wg.Add(1)
 			go func(n *model.FlowNode) {
 				defer wg.Done()
@@ -367,7 +365,6 @@ func (s *MarketingFlowService) executeFlow(ctx context.Context, execution *model
 		}
 		wg.Wait()
 
-		// 收集本层错误：只要有一个节点失败就中断流程
 		if len(levelErrs) > 0 {
 			execution.Status = "failed"
 			execution.ErrorMessage = levelErrs[0].Error()
@@ -384,14 +381,6 @@ func (s *MarketingFlowService) executeFlow(ctx context.Context, execution *model
 	s.executionRepo.Update(execution)
 }
 
-// topologicalLevels 按 FlowNode.NextNodes 拓扑排序，返回每一层的节点。
-//
-// level[0] = 入度为 0 的入口节点（通常是 trigger 类型）
-// level[1] = 依赖 level[0] 完成后才能执行的节点
-// 以此类推，直到没有更多节点
-//
-// 环检测：如果存在环，部分节点入度永远不为 0，会被跳过。我们额外打印日志帮助定位。
-// [P2-FIX] 2026-09-02
 func topologicalLevels(nodes []model.FlowNode) [][]*model.FlowNode {
 	if len(nodes) == 0 {
 		return nil
@@ -405,17 +394,15 @@ func topologicalLevels(nodes []model.FlowNode) [][]*model.FlowNode {
 		inDegree[n.ID] = 0
 	}
 
-	// 统计入度
 	for i := range nodes {
 		n := &nodes[i]
 		for _, next := range n.NextNodes {
-			if _, ok := inDegree[next]; ok { // 只对已存在的节点计数（防止 NextNodes 引用不存在的 ID）
+			if _, ok := inDegree[next]; ok {
 				inDegree[next]++
 			}
 		}
 	}
 
-	// BFS 分层
 	var levels [][]*model.FlowNode
 	currentLevel := []*model.FlowNode{}
 	for id, deg := range inDegree {
@@ -423,7 +410,7 @@ func topologicalLevels(nodes []model.FlowNode) [][]*model.FlowNode {
 			currentLevel = append(currentLevel, nodeMap[id])
 		}
 	}
-	// 如果没有入度为 0 的节点（反常：存在环），退化为"全量一层"，保证不会空跑
+
 	if len(currentLevel) == 0 {
 		for i := range nodes {
 			currentLevel = append(currentLevel, &nodes[i])
@@ -439,7 +426,7 @@ func topologicalLevels(nodes []model.FlowNode) [][]*model.FlowNode {
 			visited[n.ID] = true
 			for _, next := range n.NextNodes {
 				if _, ok := inDegree[next]; !ok {
-					continue // 目标节点不在集合里，跳过（可能是 NextNodes 里的脏数据）
+					continue
 				}
 				inDegree[next]--
 				if inDegree[next] == 0 {
@@ -450,7 +437,6 @@ func topologicalLevels(nodes []model.FlowNode) [][]*model.FlowNode {
 		currentLevel = nextLevel
 	}
 
-	// 环检测：如果有节点未被 visited，说明有环，把它们作为最后一层处理（退化为串行）
 	unvisited := []*model.FlowNode{}
 	for id := range nodeMap {
 		if !visited[id] {
@@ -487,7 +473,6 @@ func (s *MarketingFlowService) executeNode(ctx context.Context, node model.FlowN
 	}
 }
 
-// evaluateOperator 评估运算符
 func evaluateOperator(fieldValue any, operator, value string) (bool, error) {
 	switch operator {
 	case "eq":
@@ -516,13 +501,11 @@ func EvaluateOperator(fieldValue any, operator, value string) (bool, error) {
 	return evaluateOperator(fieldValue, operator, value)
 }
 
-// evalContains 包含比较（大小写不敏感）
 func evalContains(fieldValue any, value string) (bool, error) {
 	strValue := fmt.Sprintf("%v", fieldValue)
 	return strings.Contains(strings.ToLower(strValue), strings.ToLower(value)), nil
 }
 
-// evalIn 列表成员比较
 func evalIn(fieldValue any, value string) (bool, error) {
 
 	value = strings.TrimSpace(value)
@@ -547,10 +530,9 @@ func evalIn(fieldValue any, value string) (bool, error) {
 	return false, nil
 }
 
-// handleDelay 处理延迟
 func (s *MarketingFlowService) handleDelay(ctx context.Context, node model.FlowNode) (map[string]any, error) {
 	duration, _ := node.Config["duration"].(float64)
-	// v3 审计 P2：delay 秒数限幅 5 分钟——配置错误（如误填毫秒值）不应挂死执行协程
+
 	const maxDelaySeconds = 300
 	if duration > maxDelaySeconds {
 		duration = maxDelaySeconds
@@ -579,7 +561,7 @@ func (s *MarketingFlowService) TriggerFlowByID(ctx context.Context, flowID uint,
 	if err := s.TriggerFlow(ctx, flow, triggerID, userID, data); err != nil {
 		return nil, err
 	}
-	// 触发后返回刚创建的 execution 记录（取最新一条）
+
 	executions, _, err := s.executionRepo.GetByFlowID(flowID, 1, 1)
 	if err != nil {
 		return nil, err
@@ -589,4 +571,3 @@ func (s *MarketingFlowService) TriggerFlowByID(ctx context.Context, flowID uint,
 	}
 	return nil, nil
 }
-

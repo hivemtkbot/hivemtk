@@ -10,7 +10,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// setupMergeTestDB 建立合并测试所需表（customers + 会话 + 事件），并返回 DB 句柄
 func setupMergeTestDB(t *testing.T) repository.CustomerRepository {
 	t.Helper()
 	database := testutil.NewTestDB(t,
@@ -65,7 +64,6 @@ func TestMergeCustomers_KeepsPrimaryUnifiedID(t *testing.T) {
 		t.Fatalf("主档案 UnifiedID 在合并后被改变: 期望 %s 实际 %s（违反 OneID 永不重算铁律）", primaryOneID, got.UnifiedID)
 	}
 
-	// 副档案应已被物理删除（model.Customer 无 DeletedAt，Delete 为物理删除）
 	var remain int64
 	if err := db.GetDB().WithContext(ctx).Model(&model.Customer{}).Where("id = ?", secondary.ID).Count(&remain).Error; err != nil {
 		t.Fatalf("count secondary: %v", err)
@@ -103,7 +101,6 @@ func TestMergeCustomers_SessionReassign(t *testing.T) {
 		t.Fatalf("MergeCustomers: %v", err)
 	}
 
-	// 会话的 one_id 应被重指向主档案
 	var cnt int64
 	if err := db.GetDB().WithContext(ctx).Model(&model.CustomerSession{}).
 		Where("one_id = ?", primary.UnifiedID).Count(&cnt).Error; err != nil {

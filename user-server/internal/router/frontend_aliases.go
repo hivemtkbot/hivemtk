@@ -1,6 +1,5 @@
 package router
 
-
 import (
 	"fmt"
 
@@ -17,10 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupFrontendAliases 注册前端 API 路径别名（兼容前端调用习惯）
-//
-// 此函数必须在其他 setup* 函数之后调用，避免被更具体的路由抢先匹配。
-// 通过 recover 机制捕获 Gin 在重复注册时的 panic，保证已存在路由不影响其他别名。
 func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gorm.DB) {
 	aiAgentSvc := service.NewAIAgentServiceWithDB(gormDB)
 	doReg := func(method, path string, handlers ...gin.HandlerFunc) {
@@ -42,7 +37,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 			auth.PATCH(path, handlers...)
 		}
 	}
-	// doRegAdmin 注册仅 admin 可访问的路由别名（防 staff 改 LLM 配置 / 创建恶意 base_url）
+
 	doRegAdmin := func(method, path string, handlers ...gin.HandlerFunc) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -64,7 +59,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 		}
 		fmt.Printf("[OK] doRegAdmin registered: %s %s (handlers=%d)\n", method, path, len(adminHandlers))
 	}
-
 
 	notifCtrl := controller.NewNotificationController(service.NewNotificationService(gormDB))
 	doReg("GET", "/notifications/list", notifCtrl.List)
@@ -120,19 +114,16 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/unified-messages/:id", unifiedMsgCtrl.GetMessageByID)
 
 	oneIDCtrl := controller.NewCustomerOneIDController()
-        doReg("GET", "/oneid/identities", oneIDCtrl.ListOneID)
-        doReg("GET", "/oneid/conflicts", oneIDCtrl.ListConflicts)
-        doRegAdmin("POST", "/oneid/merge", oneIDCtrl.MergeIdentity)
-        doRegAdmin("POST", "/oneid/resolve", oneIDCtrl.ResolveIdentity)
-        doRegAdmin("POST", "/oneid/conflicts/:id/resolve", oneIDCtrl.ResolveConflict)
-        // OPT-UX-04: OneID 合并规则 CRUD（配置类，admin-only）
-        doRegAdmin("GET", "/oneid/merge-rules", oneIDCtrl.GetMergeRules)
-        doRegAdmin("POST", "/oneid/merge-rules", oneIDCtrl.SaveMergeRules)
-        // MergeRuleConfig.vue 命中预览（返回 candidateCount + samples）— admin-only
-        doRegAdmin("POST", "/oneid/merge-rules/preview", oneIDCtrl.PreviewMergeRules)
+	doReg("GET", "/oneid/identities", oneIDCtrl.ListOneID)
+	doReg("GET", "/oneid/conflicts", oneIDCtrl.ListConflicts)
+	doRegAdmin("POST", "/oneid/merge", oneIDCtrl.MergeIdentity)
+	doRegAdmin("POST", "/oneid/resolve", oneIDCtrl.ResolveIdentity)
+	doRegAdmin("POST", "/oneid/conflicts/:id/resolve", oneIDCtrl.ResolveConflict)
 
-	// R1-D1 修复: W-3 废弃收尾 — 移除 legacy /inbox 别名路由(此前仍存活,与 unifiedInbox
-	// 前端页一起构成半死链路)。InboxService 本体保留为 wecom/feishu 内部基础设施。
+	doRegAdmin("GET", "/oneid/merge-rules", oneIDCtrl.GetMergeRules)
+	doRegAdmin("POST", "/oneid/merge-rules", oneIDCtrl.SaveMergeRules)
+
+	doRegAdmin("POST", "/oneid/merge-rules/preview", oneIDCtrl.PreviewMergeRules)
 
 	customerSessionCtrl := controller.NewCustomerSessionController()
 	doReg("GET", "/customer-sessions", customerSessionCtrl.GetSessions)
@@ -200,7 +191,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/reach-pipelines", reachCtrl.ListPipelines)
 	doReg("GET", "/reach-pipelines/list", reachCtrl.ListPipelines)
 	doReg("GET", "/reach-pipelines/:id", reachCtrl.GetPipeline)
-	// P0-19 reach-pipelines 别名写操作 admin only（防 staff 绕过 /reach/pipelines 的保护）
+
 	doRegAdmin("POST", "/reach-pipelines", reachCtrl.CreatePipeline)
 	doRegAdmin("PUT", "/reach-pipelines/:id", reachCtrl.UpdatePipeline)
 	doRegAdmin("DELETE", "/reach-pipelines/:id", reachCtrl.DeletePipeline)
@@ -209,7 +200,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/marketing-flows", marketingFlowCtrl.GetFlowList)
 	doReg("GET", "/marketing-flows/list", marketingFlowCtrl.GetFlowList)
 	doReg("GET", "/marketing-flows/:id", marketingFlowCtrl.GetFlowByID)
-	// P0-20 marketing-flows 别名写操作 admin only
+
 	doReg("GET", "/marketing-flows/executions", marketingFlowCtrl.GetExecutionList)
 	doReg("GET", "/marketing-flows/executions/stats", marketingFlowCtrl.GetExecutionStats)
 
@@ -259,7 +250,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/quick-replies/list", quickReplyCtrl.GetReplies)
 	doReg("GET", "/quick-replies/categories", quickReplyCtrl.GetReplyCategories)
 
-
 	aiSuggestionCtrl := controller.NewAISuggestionController()
 	doReg("GET", "/ai-suggestions", aiSuggestionCtrl.GetSuggestions)
 
@@ -289,7 +279,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/email/smtps", emailSmtpCtrl.GetEmailSmtpList)
 	doReg("GET", "/email/smtps/list", emailSmtpCtrl.GetEmailSmtpList)
 	doReg("GET", "/email/smtps/:id", emailSmtpCtrl.GetEmailSmtp)
-	// P0-15 SMTP 凭据别名写操作 admin only（防 staff 绕过 /email/smtp 的保护）
+
 	doRegAdmin("POST", "/email/smtps", emailSmtpCtrl.CreateEmailSmtp)
 	doRegAdmin("PUT", "/email/smtps/:id", emailSmtpCtrl.UpdateEmailSmtp)
 	doRegAdmin("DELETE", "/email/smtps/:id", emailSmtpCtrl.DeleteEmailSmtp)
@@ -297,7 +287,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	smsCtrl := controller.NewSmsController(service.NewSmsService(repository.NewSmsRepository()))
 	doReg("GET", "/sms/records", smsCtrl.GetSmsList)
 	doReg("GET", "/sms/records/list", smsCtrl.GetSmsList)
-	// P0-27 SMS 发信 + 配置 + jobs 全部 admin only（防 staff 滥发短信/改网关劫持）
+
 	doRegAdmin("POST", "/sms/records", smsCtrl.SendSms)
 
 	doReg("GET", "/sms/drafts", smsCtrl.GetDraftList)
@@ -368,7 +358,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/feishu/accounts", feishuCtrl.List)
 	doReg("GET", "/feishu/accounts/list", feishuCtrl.List)
 	doReg("GET", "/feishu/accounts/:id", feishuCtrl.Get)
-	// P0-18 平台账号别名写操作 admin only（AppSecret/BotToken/AccessToken 敏感）
 
 	tgCtrl := controller.NewTelegramAccountController(service.NewTelegramService(gormDB))
 	doReg("GET", "/telegram/accounts", tgCtrl.List)
@@ -379,7 +368,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/short-links", shortLinkCtrl.GetList)
 	doReg("GET", "/short-links/list", shortLinkCtrl.GetList)
 	doReg("GET", "/short-links/:id", shortLinkCtrl.GetByID)
-	// P0-28 short-links 别名写操作 admin only（防 staff 绕过 setupShortLinkRoutes 的保护改 target_url → 钓鱼）
+
 	doRegAdmin("POST", "/short-links", shortLinkCtrl.Create)
 	doRegAdmin("PUT", "/short-links/:id", shortLinkCtrl.Update)
 	doRegAdmin("DELETE", "/short-links/:id", shortLinkCtrl.Delete)
@@ -477,7 +466,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/obs-configs/list", obsCtrl.GetConfigList)
 	doReg("GET", "/obs-configs/default", obsCtrl.GetDefaultConfig)
 	doReg("GET", "/obs-configs/:id", obsCtrl.GetConfig)
-	// P0-14 obs-configs 别名写操作 admin only（防 staff 绕过 /obs/config 的保护）
+
 	doRegAdmin("POST", "/obs-configs", obsCtrl.CreateConfig)
 	doRegAdmin("PUT", "/obs-configs/:id", obsCtrl.UpdateConfig)
 	doRegAdmin("DELETE", "/obs-configs/:id", obsCtrl.DeleteConfig)
@@ -496,38 +485,35 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/system-monitor/metrics", sysMonCtrl.GetMetrics)
 	doReg("GET", "/system-monitor/health", sysMonCtrl.GetHealth)
 
-	// R35 契约漂移处置（audit_checklist.md：3组真实在用端点的优雅空态，防页面报错）
-	// R39 升级：CSAT 空态桩 → 真实 CSAT 域（会话评分/统计/趋势/差评/模板）
 	csatCtrl := controller.NewCSATController()
 	doReg("GET", "/csat/stats", csatCtrl.Stats)
 	doReg("GET", "/csat/template", csatCtrl.GetTemplate)
-	// P0-16 PUT /csat/template admin only（防 staff 改 CSAT 问卷模板）
+
 	doRegAdmin("PUT", "/csat/template", csatCtrl.SaveTemplate)
 	doReg("GET", "/csat/trend", csatCtrl.Trend)
 	doReg("GET", "/csat/negative", csatCtrl.Negative)
 	doReg("POST", "/customer-sessions/:id/csat", csatCtrl.Submit)
 	doReg("POST", "/customer-sessions/:id/csat/trigger", csatCtrl.Trigger)
 
-	// R39 客服工作台增强：协作锁/内部备注/状态板/标签规则/快捷回复文件夹
 	csPlusCtrl := controller.NewCustomerServicePlusController()
 	doReg("GET", "/user-segments", csPlusCtrl.ListSegments)
-	// R48 T2/T3: 办公时间 + 会话优先级/暂缓
+
 	doReg("GET", "/office-hours", csPlusCtrl.GetOfficeHours)
 	doReg("PUT", "/office-hours", csPlusCtrl.SaveOfficeHours)
 	doReg("PUT", "/customer-sessions/:id/priority", csPlusCtrl.SetSessionPriority)
 	doReg("POST", "/customer-sessions/:id/snooze", csPlusCtrl.SnoozeSession)
 	doReg("DELETE", "/customer-sessions/:id/snooze", csPlusCtrl.UnsnoozeSession)
-	// R48 T4/T5: 宏 + AI 会话摘要（配置类，admin-only）
-        macroCtrl := controller.NewMacroController()
-        doRegAdmin("GET", "/macros", macroCtrl.List)
-        doRegAdmin("POST", "/macros", macroCtrl.Create)
-        doRegAdmin("DELETE", "/macros/:id", macroCtrl.Delete)
-        doRegAdmin("POST", "/macros/:id/apply", macroCtrl.Apply)
-        // R48 T6-T12（Webhook 管理，admin-only）
-        growthCtrl := controller.NewGrowthController()
-        doRegAdmin("GET", "/webhook-subscriptions", growthCtrl.ListWebhookSubs)
-        doRegAdmin("POST", "/webhook-subscriptions", growthCtrl.CreateWebhookSub)
-        doRegAdmin("DELETE", "/webhook-subscriptions/:id", growthCtrl.DeleteWebhookSub)
+
+	macroCtrl := controller.NewMacroController()
+	doRegAdmin("GET", "/macros", macroCtrl.List)
+	doRegAdmin("POST", "/macros", macroCtrl.Create)
+	doRegAdmin("DELETE", "/macros/:id", macroCtrl.Delete)
+	doRegAdmin("POST", "/macros/:id/apply", macroCtrl.Apply)
+
+	growthCtrl := controller.NewGrowthController()
+	doRegAdmin("GET", "/webhook-subscriptions", growthCtrl.ListWebhookSubs)
+	doRegAdmin("POST", "/webhook-subscriptions", growthCtrl.CreateWebhookSub)
+	doRegAdmin("DELETE", "/webhook-subscriptions/:id", growthCtrl.DeleteWebhookSub)
 	doReg("PUT", "/customers/:id/custom-attributes", growthCtrl.SetCustomAttributes)
 	doRegAdmin("POST", "/saved-views", growthCtrl.CreateSavedView)
 	doReg("GET", "/saved-views", growthCtrl.ListSavedViews)
@@ -538,25 +524,25 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doRegAdmin("POST", "/report-subscriptions/send-now", growthCtrl.SendReportsNow)
 	doReg("GET", "/customer-sessions/:id/transcript", growthCtrl.Transcript)
 	doReg("GET", "/analytics/ai-performance", growthCtrl.AIPerformance)
-	// R51: DNC 全局退订（合规核心功能）— 全部 admin-only（防 staff 误删黑名单 / 绕过合规）
-        dncCtrl := controller.NewDNCController()
-        doRegAdmin("GET", "/dnc", dncCtrl.List)
-        doRegAdmin("POST", "/dnc", dncCtrl.Block)
-        doRegAdmin("POST", "/dnc/block-phone", dncCtrl.BlockByPhone)
-        doRegAdmin("DELETE", "/dnc/:one_id", dncCtrl.Unblock)
-        doRegAdmin("GET", "/dnc/:one_id/blocked", dncCtrl.IsBlocked)
+
+	dncCtrl := controller.NewDNCController()
+	doRegAdmin("GET", "/dnc", dncCtrl.List)
+	doRegAdmin("POST", "/dnc", dncCtrl.Block)
+	doRegAdmin("POST", "/dnc/block-phone", dncCtrl.BlockByPhone)
+	doRegAdmin("DELETE", "/dnc/:one_id", dncCtrl.Unblock)
+	doRegAdmin("GET", "/dnc/:one_id/blocked", dncCtrl.IsBlocked)
 
 	sessionAIRepo := repository.NewSessionAIRepo(gormDB)
 	sessionAISvc := service.NewSessionAIService(sessionAIRepo)
 	sessionAICtrl := controller.NewSessionAIController(sessionAISvc)
 	doReg("POST", "/customer-sessions/:id/ai-summary", sessionAICtrl.Generate)
-	// R53 B: 自动化规则引擎 CRUD — 全部 admin only（防 staff 误触发自动化流程 / 绕过熔断）
-        ruleCtrl := controller.NewRuleEngineController()
-        doRegAdmin("GET", "/automation-rules", ruleCtrl.List)
-        doRegAdmin("POST", "/automation-rules", ruleCtrl.Create)
-        doRegAdmin("DELETE", "/automation-rules/:id", ruleCtrl.Delete)
-        doRegAdmin("POST", "/automation-rules/:id/toggle", ruleCtrl.Toggle)
-        doRegAdmin("POST", "/automation-rules/fire", ruleCtrl.Fire)
+
+	ruleCtrl := controller.NewRuleEngineController()
+	doRegAdmin("GET", "/automation-rules", ruleCtrl.List)
+	doRegAdmin("POST", "/automation-rules", ruleCtrl.Create)
+	doRegAdmin("DELETE", "/automation-rules/:id", ruleCtrl.Delete)
+	doRegAdmin("POST", "/automation-rules/:id/toggle", ruleCtrl.Toggle)
+	doRegAdmin("POST", "/automation-rules/fire", ruleCtrl.Fire)
 	doReg("GET", "/customer-sessions/:id/ai-summary", sessionAICtrl.Get)
 	doReg("POST", "/user-segments", csPlusCtrl.CreateSegment)
 	doReg("POST", "/customer-sessions/:id/edit-lock", csPlusCtrl.AcquireEditLock)
@@ -572,9 +558,9 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("POST", "/quick-reply/folders", csPlusCtrl.CreateQuickReplyFolder)
 	doReg("POST", "/quick-reply/folders/:id/reorder", csPlusCtrl.ReorderQuickReplyFolder)
 	doReg("DELETE", "/quick-reply/folders/:id", csPlusCtrl.DeleteQuickReplyFolder)
-	// ai-suggestions 会话维度别名（复用既有 AISuggestionController）
+
 	doReg("GET", "/customer-service/ai-suggestions", aiSuggestionCtrl.GetSuggestions)
-	// mentions 已读/我的提及（复用 NotificationService，mention=站内通知）
+
 	notifCtrlAlias := controller.NewNotificationController(service.NewNotificationService(gormDB))
 	doReg("POST", "/mentions/:id/read", notifCtrlAlias.MarkRead)
 	doReg("GET", "/mentions/mine", notifCtrlAlias.List)
@@ -590,11 +576,11 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/domain-pool", domainCtrl.List)
 	doReg("GET", "/domain-pool/list", domainCtrl.List)
 	doReg("GET", "/domain-pool/:id", domainCtrl.GetByID)
-	// P0-17 domain-pool 写操作 admin only（域名池是公司级基础设施，staff 不能改）
+
 	doRegAdmin("POST", "/domain-pool", domainCtrl.Create)
 	doRegAdmin("PUT", "/domain-pool/:id", domainCtrl.Update)
 	doRegAdmin("DELETE", "/domain-pool/:id", domainCtrl.Delete)
-	// R39 domainPool.js 动作端点
+
 	doRegAdmin("POST", "/domain-pool/check-all", domainCtrl.CheckAllDomains)
 	doReg("GET", "/domain-pool/health", domainCtrl.HealthCheckAll)
 	doReg("GET", "/domain-pool/alerts", domainCtrl.ListAlerts)
@@ -604,10 +590,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doRegAdmin("POST", "/domain-pool/:id/rotate", domainCtrl.RotateToBackup)
 	doRegAdmin("POST", "/domain-pool/:id/suspend", domainCtrl.SuspendDomain)
 
-
-
-
-	// ===== R44 断链清欠（views 内联调用 21 条）=====
 	backupGapCtrl := controller.NewBackupGapController()
 	doRegAdmin("GET", "/backup/list", backupGapCtrl.List)
 	doRegAdmin("GET", "/backup/stats", backupGapCtrl.Stats)
@@ -653,7 +635,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	integrationCtrl := controller.NewIntegrationController()
 	doReg("GET", "/integrations/list", integrationCtrl.GetAccountList)
 	doReg("GET", "/integrations/:id", integrationCtrl.GetAccountByID)
-	// P0-21 integrations 别名写操作 admin only（corp_secret 等敏感凭据）
 
 	opLogCtrl := controller.NewOperationLogController()
 	doRegAdmin("GET", "/operation-logs", opLogCtrl.GetList)
@@ -662,7 +643,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doRegAdmin("GET", "/operation-logs/statistics", opLogCtrl.GetStatistics)
 	doRegAdmin("GET", "/operation-logs/export", opLogCtrl.ExportLogs)
 	doRegAdmin("POST", "/operation-logs/clean", opLogCtrl.CleanLogs)
-
 
 	churnCtrl := opsctrl.NewChurnPredictionController()
 	doReg("GET", "/churn-prediction", churnCtrl.GetChurnPredictions)
@@ -683,4 +663,3 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine, gormDB *gor
 	doReg("GET", "/churn/statistics", churnCtrl.GetChurnStatistics)
 	doReg("GET", "/churn/risk-distribution", churnCtrl.GetRiskDistribution)
 }
-

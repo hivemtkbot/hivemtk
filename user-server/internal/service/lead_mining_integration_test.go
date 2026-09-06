@@ -16,7 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// 构造一条带唯一 MsgID 的入站消息
 func seedHub(platform, sender, name, content string, idx int) model.MessageHub {
 	return model.MessageHub{
 		MsgID:          fmt.Sprintf("seed-%s-%d", sender, idx),
@@ -122,7 +121,6 @@ func TestLeadMining_Integration_FullPipeline(t *testing.T) {
 		t.Fatalf("线索 OneID 应关联客户稳定键，实际 %s", clue.OneID)
 	}
 
-	// 5) 断言：客户被打标签（真实 customers 表）
 	var cust model.Customer
 	if err := database.Where("unified_id = ?", "lm:"+account).First(&cust).Error; err != nil {
 		t.Fatalf("未创建客户: %v", err)
@@ -307,9 +305,6 @@ func containsTag(tags []string, v string) bool {
 	return false
 }
 
-// cleanupLeadMiningData 测试结束后清理本测试写入共享测试库的数据，
-// 避免污染同进程后续测试（NewTestDB 设计上同进程共享库、AutoMigrate 累加，
-// 不主动清数据会导致后续顺序相关断言失败）。仅清理本测试使用的 sender 维度数据。
 func cleanupLeadMiningData(t *testing.T, database *gorm.DB, senders ...string) {
 	t.Helper()
 	t.Cleanup(func() {

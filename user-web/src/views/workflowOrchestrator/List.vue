@@ -87,7 +87,7 @@
       </div>
     </el-card>
 
-    <!-- 新建工作流对话 -->
+    
     <el-dialog v-model="dialogVisible" :title="$t('新建工作流')" width="600px" :close-on-click-modal="false">
       <el-form :model="form" :rules="formRules" ref="formRef" label-width="120px">
         <el-form-item label="工作流 ID" prop="workflow_id">
@@ -106,7 +106,7 @@
       </template>
     </el-dialog>
 
-    <!-- 执行工作流对话 -->
+    
     <el-dialog v-model="executeDialogVisible" :title="$t('执行工作流')" width="560px">
       <el-form :model="executeForm" label-width="120px">
         <el-form-item :label="$t('工作流 ID')">
@@ -155,8 +155,7 @@ const pagination = reactive({
 })
 
 const filteredFlows = computed(() => {
-  // 仅做客户端关键字过滤（保留搜索体验），状态过滤已由服务端分页承载，避免双向过滤
-  let list = flows.value
+  let list = flows.value;
   if (filterKeyword.value) {
     const kw = filterKeyword.value.toLowerCase()
     list = list.filter(f => (f.workflow_id || '').toLowerCase().includes(kw) || (f.name || '').toLowerCase().includes(kw))
@@ -164,8 +163,7 @@ const filteredFlows = computed(() => {
   return list
 })
 
-// === 新建对话 ===
-const dialogVisible = ref(false)
+const dialogVisible = ref(false);
 const formRef = ref()
 const form = reactive({
   workflow_id: '',
@@ -203,8 +201,7 @@ const submitCreate = async () => {
   }
 }
 
-// === 执行对话 ===
-const executeDialogVisible = ref(false)
+const executeDialogVisible = ref(false);
 const executing = ref(false)
 const executeForm = reactive({
   workflow_id: '',
@@ -236,7 +233,6 @@ const doExecute = async () => {
     const data = result?.data || result
     lastExecution.value = data
     ElMessage.success('执行已触发')
-    // 跳转到执行详情
     if (data?.id) {
       router.push({ name: 'WorkflowOrchestratorExecution', params: { id: data.id } })
     }
@@ -248,10 +244,9 @@ const doExecute = async () => {
   }
 }
 
-// === 其他操作 ===
 const openEditor = (row) => {
   router.push({ name: 'WorkflowOrchestratorEditor', params: { workflow_id: row.workflow_id } })
-}
+};
 
 const handlePublish = async (row) => {
   try {
@@ -280,17 +275,15 @@ const handleDelete = async (row) => {
   } catch (_) {}
 }
 
-// === 加载数据 ===
 const loadData = async () => {
   loading.value = true
   try {
-    // 服务端分页：传 workflow_id 为空 + status + page + page_size
     const params = {
       workflow_id: '',
       status: filterStatus.value || '',
       page: pagination.page,
       page_size: pagination.pageSize
-    }
+    };
     const result = await workflowOrchestratorApi.listVersions(params)
     const payload = result?.data || result || {}
     flows.value = payload.list || []
@@ -302,22 +295,19 @@ const loadData = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
-// 关键字搜索 / 状态变更 / 翻页大小变更需要重置到第 1 页并重新拉取
 const onFilterChange = () => {
   pagination.page = 1
   loadData()
-}
+};
 
-// 切换每页条数后回到第 1 页避免越界空页
 const onSizeChange = () => {
   pagination.page = 1
   loadData()
-}
+};
 
-// === 辅助函数 ===
-const statusType = (s) => ({ draft: 'info', published: 'success', archived: 'warning' }[s] || '')
+const statusType = (s) => ({ draft: 'info', published: 'success', archived: 'warning' }[s] || '');
 const statusText = (s) => ({ draft: '草稿', published: '已发布', archived: '已归档' }[s] || s)
 const execStatusType = (s) => ({ running: 'primary', completed: 'success', failed: 'danger', terminated: 'warning' }[s] || '')
 const execStatusText = (s) => ({ running: '运行中', completed: '已完成', failed: '失败', terminated: '已终止' }[s] || s)

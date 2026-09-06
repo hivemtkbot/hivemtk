@@ -259,4 +259,3 @@ func (c *CommunityController) ExportData(ctx *gin.Context) {
 		"total":  len(groups),
 	}, "导出成功")
 }
-

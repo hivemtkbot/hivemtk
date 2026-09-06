@@ -18,14 +18,14 @@ import "time"
 //   - Metadata 预留 JSON 字段，存扩展信息
 type Notification struct {
 	ID        uint       `json:"id" gorm:"primaryKey"`
-	UserID    uint       `json:"user_id" gorm:"index;not null;default:0"` 
+	UserID    uint       `json:"user_id" gorm:"index;not null;default:0"`
 	Type      string     `json:"type" gorm:"size:32;index;not null;default:'info'"`
 	Title     string     `json:"title" gorm:"size:255;not null"`
 	Content   string     `json:"content" gorm:"type:text"`
 	Link      string     `json:"link" gorm:"size:512"`
 	IsRead    bool       `json:"is_read" gorm:"index;not null;default:false"`
 	ReadAt    *time.Time `json:"read_at,omitempty"`
-	Metadata  string     `json:"metadata" gorm:"type:text"` 
+	Metadata  string     `json:"metadata" gorm:"type:text"`
 	CreatedAt time.Time  `json:"created_at" gorm:"index"`
 	UpdatedAt time.Time  `json:"updated_at"`
 }
@@ -43,4 +43,3 @@ const (
 	NotificationTypeSuccess      = "success"
 	NotificationTypeAnnouncement = "announcement"
 )
-

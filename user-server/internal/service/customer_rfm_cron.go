@@ -9,7 +9,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// rfmRetryBackoff 默认退避序列（M2）：失败后最多重试 3 次，间隔 1m / 5m / 15m
 var rfmRetryBackoff = []time.Duration{time.Minute, 5 * time.Minute, 15 * time.Minute}
 
 // CustomerRFMCron 铁律级补漏：RFM 全量计算定时任务。
@@ -23,11 +22,10 @@ var rfmRetryBackoff = []time.Duration{time.Minute, 5 * time.Minute, 15 * time.Mi
 type CustomerRFMCron struct {
 	svc *CustomerRFMService
 
-	// computeFn 单次全量计算入口（默认 svc.ComputeAll；测试可注入 mock）
 	computeFn func(ctx context.Context) (int, error)
-	// retryBackoff 失败重试退避序列（长度 N = 首次执行后最多再重试 N 次）
+
 	retryBackoff []time.Duration
-	// onFinalFailure 重试耗尽后的告警回调（默认发 system_alerts SSE + 错误日志；测试可注入捕获）
+
 	onFinalFailure func(ctx context.Context, attempts int, err error)
 
 	stop      chan struct{}
@@ -85,7 +83,6 @@ func (c *CustomerRFMCron) loop(ctx context.Context) {
 	}
 }
 
-// runWithRetry 单次调度执行：失败按 retryBackoff 退避重试，耗尽后告警（供测试直接调用）
 func (c *CustomerRFMCron) runWithRetry(ctx context.Context) {
 	backoff := c.retryBackoff
 	if len(backoff) == 0 {
@@ -115,7 +112,6 @@ func (c *CustomerRFMCron) runWithRetry(ctx context.Context) {
 	c.alertFinalFailure(ctx, attempts, lastErr)
 }
 
-// computeOnce 带 panic 隔离的单次计算
 func (c *CustomerRFMCron) computeOnce(ctx context.Context) (count int, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -129,7 +125,6 @@ func (c *CustomerRFMCron) computeOnce(ctx context.Context) (count int, err error
 	return fn(ctx)
 }
 
-// sleep 可中断的退避等待；返回 false 表示 cron 已停止
 func (c *CustomerRFMCron) sleep(d time.Duration) bool {
 	t := time.NewTimer(d)
 	defer t.Stop()
@@ -141,7 +136,6 @@ func (c *CustomerRFMCron) sleep(d time.Duration) bool {
 	}
 }
 
-// alertFinalFailure 最终失败告警：走既有 system_alerts SSE 通道（PublishSSEEvent 对未初始化 Hub 安全）
 func (c *CustomerRFMCron) alertFinalFailure(ctx context.Context, attempts int, err error) {
 	if c.onFinalFailure != nil {
 		c.onFinalFailure(ctx, attempts, err)

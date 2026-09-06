@@ -14,19 +14,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// pipelineReachSender 将触达调度器（service.ReachPipelineService）接入真实的渠道发送器：
-//   - telegram / whatsapp / feishu / web / wecom / dingtalk / sms / email / card
-//     走 tooluse.IntegrationReachAdapter（与 AI Agent 的 reach.*.send 共用同一套出站实现）
-//   - douyin / kuaishou / xiaohongshu / tiktok / xianyu 走 bridge.BridgeReachAdapter.Send*，
-//     内部转 service.DeliverBridgeOutbound → message_hub（2026-08-18 二次审核修复：旧 httpReplyBuffer 死通道）
-//
-// 由此修复"触达调度器下发占位"缺口：调度器不再产生假 message_id，而是真正下发到渠道。
 type pipelineReachSender struct {
 	inner  *IntegrationReachAdapter
 	bridge *bridge.BridgeReachAdapter
 }
 
-// 编译期校验：pipelineReachSender 满足 service.ReachSender 接口
 var _ service.ReachSender = (*pipelineReachSender)(nil)
 
 // newPipelineReachSender 构造调度器真实发送器；构造失败返回 nil（由调度器降级为占位发送）。
@@ -42,7 +34,6 @@ func NewPipelineReachSender(db *gorm.DB) *pipelineReachSender {
 	}
 }
 
-// SendReach 按渠道路由到真实发送器。accountID 为字符串形式的账号标识（与 model.ReachJob.AccountID 一致）。
 func (p *pipelineReachSender) SendReach(ctx context.Context, channel, accountID, to, content string) (string, error) {
 	switch channel {
 	case "telegram":
@@ -90,45 +81,34 @@ func (p *pipelineReachSender) SendReach(ctx context.Context, channel, accountID,
 func RegisterAllReachServices(db *gorm.DB) {
 	registry := tooluse.GlobalServiceRegistry()
 
-	// 短信
 	registry.RegisterSMS(&smsLikeAdapter{svc: service.NewSmsService(repository.NewSmsRepository())})
 
-	// 邮件
 	registry.RegisterEmail(&emailLikeAdapter{svc: service.NewEmailService(db)})
 
-	// 企微
 	wecomSvc := service.NewWeComIntegrationService(db)
 	registry.RegisterWeCom(&weComLikeAdapter{svc: wecomSvc})
 
-	// 飞书
 	feishuSvc := service.NewFeishuIntegrationService(db)
 	registry.RegisterFeishu(&feishuLikeAdapter{svc: feishuSvc})
 
-	// Telegram
 	tgSvc := service.NewTelegramIntegrationService(db)
 	registry.RegisterTelegram(&telegramLikeAdapter{svc: tgSvc})
 
-	// WhatsApp
 	waSvc := service.NewWhatsAppCloudIntegrationService(db)
 	registry.RegisterWhatsApp(&whatsAppLikeAdapter{svc: waSvc})
 
-	// 钉钉
 	dtSvc := service.NewDingTalkService()
 	registry.RegisterDingTalk(&dingTalkLikeAdapter{svc: dtSvc})
 
-	// 微信公众号
 	wechatSvc := service.NewWechatService(db)
 	registry.RegisterWechat(&wechatLikeAdapter{svc: wechatSvc})
 
-	// Bridge 下发
 	tooluse.RegisterBridgeOutboundDeliver(func(ctx context.Context, channel, accountID, conversationID, msgType, content, mediaURL string) error {
 		return service.DeliverBridgeOutbound(ctx, channel, accountID, conversationID, msgType, content, mediaURL)
 	})
 
 	logger.Infof("[ReachAdapter] 全渠道 service 已注册到 tooluse.GlobalServiceRegistry")
 }
-
-// 各渠道适配器（把 service 的不同方法签名对齐到 tooluse 的接口）
 
 type smsLikeAdapter struct {
 	svc service.SmsService
@@ -209,4 +189,3 @@ type wechatLikeAdapter struct {
 func (a *wechatLikeAdapter) SendCustomMessage(ctx context.Context, accountID uint, openID, msgType, content string) (string, error) {
 	return a.svc.SendCustomMessage(ctx, accountID, openID, msgType, content)
 }
-

@@ -1,6 +1,5 @@
 package controller
 
-
 import (
 	"context"
 	"encoding/json"
@@ -127,7 +126,6 @@ func (c *DashboardSSEController) Metrics(ctx *gin.Context) {
 	}, "ok")
 }
 
-// collectSnapshot 采集实时数据快照（带 2s 缓存）
 func (c *DashboardSSEController) collectSnapshot(ctx context.Context) *service.DashboardSnapshot {
 	c.cacheMu.RLock()
 	if c.lastSnapshot != nil && time.Since(c.lastUpdateAt) < c.cacheTTL {
@@ -162,7 +160,6 @@ func (c *DashboardSSEController) collectSnapshot(ctx context.Context) *service.D
 	return snap
 }
 
-// collectLLMMetrics 采集 LLM 实时指标
 func (c *DashboardSSEController) collectLLMMetrics(ctx context.Context) *service.LLMRealTimeMetrics {
 	m := &service.LLMRealTimeMetrics{}
 	defer func() {
@@ -173,7 +170,6 @@ func (c *DashboardSSEController) collectLLMMetrics(ctx context.Context) *service
 	return m
 }
 
-// writeDashboardEvent 写 SSE 事件（data 字段为 JSON）
 func writeDashboardEvent(c *gin.Context, eventType string, data any) error {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
@@ -187,12 +183,10 @@ func writeDashboardEvent(c *gin.Context, eventType string, data any) error {
 	return nil
 }
 
-// writeDashboardRawEvent 写原始 SSE 事件
 func writeDashboardRawEvent(c *gin.Context, eventType string, data map[string]any) error {
 	return writeDashboardEvent(c, eventType, data)
 }
 
-// roundTo 浮点保留 n 位小数
 func roundTo(v float64, n int) float64 {
 	if math.IsNaN(v) || math.IsInf(v, 0) {
 		return 0
@@ -200,4 +194,3 @@ func roundTo(v float64, n int) float64 {
 	mult := math.Pow(10, float64(n))
 	return math.Round(v*mult) / mult
 }
-

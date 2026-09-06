@@ -31,7 +31,7 @@ func (r *KnowledgeFeedbackRepository) Create(ctx context.Context, fb *model.Know
 type FeedbackListFilter struct {
 	ProductID string
 	Rating    int
-	HasRating bool 
+	HasRating bool
 	Page      int
 	PageSize  int
 }
@@ -65,7 +65,6 @@ func (r *KnowledgeFeedbackRepository) List(ctx context.Context, filter FeedbackL
 	}
 	return list, total, nil
 }
-
 
 // KnowledgeAPITokenRepository 知识库 API Token 仓储
 type KnowledgeAPITokenRepository struct {
@@ -136,7 +135,6 @@ func (r *KnowledgeAPITokenRepository) IncrementUsage(ctx context.Context, id uin
 		}).Error
 }
 
-
 // ExternalImportJobRepository 外部导入任务仓储
 type ExternalImportJobRepository struct {
 	db *gorm.DB
@@ -198,4 +196,3 @@ func (r *ExternalImportJobRepository) List(ctx context.Context, filter ExternalJ
 	}
 	return list, total, nil
 }
-

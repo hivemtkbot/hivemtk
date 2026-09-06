@@ -138,4 +138,3 @@ func TestLRUCache_DefaultParams(t *testing.T) {
 	c := NewLRUCache(0, 0)
 	assert.Equal(t, 100, c.Capacity())
 }
-

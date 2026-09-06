@@ -1,6 +1,5 @@
 package controller
 
-
 import (
 	"net/http"
 	"strconv"
@@ -33,18 +32,17 @@ func (c *AgentKBBindingController) RegisterRoutes(router *gin.RouterGroup) {
 	g := router.Group("/agent-kb-bindings")
 	{
 		g.GET("/by-agent/:agentId", c.ListByAgent)
-		g.GET("/agent/:aid", c.ListByAgent) 
+		g.GET("/agent/:aid", c.ListByAgent)
 		g.GET("/by-kb/:kbId", c.ListByKB)
-		g.GET("/kb/:kid", c.ListByKB) 
+		g.GET("/kb/:kid", c.ListByKB)
 		g.PUT("/by-agent/:agentId", c.ReplaceByAgent)
 		g.DELETE("/:agentId/:kbId", c.UnbindByPath)
 		g.POST("", c.Bind)
 		g.POST("/batch", c.BatchBind)
-		g.DELETE("", c.Unbind) 
+		g.DELETE("", c.Unbind)
 	}
 }
 
-// agentIDParam 兼容前端路径参数名 agentId 与旧路径 aid
 func agentIDParam(ctx *gin.Context) string {
 	if v := ctx.Param("agentId"); v != "" {
 		return v
@@ -94,7 +92,6 @@ func (c *AgentKBBindingController) ListByKB(ctx *gin.Context) {
 	response.Success(ctx, list, "查询成功")
 }
 
-// agentKBReplaceReq 全量替换某智能体知识库挂载请求
 type agentKBReplaceReq struct {
 	KbIDs []string `json:"kb_ids"`
 }
@@ -142,7 +139,6 @@ func (c *AgentKBBindingController) UnbindByPath(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"agent_id": aid, "knowledge_base_id": kbId}, "解绑成功")
 }
 
-// agentKBBindReq 单个绑定请求
 type agentKBBindReq struct {
 	AgentID         uint `json:"agent_id" binding:"required"`
 	KnowledgeBaseID uint `json:"knowledge_base_id" binding:"required"`
@@ -175,7 +171,6 @@ func (c *AgentKBBindingController) Bind(ctx *gin.Context) {
 	}, "绑定成功")
 }
 
-// agentKBBatchBindReq 批量绑定请求
 type agentKBBatchBindReq struct {
 	Items []service.BatchBindItem `json:"items" binding:"required"`
 }
@@ -196,7 +191,6 @@ func (c *AgentKBBindingController) BatchBind(ctx *gin.Context) {
 	}, "批量绑定成功")
 }
 
-// agentKBUnbindReq 单个解绑请求
 type agentKBUnbindReq struct {
 	AgentID         uint `json:"agent_id" binding:"required"`
 	KnowledgeBaseID uint `json:"knowledge_base_id" binding:"required"`
@@ -226,4 +220,3 @@ func (c *AgentKBBindingController) Unbind(ctx *gin.Context) {
 		"knowledge_base_id": req.KnowledgeBaseID,
 	}, "解绑成功")
 }
-

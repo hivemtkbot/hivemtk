@@ -18,10 +18,7 @@ func NewEmailSmtpService() *EmailSmtpService {
 }
 
 func (s *EmailSmtpService) CreateEmailSmtp(ctx context.Context, emailSmtp model.EmailSmtp) (*model.EmailSmtp, error) {
-	// v3 审计 P0：SMTP 密码 AES-GCM 静态加密（FIELD_ENCRYPTION_KEY），
-	// 存量明文以 "{" 前缀识别保持双读兼容
-	// R50 fail-closed 收口：此前 `err==nil 才替换` 在密钥未配置时静默跳过，
-	// 密码明文落库且无任何告警（R50 UI 实测 DB 明文实证）。加密失败必须拒绝写入。
+
 	enc, err := crypto.Encrypt(emailSmtp.Password)
 	if err != nil {
 		return nil, errors.New("SMTP 密码加密失败（FIELD_ENCRYPTION_KEY 未配置或无效），已拒绝明文落库: " + err.Error())
@@ -42,7 +39,7 @@ func (s *EmailSmtpService) GetEmailSmtpList(ctx context.Context) ([]*model.Email
 }
 
 func (s *EmailSmtpService) UpdateEmailSmtp(ctx context.Context, emailSmtp model.EmailSmtp) error {
-	// R50 fail-closed：同 Create，密码非空时加密失败拒绝写入（空值表示不修改密码的语义由 DTO 层保证）
+
 	if emailSmtp.Password != "" {
 		enc, err := crypto.Encrypt(emailSmtp.Password)
 		if err != nil {
@@ -62,7 +59,7 @@ func (s *EmailSmtpService) GetRandEmailSmtp(ctx context.Context) (*model.EmailSm
 	if err != nil {
 		return nil, err
 	}
-	// v3 审计 P0：静态加密密码读取侧解密；存量明文解密失败时保持原值（双读兼容）
+
 	for i := range emailSmtpList {
 		if dec, derr := crypto.Decrypt(emailSmtpList[i].Password); derr == nil && dec != "" {
 			emailSmtpList[i].Password = dec
@@ -80,7 +77,6 @@ func (s *EmailSmtpService) GetRandEmailSmtp(ctx context.Context) (*model.EmailSm
 	}
 	return nil, errors.New("没有找到可用的smtp")
 }
-
 
 // CreateEmailSmtpDTO 通过请求 DTO 创建 SMTP 配置
 func (s *EmailSmtpService) CreateEmailSmtpDTO(ctx context.Context, req dto.CreateEmailSmtpRequest) (*dto.EmailSmtpResponse, error) {
@@ -155,4 +151,3 @@ func toEmailSmtpResponse(s *model.EmailSmtp) *dto.EmailSmtpResponse {
 		Limit:    s.Limit,
 	}
 }
-

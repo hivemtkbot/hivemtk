@@ -65,4 +65,3 @@ func (a *RAGThreeTierAdapter) Stats() rag_service.ThreeTierStats {
 		AvgMs:  stats.AvgMs,
 	}
 }
-

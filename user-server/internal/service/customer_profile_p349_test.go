@@ -12,8 +12,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ---------- P-3 RFM 双体系统一 ----------
-
 func TestRFMConfigFromRule_NilFallsBackToBuckets(t *testing.T) {
 	cfg := RFMConfigFromRule(nil)
 	if cfg.Rule != nil {
@@ -83,8 +81,6 @@ func TestRFMConfigFromRule_NilRuleUsesBuckets(t *testing.T) {
 	}
 }
 
-// ---------- P-9 Clue Level 动态化 ----------
-
 func TestClueLevelFromScore(t *testing.T) {
 	cases := []struct {
 		score int
@@ -135,7 +131,6 @@ func TestClueScoreService_WriteBackLevel(t *testing.T) {
 		t.Errorf("level 写回期望 %s，got %s (score=%d)", want, updated.Level, score.TotalScore)
 	}
 
-	// 低分线索 → cold
 	cold := &model.Clue{
 		ID:      "clue-level-cold",
 		Account: "acc-level-2",
@@ -158,8 +153,6 @@ func TestClueScoreService_WriteBackLevel(t *testing.T) {
 	}
 }
 
-// ---------- P-4 画像四字段真实来源 ----------
-
 func TestPreferredTimeLabel(t *testing.T) {
 	if got := preferredTimeLabel(nil); got != "" {
 		t.Errorf("空直方图应返回空串，got %q", got)
@@ -168,7 +161,7 @@ func TestPreferredTimeLabel(t *testing.T) {
 	if got := preferredTimeLabel(hist); got != "21:00-23:00" {
 		t.Errorf("峰值 21 点期望 21:00-23:00，got %q", got)
 	}
-	// 同计数取更早小时（确定性）
+
 	tie := map[int]int64{8: 5, 19: 5}
 	if got := preferredTimeLabel(tie); got != "08:00-10:00" {
 		t.Errorf("平峰应取更早小时，got %q", got)
@@ -204,7 +197,6 @@ func TestBuildUserProfile_Enrichment(t *testing.T) {
 
 	const customerID = "cust-p4-001"
 
-	// Tags 源：customer_tag_assignments（6 条验证 top5 截断 + 置信度排序）
 	assignments := []*model.CustomerTagAssignment{
 		{CustomerID: customerID, Tag: "tag-low", Category: "behavior", Confidence: 0.3},
 		{CustomerID: customerID, Tag: "tag-high1", Category: "behavior", Confidence: 0.9},
@@ -220,7 +212,6 @@ func TestBuildUserProfile_Enrichment(t *testing.T) {
 		}
 	}
 
-	// Interests 源：ai_tagger 读 customer_tag_assignments(category=interest)，写一条兴趣标签
 	interestTag := &model.CustomerTagAssignment{
 		CustomerID: customerID,
 		Tag:        "interest:beauty",
@@ -232,7 +223,6 @@ func TestBuildUserProfile_Enrichment(t *testing.T) {
 		t.Fatalf("seed interest tag 失败: %v", err)
 	}
 
-	// RiskLevel 源：customer_rfm.churn_risk_level=high
 	rfm := &model.CustomerRFM{
 		CustomerID:     customerID,
 		RecencyDays:    200,
@@ -246,7 +236,6 @@ func TestBuildUserProfile_Enrichment(t *testing.T) {
 		t.Fatalf("seed customer_rfm 失败: %v", err)
 	}
 
-	// PreferredTime 源：会话 + 固定时段消息（本地时区 20 点，与 EXTRACT(HOUR) 会话时区一致）
 	sess := &model.CustomerSession{
 		SessionID: "sess-p4-001",
 		UserID:    "user-p4-001",
@@ -281,7 +270,6 @@ func TestBuildUserProfile_Enrichment(t *testing.T) {
 	stats := &InteractionStats{TotalInteractions: 10}
 	profile := svc.buildUserProfile(context.Background(), []*model.CustomerSession{sess}, stats, nil, customerID)
 
-	// Tags：置信度 top5（tag-low 0.3 被截断）
 	if len(profile.Tags) != 5 {
 		t.Fatalf("Tags 期望 top5，got %v", profile.Tags)
 	}
@@ -294,17 +282,14 @@ func TestBuildUserProfile_Enrichment(t *testing.T) {
 		}
 	}
 
-	// Interests ← ai_tagger 兴趣标签（去前缀）
 	if len(profile.Interests) != 1 || profile.Interests[0] != "beauty" {
 		t.Errorf("Interests 期望 [beauty]，got %v", profile.Interests)
 	}
 
-	// RiskLevel ← RFM churn_risk=high
 	if profile.RiskLevel != "high" {
 		t.Errorf("RiskLevel 期望 high，got %q", profile.RiskLevel)
 	}
 
-	// PreferredTime ← 时段直方图峰值
 	if profile.PreferredTime != "20:00-22:00" {
 		t.Errorf("PreferredTime 期望 20:00-22:00，got %q", profile.PreferredTime)
 	}

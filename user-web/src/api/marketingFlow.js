@@ -1,6 +1,5 @@
 import { http } from '@/utils/request';
 
-// 营销流程 - 匹配后端 /api/marketing-flows/* 路径
 export function getMarketingFlowList(params) {
   return http.get('/api/marketing-flows', params)
 }
@@ -32,7 +31,6 @@ export function getFlowStats(id) {
   return http.get(`/api/marketing-flows/${id}/stats`)
 }
 
-// 兼容旧接口
 export function getFlows(params) {
   return getMarketingFlowList(params)
 }

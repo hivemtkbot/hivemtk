@@ -17,7 +17,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupCustomerTestDB 设置测试数据库
 func setupCustomerTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.Customer{},
@@ -26,7 +25,6 @@ func setupCustomerTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupCustomerRouter 设置测试路由
 func setupCustomerRouter(t *testing.T) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 
@@ -75,7 +73,7 @@ func TestCustomerController_ListCustomers(t *testing.T) {
 		{
 			name:           "invalid_page",
 			url:            "/api/customer?page=abc&limit=xyz",
-			expectedStatus: 400, 
+			expectedStatus: 400,
 			expectSuccess:  false,
 		},
 	}
@@ -115,13 +113,13 @@ func TestCustomerController_GetCustomer(t *testing.T) {
 		{
 			name:           "missing_customer",
 			url:            "/api/customer/non-existent-id",
-			expectedStatus: 404, 
+			expectedStatus: 404,
 			expectSuccess:  false,
 		},
 		{
 			name:           "empty_id",
 			url:            "/api/customer/",
-			expectedStatus: 301, 
+			expectedStatus: 301,
 			expectSuccess:  false,
 		},
 	}
@@ -167,7 +165,7 @@ func TestCustomerController_CreateCustomer(t *testing.T) {
 				Email:        "test@example.com",
 				WechatOpenID: "test-wechat-openid",
 			},
-			expectedStatus: 200, 
+			expectedStatus: 200,
 			expectSuccess:  true,
 		},
 	}
@@ -204,7 +202,7 @@ func TestCustomerController_AddTags(t *testing.T) {
 				"tags": []string{"VIP", "High-Value"},
 			},
 			url:            "/api/customer/test-customer-id/tags",
-			expectedStatus: 404, 
+			expectedStatus: 404,
 			expectSuccess:  false,
 		},
 		{
@@ -213,7 +211,7 @@ func TestCustomerController_AddTags(t *testing.T) {
 				"tags": []string{},
 			},
 			url:            "/api/customer/test-customer-id/tags",
-			expectedStatus: 200, 
+			expectedStatus: 200,
 			expectSuccess:  true,
 		},
 	}
@@ -250,7 +248,7 @@ func TestCustomerController_RemoveTags(t *testing.T) {
 				"tags": []string{"VIP"},
 			},
 			url:            "/api/customer/test-customer-id/tags",
-			expectedStatus: 404, 
+			expectedStatus: 404,
 			expectSuccess:  false,
 		},
 		{
@@ -259,7 +257,7 @@ func TestCustomerController_RemoveTags(t *testing.T) {
 				"tags": []string{},
 			},
 			url:            "/api/customer/test-customer-id/tags",
-			expectedStatus: 200, 
+			expectedStatus: 200,
 			expectSuccess:  true,
 		},
 	}
@@ -295,7 +293,7 @@ func TestCustomerController_MergeCustomers(t *testing.T) {
 				"primary_id":   "customer-1",
 				"secondary_id": "customer-1",
 			},
-			expectedStatus: 500, 
+			expectedStatus: 500,
 			expectSuccess:  false,
 		},
 		{
@@ -304,7 +302,7 @@ func TestCustomerController_MergeCustomers(t *testing.T) {
 				"primary_id":   "non-existent-1",
 				"secondary_id": "non-existent-2",
 			},
-			expectedStatus: 404, 
+			expectedStatus: 404,
 			expectSuccess:  false,
 		},
 	}
@@ -322,4 +320,3 @@ func TestCustomerController_MergeCustomers(t *testing.T) {
 		})
 	}
 }
-

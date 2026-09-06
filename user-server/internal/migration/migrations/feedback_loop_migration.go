@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -74,7 +73,6 @@ func (m *FeedbackLoopMigration) Up(ctx context.Context) error {
 	return nil
 }
 
-// createFeedbackEvents 创建 feedback_events 表
 func (m *FeedbackLoopMigration) createFeedbackEvents(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS feedback_events (
@@ -106,7 +104,6 @@ func (m *FeedbackLoopMigration) createFeedbackEvents(ctx context.Context) error 
 	return execAllFeedbackLoop(ctx, m.db, stmts)
 }
 
-// createFeedbackSignals 创建 feedback_signals 表
 func (m *FeedbackLoopMigration) createFeedbackSignals(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS feedback_signals (
@@ -133,7 +130,6 @@ func (m *FeedbackLoopMigration) createFeedbackSignals(ctx context.Context) error
 	return execAllFeedbackLoop(ctx, m.db, stmts)
 }
 
-// createChampionDialogues 创建 champion_dialogues 表（含 pgvector 索引）
 func (m *FeedbackLoopMigration) createChampionDialogues(ctx context.Context) error {
 	stmts := []string{
 		`CREATE EXTENSION IF NOT EXISTS vector`,
@@ -165,7 +161,6 @@ func (m *FeedbackLoopMigration) createChampionDialogues(ctx context.Context) err
 	return execAllFeedbackLoop(ctx, m.db, stmts)
 }
 
-// createPromptCandidates 创建 prompt_candidates 表
 func (m *FeedbackLoopMigration) createPromptCandidates(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS prompt_candidates (
@@ -202,7 +197,6 @@ func (m *FeedbackLoopMigration) createPromptCandidates(ctx context.Context) erro
 	return execAllFeedbackLoop(ctx, m.db, stmts)
 }
 
-// createBanditArms 创建 bandit_arms 表
 func (m *FeedbackLoopMigration) createBanditArms(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS bandit_arms (
@@ -237,7 +231,6 @@ func (m *FeedbackLoopMigration) createBanditArms(ctx context.Context) error {
 	return execAllFeedbackLoop(ctx, m.db, stmts)
 }
 
-// createPromptABTests 创建 prompt_ab_tests 表
 func (m *FeedbackLoopMigration) createPromptABTests(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS prompt_ab_tests (
@@ -264,7 +257,6 @@ func (m *FeedbackLoopMigration) createPromptABTests(ctx context.Context) error {
 	return execAllFeedbackLoop(ctx, m.db, stmts)
 }
 
-// alterSOPAgents 扩展 sop_agents 表：新增 use_bandit 字段
 func (m *FeedbackLoopMigration) alterSOPAgents(ctx context.Context) error {
 	stmt := `DO $$
 BEGIN
@@ -275,7 +267,6 @@ END $$`
 	return execAllFeedbackLoop(ctx, m.db, []string{stmt})
 }
 
-// alterScriptTemplates 扩展 script_templates 表：新增 5 个字段
 func (m *FeedbackLoopMigration) alterScriptTemplates(ctx context.Context) error {
 	stmts := []string{
 		`DO $$
@@ -326,9 +317,6 @@ func (m *FeedbackLoopMigration) Down(ctx context.Context) error {
 	return execAllFeedbackLoop(ctx, m.db, stmts)
 }
 
-// execAllFeedbackLoop 批量执行 SQL（出错即返回）
-//
-// 与 humanize_evaluator_migration.go 的 execAllHumanize 同名会冲突，故命名 execAllFeedbackLoop
 func execAllFeedbackLoop(ctx context.Context, db *gorm.DB, stmts []string) error {
 	if db == nil {
 		return fmt.Errorf("db is nil")
@@ -341,6 +329,4 @@ func execAllFeedbackLoop(ctx context.Context, db *gorm.DB, stmts []string) error
 	return nil
 }
 
-// compile-time 接口断言
 var _ migration.Migration = (*FeedbackLoopMigration)(nil)
-

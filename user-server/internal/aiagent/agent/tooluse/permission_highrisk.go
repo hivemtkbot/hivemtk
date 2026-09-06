@@ -20,11 +20,11 @@ import (
 //
 // 高危工具后续扩展时，只需追加常量并在该类别对应 checker 的 Check 里加分支。
 const (
-	ToolEmailSend        = "reach.email.send"
-	ToolEmailProactive   = "reach.proactive.email"
-	ToolEmailBatchSend   = "reach.batch_send.email"
-	ToolKnowledgeAddDoc  = "knowledge.add_doc"
-	ToolKnowledgeFeedback = "knowledge.feedback"
+	ToolEmailSend           = "reach.email.send"
+	ToolEmailProactive      = "reach.proactive.email"
+	ToolEmailBatchSend      = "reach.batch_send.email"
+	ToolKnowledgeAddDoc     = "knowledge.add_doc"
+	ToolKnowledgeFeedback   = "knowledge.feedback"
 	ToolCircuitBreakerReset = "system.circuit_breaker.reset"
 )
 
@@ -198,7 +198,6 @@ func (c *CircuitBreakerResetGuardChecker) Check(ctx context.Context, toolName st
 	return fmt.Errorf("circuit breaker reset requires 'admin' permission")
 }
 
-// isEmailTool 判断是否为邮件发送/触达类工具。
 func isEmailTool(name string) bool {
 	switch name {
 	case ToolEmailSend, ToolEmailProactive, ToolEmailBatchSend:
@@ -207,7 +206,6 @@ func isEmailTool(name string) bool {
 	return false
 }
 
-// isKnowledgeWriteTool 判断是否为知识库写入类工具。
 func isKnowledgeWriteTool(name string) bool {
 	switch name {
 	case ToolKnowledgeAddDoc, ToolKnowledgeFeedback:
@@ -216,8 +214,6 @@ func isKnowledgeWriteTool(name string) bool {
 	return false
 }
 
-// ownerKey 从 ToolContext 提取所有者标识（用于限流/审计 key）。
-// 优先 AgentID，回退 CallerID，最后兜底为 "anonymous"。
 func ownerKey(tc *ToolContext) string {
 	if tc == nil {
 		return "anonymous"

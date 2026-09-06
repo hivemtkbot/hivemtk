@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupSmsUnsubscribeTestDB 设置短信退订测试数据库
 func setupSmsUnsubscribeTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.SmsUnsubscribe{},
@@ -22,7 +21,6 @@ func setupSmsUnsubscribeTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// newSmsUnsubscribeService 创建测试用短信退订服务
 func newSmsUnsubscribeService(database *gorm.DB) *SmsUnsubscribeService {
 	return NewSmsUnsubscribeService(repository.NewSmsUnsubscribeRepository(database))
 }
@@ -46,7 +44,6 @@ func TestSmsUnsubscribe_UnsubscribePhone_NewRecord(t *testing.T) {
 		t.Fatalf("UnsubscribePhone failed: %v", err)
 	}
 
-	// 验证记录已创建且手机号被规范化（去除横线）
 	var record model.SmsUnsubscribe
 	if err := database.Where("phone = ?", "13800138000").First(&record).Error; err != nil {
 		t.Fatalf("查询退订记录失败: %v", err)
@@ -78,7 +75,6 @@ func TestSmsUnsubscribe_UnsubscribePhone_Idempotent(t *testing.T) {
 		t.Fatalf("二次退订失败: %v", err)
 	}
 
-	// 仅一条记录
 	var count int64
 	database.Model(&model.SmsUnsubscribe{}).Where("phone = ?", "13900139000").Count(&count)
 	if count != 1 {
@@ -118,7 +114,6 @@ func TestSmsUnsubscribe_UnsubscribePhone_WithCountryCode(t *testing.T) {
 		t.Fatalf("UnsubscribePhone failed: %v", err)
 	}
 
-	// 验证规范化为 13800138001
 	var record model.SmsUnsubscribe
 	if err := database.Where("phone = ?", "13800138001").First(&record).Error; err != nil {
 		t.Fatalf("查询带国家码退订记录失败: %v", err)

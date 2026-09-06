@@ -11,31 +11,25 @@ import (
 	"time"
 )
 
-
-
 type cacheEntry struct {
-	result    ToolResult
-	expiredAt time.Time
+	result     ToolResult
+	expiredAt  time.Time
 	prev, next *cacheEntry
-	key        string 
+	key        string
 }
-
 
 // ResultCache 工具执行结果缓存器
 //
 // 线程安全；使用 sync.LRU 简化实现（标准库无 LRU，这里实现简易双向链表 + map）
 type ResultCache struct {
-	mu         sync.Mutex
-	entries    map[string]*cacheEntry
-	head, tail *cacheEntry 
-	maxEntries int
-	defaultTTL time.Duration
+	mu            sync.Mutex
+	entries       map[string]*cacheEntry
+	head, tail    *cacheEntry
+	maxEntries    int
+	defaultTTL    time.Duration
 	disabledTools map[string]bool
 }
 
-// defaultCacheDisabledTools 默认禁用缓存的工具（写入类、有副作用类）
-//
-// 这些工具调用必然改变状态，缓存会导致后续调用拿到旧结果
 var defaultCacheDisabledTools = map[string]bool{
 	"order.create":         true,
 	"order.update":         true,
@@ -43,13 +37,13 @@ var defaultCacheDisabledTools = map[string]bool{
 	"follow_task.create":   true,
 	"follow_task.update":   true,
 	"follow_task.complete": true,
-	"knowledge.feedback":   true, 
+	"knowledge.feedback":   true,
 	"rag.feedback":         true,
 	"pm.open_session":      true,
 	"pm.send_message":      true,
 	"customer.create":      true,
 	"customer.update":      true,
-	"reach.send":           true, 
+	"reach.send":           true,
 }
 
 // NewResultCache 创建结果缓存器
@@ -97,16 +91,11 @@ func (c *ResultCache) IsDisabled(toolName string) bool {
 	return c.disabledTools[toolName]
 }
 
-// cacheKey 生成缓存 key
-//
-// key = tool_name + ":" + sha256(args sorted JSON)
-// v3 审计 P1-43 修复：map 序列化顺序非决定 → 缓存命中率腰斩
-// 新：先按 key 排序再 JSON 化，确保相同参数 → 相同 key
 func cacheKey(toolName string, args map[string]any) string {
 	if len(args) == 0 {
 		return toolName + ":empty"
 	}
-	// 排序所有 key 后编码
+
 	sortedKeys := make([]string, 0, len(args))
 	for k := range args {
 		sortedKeys = append(sortedKeys, k)
@@ -124,7 +113,7 @@ func cacheKey(toolName string, args map[string]any) string {
 	}
 	b, _ := json.Marshal(ordered)
 	h := sha256.Sum256(b)
-	return fmt.Sprintf("%s:%s", toolName, hex.EncodeToString(h[:16])) 
+	return fmt.Sprintf("%s:%s", toolName, hex.EncodeToString(h[:16]))
 }
 
 // Get 从缓存获取结果
@@ -160,10 +149,10 @@ func (c *ResultCache) Get(toolName string, args map[string]any) (ToolResult, boo
 // 仅缓存 Success=true 的结果；失败结果不缓存
 func (c *ResultCache) Set(toolName string, args map[string]any, result ToolResult, ttl time.Duration) {
 	if !result.Success {
-		return 
+		return
 	}
 	if c.IsDisabled(toolName) {
-		return 
+		return
 	}
 	if ttl <= 0 {
 		ttl = c.defaultTTL
@@ -236,7 +225,6 @@ type CacheStats struct {
 	DisabledTools int `json:"disabled_tools"`
 }
 
-
 func (c *ResultCache) addToFront(e *cacheEntry) {
 	e.prev = nil
 	e.next = c.head
@@ -269,9 +257,8 @@ func (c *ResultCache) moveToFront(e *cacheEntry) {
 	}
 	c.removeEntry(e)
 	c.addToFront(e)
-	c.entries[e.key] = e 
+	c.entries[e.key] = e
 }
-
 
 // ResultCacheDecorator 结果缓存装饰器
 //
@@ -293,14 +280,13 @@ func ResultCacheDecorator(cache *ResultCache) ToolDecorator {
 			result, err := next(ctx, args)
 
 			if err == nil && result.Success {
-				cache.Set(toolName, args, result, 0) 
+				cache.Set(toolName, args, result, 0)
 			}
 
 			return result, err
 		}
 	}
 }
-
 
 // NoOpResultCache 空操作缓存（不进行任何缓存）
 // 用于不需要缓存的场景（如写入类工具的强制不缓存）
@@ -317,4 +303,3 @@ func (NoOpResultCache) IsDisabled(toolName string) bool { return true }
 func (NoOpResultCache) Stats() CacheStats {
 	return CacheStats{}
 }
-

@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -60,7 +59,6 @@ func (m *MP1Migration) Up(ctx context.Context) error {
 	return nil
 }
 
-// createSystemKVConfig 创建 system_kv_config 表（键值配置存储）
 func (m *MP1Migration) createSystemKVConfig(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS system_kv_config (
@@ -78,9 +76,6 @@ func (m *MP1Migration) createSystemKVConfig(ctx context.Context) error {
 	return execAllMP1(ctx, m.db, stmts)
 }
 
-// createProviderHealth 创建 provider_health 表
-// 注意：运行期 ProviderFailover 使用内存 map 维护健康状态，
-// 此表用于跨进程共享/重启恢复场景（可选持久化）
 func (m *MP1Migration) createProviderHealth(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS provider_health (
@@ -101,7 +96,6 @@ func (m *MP1Migration) createProviderHealth(ctx context.Context) error {
 	return execAllMP1(ctx, m.db, stmts)
 }
 
-// createIntentLogs 创建 intent_logs 表
 func (m *MP1Migration) createIntentLogs(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS intent_logs (
@@ -129,7 +123,6 @@ func (m *MP1Migration) createIntentLogs(ctx context.Context) error {
 	return execAllMP1(ctx, m.db, stmts)
 }
 
-// createTraceEvents 创建 trace_events 表
 func (m *MP1Migration) createTraceEvents(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS trace_events (
@@ -156,8 +149,6 @@ func (m *MP1Migration) createTraceEvents(ctx context.Context) error {
 	return execAllMP1(ctx, m.db, stmts)
 }
 
-// seedDefaultFailoverPolicy 种子化默认降级策略
-// 幂等：仅当 key 不存在时插入
 func (m *MP1Migration) seedDefaultFailoverPolicy(ctx context.Context) error {
 	policyJSON := `{"config":{"health_check_interval":30,"failure_threshold":5,"circuit_open_duration":60,"degraded_latency_ms":3000,"local_fallback_provider":"default","template_reply":"抱歉，当前服务暂时繁忙，请稍后再试或联系人工客服。","health_check_path":"/health"},"scenarios":{"intent_recognize":["default","deepseek","qwen"],"sop_reply":["default","gpt-4o","glm-4"],"objection":["default","gpt-4o","glm-4"],"friendly_chat":["default","deepseek"],"long_summary":["default","kimi","qwen"],"high_quality":["default","gpt-4o","glm-4"],"low_cost":["default","deepseek"]}}`
 
@@ -179,7 +170,6 @@ func (m *MP1Migration) Down(ctx context.Context) error {
 	return execAllMP1(ctx, m.db, stmts)
 }
 
-// execAllMP1 批量执行 SQL（出错即返回）
 func execAllMP1(ctx context.Context, db *gorm.DB, stmts []string) error {
 	if db == nil {
 		return fmt.Errorf("db is nil")
@@ -192,6 +182,4 @@ func execAllMP1(ctx context.Context, db *gorm.DB, stmts []string) error {
 	return nil
 }
 
-// compile-time 接口断言
 var _ migration.Migration = (*MP1Migration)(nil)
-

@@ -50,7 +50,6 @@ func (r *orderRepo) GetByID(ctx context.Context, id uint) (*model.Order, error) 
 	return &order, err
 }
 
-// GetByStringID 根据 UUID 字符串 ID 查询订单
 func (r *orderRepo) GetByStringID(ctx context.Context, id string) (*model.Order, error) {
 	var order model.Order
 	err := r.db.Where("id = ?", id).First(&order).Error
@@ -87,24 +86,21 @@ func (r *orderRepo) UpdateOrderStatusById(ctx context.Context, id string, status
 	return err
 }
 
-// 获取最近订单
 func (r *orderRepo) GetRecentOrderList(ctx context.Context) ([]*model.Order, error) {
 	var orders []*model.Order
-	// 最近一分钟的订单
+
 	var start_time = time.Now().Add(-time.Minute * 5).Unix()
 	var end_time = time.Now().Unix()
 	err := r.db.Where("status = ? and create_time > ? and create_time < ?", _type.OrderStatusPending, start_time, end_time).Order("create_time desc").Find(&orders).Error
 	return orders, err
 }
 
-// GetByTgID 根据 TgID 获取用户所有订单
 func (r *orderRepo) GetByTgID(ctx context.Context, tgID int64) ([]*model.Order, error) {
 	var orders []*model.Order
 	err := r.db.Where("tg_id = ?", tgID).Order("create_time desc").Find(&orders).Error
 	return orders, err
 }
 
-// GetDistinctPaidTgIDs 获取所有已支付订单的不同 TgID 列表
 func (r *orderRepo) GetDistinctPaidTgIDs(ctx context.Context) ([]int64, error) {
 	var tgIDs []int64
 	err := r.db.Model(&model.Order{}).
@@ -114,19 +110,10 @@ func (r *orderRepo) GetDistinctPaidTgIDs(ctx context.Context) ([]int64, error) {
 	return tgIDs, err
 }
 
-// Update 更新订单
 func (r *orderRepo) Update(ctx context.Context, order *model.Order) error {
 	return r.db.Save(order).Error
 }
 
-// ListByAccountIDs 批量按 account_id 拉取订单（CC- N+1 优化）
-//
-// 单次 SQL 取代「GetOrderList(1, 10000) + 内存遍历过滤」：
-//   - 入参 accountIDs 去重 + 跳过空串
-//   - WHERE account_id IN (...) ORDER BY create_time DESC
-//
-// 空入参时直接返回 (nil, nil)，不查库；返回结果按 create_time DESC 排序，
-// 方便 service 层做"最近一笔订单"判断。
 func (r *orderRepo) ListByAccountIDs(ctx context.Context, accountIDs []string) ([]*model.Order, error) {
 	if len(accountIDs) == 0 {
 		return nil, nil

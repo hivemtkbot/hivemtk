@@ -6,11 +6,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// 客户渠道身份领域助手（从 model 层迁出，model 仅保留纯数据结构与 GORM Hook）
-//
-// 2026-08 架构整改：check-architecture.sh [Model] 规则禁止 model 含业务方法，
-// 本文件承接原 (*model.Customer).ChannelIdentity / HasChannelIdentity / AvailableChannels。
-
 // CustomerChannelIdentity 提取客户在某个渠道的身份
 func CustomerChannelIdentity(c *model.Customer, channel string) string {
 	switch channel {
@@ -57,20 +52,18 @@ func CustomerHasChannelIdentity(c *model.Customer, channel string) bool {
 func CustomerAvailableChannels(c *model.Customer, preferredFirst []string) []string {
 	ordered := make([]string, 0, 13)
 
-	// 1. 客户偏好渠道（来自 CustomerChannels.preferred_channel）
 	for _, ch := range preferredFirst {
 		if CustomerHasChannelIdentity(c, ch) {
 			ordered = append(ordered, ch)
 		}
 	}
 
-	// 2. 默认全渠道顺序（按触达可靠性）
 	defaultOrder := []string{
 		"sms", "email", "telegram", "whatsapp", "wecom", "wechat", "feishu",
 		"douyin", "tiktok", "kuaishou", "xiaohongshu", "xianyu", "dingtalk",
 	}
 	for _, ch := range defaultOrder {
-		// 排除已在 preferredFirst 中加过的
+
 		exists := false
 		for _, x := range ordered {
 			if x == ch {

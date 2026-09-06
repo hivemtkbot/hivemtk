@@ -85,7 +85,6 @@ func DeleteMsg(Bot *tgbotapi.BotAPI, chatID int64, msgID int) error {
 	return nil
 }
 
-// 检查机器人是否是群组的管理员
 func isBotAdmin(Bot *tgbotapi.BotAPI, groupID int64) (bool, error) {
 	admins, err := Bot.GetChatAdministrators(tgbotapi.ChatAdministratorsConfig{ChatConfig: tgbotapi.ChatConfig{ChatID: groupID}})
 	if err != nil {
@@ -156,15 +155,11 @@ func UnbanUser(Bot *tgbotapi.BotAPI, chatID int64, userID int64) error {
 	return err
 }
 
-
-// defaultHTTPClient 支持 HTTP_PROXY / HTTPS_PROXY / NO_PROXY 环境变量
-// 在中国访问 api.telegram.org 需要代理，Go 标准库通过 ProxyFromEnvironment 自动读取
 var defaultHTTPClient = &http.Client{
 	Timeout:   15 * time.Second,
 	Transport: config.GetProxyTransport(),
 }
 
-// callBotAPI 通用 Bot API 调用（无状态，基于 bot_token）
 func callBotAPI(botToken, method string, params url.Values) (map[string]any, error) {
 	if botToken == "" {
 		return nil, fmt.Errorf("TELEGRAM_BOT_TOKEN 未配置,无法调用 Telegram Bot API")
@@ -193,7 +188,6 @@ func callBotAPI(botToken, method string, params url.Values) (map[string]any, err
 	return result.Result, nil
 }
 
-// maskToken 脱敏 bot token，避免日志泄露凭据
 func maskToken(t string) string {
 	if len(t) <= 8 {
 		return "***"
@@ -383,4 +377,3 @@ func GetUpdates(ctx context.Context, botToken string, offset int64, limit, timeo
 	}
 	return result.Result, nil
 }
-

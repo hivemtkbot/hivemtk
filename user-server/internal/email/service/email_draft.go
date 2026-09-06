@@ -49,7 +49,6 @@ func (s *EmailDraftService) DeleteEmailDraft(ctx context.Context, id uuid.UUID) 
 	return s.repo.Delete(ctx, id)
 }
 
-
 // CreateEmailDraftDTO 通过请求 DTO 创建草稿
 func (s *EmailDraftService) CreateEmailDraftDTO(ctx context.Context, req dto.CreateEmailDraftRequest) (*dto.EmailDraftResponse, error) {
 	created, err := s.CreateEmailDraft(ctx, model.EmailDraft{
@@ -113,11 +112,9 @@ func toEmailDraftResponse(d *model.EmailDraft) *dto.EmailDraftResponse {
 	}
 }
 
-// splitCSV 将逗号分隔的附件字符串还原为切片（与请求端 Join 对称）
 func splitCSV(s string) []string {
 	if s == "" {
 		return []string{}
 	}
 	return strings.Split(s, ",")
 }
-

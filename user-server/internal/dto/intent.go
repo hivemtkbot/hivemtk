@@ -1,6 +1,5 @@
 package dto
 
-
 // RecognizeResult 识别结果
 type RecognizeResult struct {
 	IntentType      string         `json:"intent_type"`

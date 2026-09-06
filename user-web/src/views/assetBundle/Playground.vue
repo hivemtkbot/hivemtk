@@ -1,6 +1,6 @@
 <template>
   <div class="playground">
-    <!-- 顶部资产包信息 -->
+    
     <el-card class="header-card" shadow="never">
       <el-row :gutter="20">
         <el-col :span="6">
@@ -33,7 +33,7 @@
     </el-card>
 
     <el-row :gutter="16" class="main-row">
-      <!-- 左栏：OpenAI 协议标准的消息链流式编排区 -->
+      
       <el-col :span="14">
         <el-card class="left-panel" shadow="never">
           <template #header>
@@ -97,7 +97,7 @@
         </el-card>
       </el-col>
 
-      <!-- 右栏：本地模型沙箱内测与上架 -->
+      
       <el-col :span="10">
         <el-card class="right-panel" shadow="never">
           <template #header>
@@ -106,7 +106,7 @@
             </div>
           </template>
 
-          <!-- 调试基座配置 -->
+          
           <div class="config-section">
             <div class="section-title">⚙️ 调试基座配置</div>
             <el-form label-width="120px" size="small">
@@ -125,7 +125,7 @@
             </el-form>
           </div>
 
-          <!-- 沙箱实时多轮对话模拟 -->
+          
           <div class="chat-section">
             <div class="section-title">🖥️ 沙箱实时多轮对话模拟</div>
             <div class="chat-history" ref="chatHistoryRef">
@@ -154,7 +154,7 @@
             </div>
           </div>
 
-          <!-- 拦截日志 JSON 预检 -->
+          
           <div class="intent-section" v-if="sandbox.lastIntent">
             <div class="section-title">🔍 拦截日志 JSON 预检</div>
             <div class="intent-status">
@@ -175,13 +175,13 @@
             </div>
           </div>
 
-          <!-- 织布预览 -->
+          
           <div class="woven-section" v-if="sandbox.wovenMessages && sandbox.wovenMessages.length">
             <div class="section-title">🧶 织布后的最终 messages 数组（{{ sandbox.wovenMessages.length }} 条）</div>
             <pre class="woven-preview">{{ JSON.stringify(sandbox.wovenMessages, null, 2) }}</pre>
           </div>
 
-          <!-- 上架配置 -->
+          
           <div class="publish-section">
             <div class="section-title">💰 生态上架配置</div>
             <el-form label-width="120px" size="small">
@@ -227,7 +227,6 @@ const saving = ref(false)
 const aid = computed(() => route.params.aid || '')
 const isEdit = computed(() => !!aid.value)
 
-// 资产包数据（开发者模式：直接绑定 messages 数组）
 const bundle = reactive({
   id: null,
   asset_id: '',
@@ -244,9 +243,8 @@ const bundle = reactive({
       content: '# 核心角色与销冠人设\n你是一名经过严格训练、结果导向的【王牌私域销售代表】。\n\n# 强制业务结算协议\n你必须在每一次回复的【最后】附带一个 ```json 块：\n```json\n{\n  "intent": "faq|lead_capture|human_transfer",\n  "captured_data": {}\n}\n```'
     }
   ]
-})
+});
 
-// 沙箱配置
 const sandbox = reactive({
   endpoint: 'http://localhost:11434/v1/chat/completions',
   model: 'qwen2.5:7b',
@@ -257,7 +255,7 @@ const sandbox = reactive({
   running: false,
   lastIntent: null,
   wovenMessages: null
-})
+});
 
 const roleLabel = (r) => ({
   system: 'system',
@@ -283,8 +281,7 @@ const rolePlaceholder = (r) => ({
 const addMessage = (role = 'user') => {
   bundle.messages.push({ role, content: '' })
   if (role === 'user') {
-    // 自动追加一个 assistant 形成对话对
-    bundle.messages.push({ role: 'assistant', content: '' })
+    bundle.messages.push({ role: 'assistant', content: '' });
   }
 }
 
@@ -304,7 +301,6 @@ const moveDown = (idx) => {
   ;[arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]]
 }
 
-// 加载已有资产包
 const loadBundle = async () => {
   if (!aid.value) return
   try {
@@ -324,9 +320,8 @@ const loadBundle = async () => {
   } catch (e) {
     ElMessage.error('加载资产包失败: ' + (e?.message || e))
   }
-}
+};
 
-// 保存
 const handleSave = async () => {
   if (!bundle.asset_id) {
     ElMessage.warning('请填写资产 ID')
@@ -371,9 +366,8 @@ const handleSave = async () => {
   } finally {
     saving.value = false
   }
-}
+};
 
-// 发布 / 上架到官方蜂巢商城（本地发布 + 提交平台审核）
 const handlePublish = async () => {
   if (!bundle.id) {
     ElMessage.warning('请先保存资产包')
@@ -383,7 +377,6 @@ const handlePublish = async () => {
     await ElMessageBox.confirm('确认发布并上架该资产包？将本地发布并提交平台审核', '确认', { type: 'warning' })
     await publishBundle(bundle.id)
     bundle.status = 'active'
-    // best-effort：本地发布成功后，尝试提交平台审核上架（开发者上架链路）
     try {
       await submitToPlatform(bundle.id)
       ElMessage.success('本地已发布，并已提交平台审核上架')
@@ -395,22 +388,17 @@ const handlePublish = async () => {
       ElMessage.error('发布失败: ' + (e?.message || e))
     }
   }
-}
+};
 
-// JSON 块正则（匹配末尾 ```json {...} ```）
-// 注意：JS 不支持 (?s) 标志（PCRE/Python 专用），需用 [\s\S] 替代
-const JSON_BLOCK_RE = /```(?:json|JSON)?\s*(\{[\s\S]*?\})\s*```\s*$/
+const JSON_BLOCK_RE = /```(?:json|JSON)?\s*(\{[\s\S]*?\})\s*```\s*$/;
 const BARE_JSON_RE = /(\{"intent"\s*:[^{}]*(?:\{[^{}]*\}[^{}]*)*\})\s*$/
 
-// 拦截末尾 JSON 块
 const extractIntent = (reply) => {
   const result = { valid: false, intent: '', capturedData: {}, rawJSON: '' }
-  // 注意：JS 不支持 (?s) 标志，需用 [\s\S] 替代
-  const blockRE = /```(?:json|JSON)?\s*(\{[\s\S]*?\})\s*```\s*$/
+  const blockRE = /```(?:json|JSON)?\s*(\{[\s\S]*?\})\s*```\s*$/;
   let m = reply.match(blockRE)
   if (!m) {
-    // 兜底：裸 JSON
-    const bareRE = /(\{"intent"\s*:[\s\S]*?\})\s*$/
+    const bareRE = /(\{"intent"\s*:[\s\S]*?\})\s*$/;
     m = reply.match(bareRE)
   }
   if (!m) return { ...result, reply }
@@ -421,15 +409,13 @@ const extractIntent = (reply) => {
     result.valid = true
     result.intent = parsed.intent || ''
     result.capturedData = parsed.captured_data || {}
-    // 剥离 JSON 块
-    const cleaned = reply.slice(0, reply.indexOf(m[0])).replace(/\n+\s*$/, '')
+    const cleaned = reply.slice(0, reply.indexOf(m[0])).replace(/\n+\s*$/, '');
     return { ...result, reply: cleaned }
   } catch (e) {
     return { ...result, reply }
   }
-}
+};
 
-// 沙箱运行
 const runSandbox = async () => {
   if (!sandbox.input.trim()) {
     ElMessage.warning('请输入测试用户消息')
@@ -447,8 +433,7 @@ const runSandbox = async () => {
   sandbox.input = ''
 
   try {
-    // 第一步：调 weave 接口织布（拿最终 messages 数组）
-    let weaveOk = false
+    let weaveOk = false;
     const weaveResp = await weaveBundle({
       asset_id: bundle.asset_id,
       user_query: userQuery,
@@ -466,7 +451,6 @@ const runSandbox = async () => {
     const wovenMessages = weaveData?.messages || []
     sandbox.wovenMessages = wovenMessages
 
-    // 第二步：前端直接调本地 LLM（开发者本地 Ollama）
     const llmResp = await fetch(sandbox.endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -477,7 +461,7 @@ const runSandbox = async () => {
         max_tokens: sandbox.maxTokens,
         stream: false
       })
-    })
+    });
     if (!llmResp.ok) {
       const errText = await llmResp.text()
       throw new Error(`LLM 返回 ${llmResp.status}: ${errText}`)
@@ -485,8 +469,7 @@ const runSandbox = async () => {
     const llmData = await llmResp.json()
     const reply = llmData?.choices?.[0]?.message?.content || ''
     const startTs = Date.now()
-    // 拦截 JSON 块
-    const extracted = extractIntent(reply)
+    const extracted = extractIntent(reply);
     sandbox.history.push({ role: 'assistant', content: extracted.reply })
     sandbox.lastIntent = {
       valid: extracted.valid,
@@ -497,8 +480,7 @@ const runSandbox = async () => {
     }
   } catch (e) {
     if (!weaveOk) {
-      // 失败发生在 weave 织布阶段（后端拦截/参数错误），给出真实错误信息而非误报为 LLM 故障
-      const msg = (e && e.message) ? e.message : '织布失败'
+      const msg = (e && e.message) ? e.message : '织布失败';
       ElMessage.error('织布失败：' + msg)
       sandbox.history.push({
         role: 'assistant',
@@ -518,7 +500,7 @@ const runSandbox = async () => {
       chatHistoryRef.value.scrollTop = chatHistoryRef.value.scrollHeight
     }
   }
-}
+};
 
 onMounted(() => {
   if (aid.value) {

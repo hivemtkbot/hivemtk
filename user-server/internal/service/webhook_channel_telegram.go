@@ -93,7 +93,6 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 		chatIDStr := fmt.Sprintf("%d", chatID)
 		isGroup := chatType == "group" || chatType == "supergroup"
 
-		// 仅取第一个非 bot 新成员（TG 群通常一次入群一人；批量入群时取首位，其余会被 dedup）
 		var newMember *telegram.TGUser
 		for i := range tgPayload.Message.NewChatMembers {
 			if !tgPayload.Message.NewChatMembers[i].IsBot {
@@ -179,7 +178,6 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 		return hub, nil, nil
 	}
 
-	// 提取消息
 	type tgMsg struct {
 		msgID     int64
 		chatID    int64
@@ -307,11 +305,8 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 	return hub, &tgDispatchExtra{Mentioned: mentioned, NewOpportunity: newOpportunity}, nil
 }
 
-// tgLeadOutreachCooldown 「发现线索主动触达」对同一发言者的冷却时长，避免群内刷屏。
 const tgLeadOutreachCooldown = 30 * time.Minute
 
-// getTelegramBotUsername 取账号绑定的机器人 @username（用于群内 @提及 识别）。
-// 该值通常在注册 webhook 时经 getMe 自动回填；缺失则返回空（上层降级为仅回复被@机器人消息）。
 func (s *WebhookService) getTelegramBotUsername(ctx context.Context, accountID string) string {
 	if s.telegramRepo == nil {
 		return ""
@@ -327,10 +322,6 @@ func (s *WebhookService) getTelegramBotUsername(ctx context.Context, accountID s
 	return strings.TrimSpace(acc.BotUsername)
 }
 
-// isTelegramBotMentioned 判断一条消息文本是否 @提及了本机器人。
-// botUsername 为空（未配置/未回填）时返回 false。匹配大小写不敏感（TG 用户名统一小写）。
-// 采用词边界匹配：@username 之后必须紧跟「非用户名字符」（字母/数字/下划线之外）或结尾，
-// 避免把 @mybotX、@mybotfoo 误判为 @mybot。
 func isTelegramBotMentioned(text, botUsername string) bool {
 	uname := strings.TrimSpace(botUsername)
 	if uname == "" {
@@ -352,10 +343,6 @@ func isTelegramBotMentioned(text, botUsername string) bool {
 	return true
 }
 
-// tgLeadOutreachAllowed 判断该（账号, 群组, 发言者）是否允许本次「发现线索主动触达」。
-// 业务需要：绝不能骚扰用户，多实例下若各持进程内冷却 map，可能仍被不同实例短时重复触达刷屏。
-// 实现：基于全局缓存 SetNX + 冷却 TTL——首次设置返回 true(允许)，冷却窗口内已存在返回 false(拦截)，
-// 超时后自动释放。REDIS_HOST 配置时为 Redis 共享后端（跨实例一致），否则为内存单例。
 func (s *WebhookService) tgLeadOutreachAllowed(ctx context.Context, accountID, chatID, senderID string) bool {
 	key := "mtk:tg:outreach:" + accountID + ":" + chatID + ":" + senderID
 	set, err := cache.GetGlobalCache().SetNX(ctx, key, "1", tgLeadOutreachCooldown)
@@ -366,8 +353,6 @@ func (s *WebhookService) tgLeadOutreachAllowed(ctx context.Context, accountID, c
 	return set
 }
 
-// triggerTelegramJoinSales TG 入群事件触发 智能体流程
-// 与 triggerSalesEngine 类似，但 UserMessage 是入群事件描述，让 LLM 主动发起销售对话
 func (s *WebhookService) triggerTelegramJoinSales(ctx context.Context, accountID, chatID, senderID, triggerMsg string) {
 	if s.salesEngine == nil {
 		return
@@ -419,9 +404,6 @@ func (s *WebhookService) triggerTelegramJoinSales(ctx context.Context, accountID
 	}
 }
 
-// getTelegramWebhookSecret 获取 Telegram Bot 的 webhook secret
-// secret 来自 TelegramAccount.WebhookSecret（在 setWebhook 时由商户配置）
-// 未配置时返回空字符串，调用方应跳过验签
 func (s *WebhookService) getTelegramWebhookSecret(ctx context.Context, accountID string) string {
 	if s.telegramRepo == nil || s.db == nil {
 		return ""

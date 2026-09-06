@@ -53,7 +53,6 @@ func (c *SessionTTLCron) Stop(ctx context.Context) {
 	}
 }
 
-// run 每小时跑一次
 func (c *SessionTTLCron) run(ctx context.Context) {
 	defer c.wg.Done()
 	c.tryTriggerWithDBWait(ctx)
@@ -69,11 +68,6 @@ func (c *SessionTTLCron) run(ctx context.Context) {
 	}
 }
 
-// tryTriggerWithDBWait 在 DB 未就绪时静默跳过（init 时机早于 db.InitDB 的常见现象）
-//
-// 判断方式：直接尝试触发一次 trigger，DB 未就绪会让 service.repo 拿不到 db
-// 句柄，repository 层在 AutoCloseStaleSessions 内部会因 nil DB panic → 已 recover。
-// 此处只判断更轻量的：拿一次 sessionRepo.GetDB，看是否非 nil；为 nil 时跳过本次。
 func (c *SessionTTLCron) tryTriggerWithDBWait(ctx context.Context) {
 	if c.sessionSvc == nil || c.sessionSvc.sessionRepo == nil {
 		return
@@ -96,16 +90,8 @@ func (c *SessionTTLCron) trigger(ctx context.Context) {
 	}
 }
 
-// sessionTTLCron 全局单例（init 启动 + Stop 优雅退出）
 var sessionTTLCron *SessionTTLCron
 
-// init 包加载时自动启动 TTL cron 任务
-//
-// 为什么这里用 init 而非 NewSystemInitService 显式调用：
-//   - InitSystemInitService 在该项目里也是 dead code（无 caller），沿用同模式
-//   - init 触发保证 cron 在 main 启动后立即就位，无需修改 main.go
-//   - DB 初始化时序风险：cron 立即跑一次可能拿到空 DB（repository 会返回 0 行不报错）
-//   - 即使 DB 暂未就绪，下一次 ticker 仍会重试 → 自愈
 func init() {
 	sessionTTLCron = NewSessionTTLCron(NewCustomerSessionService())
 }

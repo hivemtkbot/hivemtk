@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"hivemtk-user/internal/config"
-	pkgsecurity "hivemtk-user/internal/pkg/security"
 	"hivemtk-user/internal/model"
+	pkgsecurity "hivemtk-user/internal/pkg/security"
 	"hivemtk-user/internal/pkg/testutil"
 	visitorws "hivemtk-user/internal/websocket"
 
@@ -18,7 +18,6 @@ import (
 	gorilla "github.com/gorilla/websocket"
 	"gorm.io/gorm"
 )
-
 
 func TestReachWebSend_FrontendWebSocket(t *testing.T) {
 	db := testutil.NewTestDB(t,
@@ -47,7 +46,7 @@ func TestReachWebSend_FrontendWebSocket(t *testing.T) {
 	}
 
 	handler := visitorws.NewVisitorWSHandler(db)
-	// v7 修复: Round6 visitor WS fail-closed(无token拒绝+密钥必填)后，测试需注入密钥并携带合法 token
+
 	testSecret := "test-visitor-token-secret"
 	prevCfg := config.GetAppConfig()
 	cfg := prevCfg
@@ -110,7 +109,6 @@ func TestReachWebSend_FrontendWebSocket(t *testing.T) {
 	}
 	t.Logf("✅ 浏览器访客前端真实收到 智能体推送：%s", string(raw))
 
-	// ---- 断言 DB 真实落库 ----
 	var cnt int64
 	if err := db.Model(&model.SessionMessage{}).
 		Where("session_id = ? AND content = ?", sessionID, pushContent).
@@ -124,4 +122,3 @@ func TestReachWebSend_FrontendWebSocket(t *testing.T) {
 }
 
 var _ = gorm.ErrRecordNotFound
-

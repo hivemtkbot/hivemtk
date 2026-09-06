@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupAITaggerTestDB 设置 AI Tagger 测试数据库
 func setupAITaggerTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.CustomerTagAssignment{},
@@ -45,7 +44,6 @@ func TestAITagger_PersistenceRoundTrip(t *testing.T) {
 		t.Fatalf("Expected %d cached tags, got %d", len(tags), len(first))
 	}
 
-	// 模拟重启：全新实例从 DB 回源
 	tagger2 := NewAITagger()
 	reloaded := tagger2.GetTags(ctx, "customer-roundtrip")
 	if len(reloaded) != len(first) {
@@ -67,7 +65,6 @@ func TestAITagger_PersistenceRoundTrip(t *testing.T) {
 		}
 	}
 
-	// GetByCategory 同样回源
 	categorized := tagger2.GetByCategory(ctx, "customer-roundtrip", "behavior")
 	if len(categorized) == 0 {
 		t.Error("Expected behavior tags after restart")
@@ -85,7 +82,6 @@ func TestAITagger_HighConfidenceOverwritesLow(t *testing.T) {
 	low := TagInfo{Tag: "behavior:vip_test", Category: "behavior", Source: "ai_chat", Confidence: 0.5}
 	tagger.applyTag(ctx, customerID, low)
 
-	// 新实例（模拟重启后）读回低置信记录
 	fresh := NewAITagger()
 	higher := TagInfo{Tag: "behavior:vip_test", Category: "behavior", Source: "ai_chat", Confidence: 0.8}
 	fresh.applyTag(ctx, customerID, higher)
@@ -99,7 +95,6 @@ func TestAITagger_HighConfidenceOverwritesLow(t *testing.T) {
 		t.Errorf("Expected higher confidence 0.8 to win, got %v", stored.Confidence)
 	}
 
-	// 再来一个更低的置信度 → 不应覆盖
 	another := NewAITagger()
 	lower := TagInfo{Tag: "behavior:vip_test", Category: "behavior", Source: "ai_chat", Confidence: 0.6}
 	another.applyTag(ctx, customerID, lower)

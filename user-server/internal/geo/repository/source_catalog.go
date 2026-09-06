@@ -71,7 +71,6 @@ func (r *geoSourceCatalogRepo) GetByURL(ctx context.Context, url string) (*model
 	return &m, err
 }
 
-// FindByURL crawler.go 使用的名称
 func (r *geoSourceCatalogRepo) FindByURL(ctx context.Context, url string) (*model.GeoSourceCatalog, error) {
 	return r.GetByURL(ctx, url)
 }

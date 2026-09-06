@@ -142,7 +142,7 @@ func (r *CustomerSessionRepository) GetByMerchant(ctx context.Context, status mo
 	}
 
 	offset := (page - 1) * pageSize
-	// R51 业务正确性修复: 优先级字段此前是摆设——列表排序增加 priority DESC（紧急优先）
+
 	err = query.Order("priority DESC, last_message_at DESC").Offset(offset).Limit(pageSize).Find(&sessions).Error
 	return sessions, total, err
 }
@@ -422,7 +422,7 @@ func (r *CustomerSessionRepository) AutoCloseStaleSessions(ctx context.Context, 
 		}
 		return res.RowsAffected, nil
 	}
-	// 分批：先查 id，再按 id 集合 UPDATE
+
 	var ids []uint
 	err := r.db.WithContext(ctx).Model(&model.CustomerSession{}).
 		Where("status IN ?", []model.SessionStatus{
@@ -622,8 +622,6 @@ func (r *CustomerSessionRepository) UpdateTags(ctx context.Context, sessionID, t
 		Update("tags", tagsJSON).Error
 }
 
-// ---------- R46: CustomerSegment 分群持久化 ----------
-
 // CreateSegment 创建分群
 func (r *CustomerSessionRepository) CreateSegment(ctx context.Context, seg *model.CustomerSegment) error {
 	return r.db.WithContext(ctx).Create(seg).Error
@@ -644,7 +642,7 @@ func (r *CustomerSessionRepository) CountSegmentMembers(ctx context.Context, whe
 	if strings.TrimSpace(whereSQL) == "" {
 		return 0, fmt.Errorf("空条件")
 	}
-	// 白名单校验：只允许 SELECT COUNT(*) 语义的单条件片段
+
 	low := strings.ToLower(whereSQL)
 	for _, bad := range []string{";", "drop", "delete", "update ", "insert", "alter", "truncate", "pg_", "--"} {
 		if strings.Contains(low, bad) {
@@ -657,8 +655,6 @@ func (r *CustomerSessionRepository) CountSegmentMembers(ctx context.Context, whe
 		Count(&n).Error
 	return n, err
 }
-
-// ---------- G3: 会话锁定/编辑冲突检测（乐观锁）----------
 
 // ErrOptimisticLock 乐观锁冲突错误
 var ErrOptimisticLock = fmt.Errorf("optimistic lock conflict: session version mismatch")

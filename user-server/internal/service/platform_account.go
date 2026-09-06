@@ -117,7 +117,7 @@ func (s *PlatformAccountService) CheckLoginStatus(ctx context.Context, id uint) 
 	if err != nil {
 		return false, err
 	}
-	// R47: 该能力已被移除（CDP 通道下线）——返回确定性业务错误而非通用 error（此前被映射成 500）
+
 	return false, &UnsupportedCapabilityError{Capability: "登录态检查", Platform: string(account.Platform)}
 }
 

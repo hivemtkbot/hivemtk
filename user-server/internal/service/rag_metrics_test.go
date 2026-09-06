@@ -13,7 +13,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// setupRagMetricsTestDB 创建 RAG 监控测试库（含 rag_query_logs / rag_metrics_daily）
 func setupRagMetricsTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	return testutil.NewTestDB(t,
@@ -87,7 +86,6 @@ func TestRagMetrics_RecordQuerySync_Basic(t *testing.T) {
 		t.Fatalf("RecordQuerySync failed: %v", err)
 	}
 
-	// 验证写入
 	var log model.RagQueryLog
 	if err := db.First(&log).Error; err != nil {
 		t.Fatalf("query log not found: %v", err)
@@ -387,7 +385,6 @@ func TestRagMetrics_AggregateWindow_Idempotent(t *testing.T) {
 		t.Errorf("Expected same ID (idempotent update), got d1=%d d2=%d", d1.ID, d2.ID)
 	}
 
-	// 第三次聚合（验证仅一条 daily 记录）
 	var count int64
 	db.Model(&model.RagMetricsDaily{}).Count(&count)
 	if count != 1 {
@@ -712,7 +709,6 @@ func TestRagMetrics_ConcurrentRecordQuery(t *testing.T) {
 	}
 }
 
-// absFloat 返回绝对值（避免与 rrf_fusion_test.go 的 abs 冲突）
 func absFloat(x float64) float64 {
 	if x < 0 {
 		return -x

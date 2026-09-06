@@ -10,8 +10,8 @@ import (
 
 // CacheStats 缓存统计信息
 type CacheStats struct {
-	Hits   int64 // 命中次数
-	Misses int64 // 未命中次数
+	Hits   int64
+	Misses int64
 }
 
 // HitRate 计算命中率
@@ -180,7 +180,6 @@ func (m *CacheManager) Clear(ctx context.Context) error {
 	return m.cache.Clear(ctx)
 }
 
-// getDefaultTTL 获取默认 TTL
 func (m *CacheManager) getDefaultTTL() time.Duration {
 	return 30 * time.Minute
 }

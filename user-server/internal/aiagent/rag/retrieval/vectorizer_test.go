@@ -8,9 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// requireLocalEmbedding 私域部署基线：
-// 依赖真实本地 embedding 服务的测试需要本地启动 TEI 容器（bge-m3）。
-// 单测环境无 embedding 容器时设置 EMBEDDING_ALLOW_FALLBACK=true 即可用 hash 降级跑通。
 func requireLocalEmbedding(t *testing.T) {
 	t.Helper()
 	if os.Getenv("EMBEDDING_ALLOW_FALLBACK") != "true" {
@@ -83,7 +80,7 @@ func TestVectorizer_EmbedText(t *testing.T) {
 				assert.NoError(t, err)
 				assert.NotNil(t, embedding)
 				assert.Len(t, embedding, 128)
-				// Verify embedding is normalized (unit length)
+
 				var sum float64
 				for _, val := range embedding {
 					sum += float64(val) * float64(val)
@@ -317,7 +314,7 @@ func TestJaccardSimilarity(t *testing.T) {
 			name:     "partial_overlap",
 			text1:    "apple banana cherry",
 			text2:    "banana cherry date",
-			expected: 0.5, 
+			expected: 0.5,
 		},
 		{
 			name:     "case_insensitive",
@@ -346,6 +343,3 @@ func TestJaccardSimilarity(t *testing.T) {
 		})
 	}
 }
-
-
-

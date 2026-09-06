@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"encoding/json"
@@ -12,7 +11,7 @@ import (
 type MultiQueryGenerator struct {
 	chatClient LLMChatClient
 	enabled    bool
-	variantN   int 
+	variantN   int
 }
 
 // MultiQueryGeneratorConfig Multi-Query 配置
@@ -81,7 +80,7 @@ func (g *MultiQueryGenerator) Generate(ctx context.Context, query string) ([]str
 %d 个查询变体:`, g.variantN, query, g.variantN)
 
 	resp, err := g.chatClient.Chat(ctx, prompt, LLMChatOptions{
-		Temperature: 0.5, 
+		Temperature: 0.5,
 		MaxTokens:   200,
 	})
 	if err != nil {
@@ -114,9 +113,6 @@ func (g *MultiQueryGenerator) Generate(ctx context.Context, query string) ([]str
 	return out, nil
 }
 
-// extractJSONArray 从 LLM 输出中提取 JSON 数组（兼容 markdown 代码块包裹）
-//
-// 与 llm_service.go 中的 extractJSON 不同，本函数仅识别数组（[ 开头）
 func extractJSONArray(s string) string {
 	s = strings.TrimSpace(s)
 	if strings.HasPrefix(s, "```json") {
@@ -138,4 +134,3 @@ func extractJSONArray(s string) string {
 	}
 	return s[start : end+1]
 }
-

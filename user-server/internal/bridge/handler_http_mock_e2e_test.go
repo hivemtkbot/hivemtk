@@ -18,8 +18,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
-
 type outboxItem struct {
 	Channel        string `json:"channel"`
 	AccountID      string `json:"account_id"`
@@ -31,7 +29,7 @@ type outboxItem struct {
 
 type outboxStore struct {
 	mu    sync.Mutex
-	items map[string]*outboxItem 
+	items map[string]*outboxItem
 }
 
 func newOutboxStore() *outboxStore {
@@ -63,7 +61,6 @@ func (s *outboxStore) list(channel, account string) []*outboxItem {
 	return out
 }
 
-// 仅对归属当前 (channel, account) 的 msg_id 生效，返回成功标记数量（幂等）。
 func (s *outboxStore) ack(channel, account string, msgIDs []string) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -81,7 +78,6 @@ func (s *outboxStore) ack(channel, account string, msgIDs []string) int {
 	return n
 }
 
-
 type mockIngestHandler struct {
 	mu        sync.Mutex
 	seen      map[string]bool
@@ -95,9 +91,6 @@ func newMockIngestHandler(store *outboxStore) *mockIngestHandler {
 	return &mockIngestHandler{seen: map[string]bool{}, store: store}
 }
 
-// 模拟生产 bridgeAcceptMessages 的事件级去重 + 入库 + 触发 AI → 占位入下发队列。
-// 注意：与真实 handler 一致，mock 模式下 HandleHTTPIngest 不会触碰 ingress 跑 AI，
-// 仅把 QueuedForAI 回写进响应；向 outbox 推送由本 mock 完成（模拟 sendOutbound→message_hub）。
 func (m *mockIngestHandler) handle(ctx context.Context, ev *model.MessageEvent) (*service.InboxIngressResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -148,12 +141,10 @@ func newMockIngestHandlerWith(m *mockIngestHandler) *BridgeIngestHandler {
 	return NewBridgeIngestHandlerWithMock(m.handle, nil)
 }
 
-
 func writeJSON(c *gin.Context, status int, v interface{}) {
 	c.JSON(status, v)
 }
 
-// 每个调用返回独立的 mock 实例与 outbox store，保证测试间隔离。
 func startMockServer() (*mockIngestHandler, string, chan error, func()) {
 	errCh := make(chan error, 1)
 	gin.SetMode(gin.TestMode)
@@ -186,7 +177,6 @@ func startMockServer() (*mockIngestHandler, string, chan error, func()) {
 	stop := func() { srv.Close() }
 	return m, srv.URL, errCh, stop
 }
-
 
 func doIngest(t *testing.T, base, channel, account, conv, eventID, senderType, content string) HTTPIngestResponse {
 	t.Helper()
@@ -224,7 +214,6 @@ func doIngest(t *testing.T, base, channel, account, conv, eventID, senderType, c
 	return res
 }
 
-
 // 回环去重·钩子2 兜底：AI 出站 MsgID=ob_<eventID>，前端扫描到平台回显重新上报时
 // 携带 content_hash=ob_<eventID>（与后端 ContentHashMsgID 同源），即便 event_id 不同，
 // 也应被幂等跳过，不二次触发 AI、不重复入下发队列。
@@ -245,17 +234,17 @@ func TestBridgeHTTP_OutboundEcho_SkippedByContentHash(t *testing.T) {
 		AccountID:      "1",
 		ConversationID: "c1",
 		Messages: []*HTTPIngestMessage{{
-			EventID:        "dom-echo-123", 
+			EventID:        "dom-echo-123",
 			Channel:        ChannelDouyinWeb,
 			AccountID:      "1",
 			ConversationID: "c1",
-			SenderType:     "customer", 
+			SenderType:     "customer",
 			SenderID:       "u1",
 			SenderName:     "用户",
 			MsgType:        "text",
-			Content:        "你好", 
+			Content:        "你好",
 			Timestamp:      time.Now().Unix(),
-			ContentHash:    "ob_evt-loop", 
+			ContentHash:    "ob_evt-loop",
 		}},
 	}
 	body, _ := json.Marshal(req)
@@ -460,4 +449,3 @@ func TestBridgeOutboxAck_ScopeIsolation(t *testing.T) {
 		t.Fatalf("越权 ack 不应清除原账号消息")
 	}
 }
-

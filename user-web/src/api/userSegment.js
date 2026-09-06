@@ -1,6 +1,5 @@
 import { http } from '@/utils/request';
 
-// 用户分群(RFM) - 匹配后端 /api/user-segment/* 路径
 export function getRFMList(params) {
   return http.get('/api/user-segment/rfm/list', params)
 }
@@ -26,7 +25,6 @@ export function getLayerDescription() {
   return http.get('/api/user-segment/layers')
 }
 
-// 兼容旧接口
 export function getUserSegments(params) {
   return http.get('/api/user-segments', params)
 }

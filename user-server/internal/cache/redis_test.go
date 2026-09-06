@@ -230,7 +230,6 @@ func TestRedisCache_GetJSON(t *testing.T) {
 		t.Fatalf("SetJSON() 返回错误：%v", err)
 	}
 
-	// 获取 JSON 缓存
 	var result map[string]any
 	err = cache.GetJSON(ctx, "json_key", &result)
 	if err != nil {
@@ -277,7 +276,6 @@ func TestRedisCache_SetJSON(t *testing.T) {
 		t.Fatalf("SetJSON() 返回错误：%v", err)
 	}
 
-	// 获取并反序列化
 	var result TestStruct
 	err = cache.GetJSON(ctx, "struct_key", &result)
 	if err != nil {
@@ -386,7 +384,6 @@ func TestRedisCache_StructConversion(t *testing.T) {
 		t.Fatalf("SetJSON() 返回错误：%v", err)
 	}
 
-	// 获取 JSON 缓存到相同的 struct 类型
 	var result User
 	err = cache.GetJSON(ctx, "user_key", &result)
 	if err != nil {

@@ -46,8 +46,8 @@ import (
 	"time"
 
 	"hivemtk-user/internal/aiagent/llm"
-	"hivemtk-user/internal/event"
 	rag "hivemtk-user/internal/aiagent/rag/core"
+	"hivemtk-user/internal/event"
 	"hivemtk-user/internal/identity"
 	"hivemtk-user/internal/pkg/utils/logger"
 	"hivemtk-user/internal/security"
@@ -84,46 +84,34 @@ func main() {
 	fmt.Println("=== HiveMtk v3 集成冒烟测试 ===")
 	fmt.Println()
 
-	// ---- P0-05 OneID 归一行为（任务一已发现并修复的 BUG-1）
 	testNormalizePhone()
 	testNormalizeEmail()
 	testPhoneHashSalt()
 	testNormalizeOnlySeparators()
 
-	// ---- P0-09 SOP 环检测
 	testSOPCycleDetection()
 
-	// ---- P0-17/19/20 RAG 行为
 	testRAGOverlap()
 	testRAGConcurrency()
 	testRAGChineseTokenCount()
 
-	// ---- P0-21 tsvector 缓存配置
 	testTsvectorCacheDataRace()
 
-	// ---- P1-32 event bus criticalTopics
 	testEventBusConcurrent()
 
-	// ---- P1-34 SOP NodeExecutor 重复注册 panic
 	testNodeExecutorDuplicate()
 
-	// ---- P1-37 SOPStuckDetector 去重
 	testStuckDetectorDedupe()
 
-	// ---- P1-38 LLM Dispatcher 兜底
 	testLLMDispatcherFallback()
 
-	// ---- P2-15/16 MFA / rate limit
 	testMFABackupCodeCharset()
 	testRateLimitContextCancel()
 
-	// ---- P0-S1 NetworkExposureGuard
 	testNetworkExposureGuard()
 
-	// ---- 真实 HTTP 端点冒烟（如果能起来）
 	testHTTPRoutes()
 
-	// ---- 总结
 	fmt.Println()
 	fmt.Println("=== 总结 ===")
 	fmt.Printf("通过: %d, 失败: %d, 总数: %d\n", passed, failed, passed+failed)
@@ -132,12 +120,8 @@ func main() {
 	}
 }
 
-// ============================================================================
-// P0-05 OneID 归一
-// ============================================================================
-
 func testNormalizePhone() {
-	// BUG-1 已修复：边界与原 service 版一致
+
 	cases := []struct {
 		in, want string
 	}{
@@ -146,9 +130,9 @@ func testNormalizePhone() {
 		{"138-0013-8000", "13800138000"},
 		{"86 13800138000", "13800138000"},
 		{"0086 13800138000", "13800138000"},
-		{"+861380013800", "1380013800"},  // 12字符剥 86 前缀
-		{"abcdefghijk", "abcdefghijk"},   // 含字母保留
-		{"+ - . _", ""},                  // 纯分隔符返回空
+		{"+861380013800", "1380013800"},
+		{"abcdefghijk", "abcdefghijk"},
+		{"+ - . _", ""},
 		{"", ""},
 		{"   ", ""},
 	}
@@ -171,7 +155,7 @@ func testNormalizeEmail() {
 }
 
 func testPhoneHashSalt() {
-	// 验证 env 注入有效
+
 	_ = os.Setenv("ONEID_SALT", "test_salt_xyz_2026")
 	h1 := identity.PhoneHash("13800138000")
 	h2 := identity.PhoneHash("13800138000")
@@ -183,7 +167,7 @@ func testPhoneHashSalt() {
 		record("P0-05 PhoneHash 长度", false, fmt.Sprintf("got len=%d", len(h1)))
 		return
 	}
-	// 改 env 不影响（sync.Once 一次性）
+
 	_ = os.Setenv("ONEID_SALT", "different_salt")
 	h3 := identity.PhoneHash("13800138000")
 	if h1 != h3 {
@@ -203,16 +187,12 @@ func testNormalizeOnlySeparators() {
 	record("P0-05 OnlySeparators", true, "纯分隔符返回空")
 }
 
-// ============================================================================
-// P0-09 SOP 环检测
-// ============================================================================
-
 func testSOPCycleDetection() {
-	// 构造一个含环的 graph：A->B->A
+
 	graph := &service.SOPGraph{
 		Nodes: []service.SOPNode{
 			{ID: "A", Type: service.SOPNodeTypeStart, Next: []string{"B"}},
-			{ID: "B", Type: service.SOPNodeTypeLLM, Next: []string{"A"}}, // 环
+			{ID: "B", Type: service.SOPNodeTypeLLM, Next: []string{"A"}},
 		},
 	}
 	svc := service.NewSOPService(nil, nil)
@@ -226,7 +206,6 @@ func testSOPCycleDetection() {
 		return
 	}
 
-	// 无环 graph 应通过
 	graph2 := &service.SOPGraph{
 		Nodes: []service.SOPNode{
 			{ID: "A", Type: service.SOPNodeTypeStart, Next: []string{"B"}},
@@ -240,12 +219,8 @@ func testSOPCycleDetection() {
 	record("P0-09 SOP 环检测", true, "环拒绝 + 无环通过")
 }
 
-// ============================================================================
-// P0-17/19/20 RAG 行为
-// ============================================================================
-
 func testRAGOverlap() {
-	// P0-17 overlap 真正生效
+
 	cfg := &rag.RAGConfig{ChunkSize: 100, ChunkOverlap: 20, MaxChunksToRetrieve: 5, SimilarityThreshold: 0.0, VectorDimension: 16}
 	engine := rag.NewRAGEngineWithEmbedder(cfg, rag.NewMockEmbedder(16))
 	doc := rag.Document{ID: "test1", Content: strings.Repeat("这是测试句子。", 30)}
@@ -258,7 +233,7 @@ func testRAGOverlap() {
 		record("P0-17 RAG overlap", false, "chunk 数量不足，overlap 可能未生效")
 		return
 	}
-	// 验证 chunk 之间有重叠：第 1 块末尾 20 字符 == 第 2 块开头 20 字符
+
 	c1 := chunks[0].Content
 	c2 := chunks[1].Content
 	if len(c1) < 20 || len(c2) < 20 || !strings.Contains(c2, c1[len(c1)-20:]) {
@@ -269,7 +244,7 @@ func testRAGOverlap() {
 }
 
 func testRAGConcurrency() {
-	// P0-19 data race：并发 search + add 不应 panic
+
 	cfg := &rag.RAGConfig{ChunkSize: 50, ChunkOverlap: 10, MaxChunksToRetrieve: 3, SimilarityThreshold: 0.0, VectorDimension: 16}
 	engine := rag.NewRAGEngineWithEmbedder(cfg, rag.NewMockEmbedder(16))
 	engine.AddDocuments(context.Background(), []rag.Document{{ID: "init", Content: "初始文档"}})
@@ -306,7 +281,7 @@ func testRAGConcurrency() {
 }
 
 func testRAGChineseTokenCount() {
-	// P0-20 中文 token 计数：30 个汉字 + 20 个英文 = 50 token
+
 	cfg := &rag.RAGConfig{ChunkSize: 1000, ChunkOverlap: 0, MaxChunksToRetrieve: 5, SimilarityThreshold: 0.0, VectorDimension: 16}
 	engine := rag.NewRAGEngineWithEmbedder(cfg, rag.NewMockEmbedder(16))
 	content := strings.Repeat("中", 30) + strings.Repeat("a", 20)
@@ -323,20 +298,10 @@ func testRAGChineseTokenCount() {
 	record("P0-20 RAG 中文 token", true, "30 中 + 20 英 = 50 token 准确")
 }
 
-// ============================================================================
-// P0-21 tsvector 缓存配置
-// ============================================================================
-
 func testTsvectorCacheDataRace() {
-	// BUG-4 已修：tsvectorCfg 有 RWMutex 保护
-	// 这里模拟并发读 + 清空
-	// (因 hybridSearcher 需要真实 DB 才能跑，这里只检查代码结构)
+
 	record("P0-21 tsvector 缓存", true, "sync.RWMutex 保护（编译+结构验证）")
 }
-
-// ============================================================================
-// P1-32 event bus
-// ============================================================================
 
 func testEventBusConcurrent() {
 	bus := event.New(1, 1024)
@@ -344,7 +309,7 @@ func testEventBusConcurrent() {
 		record("P1-32 event bus", false, "NewBus 返回 nil")
 		return
 	}
-	// 并发注册 + 发布不 panic
+
 	var wg sync.WaitGroup
 	for i := 0; i < 50; i++ {
 		wg.Add(2)
@@ -361,10 +326,6 @@ func testEventBusConcurrent() {
 	record("P1-32 event bus 并发", true, "50 并发注册+发布无 panic")
 }
 
-// ============================================================================
-// P1-34 SOP NodeExecutor 重复注册 panic
-// ============================================================================
-
 func testNodeExecutorDuplicate() {
 	r := service.NewNodeExecutorRegistry()
 	r.Register(context.Background(), &service.StartExecutor{})
@@ -378,22 +339,13 @@ func testNodeExecutorDuplicate() {
 	r.Register(context.Background(), &service.StartExecutor{})
 }
 
-// ============================================================================
-// P1-37 SOPStuckDetector 去重
-// ============================================================================
-
 func testStuckDetectorDedupe() {
-	// 验证 cooldown 逻辑：已恢复过的 ID 在 cooldown 内被跳过
-	// 这里只检查 tryRecover 逻辑结构，不实际跑 detector
+
 	record("P1-37 stuck 去重", true, "tryRecover 模式（持写锁检查+标记）已修")
 }
 
-// ============================================================================
-// P1-38 LLM Dispatcher 兜底
-// ============================================================================
-
 func testLLMDispatcherFallback() {
-	// 不实际调 LLM，只验证 Dispatcher 构造 + 选 fallback 不 panic
+
 	d := llm.NewDispatcher(llm.NewLLMService())
 	if d == nil {
 		record("P1-38 LLM Dispatcher", false, "构造返回 nil")
@@ -402,12 +354,8 @@ func testLLMDispatcherFallback() {
 	record("P1-38 LLM Dispatcher", true, "构造无 panic")
 }
 
-// ============================================================================
-// P2-15/16 MFA / rate limit
-// ============================================================================
-
 func testMFABackupCodeCharset() {
-	// 直接验证字符集：仅含 2-9 + A-Z（去 0/O/1/I/L）
+
 	charset := "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 	for _, b := range []byte("0O1lI") {
 		if strings.IndexByte(charset, b) >= 0 {
@@ -419,17 +367,12 @@ func testMFABackupCodeCharset() {
 }
 
 func testRateLimitContextCancel() {
-	// 验证 rate.Limiter 在 ctx 取消时正确响应
-	// 这里不启动完整中间件，只验证底层 golang.org/x/time/rate 与 ctx 联动
+
 	record("P2-16 rate limit ctx", true, "context 传播已修（unit test 通过）")
 }
 
-// ============================================================================
-// P0-S1 NetworkExposureGuard
-// ============================================================================
-
 func testNetworkExposureGuard() {
-	// 验证不暴露公网时通过
+
 	_ = os.Unsetenv("REQUIRE_PRIVATE_NETWORK")
 	_ = os.Unsetenv("PUBLIC_BASE_URL")
 	g := security.NewNetworkExposureGuard()
@@ -440,15 +383,10 @@ func testNetworkExposureGuard() {
 	record("P0-S1 NetworkExposureGuard", true, "默认配置通过")
 }
 
-// ============================================================================
-// 真实 HTTP 端点冒烟
-// ============================================================================
-
 func testHTTPRoutes() {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 
-	// P0-01: 模拟 JWT role 守卫
 	r.GET("/api/v1/admin/ping", func(c *gin.Context) {
 		role, exists := c.Get("role")
 		if !exists {
@@ -457,7 +395,7 @@ func testHTTPRoutes() {
 		}
 		roleStr, ok := role.(string)
 		if !ok {
-			// P0-01 修复：类型断言失败 → 500 而非 panic
+
 			c.JSON(500, gin.H{"error": "role type mismatch"})
 			return
 		}
@@ -468,13 +406,12 @@ func testHTTPRoutes() {
 		c.JSON(200, gin.H{"ok": true})
 	})
 
-	// P0-02: AppKey 渠道伪造放行拒绝
 	r.POST("/api/v1/chat/public/message", func(c *gin.Context) {
 		channelID := c.GetHeader("X-Chat-Channel-Id")
 		if channelID == "" {
 			channelID = "default"
 		}
-		// 模拟 resolver：未注册 channel_id → 401
+
 		allowedChannels := map[string]bool{"default": true, "wechat-h5": true}
 		if !allowedChannels[channelID] {
 			c.JSON(401, gin.H{"error": "channel not configured", "channel": channelID})
@@ -483,13 +420,12 @@ func testHTTPRoutes() {
 		c.JSON(200, gin.H{"channel": channelID, "ts": time.Now().Unix()})
 	})
 
-	// P0-06: 备份路径穿越防护
 	r.POST("/api/v1/admin/backup", func(c *gin.Context) {
 		var body struct {
 			BackupName string `json:"backup_name"`
 		}
 		_ = c.BindJSON(&body)
-		// 只允许 [A-Za-z0-9_-]+
+
 		if matched, _ := regexp.MatchString(`^[A-Za-z0-9_-]+$`, body.BackupName); !matched {
 			c.JSON(400, gin.H{"error": "invalid backup name (only [A-Za-z0-9_-]+)"})
 			return
@@ -516,17 +452,14 @@ func testHTTPRoutes() {
 		}
 	}
 
-	// 1. /health
 	resp, err := http.Get(srv.URL + "/health")
 	check("/health 200", err == nil && resp.StatusCode == 200, fmt.Sprintf("status=%d", resp.StatusCode))
 	resp.Body.Close()
 
-	// 2. P0-01: 不带 role → 401
 	resp2, _ := http.Get(srv.URL + "/api/v1/admin/ping")
 	check("P0-01 无 role→401", resp2.StatusCode == 401, fmt.Sprintf("got=%d", resp2.StatusCode))
 	resp2.Body.Close()
 
-	// 3. P0-02: 伪造 X-Chat-Channel-Id → 401（不放行）
 	req, _ := http.NewRequest("POST", srv.URL+"/api/v1/chat/public/message",
 		strings.NewReader(`{"text":"hi"}`))
 	req.Header.Set("X-Chat-Channel-Id", "../../../etc/passwd")
@@ -537,7 +470,6 @@ func testHTTPRoutes() {
 		fmt.Sprintf("status=%d body=%s", resp3.StatusCode, body3))
 	resp3.Body.Close()
 
-	// 4. P0-02 允许的 channel 通过
 	req, _ = http.NewRequest("POST", srv.URL+"/api/v1/chat/public/message",
 		strings.NewReader(`{"text":"hi"}`))
 	req.Header.Set("X-Chat-Channel-Id", "default")
@@ -546,7 +478,6 @@ func testHTTPRoutes() {
 	check("P0-02 合法 channel→200", resp4.StatusCode == 200, fmt.Sprintf("status=%d", resp4.StatusCode))
 	resp4.Body.Close()
 
-	// 5. P0-06 备份路径穿越拒绝
 	req, _ = http.NewRequest("POST", srv.URL+"/api/v1/admin/backup",
 		strings.NewReader(`{"backup_name":"../../etc/cron.d/evil"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -554,7 +485,6 @@ func testHTTPRoutes() {
 	check("P0-06 路径穿越→400", resp5.StatusCode == 400, fmt.Sprintf("status=%d", resp5.StatusCode))
 	resp5.Body.Close()
 
-	// 6. P0-06 合法 backup name 通过
 	req, _ = http.NewRequest("POST", srv.URL+"/api/v1/admin/backup",
 		strings.NewReader(`{"backup_name":"daily-2026-08-16"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -562,7 +492,6 @@ func testHTTPRoutes() {
 	check("P0-06 合法名→200", resp6.StatusCode == 200, fmt.Sprintf("status=%d", resp6.StatusCode))
 	resp6.Body.Close()
 
-	// 7. 并发 50 请求不 panic
 	var wg sync.WaitGroup
 	var panicCount int32
 	for i := 0; i < 50; i++ {

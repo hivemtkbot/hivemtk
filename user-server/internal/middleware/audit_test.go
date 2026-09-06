@@ -11,7 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// isNumeric 判断字符串是否表示一个非负整数（用于测试辅助）
 func isNumeric(s string) bool {
 	if s == "" {
 		return false
@@ -22,7 +21,6 @@ func isNumeric(s string) bool {
 	return true
 }
 
-// splitPath 按斜杠切分 URL 路径，去除空段（用于测试辅助）
 func splitPath(path string) []string {
 	if path == "" {
 		return []string{}
@@ -432,9 +430,8 @@ func TestAuditResponseWriter_WriteString(t *testing.T) {
 
 // TestSaveAuditBatch_Empty 测试空批次保存
 func TestSaveAuditBatch_Empty(t *testing.T) {
-	// 这个测试主要是确保 saveAuditBatch 处理空切片不 panic
+
 	var logs []*AuditEntry
-	NewAuditManager().saveAuditBatch(logs) // v3 重构后为 AuditManager 方法
+	NewAuditManager().saveAuditBatch(logs)
 	t.Log("saveAuditBatch with empty slice completed without panic")
 }
-

@@ -168,4 +168,3 @@ func TestFlowDefinition(t *testing.T) {
 		t.Errorf("Expected 2 Nodes, got %d", len(def.Nodes))
 	}
 }
-

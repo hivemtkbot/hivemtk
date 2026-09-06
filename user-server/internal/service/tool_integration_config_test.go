@@ -7,7 +7,7 @@ import (
 	"hivemtk-user/internal/secrets"
 )
 
-const testMasterKey = "0123456789abcdef0123456789abcdef" // 32 bytes
+const testMasterKey = "0123456789abcdef0123456789abcdef"
 
 func resetSecretsForTest(t *testing.T, key string) {
 	t.Helper()
@@ -130,7 +130,7 @@ func TestToolIntegration_TamperedCiphertextError(t *testing.T) {
 		t.Error("tampered ciphertext must fail to decrypt")
 	}
 
-	resetSecretsForTest(t, "0123456789abcdef0123456789abcdee") // different 32-byte key
+	resetSecretsForTest(t, "0123456789abcdef0123456789abcdee")
 	if _, err := secrets.DecryptString(enc); err == nil {
 		t.Error("decryption under wrong key must fail")
 	}

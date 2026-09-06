@@ -7,7 +7,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// newHandoffDecisionServiceForTest 构造无需 DB 的测试实例（repo/seatSvc 均可为 nil，reasonOf 不依赖二者）
 func newHandoffDecisionServiceForTest() *HandoffDecisionService {
 	return &HandoffDecisionService{}
 }

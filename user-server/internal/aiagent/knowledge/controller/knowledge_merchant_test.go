@@ -22,7 +22,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// toPgVector 将 []float32 格式化为 pgvector 字面量（如 [0.1,0.2,...]）
 func toPgVector(vec []float32) string {
 	parts := make([]string, len(vec))
 	for i, f := range vec {
@@ -31,7 +30,6 @@ func toPgVector(vec []float32) string {
 	return "[" + strings.Join(parts, ",") + "]"
 }
 
-// setupKMSvcTestDB 设置商户 RAG 测试数据库
 func setupKMSvcTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.KBDocument{},
@@ -48,7 +46,6 @@ func setupKMSvcTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupKMRouter 设置商户 RAG 测试路由
 func setupKMRouter(t *testing.T, ctrl *KnowledgeMerchantController) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
@@ -66,8 +63,6 @@ func setupKMRouter(t *testing.T, ctrl *KnowledgeMerchantController) *gin.Engine 
 	return router
 }
 
-// seedRagProducts 在当前测试 DB 中预置 RAG 产品（避免 BatchImport 报"产品不存在"）
-// 不使用 sync.Once：每个测试 testutil.NewTestDB 创建独立临时库，跨 db 不能共享数据。
 func seedRagProducts(db *gorm.DB) {
 	products := []*model.RagProduct{
 		{ID: "kb-test-1", Name: "kb-test", VectorTable: "vt_kb_test_1", IsActive: true},
@@ -78,7 +73,7 @@ func seedRagProducts(db *gorm.DB) {
 		{ID: "kb-csv", Name: "kb-csv", VectorTable: "vt_kb_csv", IsActive: true},
 	}
 	for _, p := range products {
-		// 先尝试查找已有记录，避免重复插入触发 UNIQUE 冲突
+
 		var existing model.RagProduct
 		if err := db.Where("id = ?", p.ID).First(&existing).Error; err == nil {
 			continue
@@ -96,7 +91,6 @@ func mustJSON(t *testing.T, v any) []byte {
 	}
 	return b
 }
-
 
 func TestKM_BatchImport_Success(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
@@ -145,7 +139,6 @@ func TestKM_BatchImport_BadJSON(t *testing.T) {
 	}
 }
 
-
 func TestKM_BatchUpload_CSV(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
 	r := setupKMRouter(t, ctrl)
@@ -184,7 +177,6 @@ func TestKM_BatchUpload_NoFile(t *testing.T) {
 	}
 }
 
-
 func TestKM_Playground_EmptyQuery(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
 	r := setupKMRouter(t, ctrl)
@@ -212,7 +204,6 @@ func TestKM_Playground_NoBody(t *testing.T) {
 		t.Errorf("want 400, got %d", w.Code)
 	}
 }
-
 
 func TestKM_ListDocumentChunks_InvalidID(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
@@ -262,7 +253,6 @@ func TestKM_SplitChunk_InvalidID(t *testing.T) {
 	}
 }
 
-
 func TestKM_SubmitFeedback_OK(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
 	r := setupKMRouter(t, ctrl)
@@ -289,7 +279,7 @@ func TestKM_SubmitFeedback_BadRating(t *testing.T) {
 	body := mustJSON(t, map[string]any{
 		"product_id": "kb-1",
 		"query":      "如何退货?",
-		"rating":     5, 
+		"rating":     5,
 	})
 	req, _ := http.NewRequest("POST", "/api/knowledge-merchant/feedback", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -310,7 +300,6 @@ func TestKM_ListFeedbacks_OK(t *testing.T) {
 		t.Errorf("want 200, got %d", w.Code)
 	}
 }
-
 
 func TestKM_CreateToken_OK(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
@@ -367,7 +356,6 @@ func TestKM_RevokeToken_InvalidID(t *testing.T) {
 	}
 }
 
-
 func TestKM_ExternalImport_MissingToken(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
 	r := setupKMRouter(t, ctrl)
@@ -414,7 +402,6 @@ func TestKM_ListExternalJobs_OK(t *testing.T) {
 	}
 }
 
-
 func TestKM_EndToEnd_ExternalImport_WithToken(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
 	r := setupKMRouter(t, ctrl)
@@ -460,7 +447,6 @@ func TestKM_EndToEnd_ExternalImport_WithToken(t *testing.T) {
 	}
 }
 
-
 func TestKM_SubmitFeedback_NilDB_NoPanic(t *testing.T) {
 	ctrl := &KnowledgeMerchantController{
 		svc: knowledgesvc.NewKnowledgeMerchantServiceWithDB(nil),
@@ -484,9 +470,7 @@ func TestKM_SubmitFeedback_NilDB_NoPanic(t *testing.T) {
 	r.ServeHTTP(w, req)
 }
 
-// _ 引入 context 避免未使用
 var _ = context.Background
-
 
 // TestKM_Playground_WithData 测试 Playground 命中数据的场景
 func TestKM_Playground_WithData(t *testing.T) {
@@ -613,7 +597,7 @@ func TestKM_UpdateChunk_OK(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200, got %d, body=%s", w.Code, w.Body.String())
 	}
-	// 验证: EmbeddingID 应被清空
+
 	var updated model.KnowledgeChunk
 	ctrl.svc.GetDB().First(&updated, chunk.ID)
 	if updated.EmbeddingID != "" {
@@ -663,7 +647,7 @@ func TestKM_SplitChunk_OK(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200, got %d, body=%s", w.Code, w.Body.String())
 	}
-	// 验证: 应该有 2 个新分段
+
 	var newCount int64
 	ctrl.svc.GetDB().Model(&model.KnowledgeChunk{}).Where("document_id = ?", doc.ID).Count(&newCount)
 	if newCount != 2 {
@@ -725,7 +709,7 @@ func TestKM_RevokeToken_OK(t *testing.T) {
 	if revokeW.Code != http.StatusOK {
 		t.Errorf("want 200, got %d, body=%s", revokeW.Code, revokeW.Body.String())
 	}
-	// 验证: enabled 应该为 0
+
 	var tok model.KnowledgeAPIToken
 	ctrl.svc.GetDB().First(&tok, resp.Data.ID)
 	if tok.Enabled != 0 {
@@ -791,7 +775,7 @@ func TestKM_FullFlow_TokenValidate_ExternalImport(t *testing.T) {
 	if impResp.Data.Accepted != 2 {
 		t.Errorf("expected 2 accepted, got %d", impResp.Data.Accepted)
 	}
-	// 3) 验证文档已创建（按 product_id 字符串查询）
+
 	var docCount int64
 	pidNumeric := "kb-e2e"
 	ctrl.svc.GetDB().Model(&model.KnowledgeDocument{}).Where("product_id = ?", pidNumeric).Count(&docCount)
@@ -818,7 +802,7 @@ func TestKM_FullFlow_FeedbackStore(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200, got %d", w.Code)
 	}
-	// 验证: 数据库应该有 1 条记录
+
 	var count int64
 	ctrl.svc.GetDB().Model(&model.KnowledgeFeedback{}).Count(&count)
 	if count < 1 {
@@ -845,8 +829,8 @@ func TestKM_BatchImport_MixedValidAndEmpty(t *testing.T) {
 		"product_id": "kb-test-1",
 		"items": []map[string]any{
 			{"title": "T1", "content": "有效内容"},
-			{"title": "T2", "content": ""},   
-			{"title": "T3", "content": "  "}, 
+			{"title": "T2", "content": ""},
+			{"title": "T3", "content": "  "},
 			{"title": "T4", "content": "有效内容2"},
 		},
 	})
@@ -861,4 +845,3 @@ func TestKM_BatchImport_MixedValidAndEmpty(t *testing.T) {
 		t.Errorf("expected rejected field: %s", w.Body.String())
 	}
 }
-

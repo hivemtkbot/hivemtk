@@ -15,7 +15,7 @@ type ABExperimentService struct {
 	variantRepo    *repository.ABVariantRepository
 	conversionRepo *repository.ABConversionEventRepository
 	resultRepo     *repository.ABExperimentResultRepository
-	variantCache   map[uint]*model.ABVariant 
+	variantCache   map[uint]*model.ABVariant
 	cacheMutex     sync.RWMutex
 }
 
@@ -75,7 +75,7 @@ func (s *ABExperimentService) CreateExperiment(req *CreateExperimentRequest) (*m
 			Config:       string(configJSON),
 		}
 		if i == 0 {
-			variant.IsControl = true 
+			variant.IsControl = true
 		}
 		if err := s.variantRepo.Create(variant); err != nil {
 			return nil, err
@@ -166,7 +166,7 @@ func (s *ABExperimentService) StopExperiment(id uint) error {
 func (s *ABExperimentService) GetVariant(sourceID string) (*model.ABVariant, error) {
 	variant, err := s.getVariantFromDB(sourceID)
 	if err != nil {
-		// DB 未命中时回退旧缓存（实验暂停场景保持历史分流稳定）
+
 		s.cacheMutex.RLock()
 		cached, ok := s.variantCache[s.hashSourceID(sourceID)]
 		s.cacheMutex.RUnlock()
@@ -178,8 +178,6 @@ func (s *ABExperimentService) GetVariant(sourceID string) (*model.ABVariant, err
 	return variant, nil
 }
 
-
-// hashSourceID 简单哈希
 func (s *ABExperimentService) hashSourceID(sourceID string) uint {
 	hash := uint(0)
 	for i := 0; i < len(sourceID); i++ {
@@ -188,8 +186,6 @@ func (s *ABExperimentService) hashSourceID(sourceID string) uint {
 	return hash % 1000000
 }
 
-// getVariantFromDB 从数据库获取变体
-// 根据 sourceID 查找运行中的实验，按权重分配变体
 func (s *ABExperimentService) getVariantFromDB(sourceID string) (*model.ABVariant, error) {
 	experiment, err := s.experimentRepo.GetRunningBySourceID(sourceID)
 	if err != nil {
@@ -292,7 +288,6 @@ func (s *ABExperimentService) CalculateResults(experimentID uint) error {
 	return s.calculateWinner(experimentID)
 }
 
-// calculateWinner 计算获胜者
 func (s *ABExperimentService) calculateWinner(experimentID uint) error {
 	results, err := s.resultRepo.GetByExperiment(experimentID)
 	if err != nil {
@@ -303,7 +298,6 @@ func (s *ABExperimentService) calculateWinner(experimentID uint) error {
 		return nil
 	}
 
-	// 找到转化率最高的变体
 	var winner *model.ABExperimentResult
 	maxRate := 0.0
 
@@ -323,7 +317,6 @@ func (s *ABExperimentService) calculateWinner(experimentID uint) error {
 	return nil
 }
 
-// calculateConfidence 计算置信度（简化版本，使用正态分布近似）
 func (s *ABExperimentService) calculateConfidence(result *model.ABExperimentResult) float64 {
 	if result.TrafficCount == 0 {
 		return 0
@@ -355,10 +348,6 @@ func (s *ABExperimentService) GetConversionEvents(experimentID uint, page, pageS
 	return s.conversionRepo.GetByExperiment(experimentID, page, pageSize)
 }
 
-
-// ---------- K5 高级统计（GrowthBook 轻量版，纯函数见 ab_stats.go） ----------
-
-// variantCountsFromRepo 变体计数 → 统计输入
 func (s *ABExperimentService) variantCountsFromRepo(experimentID uint) ([]VariantCounts, error) {
 	variants, err := s.variantRepo.GetByExperiment(experimentID)
 	if err != nil {
@@ -422,7 +411,6 @@ func (s *ABExperimentService) GetDiagnostics(experimentID uint) (map[string]any,
 	return map[string]any{"diagnostics": d}, nil
 }
 
-// countMultiExposeUsers 出现在 >1 个变体的用户数（诊断多曝光）
 func (s *ABExperimentService) countMultiExposeUsers(experimentID uint) int {
 	events, _, err := s.conversionRepo.GetByExperiment(experimentID, 1, 5000)
 	if err != nil {
@@ -461,7 +449,6 @@ func (s *ABExperimentService) GetCUPED(experimentID uint) (map[string]any, error
 	return map[string]any{"cuped": res}, nil
 }
 
-// cupedUserMetrics 按 user_id 聚合 (实验内转化次数, 实验开始前事件数)
 func (s *ABExperimentService) cupedUserMetrics(experimentID uint) ([]cupedUserMetric, error) {
 	exp, err := s.experimentRepo.GetByID(experimentID)
 	if err != nil {
@@ -516,7 +503,7 @@ func (s *ABExperimentService) GetResultsWithReach(experimentID uint) (map[string
 		byVariantEvent[key]++
 	}
 	return map[string]any{
-		"results":        results,
+		"results":         results,
 		"event_breakdown": byEventType,
 		"variant_event":   byVariantEvent,
 	}, nil

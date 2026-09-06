@@ -79,10 +79,6 @@ func (c *DashboardScreenController) GetScreenByID(ctx *gin.Context) {
 	response.Success(ctx, screen, "获取成功")
 }
 
-// UpdateScreen 更新大屏
-
-// requireScreenOwnership 大屏写操作守卫（v3 审计 P1-1 IDOR）：
-// 创建者本人或 admin 可改/删；其他登录用户 403。
 func (c *DashboardScreenController) requireScreenOwnership(ctx *gin.Context, id uint) (uid uint, ok bool) {
 	uidAny, _ := ctx.Get("user_id")
 	uid, _ = uidAny.(uint)
@@ -195,10 +191,3 @@ func (c *DashboardScreenController) GetRealtimeActivities(ctx *gin.Context) {
 	}
 	response.Success(ctx, activities, "获取实时活动成功")
 }
-
-
-
-
-
-
-

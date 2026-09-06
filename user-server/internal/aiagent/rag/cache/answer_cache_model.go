@@ -50,7 +50,7 @@ type RAGAnswerCache struct {
 	ID            uint64    `gorm:"column:id;primaryKey;autoIncrement"`
 	KBID          string    `gorm:"column:kb_id;type:varchar(64);not null"`
 	PromptVersion string    `gorm:"column:prompt_version;type:varchar(64);not null"`
-	QueryVector   string    `gorm:"column:query_vector;type:vector(1024);not null"` // pgvector 字面量 '[0.1,0.2,...]'
+	QueryVector   string    `gorm:"column:query_vector;type:vector(1024);not null"`
 	Answer        string    `gorm:"column:answer;type:text;not null"`
 	CreatedAt     time.Time `gorm:"column:created_at;autoCreateTime"`
 	KBUpdatedAt   time.Time `gorm:"column:kb_updated_at;not null"`
@@ -81,5 +81,5 @@ type LookupRequest struct {
 type LookupResult struct {
 	Tier       CacheTier
 	Answer     string
-	Similarity float64 // Tier2 命中时的 cosine 相似度；其余为 0
+	Similarity float64
 }

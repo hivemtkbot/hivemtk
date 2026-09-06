@@ -73,7 +73,7 @@ func (e *TFIDFPhraseExtractor) Extract(messages []ChampionMessage, topN int) []T
 			phraseTypeMap[p] = e.classifyPhrase(p)
 		}
 	}
-	// 计算 TF-IDF
+
 	type scored struct {
 		phrase string
 		score  float64
@@ -114,7 +114,6 @@ func (e *TFIDFPhraseExtractor) Extract(messages []ChampionMessage, topN int) []T
 	return out
 }
 
-// extractPhrases 2-4 字滑窗提取短语（过滤停用词开头/结尾）
 func (e *TFIDFPhraseExtractor) extractPhrases(text string) []string {
 	runes := []rune(text)
 	if len(runes) < 2 {
@@ -140,7 +139,6 @@ func (e *TFIDFPhraseExtractor) extractPhrases(text string) []string {
 	return out
 }
 
-// classifyPhrase 短语分类
 func (e *TFIDFPhraseExtractor) classifyPhrase(phrase string) PhraseType {
 	actionWords := []string{"下单", "拍下", "入手", "试试", "咨询", "联系", "回复"}
 	empathyWords := []string{"理解", "抱歉", "恭喜", "放心", "明白", "感谢"}
@@ -161,7 +159,6 @@ func (e *TFIDFPhraseExtractor) classifyPhrase(phrase string) PhraseType {
 	return PhraseTypeGeneral
 }
 
-// containsPunct 检查是否包含标点
 func containsPunct(s string) bool {
 	for _, r := range s {
 		if r == '。' || r == '！' || r == '？' || r == '.' || r == '!' || r == '?' ||
@@ -174,7 +171,6 @@ func containsPunct(s string) bool {
 	return false
 }
 
-// containsAny 检查 s 是否包含 words 中任一词
 func containsAny(s string, words []string) bool {
 	for _, w := range words {
 		if len(w) > 0 && containsSubstring(s, w) {
@@ -184,7 +180,6 @@ func containsAny(s string, words []string) bool {
 	return false
 }
 
-// containsSubstring 检查 s 是否包含 sub（rune 安全）
 func containsSubstring(s, sub string) bool {
 	if len(sub) == 0 {
 		return false

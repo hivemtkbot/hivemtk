@@ -88,14 +88,8 @@ type LLMService struct {
 	httpClient *http.Client
 }
 
-// defaultHTTPTimeout 默认 HTTP 客户端超时
-// 可配置，由 NewDispatcherFromConfig 启动时通过 setDefaultHTTPTimeout 注入
-// 默认 180s（覆盖大多数 CPU 推理场景）；开发模式可在 config.yaml 设 720s 等大值。
-// 与 dispatcher.MaxLatency、sales_engine.agentLoopTotalTimeout 共享同一配置源。
 var defaultHTTPTimeout = 180 * time.Second
 
-// setDefaultHTTPTimeout 注入 HTTP 客户端默认超时
-// 由 NewDispatcherFromConfig 启动时调用，从 inference.llm.timeout_seconds 派生
 func setDefaultHTTPTimeout(d time.Duration) {
 	if d <= 0 {
 		return
@@ -112,7 +106,6 @@ func NewLLMService() *LLMService {
 	}
 }
 
-// chatRequest OpenAI 兼容的聊天请求体
 type chatRequest struct {
 	Model            string           `json:"model"`
 	Messages         []chatMessage    `json:"messages"`
@@ -127,8 +120,6 @@ type chatRequest struct {
 	ToolChoice       any              `json:"tool_choice,omitempty"`
 }
 
-// chatMessage OpenAI 兼容的聊天消息
-// 增加 ToolCalls / ToolCallID 字段以支持 tool_call 往返
 type chatMessage struct {
 	Role       string         `json:"role"`
 	Content    string         `json:"content,omitempty"`
@@ -137,20 +128,17 @@ type chatMessage struct {
 	Name       string         `json:"name,omitempty"`
 }
 
-// chatToolCall OpenAI 兼容的 tool_call 结构
 type chatToolCall struct {
 	ID       string           `json:"id"`
 	Type     string           `json:"type"`
 	Function chatToolCallFunc `json:"function"`
 }
 
-// chatToolCallFunc 工具调用 function 部分
 type chatToolCallFunc struct {
 	Name      string `json:"name"`
 	Arguments string `json:"arguments"`
 }
 
-// chatResponse OpenAI 兼容的聊天响应
 type chatResponse struct {
 	ID      string `json:"id"`
 	Object  string `json:"object"`
@@ -179,9 +167,6 @@ type chatResponse struct {
 	} `json:"error,omitempty"`
 }
 
-// applyEnvDefaults 当调用方未显式提供 APIKey/BaseURL/Model 时，
-// 从环境变量注入（LLM_API_KEY / LLM_BASE_URL / LLM_MODEL）。
-// 这使 SalesEngine、会话分配、统一消息等只传 Model/APIType 的调用点也能真正调通 LLM。
 func applyEnvDefaults(cfg *LLMConfig) {
 	if cfg == nil {
 		return
@@ -229,23 +214,6 @@ func (s *LLMService) Generate(ctx context.Context, config *LLMConfig, prompt str
 	return result.Content, nil
 }
 
-// GenerateWithTools 调用 LLM 并返回完整结果（含 tool_calls）。
-//
-// 智能体 Agent Loop 使用：LLM 返回 tool_calls 时由调用方执行工具、
-// 回灌 tool 结果到 config.Messages、再次调用本方法，直到 finish_reason=stop。
-//
-// 消息构造规则：
-//  1. 若 config.Messages 非空（多轮含 tool 结果），优先使用（智能体循环场景）。
-//  2. 否则使用 SystemPrompt + prompt 两段式（向后兼容旧调用方）。
-//
-// 工具构造规则：
-//   - config.Tools 非空时，序列化为 OpenAI tools 数组并设置 tool_choice。
-//   - tool_choice 默认 "auto"；支持 "auto"/"none"/"required" 或 {"type":"function","function":{"name":"xxx"}}。
-//
-// sanitizeToolName 将工具函数名转为 OpenAI/DeepSeek 兼容格式（仅允许 [a-zA-Z0-9_-]）。
-// 本地 llama-server 对函数名较宽松，但云端 DeepSeek 严格校验正则 ^[a-zA-Z0-9_-]+$，
-// 本项目工具名含点号（如 knowledge.search）会被 400 拒绝。此处统一合规化，并在响应时还原。
-// 注意：若两个不同原始名合规化后发生冲突，本函数不保证可逆，但实践中工具名冲突极低。
 func sanitizeToolName(name string) string {
 	var b strings.Builder
 	b.Grow(len(name))
@@ -266,7 +234,6 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 		return nil, err
 	}
 
-	// 构造 messages：优先使用 config.Messages（多轮含 tool 结果）
 	var messages []chatMessage
 	if len(config.Messages) > 0 {
 		messages = make([]chatMessage, 0, len(config.Messages))
@@ -356,10 +323,7 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 
 	logger.Infof("[LLM] request: model=%s tools=%d tool_choice=%v messages=%d body_len=%d config_tools=%d config_toolchoice=%q",
 		config.Model, len(reqBody.Tools), reqBody.ToolChoice, len(messages), len(bodyBytes), len(config.Tools), config.ToolChoice)
-	// v3 审计 P0-13 修复：删除 /tmp/llm_with_tools.json 调试落盘
-	// 风险：含 PII / 业务机密的对话上下文持久化到 /tmp 模式 0644
-	//       任何同主机用户可读、容器内不会自动清理
-	// 如需调试请用 LLM_DEBUG_DUMP_DIR 环境变量，且目录权限 0700
+
 	if debugDir := os.Getenv("LLM_DEBUG_DUMP_DIR"); debugDir != "" && len(reqBody.Tools) > 0 {
 		if err := os.MkdirAll(debugDir, 0700); err == nil {
 			_ = os.WriteFile(filepath.Join(debugDir, "llm_with_tools.json"), bodyBytes, 0600)
@@ -413,7 +377,6 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 	return result, nil
 }
 
-// toChatToolCalls 将公共 ToolCall 转为内部 chatToolCall（结构体序列化）
 func toChatToolCalls(tcs []ToolCall) []chatToolCall {
 	if len(tcs) == 0 {
 		return nil
@@ -466,7 +429,6 @@ func (s *LLMService) GenerateStructured(ctx context.Context, config *LLMConfig, 
 	return result, nil
 }
 
-// callProvider 调用 LLM 提供商
 func (s *LLMService) callProvider(ctx context.Context, config *LLMConfig, body []byte) (*chatResponse, error) {
 	baseURL := config.BaseURL
 	if baseURL == "" {
@@ -489,8 +451,6 @@ func (s *LLMService) callProvider(ctx context.Context, config *LLMConfig, body [
 		endpoint = baseURL + "/v1/messages"
 	}
 
-	// BUG-7 修复：≤0 表示 caller 不显式控制（不擅自改回 3）
-	// 配合 ValidateConfig 强制 caller 显式设置，避免被静默改写
 	maxRetries := config.MaxRetries
 	if maxRetries <= 0 {
 		maxRetries = 1
@@ -582,9 +542,7 @@ func (s *LLMService) ValidateConfig(config *LLMConfig) error {
 	if config.Model == "" {
 		return fmt.Errorf("model is required")
 	}
-	// BUG-7 修复：caller 未显式设 MaxRetries（零值 0）时强制设为 1
-	// 原：< 0 才设；零值 0 不进分支，调用方静默用 3 次（llm.go:494 兜底）
-	// 新：零值 0 视为"未设置"，强制为 1
+
 	if config.MaxRetries <= 0 {
 		config.MaxRetries = 1
 	}
@@ -642,7 +600,6 @@ func (s *LLMService) GetDefaultConfig() *LLMConfig {
 	}
 }
 
-// extractJSON 从 LLM 响应中提取 JSON 子串
 func extractJSON(s string) string {
 	s = strings.TrimSpace(s)
 	startObj := strings.Index(s, "{")

@@ -209,8 +209,6 @@ func (r *ServiceRegistry) Wechat() (WechatServiceLike, error) {
 	return r.wechat, nil
 }
 
-// deliverBridgeOutbound 是 Bridge 下发的占位接口，由 service 包在 Init 时提供真实实现。
-// 如果未注册，则回退到 NoOpBridgeDeliver（返回 nil 不报错，方便本地 mock）。
 var bridgeOutboundDeliver func(ctx context.Context, channel, accountID, conversationID, msgType, content, mediaURL string) error
 
 // RegisterBridgeOutboundDeliver 注册 Bridge 下发实现（service 包在 Init 时调用）
@@ -218,7 +216,6 @@ func RegisterBridgeOutboundDeliver(fn func(ctx context.Context, channel, account
 	bridgeOutboundDeliver = fn
 }
 
-// deliverBridgeOutbound 内部调用（找不到时降级为 noop）
 func deliverBridgeOutbound(ctx context.Context, channel, accountID, conversationID, msgType, content, mediaURL string) error {
 	if bridgeOutboundDeliver == nil {
 		return errors.New("bridge outbound not registered (need to call RegisterBridgeOutboundDeliver at startup)")

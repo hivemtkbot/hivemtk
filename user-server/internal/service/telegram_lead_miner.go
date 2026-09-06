@@ -22,20 +22,16 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// tgLeadOpportunityThreshold 意向分达到该值即判定为「商机」
 const tgLeadOpportunityThreshold = 40
 
-// tgMeaningfulRe 至少包含一个字母/数字/文字，用于过滤纯表情、纯标点的无效发言
 var tgMeaningfulRe = regexp.MustCompile(`[\p{L}\p{N}]`)
 
-// 联系方式信号（出现即视为强购买/合作意向）
 var (
 	tgEmailRe = regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
 	tgPhoneRe = regexp.MustCompile(`\+?\d[\d\-\s]{6,}\d`)
 	tgLinkRe  = regexp.MustCompile(`(?i)(t\.me/|wa\.me/|https?://|whatsapp|wechat|微信|vx[:：]?|加我|私聊)`)
 )
 
-// tgHighIntentKeywords 高意向关键词（每命中一次 +25），覆盖中英双语典型购买/合作信号
 var tgHighIntentKeywords = []string{
 	"多少钱", "价格", "报价", "怎么买", "购买", "下单", "批发", "代理", "加盟",
 	"求购", "现货", "有货", "联系方式", "合作", "预算", "采购", "招商",
@@ -43,7 +39,6 @@ var tgHighIntentKeywords = []string{
 	"order", "wholesale", "budget", "procurement", "distributor", "reseller",
 }
 
-// tgMediumIntentKeywords 中意向关键词（每命中一次 +12）
 var tgMediumIntentKeywords = []string{
 	"咨询", "了解", "需要", "想要", "请问", "怎么卖", "优惠", "折扣", "试用",
 	"方案", "效果", "质量", "发货", "物流", "功能", "多少",
@@ -89,7 +84,6 @@ func DetectTelegramIntent(text string) (score int, signals []string, isOpportuni
 	return score, signals, score >= tgLeadOpportunityThreshold
 }
 
-// formatTelegramLeadDesc 生成线索描述，首部内嵌 [意向分:NN] 供增量更新时解析取最高分。
 func formatTelegramLeadDesc(groupTitle, snippet string, score int, signals []string, isOpportunity bool) string {
 	tag := "群发言线索"
 	if isOpportunity {
@@ -119,7 +113,6 @@ func formatTelegramLeadDesc(groupTitle, snippet string, score int, signals []str
 	return b.String()
 }
 
-// trimRunes 按「字符数」而非字节数截断，避免中文被截半
 func trimRunes(s string, max int) string {
 	r := []rune(s)
 	if len(r) <= max {
@@ -128,8 +121,6 @@ func trimRunes(s string, max int) string {
 	return string(r[:max]) + "…"
 }
 
-// isDuplicateKeyError 判断是否为数据库唯一/主键冲突（并发去重场景），
-// 涵盖 Postgres(pq 23505 / "duplicate key")与中文提示，避免误报为致命错误。
 func isDuplicateKeyError(err error) bool {
 	if err == nil {
 		return false
@@ -141,7 +132,6 @@ func isDuplicateKeyError(err error) bool {
 		strings.Contains(msg, "重复")
 }
 
-// telegramLeadAccountKey 生成去重键：优先 @username，否则回退 tg:<数字ID>
 func telegramLeadAccountKey(username, fromID string) string {
 	username = strings.TrimSpace(username)
 	if username != "" {
@@ -154,19 +144,10 @@ func telegramLeadAccountKey(username, fromID string) string {
 	return ""
 }
 
-// mineTelegramGroupLead 将一条 TG 群发言/私聊真人发言挖掘为销售线索/商机。
-// 幂等去重 + 意向分增量更新；全过程 best-effort，绝不影响入站主链路。
-// hub 为对应的消息中台记录，用于把线索关联到具体会话（销售可直接跳转到聊天上下文）。
-//
-// 返回值 newOpportunity：本次挖掘是否让该发言者「新晋为商机」（首次达到阈值，或意向分跨过
-// 阈值由非商机→商机）。用于上层在群里做「发现线索即主动触达」的精准触发（仅新晋时发一次，避免刷屏）。
-//
-// 2026-08-19：已重构为通用 MineUnifiedLead 的薄包装，所有渠道复用同一套挖掘逻辑。
 func (s *WebhookService) mineTelegramGroupLead(ctx context.Context, hub *model.MessageHub, accountID, groupID, groupTitle, fromID, username, fromName, text string) (newOpportunity bool) {
 	return MineUnifiedLead(ctx, s, hub, TelegramLeadAdapter{}, accountID, groupID, groupTitle, fromID, fromName, username, text)
 }
 
-// boolToInt64 把布尔转为 0/1，用于 is_opportunity 等标记列。
 func boolToInt64(b bool) int64 {
 	if b {
 		return 1
@@ -174,8 +155,6 @@ func boolToInt64(b bool) int64 {
 	return 0
 }
 
-// recordTelegramLeadScore 记录一次群互动事件并重算线索评分（best-effort，缺表/异常均不影响主链路）。
-// 保留向后兼容；通用路径走 recordUnifiedLeadScore。
 func (s *WebhookService) recordTelegramLeadScore(ctx context.Context, clue *model.Clue, isOpp bool) {
 	recordUnifiedLeadScore(ctx, s, clue, "telegram", isOpp)
 }

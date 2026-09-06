@@ -7,7 +7,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/bm25"
 )
 
-// bm25SearchAll 兜底:全产品 BM25-lite 检索
 func (s *RagSearcher) bm25SearchAll(ctx context.Context, query string, topK int) ([]RAGChunk, error) {
 	if s.db == nil {
 		return nil, nil
@@ -20,7 +19,7 @@ func (s *RagSearcher) bm25SearchAll(ctx context.Context, query string, topK int)
 	if err := s.db.WithContext(ctx).
 		Table("knowledge_chunks").
 		Select("id, document_id, content").
-		Where("embedding IS NULL OR embedding IS NOT NULL"). 
+		Where("embedding IS NULL OR embedding IS NOT NULL").
 		Limit(BM25ScanLimit()).
 		Scan(&rows).Error; err != nil {
 		return nil, err
@@ -28,7 +27,6 @@ func (s *RagSearcher) bm25SearchAll(ctx context.Context, query string, topK int)
 	return s.bm25RankAndReturn(rows, terms, topK), nil
 }
 
-// bm25SearchIndex 兜底:单产品 BM25-lite 检索
 func (s *RagSearcher) bm25SearchIndex(ctx context.Context, productID string, query string, topK int) ([]MerchantRAGChunk, error) {
 	if s.db == nil {
 		return nil, nil
@@ -62,7 +60,6 @@ func (s *RagSearcher) bm25SearchIndex(ctx context.Context, productID string, que
 	return result, nil
 }
 
-// bm25RankAndReturn 排序并转 RAGChunk
 func (s *RagSearcher) bm25RankAndReturn(rows []chunkRow, terms []string, topK int) []RAGChunk {
 	pairs := s.bm25Rank(rows, terms)
 	if len(pairs) > topK {
@@ -71,7 +68,6 @@ func (s *RagSearcher) bm25RankAndReturn(rows []chunkRow, terms []string, topK in
 	return s.toRAGChunks(pairs)
 }
 
-// bm25Rank BM25-lite 排序
 type scored struct {
 	row   chunkRow
 	score float64
@@ -97,4 +93,3 @@ func (s *RagSearcher) bm25Rank(rows []chunkRow, terms []string) []scored {
 func ScoreText(text string, terms []string) float64 {
 	return bm25.ScoreText(text, terms)
 }
-

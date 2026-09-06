@@ -15,7 +15,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupPollingLockTestDB 准备带 telegram_accounts 表的测试库
 func setupPollingLockTestDB(t *testing.T) *gorm.DB {
 	db := testutil.NewTestDB(t, &model.TelegramAccount{})
 	if err := db.Exec("DELETE FROM telegram_accounts").Error; err != nil {
@@ -24,7 +23,6 @@ func setupPollingLockTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// seedTelegramAccount 插入一条 telegram_accounts 记录
 func seedTelegramAccount(t *testing.T, db *gorm.DB, id uint, name, token string) *model.TelegramAccount {
 	acc := &model.TelegramAccount{
 		ID:          id,
@@ -38,10 +36,6 @@ func seedTelegramAccount(t *testing.T, db *gorm.DB, id uint, name, token string)
 	return acc
 }
 
-// withPollingLockRepo 在测试范围内临时替换全局 pollingLockRepo
-//
-// service 门面内部用 sync.Once 构造 pollingLockRepo，无法直接覆盖；
-// 通过重置 sync.Once + 注入新 repo 实现测试隔离。
 func withPollingLockRepo(t *testing.T, repo *repository.TelegramPollingLockRepository) {
 	prev := pollingLockRepo
 	prevOnce := pollingLockRepoOnce

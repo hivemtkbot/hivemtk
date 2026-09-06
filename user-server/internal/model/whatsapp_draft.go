@@ -25,4 +25,3 @@ func (m *WhatsappDraft) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
-

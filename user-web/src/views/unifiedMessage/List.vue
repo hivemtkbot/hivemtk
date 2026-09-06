@@ -1,6 +1,6 @@
 <template>
   <div class="unified-message-container">
-    <!-- 页面标题与操作区 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="page-header">
         <div class="header-text">
@@ -16,7 +16,7 @@
       </div>
     </el-card>
 
-    <!-- 渠道 Tab -->
+    
     <el-tabs v-model="activeChannel" class="channel-tabs" @tab-change="handleChannelChange">
       <el-tab-pane v-for="ch in channelTabs" :key="ch.value" :name="ch.value">
         <template #label>
@@ -34,7 +34,7 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- 搜索表单 -->
+    
     <div class="search-form">
       <el-form :inline="true" :model="searchForm" class="search-form-content">
         <el-form-item :label="$t('关键字')">
@@ -85,7 +85,7 @@
       </el-form>
     </div>
 
-    <!-- 消息列表 -->
+    
     <el-table
       :data="messageList"
       border
@@ -172,7 +172,7 @@
       </el-table-column>
     </el-table>
 
-    <!-- 分页 -->
+    
     <div class="pagination-container">
       <el-pagination
         :current-page="pagination.page"
@@ -185,7 +185,7 @@
       />
     </div>
 
-    <!-- 消息详情对话框 -->
+    
     <el-dialog v-model="detailDialogVisible" title="消息详情" width="800px" top="5vh">
       <div v-loading="detailLoading">
         <el-card class="detail-card">
@@ -228,37 +228,32 @@ import { getMyAgent } from '@/api/customerService'
 import AgentSocket from '@/utils/agentSocket'
 import { CHANNEL_OPTIONS, getChannelLabel, getChannelTagType } from '@/constants/channel'
 
-// 响应式数据
-const loading = ref(false)
+const loading = ref(false);
 const detailLoading = ref(false)
 const messageList = ref([])
 const currentMessage = ref({})
 const detailDialogVisible = ref(false)
 
-// 渠道 Tab 数据：全部 + 16 个渠道
 const channelTabs = [
   { value: 'all', label: '全部', icon: 'Grid' },
   ...CHANNEL_OPTIONS.map((c) => ({ value: c.value, label: c.label, icon: c.icon }))
-]
+];
 const activeChannel = ref('all')
 const channelCounts = ref({ all: 0 })
 
-// 搜索表单
 const searchForm = reactive({
   keyword: '',
   type: '',
   status: ''
-})
+});
 const dateRange = ref([])
 
-// 分页
 const pagination = reactive({
   page: 1,
   pageSize: 10,
   total: 0
-})
+});
 
-// 类型枚举
 const TYPE_LABEL = {
   system: '系统消息',
   user: '用户消息',
@@ -268,7 +263,7 @@ const TYPE_LABEL = {
   image: '图片',
   file: '文件',
   event: '事件'
-}
+};
 const TYPE_TAG = {
   system: 'info',
   user: 'primary',
@@ -282,7 +277,6 @@ const TYPE_TAG = {
 const getTypeLabel = (v) => TYPE_LABEL[v] || (v ? String(v) : '-')
 const getTypeTagType = (v) => TYPE_TAG[v] || ''
 
-// 状态枚举
 const STATUS_LABEL = {
   unread: '未读',
   read: '已读',
@@ -291,7 +285,7 @@ const STATUS_LABEL = {
   sent: '已发送',
   failed: '失败',
   received: '已接收'
-}
+};
 const STATUS_TAG = {
   unread: 'danger',
   read: 'info',
@@ -304,11 +298,9 @@ const STATUS_TAG = {
 const getStatusLabel = (v) => STATUS_LABEL[v] || (v ? String(v) : '-')
 const getStatusTagType = (v) => STATUS_TAG[v] || 'info'
 
-// 生命周期
-let agentSocketInst = null
+let agentSocketInst = null;
 let realtimeTimer = null
 
-// R55 T6: 接入坐席 WS 通道——新消息/新会话到达时自动刷新，无需手动点刷新
 const setupRealtime = async () => {
   if (agentSocketInst) return
   try {
@@ -322,19 +314,16 @@ const setupRealtime = async () => {
       onError: (e) => { console.warn('[unifiedMessage ws]', e) }
     })
     agentSocketInst.connect()
-  } catch (e) {
-    // 登录态不可得时静默跳过（保持手动刷新可用）
-  }
-}
+  } catch (e) {}
+};
 
-// 3s 去抖合并刷新（突发多条消息只刷一次）
 const scheduleRealtimeRefresh = () => {
   if (realtimeTimer) return
   realtimeTimer = setTimeout(() => {
     realtimeTimer = null
     fetchMessageList()
   }, 3000)
-}
+};
 
 onMounted(() => {
   fetchMessageList()
@@ -346,13 +335,11 @@ onUnmounted(() => {
   if (agentSocketInst) { agentSocketInst.disconnect?.(); agentSocketInst = null }
 })
 
-// 切换渠道 Tab
 const handleChannelChange = (val) => {
   pagination.page = 1
   fetchMessageList()
-}
+};
 
-// 获取消息列表
 const fetchMessageList = async () => {
   loading.value = true
   try {
@@ -374,8 +361,7 @@ const fetchMessageList = async () => {
     messageList.value = res.list || []
     pagination.total = res.total || 0
 
-    // 更新渠道计数（基于当前结果聚合）
-    const counts = { all: messageList.value.length }
+    const counts = { all: messageList.value.length };
     messageList.value.forEach((m) => {
       const ch = m.channel || m.platform
       if (ch) counts[ch] = (counts[ch] || 0) + 1
@@ -386,7 +372,7 @@ const fetchMessageList = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
 const handleSearch = () => {
   pagination.page = 1
@@ -414,19 +400,16 @@ const handleCurrentChange = (val) => {
   fetchMessageList()
 }
 
-// 标记已读
 const handleMarkRead = (row) => {
   if (!row) return
   row.status = 'read'
   ElMessage.success(i18n.global.t('已标记为已读'))
-}
+};
 
-// 重发
 const handleResend = (row) => {
   ElMessage.info(i18n.global.t('已触发重发：') + (row.message_id || row.id || '-'))
-}
+};
 
-// 复制内容
 const handleCopyContent = async (row) => {
   const text = row?.content || row?.text || ''
   if (!text) {
@@ -448,9 +431,8 @@ const handleCopyContent = async (row) => {
   } catch (e) {
     ElMessage.error(i18n.global.t('复制失败，请手动选择'))
   }
-}
+};
 
-// 时间格式化
 const formatTime = (val) => {
   if (!val) return '-'
   try {
@@ -461,14 +443,13 @@ const formatTime = (val) => {
   } catch (e) {
     return val
   }
-}
+};
 
-// 查看消息详情
 const handleViewDetail = async (row) => {
   currentMessage.value = row
   detailDialogVisible.value = true
   await fetchMessageDetail(row.id)
-}
+};
 
 const fetchMessageDetail = async (id) => {
   detailLoading.value = true

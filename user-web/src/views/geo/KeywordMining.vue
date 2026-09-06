@@ -1,7 +1,7 @@
 <template>
   <div class="geo-page">
 
-    <!-- 搜索 / 挖掘区 -->
+    
     <el-card shadow="never" class="search-card">
       <el-form :model="query" label-width="92px" class="search-form">
         <el-row :gutter="16">
@@ -35,7 +35,7 @@
       </el-form>
     </el-card>
 
-    <!-- 结果表格 -->
+    
     <el-card shadow="never" class="table-card">
       <template #header>
         <div class="card-header">
@@ -224,11 +224,10 @@ const handleDelete = (row) => {
 
 onMounted(async () => {
   loadList()
-  // 加载品牌配置供语义扩展/聚类使用
   try {
     const cfg = await geoApi.getConfig()
     brandName.value = cfg?.brand_name || ''
-  } catch (e) { /* 忽略 */ }
+  } catch (e) {}
 })
 </script>
 

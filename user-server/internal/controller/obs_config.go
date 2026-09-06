@@ -183,4 +183,3 @@ func (c *ObsConfigController) GetDefaultConfig(ctx *gin.Context) {
 
 	response.Success(ctx, config, "查询成功")
 }
-

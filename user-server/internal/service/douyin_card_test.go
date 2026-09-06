@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupDouyinCardServiceTestDB 设置抖音卡片服务测试数据库
 func setupDouyinCardServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.DouyinCard{},

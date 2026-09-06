@@ -41,4 +41,3 @@ func TestIntegrationReachAdapter_SendDingTalk_NilService(t *testing.T) {
 		t.Fatalf("应返回 ErrIntegrationServiceNotConfigured，实际: %v", err)
 	}
 }
-

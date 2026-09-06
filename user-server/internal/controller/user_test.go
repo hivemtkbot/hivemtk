@@ -468,4 +468,3 @@ func TestUserController_Login_DisabledUser(t *testing.T) {
 		t.Errorf("Expected status Unauthorized, got %d", w.Code)
 	}
 }
-

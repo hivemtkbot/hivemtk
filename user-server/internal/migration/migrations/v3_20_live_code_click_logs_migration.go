@@ -19,7 +19,6 @@ type LiveCodeClickLogsMigration struct {
 	db *gorm.DB
 }
 
-// 编译期断言实现 migration.Migration 接口
 var _ migration.Migration = (*LiveCodeClickLogsMigration)(nil)
 
 // NewLiveCodeClickLogsMigration 构造函数
@@ -53,4 +52,3 @@ func (m *LiveCodeClickLogsMigration) Up(ctx context.Context) error {
 func (m *LiveCodeClickLogsMigration) Down(ctx context.Context) error {
 	return nil
 }
-

@@ -44,14 +44,14 @@ func TestParse_Empty(t *testing.T) {
 
 func TestParse_InvalidParts(t *testing.T) {
 	cases := []string{
-		"00-abc-def",                       // only 3 parts
-		"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7", // 3 parts
-		"00-4bf92f3577b34da6a3ce929d0e0e47-00f067aa0ba902b7-01", // trace_id too short
-		"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902-01", // span_id too short
-		"00-ZZf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01", // non-hex
-		"00-00000000000000000000000000000000-00f067aa0ba902b7-01", // all-zero trace_id
-		"00-4bf92f3577b34da6a3ce929d0e0e4736-0000000000000000-01", // all-zero span_id
-		"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-1",  // flags too short
+		"00-abc-def",
+		"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7",
+		"00-4bf92f3577b34da6a3ce929d0e0e47-00f067aa0ba902b7-01",
+		"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902-01",
+		"00-ZZf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+		"00-00000000000000000000000000000000-00f067aa0ba902b7-01",
+		"00-4bf92f3577b34da6a3ce929d0e0e4736-0000000000000000-01",
+		"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-1",
 	}
 	for _, h := range cases {
 		_, err := Parse(h)

@@ -16,7 +16,7 @@ import (
 // InMemoryStorage 内存存储实现
 type InMemoryStorage struct {
 	knowledgeBases map[string]*KnowledgeBaseInfo
-	documents      map[string]map[string]*Document 
+	documents      map[string]map[string]*Document
 	mutex          sync.RWMutex
 }
 
@@ -213,9 +213,8 @@ func (c *InMemoryCache) Delete(key string) {
 	delete(c.items, key)
 }
 
-// startCleanup 启动清理过期项的goroutine
 func (c *InMemoryCache) startCleanup() {
-	ticker := time.NewTicker(5 * time.Minute) 
+	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
 	for range ticker.C {
@@ -223,7 +222,6 @@ func (c *InMemoryCache) startCleanup() {
 	}
 }
 
-// cleanupExpired 清理过期项
 func (c *InMemoryCache) cleanupExpired() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -316,4 +314,3 @@ func NewConfigurableRagRetrievalService() *RagRetrievalServiceImpl {
 	}
 	return retrieval
 }
-

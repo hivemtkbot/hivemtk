@@ -55,12 +55,12 @@ func NewAssetBundleController(svc *service.AssetBundleService) *AssetBundleContr
 //	POST   /api/asset-bundle/enabled/list 查询已热启用的资产包列表
 func (c *AssetBundleController) Register(rg *gin.RouterGroup) {
 	g := rg.Group("/asset-bundle")
-	// 读操作：任意登录用户
+
 	g.GET("/:id", c.Get)
 	g.GET("/by-aid/:aid", c.GetByAssetID)
 	g.POST("/list", c.List)
 	g.POST("/enabled/list", c.GetEnabled)
-	// 写操作：admin only（防 staff 改 / 删 / 启停客户可见资产包）
+
 	admin := rg.Group("/asset-bundle", middleware.AdminAuthMiddleware())
 	{
 		admin.POST("", c.Create)
@@ -369,8 +369,6 @@ func (c *AssetBundleController) MerchantParse(ctx *gin.Context) {
 	response.Success(ctx, resp, "ok")
 }
 
-// assetBundleStatusToInt 将 model.AssetBundleStatus 枚举映射为 service 层约定的状态码。
-// 约定与 service.statusToAssetBundleStatus 反向：0=不筛选, 1=draft, 2=active, 3=inactive, 4=archived。
 func assetBundleStatusToInt(s model.AssetBundleStatus) int {
 	switch s {
 	case model.AssetBundleStatusDraft:
@@ -385,4 +383,3 @@ func assetBundleStatusToInt(s model.AssetBundleStatus) int {
 		return 0
 	}
 }
-

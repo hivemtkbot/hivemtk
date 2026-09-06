@@ -15,7 +15,6 @@ func (a *GenericAdapter) MapClaims(c *IDTokenClaims) *NormalizedUser {
 	return a.normalize(c)
 }
 
-// stringExtra 从 ID Token Extra claims 读取字符串值
 func stringExtra(c *IDTokenClaims, key string) (string, bool) {
 	if c == nil || c.Extra == nil {
 		return "", false
@@ -27,4 +26,3 @@ func stringExtra(c *IDTokenClaims, key string) (string, bool) {
 	s, ok := v.(string)
 	return s, ok && s != ""
 }
-

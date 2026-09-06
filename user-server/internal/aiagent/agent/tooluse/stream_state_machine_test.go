@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-
 // TestStateMachine_NormalText 验证正常文本流
 func TestStateMachine_NormalText(t *testing.T) {
 	sm := NewStreamStateMachine()
@@ -182,9 +181,9 @@ func TestMatchJSONEnd(t *testing.T) {
 		endIdx   int
 	}{
 		{`{"a":1}`, 0, true, 6},
-		{`{"a":{"b":2}}`, 0, true, 12}, 
-		{`{"a":[1,2,3]}`, 0, true, 12}, 
-		{`{"a":"x{y}z"}`, 0, true, 12}, 
+		{`{"a":{"b":2}}`, 0, true, 12},
+		{`{"a":[1,2,3]}`, 0, true, 12},
+		{`{"a":"x{y}z"}`, 0, true, 12},
 		{`{"a":1`, 0, false, -1},
 		{`{`, 0, false, -1},
 	}
@@ -198,7 +197,6 @@ func TestMatchJSONEnd(t *testing.T) {
 		}
 	}
 }
-
 
 // TestToolRouter_BasicRoute 测试基本路由
 func TestToolRouter_BasicRoute(t *testing.T) {
@@ -354,7 +352,6 @@ func TestToolRouter_Stats(t *testing.T) {
 	}
 }
 
-
 // TestDoubleIntercept_DirectText 测试无工具调用的直接流
 func TestDoubleIntercept_DirectText(t *testing.T) {
 	registry := NewToolRegistry()
@@ -483,7 +480,7 @@ func TestDoubleIntercept_RecursiveGuard(t *testing.T) {
 
 	secondPass := &testMockSecondPass{
 		generateFunc: func(_ context.Context, _, _ string, _ ToolResult, chunkHandler func(string)) (string, error) {
-			chunkHandler("您的订单已发货调用工具：{\"tool\":\"order.get\"}") 
+			chunkHandler("您的订单已发货调用工具：{\"tool\":\"order.get\"}")
 			return "您的订单已发货", nil
 		},
 	}
@@ -565,8 +562,6 @@ func TestDoubleIntercept_RequiresSecondPass(t *testing.T) {
 	}
 }
 
-
-// testMockTool 通用 mock 工具
 type testMockTool struct {
 	nameVal   string
 	category  ToolCategory
@@ -587,12 +582,10 @@ func (t *testMockTool) Execute(_ context.Context, _ map[string]any) (ToolResult,
 	return ToolResult{Success: true, Data: t.resultStr}, nil
 }
 
-// testToolError 测试用工具错误
 type testToolError struct{ msg string }
 
 func (e *testToolError) Error() string { return e.msg }
 
-// testRateLimiter 测试用限流器
 type testRateLimiter struct {
 	acquireFunc func(ctx context.Context, key string) error
 }
@@ -601,12 +594,10 @@ func (r *testRateLimiter) Acquire(ctx context.Context, key string) error {
 	return r.acquireFunc(ctx, key)
 }
 
-// testRateLimitError 限流错误
 type testRateLimitError struct{}
 
 func (e *testRateLimitError) Error() string { return "rate limited" }
 
-// testMockSecondPass 测试用二进宫 LLM
 type testMockSecondPass struct {
 	generateFunc func(ctx context.Context, originalContent, toolName string, toolResult ToolResult, chunkHandler func(string)) (string, error)
 }
@@ -619,4 +610,3 @@ func (m *testMockSecondPass) GenerateReassembledReply(
 ) (string, error) {
 	return m.generateFunc(ctx, originalContent, toolName, toolResult, chunkHandler)
 }
-

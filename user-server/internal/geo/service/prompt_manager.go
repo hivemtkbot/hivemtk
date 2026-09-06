@@ -20,8 +20,6 @@ func NewPromptManager() *PromptManager {
 	return &PromptManager{}
 }
 
-// normalizeLanguage 把传入的语言码规整为支持值
-// 不支持的一律 fallback 到 zh（中文是产品主语言）
 func normalizeLanguage(lang string) string {
 	switch lang {
 	case "zh", "zh-CN", "zh-cn", "chinese":
@@ -35,8 +33,6 @@ func normalizeLanguage(lang string) string {
 	}
 }
 
-// --- 实体抽取 Prompt ---
-
 // EntityExtractPrompt 根据文档标题和正文生成实体抽取 Prompt
 func (pm *PromptManager) EntityExtractPrompt(title, content string) string {
 	return pm.EntityExtractPromptWithLang("zh", title, content)
@@ -47,7 +43,7 @@ func (pm *PromptManager) EntityExtractPromptWithLang(lang, title, content string
 	norm := normalizeLanguage(lang)
 
 	switch norm {
-	case "en", "ja": // ja 当前走英文 fallback
+	case "en", "ja":
 		return fmt.Sprintf(`You are a named entity extraction expert. Extract structured entities and relations from the given document.
 
 【Document Title】
@@ -74,7 +70,7 @@ Respond ONLY with valid JSON, no markdown fences:
 
 【Start】`, title, content)
 
-	default: // zh
+	default:
 		return fmt.Sprintf(`你是实体抽取专家。请从以下文档中抽取结构化实体和实体关系。
 
 【文档标题】
@@ -102,8 +98,6 @@ Respond ONLY with valid JSON, no markdown fences:
 【开始输出】`, title, content)
 	}
 }
-
-// --- 信源分类 Prompt ---
 
 // SourceClassifyPrompt 按语言返回信源分类 Prompt（A/B/C/D + 央媒/省市/行业/无效）
 func (pm *PromptManager) SourceClassifyPrompt(url, content string) string {
@@ -155,7 +149,6 @@ Respond ONLY with valid JSON:
 	}
 }
 
-// truncate 安全截断，避免超长 Prompt
 func truncate(s string, maxLen int) string {
 	if maxLen <= 0 {
 		return s

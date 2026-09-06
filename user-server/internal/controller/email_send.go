@@ -44,5 +44,3 @@ func (c *EmailSendController) SendEmail(ctx *gin.Context) {
 
 	response.Success(ctx, email, "发送成功")
 }
-
-

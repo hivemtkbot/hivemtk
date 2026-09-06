@@ -17,7 +17,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupMarketingFlowTestDB 设置测试数据库
 func setupMarketingFlowTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&contentmodel.MarketingFlow{},
@@ -26,7 +25,6 @@ func setupMarketingFlowTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// setupMarketingFlowRouter 设置测试路由
 func setupMarketingFlowRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 
@@ -744,4 +742,3 @@ func TestMarketingFlowController_GetExecutionStats(t *testing.T) {
 		})
 	}
 }
-

@@ -17,7 +17,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupTestControllerDB 设置测试数据库
 func setupTestControllerDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.SystemUser{},
@@ -39,13 +38,13 @@ func TestAccountController_CreateAccount_Success(t *testing.T) {
 	router.POST("/accounts", ctrl.CreateAccount)
 
 	createReq := dto.CreateAccountRequest{
-		TgBotToken:          "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
-		Price:               "100.0",
-		GroupID:             123,
-		ProxyEnableProxy:    false,
-		ProxyProtoclo:       "http",
-		ProxyHost:           "localhost",
-		ProxyPort:           8080,
+		TgBotToken:       "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
+		Price:            "100.0",
+		GroupID:          123,
+		ProxyEnableProxy: false,
+		ProxyProtoclo:    "http",
+		ProxyHost:        "localhost",
+		ProxyPort:        8080,
 	}
 	body, _ := json.Marshal(createReq)
 
@@ -84,7 +83,7 @@ func TestAccountController_CreateAccount_MissingRequiredFields(t *testing.T) {
 	router.POST("/accounts", ctrl.CreateAccount)
 
 	createReq := dto.CreateAccountRequest{
-		TgBotToken: "", 
+		TgBotToken: "",
 	}
 	body, _ := json.Marshal(createReq)
 
@@ -407,4 +406,3 @@ func TestAccountController_CreateAccount_Default(t *testing.T) {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
-

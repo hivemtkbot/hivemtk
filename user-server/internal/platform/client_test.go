@@ -62,4 +62,3 @@ func TestClient_Do_StructuredError(t *testing.T) {
 		t.Fatalf("expected msg 'not found', got %q", perr.Msg())
 	}
 }
-

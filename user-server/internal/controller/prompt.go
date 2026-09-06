@@ -54,7 +54,7 @@ type PublishRequest struct {
 	SOPNodeID          string `json:"sop_node_id,omitempty"`
 	SOPID              uint   `json:"sop_id,omitempty"`
 	ImprovementNotes   string `json:"improvement_notes,omitempty"`
-	Variables          string `json:"variables,omitempty"` // JSON 字符串
+	Variables          string `json:"variables,omitempty"`
 }
 
 // Publish 发布新版本（从 draft → active，自动把旧版本降为 retired）

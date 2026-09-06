@@ -35,9 +35,7 @@ func DetectIdentityConflicts(ctx context.Context, repo repository.CustomerReposi
 	if pageSize < 1 {
 		pageSize = 20
 	}
-	// v3 审计 P1-29 修复：分页拉取避免 1000 硬上限
-	// 原：repo.List(ctx, 1, 1000, "") → 客户量 >1000 时漏检
-	// 新：分页拉取所有客户
+
 	const fetchPageSize = 500
 	all := make([]*model.Customer, 0, fetchPageSize*2)
 	for offset := 0; ; offset += fetchPageSize {
@@ -58,7 +56,6 @@ func DetectIdentityConflicts(ctx context.Context, repo repository.CustomerReposi
 		return []*IdentityConflict{}, 0
 	}
 
-	// 按各身份字段聚合
 	phoneMap := map[string][]*model.Customer{}
 	emailMap := map[string][]*model.Customer{}
 	wechatMap := map[string][]*model.Customer{}

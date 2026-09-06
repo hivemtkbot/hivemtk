@@ -58,7 +58,6 @@ func (r *accountRepo) GetAccountList(ctx context.Context) ([]*model.Account, err
 	return accounts, err
 }
 
-// First 获取首条账号（按主键排序）
 func (r *accountRepo) First(ctx context.Context) (*model.Account, error) {
 	var account model.Account
 	if err := r.db.WithContext(ctx).First(&account).Error; err != nil {

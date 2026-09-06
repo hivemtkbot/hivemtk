@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-// refreshAll 帮助函数: 测试中设置 env 后立即刷新缓存, 模拟 "env 已生效"
 func refreshAll() { DefaultManager().ReloadAll() }
 
 func TestFlag_DefaultFalse(t *testing.T) {
@@ -197,4 +196,3 @@ func TestFlag_ReloadAll_UpdateLastReload(t *testing.T) {
 		t.Errorf("LastReload should advance: before=%s after=%s", before, after)
 	}
 }
-

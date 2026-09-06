@@ -8,7 +8,7 @@ type WhatsAppMessageQueue struct {
 	QueueID   string    `gorm:"type:varchar(64);index" json:"queue_id"`
 	MessageID string    `gorm:"type:varchar(64);index" json:"message_id"`
 	Content   string    `gorm:"type:text" json:"content"`
-	Status    string    `gorm:"type:varchar(20);index" json:"status"` 
+	Status    string    `gorm:"type:varchar(20);index" json:"status"`
 	Platform  string    `gorm:"type:varchar(32)" json:"platform"`
 	Recipient string    `gorm:"type:varchar(64);index" json:"recipient"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
@@ -27,7 +27,7 @@ type WhatsAppQueueStatus struct {
 	Total     int       `json:"total"`
 	Sent      int       `json:"sent"`
 	Failed    int       `json:"failed"`
-	Status    string    `gorm:"type:varchar(20);index" json:"status"` 
+	Status    string    `gorm:"type:varchar(20);index" json:"status"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
@@ -36,4 +36,3 @@ type WhatsAppQueueStatus struct {
 func (WhatsAppQueueStatus) TableName() string {
 	return "whatsapp_queue_statuses"
 }
-

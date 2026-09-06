@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupSystemConfigServiceTestDB 设置系统配置服务测试数据库
 func setupSystemConfigServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.SystemConfig{},
@@ -22,7 +21,6 @@ func setupSystemConfigServiceTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// newTestSystemConfigRepository 创建测试仓库
 func newTestSystemConfigRepository(database *gorm.DB) repository.SystemConfigRepository {
 	return repository.NewSystemConfigRepository()
 }
@@ -109,7 +107,6 @@ func TestSystemConfigService_SaveConfig(t *testing.T) {
 		t.Errorf("Expected website URL 'https://newexample.com', got %s", savedConfig.WebsiteURL)
 	}
 
-	// 验证配置已保存到数据库
 	var count int64
 	database.Model(&model.SystemConfig{}).Count(&count)
 	if count != 1 {
@@ -217,7 +214,6 @@ func TestSystemConfigService_SaveConfig_MultipleUpdates(t *testing.T) {
 	}
 	service.SaveConfig(context.Background(), config2)
 
-	// 验证最终配置
 	var count int64
 	database.Model(&model.SystemConfig{}).Count(&count)
 	if count != 1 {

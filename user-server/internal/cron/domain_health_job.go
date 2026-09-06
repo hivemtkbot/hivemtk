@@ -42,7 +42,6 @@ func (j *DomainHealthCheckJob) Start() {
 	}
 }
 
-// runOnce 单次执行探测
 func (j *DomainHealthCheckJob) runOnce() {
 	defer func() {
 		if r := recover(); r != nil {
@@ -65,4 +64,3 @@ func (j *DomainHealthCheckJob) runOnce() {
 	}
 	logger.Infof("[domain-health] 探测完成 total=%d healthy=%d unhealthy=%d", len(results), healthy, unhealthy)
 }
-

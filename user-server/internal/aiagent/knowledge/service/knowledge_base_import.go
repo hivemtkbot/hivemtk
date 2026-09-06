@@ -62,7 +62,7 @@ func (s *KnowledgeBaseService) ImportDocument(ctx context.Context, title string,
 		return nil, fmt.Errorf("创建文件失败: %w", err)
 	}
 	defer dst.Close()
-	// io.LimitReader 双保险：ContentLength 可伪造，实际读取超限即中止并清理
+
 	if _, err := io.Copy(dst, io.LimitReader(file, MaxUploadFileSize+1)); err != nil {
 		_ = os.Remove(filePath)
 		return nil, fmt.Errorf("写入文件失败: %w", err)
@@ -102,7 +102,6 @@ func (s *KnowledgeBaseService) ImportDocument(ctx context.Context, title string,
 	}, nil
 }
 
-// processDocumentAsync 异步处理文档
 func (s *KnowledgeBaseService) processDocumentAsync(ctx context.Context, documentID uint, filePath string) {
 	bgCtx := ctx
 	defer func() {
@@ -188,4 +187,3 @@ func (s *KnowledgeBaseService) markDocumentFailed(ctx context.Context, documentI
 		"error_msg": errMsg,
 	}).Error
 }
-

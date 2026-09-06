@@ -1,8 +1,6 @@
 package service
 
 import (
-	"net/url"
-	"regexp"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -11,7 +9,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -31,7 +31,6 @@ const (
 	PublishStatusFailed  = "failed"
 )
 
-// platformDef 内置平台定义
 type platformDef struct {
 	Name        string
 	DisplayName string
@@ -40,16 +39,10 @@ type platformDef struct {
 	Branch      string
 	AuthType    string
 	Enabled     bool
-	// Capability 平台真实能力标记：
-	//   "real_api"     — 有公开 REST API，技术上完全可实现真实发布
-	//   "cookie_gray"  — 无公开 API，需要浏览器 cookie 灰产方式（不稳定）
-	//   "stub"         — 占位符，无实现
-	//   "disabled"     — 默认禁用
+
 	Capability string
 }
 
-// defaultPlatforms 平台清单：只保留技术上真实可实现的平台
-// Cookie 灰产类（掘金/知乎/CSDN/微博/小红书/抖音/头条）全部剔除，标记 disabled
 func defaultPlatforms() []platformDef {
 	return []platformDef{
 		{Name: "github_readme", DisplayName: "GitHub README", URL: "https://github.com", Path: "README.md", Branch: "master", AuthType: "token", Enabled: true, Capability: "real_api"},
@@ -98,7 +91,6 @@ func NewPlatformService(
 func (s *PlatformService) ListPlatforms(ctx context.Context) []dto.PlatformInfo {
 	defs := defaultPlatforms()
 
-	// 查 DB 中已配置的有效账号的 platform set
 	activeAccounts, _, err := s.accountRepo.GetList("", 1, 100)
 	hasAccount := make(map[string]bool)
 	if err == nil {
@@ -111,25 +103,24 @@ func (s *PlatformService) ListPlatforms(ctx context.Context) []dto.PlatformInfo 
 
 	result := make([]dto.PlatformInfo, 0, len(defs))
 	for _, p := range defs {
-		// capability=cookie_gray 的平台，只有显式在 DB 配了账号才 enabled
+
 		enabled := p.Enabled
 		if p.Capability == "cookie_gray" {
 			enabled = hasAccount[p.Name]
 		}
 		result = append(result, dto.PlatformInfo{
-			Name:       p.Name,
+			Name:        p.Name,
 			DisplayName: p.DisplayName,
-			URL:        p.URL,
-			AuthType:   p.AuthType,
-			Enabled:    enabled,
-			Capability: p.Capability,
-			HasAccount: hasAccount[p.Name],
+			URL:         p.URL,
+			AuthType:    p.AuthType,
+			Enabled:     enabled,
+			Capability:  p.Capability,
+			HasAccount:  hasAccount[p.Name],
 		})
 	}
 	return result
 }
 
-// validateAccount 校验账号入参（迁移自 ValidateAccount）
 func (s *PlatformService) validateAccount(req *dto.SavePlatformAccountRequest) error {
 	switch req.Platform {
 	case "github_readme", "github_blog":
@@ -162,12 +153,10 @@ func (s *PlatformService) SaveAccount(ctx context.Context, req *dto.SavePlatform
 		if err != nil {
 			return nil, fmt.Errorf("序列化凭证失败: %w", err)
 		}
-		// 凭据 AES-256-GCM 加密落库；未配置 FIELD_ENCRYPTION_KEY 时降级明文并告警（保证业务连续性）
+
 		configJSON = encryptCredentials(string(b))
 	}
 
-	// 同平台+同名视为更新（精确查询，避免分页扫描漏判）
-	// 注意：repo 在 NotFound 时返回非nil零值指针+错误，必须以 err==nil 判定存在性
 	existing, err := s.accountRepo.GetByPlatformAndName(req.Platform, req.AccountName)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
@@ -199,7 +188,6 @@ func (s *PlatformService) SaveAccount(ctx context.Context, req *dto.SavePlatform
 	return toAccountResponse(account), nil
 }
 
-// encryptCredentials 加密凭据 JSON（加密失败降级明文存储，不阻断保存）
 func encryptCredentials(plain string) string {
 	if plain == "" {
 		return ""
@@ -212,11 +200,6 @@ func encryptCredentials(plain string) string {
 	return enc
 }
 
-// decryptCredentials 解密凭据 JSON。
-// 兼容两类存量数据：
-//   - 明文 JSON（加密机制上线前落库，恒以 "{" 开头）→ 原样返回；
-//   - 密文（base64，不会以 "{" 开头）解密失败 → 密钥不匹配/数据损坏，
-//     必须留痕告警并按未配置凭据处理，避免静默降级难以排查。
 func decryptCredentials(stored string) string {
 	if stored == "" {
 		return ""
@@ -232,9 +215,6 @@ func decryptCredentials(stored string) string {
 	return plain
 }
 
-// latestAccountCredentials 取指定平台最新账号的已存凭据（解密后）。
-// 支持别名展开：Publish 接受 "github" 别名，但账号按 github_readme/github_blog 保存，
-// 依次尝试候选平台名直到取到凭据。
 func (s *PlatformService) latestAccountCredentials(platforms ...string) map[string]string {
 	for _, p := range platforms {
 		acc, err := s.accountRepo.GetLatestByPlatform(p)
@@ -252,7 +232,6 @@ func (s *PlatformService) latestAccountCredentials(platforms ...string) map[stri
 	return nil
 }
 
-// toAccountResponse 模型转脱敏响应 DTO（Config 为加密存储的凭据，任何接口不得回显）
 func toAccountResponse(acc *model.GeoPlatformAccount) *dto.PlatformAccountResponse {
 	return &dto.PlatformAccountResponse{
 		ID:             acc.ID,
@@ -292,7 +271,7 @@ func (s *PlatformService) DeleteAccount(ctx context.Context, id string) error {
 
 // Publish 发布文章到平台（迁移自 Publish + publishGitHub）
 func (s *PlatformService) Publish(ctx context.Context, req *dto.PublishRequest) (*dto.PublishResponse, error) {
-	// 加载文章内容
+
 	article, err := s.articleRepo.GetByID(req.ArticleID)
 	if err != nil {
 		return nil, fmt.Errorf("文章不存在: %w", err)
@@ -300,7 +279,6 @@ func (s *PlatformService) Publish(ctx context.Context, req *dto.PublishRequest) 
 
 	def := findPlatform(req.Platform)
 
-	// 补全 path / branch / commit message
 	path := req.Path
 	if path == "" && def != nil {
 		path = def.Path
@@ -328,7 +306,6 @@ func (s *PlatformService) Publish(ctx context.Context, req *dto.PublishRequest) 
 		return s.publishGitHub(ctx, article, req, path, branch, commitMsg)
 	}
 
-	// 非 GitHub 平台：登记待发布记录（复制模式，由用户手动粘贴）
 	publishID := fmt.Sprintf("%s_%d", req.Platform, time.Now().UnixMilli())
 	record := &model.GeoPublishRecord{
 		ArticleID: article.ID,
@@ -350,16 +327,13 @@ func (s *PlatformService) Publish(ctx context.Context, req *dto.PublishRequest) 
 	}, nil
 }
 
-// publishGitHub 通过 GitHub Contents API 发布
 func (s *PlatformService) publishGitHub(
 	ctx context.Context,
 	article *model.GeoArticle,
 	req *dto.PublishRequest,
 	path, branch, commitMsg string,
 ) (*dto.PublishResponse, error) {
-	// 凭据取用链：已保存账号凭据（加密存储）→ 环境变量 → 请求体 auth_token（兼容回退）。
-	// 优先复用托管凭据，避免 token 在每次发布请求中明文传输与日志残留。
-	// "github" 是发布别名，账号实际按 github_readme/github_blog 保存，需展开候选。
+
 	credPlatforms := []string{req.Platform}
 	if req.Platform == "github" {
 		credPlatforms = []string{"github_readme", "github_blog"}
@@ -386,8 +360,6 @@ func (s *PlatformService) publishGitHub(
 		return nil, fmt.Errorf("缺少 repo 参数")
 	}
 
-	// v3 审计 P1：repo/path 来自请求体，直接拼接可经 "../" 或 "@..." 越权写
-	// token 可达的任意仓库/分支。白名单校验 + PathEscape 双保险。
 	var safeRepoRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
 	if !safeRepoRe.MatchString(repo) || strings.Contains(repo, "..") {
 		return nil, fmt.Errorf("repo 参数非法: %q", repo)
@@ -403,14 +375,13 @@ func (s *PlatformService) publishGitHub(
 	apiBase := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s",
 		url.PathEscape(user), url.PathEscape(repo), url.PathEscape(path))
 
-	// 查询已有文件 SHA（存在则为更新）
 	var sha string
 	if getReq, _ := http.NewRequestWithContext(ctx, http.MethodGet, apiBase, nil); getReq != nil {
 		getReq.Header.Set("Authorization", "Bearer "+token)
 		getReq.Header.Set("Accept", "application/vnd.github+json")
 		resp, err := s.httpClient.Do(getReq)
 		if err != nil {
-			// 查询失败不中断发布（按新文件处理），但必须留痕便于排查 422 等后续错误
+
 			logger.Errorf("查询 GitHub 文件元数据失败 path=%s（按新文件继续发布）: %v", path, err)
 		} else {
 			body, _ := io.ReadAll(resp.Body)
@@ -480,7 +451,6 @@ func (s *PlatformService) publishGitHub(
 	}, nil
 }
 
-// saveFailedRecord 记录失败发布
 func (s *PlatformService) saveFailedRecord(articleID, platform, errMsg string) {
 	_ = s.recordRepo.Create(&model.GeoPublishRecord{
 		ArticleID: articleID,

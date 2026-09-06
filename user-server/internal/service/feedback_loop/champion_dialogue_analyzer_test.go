@@ -284,7 +284,6 @@ func TestChampionAnalyzer_AnalyzePipeline_FullPipeline(t *testing.T) {
 		t.Errorf("ExtractedScripts 应非空")
 	}
 
-	// 验证 champion_dialogues 表有记录
 	var dialogueCount int64
 	db.Model(&model.ChampionDialogue{}).Count(&dialogueCount)
 	if dialogueCount == 0 {
@@ -387,7 +386,7 @@ func TestChampionAnalyzer_PersistDialogue_OnConflictUpdate(t *testing.T) {
 	if count != 1 {
 		t.Errorf("after duplicate: count = %d want 1 (ON CONFLICT)", count)
 	}
-	// reward 应被更新为 3.0
+
 	var updated model.ChampionDialogue
 	_ = db.Where("session_id = ?", "sess-dup").First(&updated).Error
 	if !approxEqualF64(updated.Reward, 3.0) {

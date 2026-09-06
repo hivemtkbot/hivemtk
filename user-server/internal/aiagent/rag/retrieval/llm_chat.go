@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"fmt"
@@ -10,9 +9,9 @@ import (
 
 // LLMChatOptions LLM Chat 调用选项
 type LLMChatOptions struct {
-	Temperature  float64 
-	MaxTokens    int     
-	SystemPrompt string  
+	Temperature  float64
+	MaxTokens    int
+	SystemPrompt string
 }
 
 // LLMChatClient LLM 对话客户端接口
@@ -79,7 +78,5 @@ func (NoopLLMChatClient) Chat(_ context.Context, _ string, _ LLMChatOptions) (st
 	return "", fmt.Errorf("LLM chat disabled (noop client)")
 }
 
-// Compile-time 接口断言
 var _ LLMChatClient = (*DispatcherChatAdapter)(nil)
 var _ LLMChatClient = NoopLLMChatClient{}
-

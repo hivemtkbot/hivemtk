@@ -20,11 +20,6 @@ const (
 	PhaseAsync    = "2_phase_async"
 )
 
-// phase0Result Phase 0 并行执行结果聚合
-//
-// 5 层架构合规 : service 直接引用 *model 类型, 不使用 interface{} 占位。
-// 注释中所谓"避免循环依赖"的借口不成立 — service → model 是允许的方向,
-// model → service 才是循环依赖, 两者方向不同。
 type phase0Result struct {
 	customer  *model.Customer
 	memCtx    *model.DialogueMemory
@@ -56,7 +51,7 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 	resp := &SalesResponse{
 		Steps: make([]dto.SalesStepLog, 0, 12),
 	}
-	// phase0 引用闭包, 先声明占位, 后续赋值
+
 	var phase0Ptr *phase0Result
 	defer func() {
 		resp.LatencyMs = int(time.Since(start).Milliseconds())
@@ -146,12 +141,6 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 	return resp, nil
 }
 
-// runPhase0Parallel Phase 0 并行执行 4 个独立任务
-//
-// errgroup.SetLimit(4) 限制并发 goroutine 数, 防止高并发下 DB 连接池耗尽。
-// errgroup.WithContext 默认不限制并发, 4 个任务会瞬时拉起 4 个 goroutine;
-// SetLimit(4) 与任务数一致, 即"4 任务全并发"无节流损失, 但当上游调用并发
-// 增长时 (如 batch / batch 限流后的二次爆发) 可避免 DB pool 被瞬间打满。
 func (e *SalesEngine) runPhase0Parallel(ctx context.Context, req *SalesRequest) *phase0Result {
 	out := &phase0Result{}
 
@@ -236,9 +225,6 @@ func (e *SalesEngine) runPhase0Parallel(ctx context.Context, req *SalesRequest) 
 	return out
 }
 
-// runPhase1Serial Phase 1 串行决策 + LLM 生成
-//
-// 返回 true 表示已转人工 (主流程应跳过 Phase 2/3)
 func (e *SalesEngine) runPhase1Serial(ctx context.Context, req *SalesRequest, resp *SalesResponse, phase0 *phase0Result) bool {
 	intent := phase0.intent
 	memCtx := phase0.memCtx
@@ -283,7 +269,7 @@ func (e *SalesEngine) runPhase1Serial(ctx context.Context, req *SalesRequest, re
 			Step: "5.5_match_script", Status: "ok", LatencyMs: ms(stepStart),
 		}
 		if scriptTpl != nil {
-			// T-2 归因闭环：所用销冠话术 script_id 结构化落 trace span extra
+
 			stepLog.Extra = map[string]any{"script_id": scriptTpl.ID, "objection_category": intent.IntentType}
 			resp.ScriptTemplate = scriptTpl
 		}
@@ -324,13 +310,6 @@ func (e *SalesEngine) runPhase1Serial(ctx context.Context, req *SalesRequest, re
 	return false
 }
 
-// shouldUseParallel FeatureFlag 灰度判定
-//
-// 启用条件:
-//   - env FF_PARALLEL=1 (灰度开关)
-//   - SalesEngine 接受 WebSocket 流式模式 (req.StreamMode 启用)
-//
-// 一键回滚: export FF_PARALLEL=0
 func (e *SalesEngine) shouldUseParallel() bool {
 	return featureflag.Get("parallel").Bool()
 }

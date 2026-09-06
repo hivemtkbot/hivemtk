@@ -23,7 +23,9 @@ func NewSopHeatmapController(svc *service.SopHeatmapService) *SopHeatmapControll
 // GetHeatmap godoc
 // @Summary      SOP 节点转化热力图
 // @Description  返回指定 SOP 的每个节点 entered/completed/drop_rate/avg_duration，
-//               支持 variant 筛选（A/B 测试），limit 控制拉取执行数上限
+//
+//	支持 variant 筛选（A/B 测试），limit 控制拉取执行数上限
+//
 // @Tags         SOP
 // @Produce      json
 // @Security     BearerAuth

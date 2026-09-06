@@ -22,7 +22,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 // DefaultHTTPTimeout 默认 HTTP 超时（外部依赖默认 30s）
 const DefaultHTTPTimeout = 30 * time.Second
 
@@ -81,7 +80,7 @@ func NewBaseClient(opts ...ClientOption) BaseClient {
 		HTTPClient: &http.Client{
 			Timeout: DefaultHTTPTimeout,
 			Transport: &http.Transport{
-				Proxy:                 http.ProxyFromEnvironment, 
+				Proxy:                 http.ProxyFromEnvironment,
 				MaxIdleConns:          100,
 				MaxIdleConnsPerHost:   10,
 				IdleConnTimeout:       90 * time.Second,
@@ -143,7 +142,6 @@ func (c *BaseClient) DoJSONBytes(ctx context.Context, method, url string, body [
 	return c.DoJSON(ctx, method, url, bytes.NewReader(body), headers)
 }
 
-
 // SecureEqual 常量时间字符串比较（防时序攻击）
 //
 // 使用 crypto/subtle 实现。空字符串与任何非空字符串比较均返回 false。
@@ -155,27 +153,25 @@ func SecureEqual(a, b string) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
-
 // InboundMessage 归一化入站消息（跨渠道统一结构）
 //
 // 由各渠道子包的 ToInbound() 方法产出，service 层无差别消费。
 // 字段命名遵循：Platform / AccountID / MessageID / ConversationID / SenderID / SenderName /
 // Content / MsgType / IsGroup / GroupID / GroupName / Timestamp。
 type InboundMessage struct {
-	Platform       string 
-	AccountID      string 
-	MessageID      string 
-	ConversationID string 
-	SenderID       string 
-	SenderName     string 
-	Content        string 
-	MsgType        string 
-	IsGroup        bool   
-	GroupID        string 
-	GroupName      string 
-	Timestamp      int64  
+	Platform       string
+	AccountID      string
+	MessageID      string
+	ConversationID string
+	SenderID       string
+	SenderName     string
+	Content        string
+	MsgType        string
+	IsGroup        bool
+	GroupID        string
+	GroupName      string
+	Timestamp      int64
 }
-
 
 // IngressHandler 渠道入站消息中台接口。
 // 由 service.InboxIngressService 经适配器实现（避免 channelbot 反向依赖 service 层，
@@ -217,23 +213,22 @@ func (m InboundMessage) ToMessageEvent(accountID string) *model.MessageEvent {
 	return event
 }
 
-
 // TemplateComponent WhatsApp 模板消息组件
 //
 // 文档参考：https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages#template
 // 业务侧只关心 parameters（header/body/button 子段），结构化封装以便序列化。
 type TemplateComponent struct {
-	Type       string              `json:"type"`       
-	Parameters []TemplateParameter `json:"parameters"` 
+	Type       string              `json:"type"`
+	Parameters []TemplateParameter `json:"parameters"`
 	SubType    string              `json:"sub_type,omitempty"`
 	Index      string              `json:"index,omitempty"`
 }
 
 // TemplateParameter 模板参数
 type TemplateParameter struct {
-	Type     string         `json:"type"`               
-	Text     string         `json:"text,omitempty"`     
-	Currency *TemplateMoney `json:"currency,omitempty"` 
+	Type     string         `json:"type"`
+	Text     string         `json:"text,omitempty"`
+	Currency *TemplateMoney `json:"currency,omitempty"`
 	DateTime *TemplateTime  `json:"date_time,omitempty"`
 	Image    *TemplateMedia `json:"image,omitempty"`
 }
@@ -241,7 +236,7 @@ type TemplateParameter struct {
 // TemplateMoney 货币参数
 type TemplateMoney struct {
 	FallbackValue string `json:"fallback_value"`
-	Code          string `json:"code"` 
+	Code          string `json:"code"`
 	Amount1000    int64  `json:"amount_1000"`
 }
 
@@ -255,4 +250,3 @@ type TemplateMedia struct {
 	Link string `json:"link,omitempty"`
 	ID   string `json:"id,omitempty"`
 }
-

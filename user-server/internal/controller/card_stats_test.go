@@ -195,4 +195,3 @@ func TestShortLinkStatsController_GetAllStats_Success(t *testing.T) {
 		t.Errorf("Expected 200, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
-

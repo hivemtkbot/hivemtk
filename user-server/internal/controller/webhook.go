@@ -10,9 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"hivemtk-user/internal/middleware"
-        "hivemtk-user/internal/pkg/utils/response"
-        "hivemtk-user/internal/service"
-        "hivemtk-user/internal/service/translation"
+	"hivemtk-user/internal/pkg/utils/response"
+	"hivemtk-user/internal/service"
+	"hivemtk-user/internal/service/translation"
 )
 
 // WebhookController 多渠道 Webhook 控制器
@@ -104,8 +104,6 @@ func (c *WebhookController) Receive(ctx *gin.Context) {
 
 	reqCtx := middleware.InjectLangToCtx(ctx.Request.Context(), c.langResolver, "", 0)
 
-	// 2026-08-25 修复（交付阻断）：飞书官方事件订阅验证流程是 POST url_verification
-	// （要求原样回显 challenge），原先只在自研 GET 端点支持 → 控制台标准配置无法通过。
 	if channel == service.ChannelFeishu {
 		challenge, handled, verr := c.svc.HandleFeishuURLVerification(reqCtx, accountID, body)
 		if handled {
@@ -258,9 +256,7 @@ func (c *WebhookController) FeishuVerify(ctx *gin.Context) {
 		ctx.String(http.StatusNotFound, "account not found")
 		return
 	}
-	// v3 审计 P1-50/P2-39 修复：VerificationToken 为空时也必须拒绝
-	// 原：subtle.ConstantTimeCompare([]byte(""), []byte("")) == 1 → 空 token 也能通过
-	// 新：空 token 一律 403
+
 	if acc.VerificationToken == "" {
 		ctx.String(http.StatusForbidden, "account not configured for verification")
 		return
@@ -390,7 +386,6 @@ func (c *WebhookController) Health(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"status": "ok"}, "ok")
 }
 
-// extractHeaders 提取所需 headers
 func extractHeaders(ctx *gin.Context) map[string]string {
 	headers := make(map[string]string)
 	for _, k := range []string{
@@ -406,7 +401,6 @@ func extractHeaders(ctx *gin.Context) map[string]string {
 	return headers
 }
 
-// extractQuery 提取 query 参数
 func extractQuery(ctx *gin.Context) map[string]string {
 	q := make(map[string]string)
 	for _, k := range []string{"msg_signature", "timestamp", "nonce", "echostr", "challenge", "token", "type"} {
@@ -417,7 +411,6 @@ func extractQuery(ctx *gin.Context) map[string]string {
 	return q
 }
 
-// extractAccountID 从 body 简单提取 account_id
 func extractAccountID(body []byte) string {
 	s := string(body)
 	idx := strings.Index(s, "\"account_id\"")
@@ -468,4 +461,3 @@ func (c *WebhookController) SetAgentBindingService(svc *service.ChannelAgentBind
 		c.svc.SetAgentBindingService(context.Background(), svc)
 	}
 }
-

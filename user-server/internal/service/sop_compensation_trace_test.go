@@ -33,7 +33,7 @@ func TestAppendExecutedNode(t *testing.T) {
 }
 
 func TestAppendExecutedNode_NilSafety(t *testing.T) {
-	appendExecutedNode(nil, nil, 0, "") // 不应 panic
+	appendExecutedNode(nil, nil, 0, "")
 	exec := &model.SOPExecution{}
 	appendExecutedNode(exec, nil, 0, "")
 	if len(exec.ExecutedNodes) != 0 {

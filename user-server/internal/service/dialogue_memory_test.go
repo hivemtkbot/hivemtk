@@ -21,7 +21,7 @@ func setupDialogueMemoryTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.DialogueMemory{},
 		&model.MessageHub{},
-		// M-3：dialogue_memory 作为 MemorySystem 适配器需要 L1/L2/向量 L2 表
+
 		&model.MemoryItem{},
 		&model.CustomerLongTermMemory{},
 	)
@@ -1311,8 +1311,6 @@ func TestListByCustomer_NilDB(t *testing.T) {
 	}
 }
 
-// ---------- M-1：摘要触发改 recurrence（关键词 Jaccard 判重） ----------
-
 // M1-a: 近似重复文本 Jaccard >= 0.6
 func TestKeywordJaccard_NearDuplicate(t *testing.T) {
 	a := "我想了解一下这个产品的价格多少钱"
@@ -1346,7 +1344,7 @@ func TestOfferSummary_RecurrenceTrigger(t *testing.T) {
 	if svc.offerSummary(context.Background(), mem, "u-1", "这个产品的价格是多少钱呢") {
 		t.Error("second message (dup=1) should not trigger yet")
 	}
-	// 第三条近似消息 → 累计重复 >=2 → 触发
+
 	if !svc.offerSummary(context.Background(), mem, "u-1", "这个产品的价格到底是多少钱") {
 		t.Error("third similar message should trigger (dups>=2)")
 	}
@@ -1370,7 +1368,7 @@ func TestOfferSummary_BufferFullTrigger(t *testing.T) {
 	if !triggered {
 		t.Errorf("expected trigger when buffer reaches %d", summaryBufferMax)
 	}
-	// 触发后缓冲清空，重新累计
+
 	if svc.offerSummary(context.Background(), mem, "u-1", "新的一轮开始消息-gamma") {
 		t.Error("buffer should be reset after trigger")
 	}
@@ -1390,8 +1388,6 @@ func TestAppendMessage_NoDispatcherNoSummaryTrigger(t *testing.T) {
 		t.Errorf("no dispatcher: expected no LLM summary writes, got %d", count)
 	}
 }
-
-// ---------- M-3：双轨写合并适配器 ----------
 
 // M3-a: AppendMessage 双写 MemorySystem L1
 func TestAppendMessage_DualWriteL1(t *testing.T) {
@@ -1423,7 +1419,7 @@ func TestRouteSummary_RememberPath(t *testing.T) {
 	var count int64
 	db.Model(&model.CustomerLongTermMemory{}).
 		Where("customer_id = ?", "c-m3").Count(&count)
-	// 摘要 + fact 各一条；第二次路由被 M-2 去重跳过，不翻倍
+
 	if count != 2 {
 		t.Errorf("expected 2 memories after dedup routing, got %d", count)
 	}

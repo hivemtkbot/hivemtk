@@ -35,7 +35,7 @@ func (c *SmartRouterController) SelectAgent(ctx *gin.Context) {
 		return
 	}
 	if result == nil {
-		// 无候选坐席（全离线或满载），返回空让上层降级
+
 		response.Success(ctx, gin.H{"agent": nil, "message": "无可用坐席，请降级到 round-robin"}, "ok")
 		return
 	}

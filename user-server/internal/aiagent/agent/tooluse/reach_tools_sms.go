@@ -37,4 +37,3 @@ func NewReachSMSSendTool(deps ReachToolDeps) *ReachSMSSendTool {
 		deps: deps,
 	}
 }
-

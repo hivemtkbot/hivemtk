@@ -150,4 +150,3 @@ func NewReachDingTalkSendTool(deps ReachToolDeps) *ReachDingTalkSendTool {
 		deps: deps,
 	}
 }
-

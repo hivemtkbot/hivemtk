@@ -29,17 +29,17 @@ const (
 
 // Violation 单条命中。
 type Violation struct {
-	Kind    ViolationKind
-	Hit     string
-	Severity int // 1-3, 3 为最严重
+	Kind     ViolationKind
+	Hit      string
+	Severity int
 }
 
 // RemediationResult 输入侧修复结果。
 type RemediationResult struct {
-	Text              string
-	Original          string
+	Text               string
+	Original           string
 	RemediationApplied bool
-	Hits              []Violation
+	Hits               []Violation
 }
 
 var (
@@ -59,16 +59,15 @@ var (
 		"无视之前的",
 	}
 
-	// piiPatterns 内置 PII 正则（保守匹配以避免误杀）。
 	piiPatterns = []*regexp.Regexp{
-		regexp.MustCompile(`\b1[3-9]\d{9}\b`),                  // 中国大陆手机号
-		regexp.MustCompile(`\b\d{17}[\dXx]\b`),                  // 身份证号
-		regexp.MustCompile(`[\w._%+-]+@[\w.-]+\.[A-Za-z]{2,}`),  // email
-		regexp.MustCompile(`\b\d{16,19}\b`),                     // 银行卡（16-19 位）
+		regexp.MustCompile(`\b1[3-9]\d{9}\b`),
+		regexp.MustCompile(`\b\d{17}[\dXx]\b`),
+		regexp.MustCompile(`[\w._%+-]+@[\w.-]+\.[A-Za-z]{2,}`),
+		regexp.MustCompile(`\b\d{16,19}\b`),
 	}
 
 	mu        sync.RWMutex
-	forbidden = map[string]int{} // word -> severity
+	forbidden = map[string]int{}
 )
 
 // RegisterForbiddenWords 注入/覆盖敏感词词典。
@@ -113,7 +112,7 @@ func Remediate(prompt string) RemediationResult {
 	for _, p := range jailbreakPrefixes {
 		if strings.Contains(lower, p) {
 			hits = append(hits, Violation{Kind: KindJailbreakPrefix, Hit: p, Severity: 3})
-			// 用 [已脱敏指令] 替换命中片段，保留上下文可读性。
+
 			fixed = maskOccurrences(fixed, p, "[sanitized: jailbreak attempt]")
 		}
 	}
@@ -131,13 +130,13 @@ func ScanOutput(text string) []Violation {
 		return nil
 	}
 	hits := make([]Violation, 0, 4)
-	// PII
+
 	for _, re := range piiPatterns {
 		if m := re.FindString(text); m != "" {
 			hits = append(hits, Violation{Kind: KindPII, Hit: m, Severity: 2})
 		}
 	}
-	// 敏感词
+
 	lower := strings.ToLower(text)
 	mu.RLock()
 	for w, sev := range forbidden {
@@ -186,7 +185,7 @@ func maskOccurrences(s, needle, replacement string) string {
 	if needle == "" {
 		return s
 	}
-	// 同时处理大小写情况
+
 	for {
 		idx := strings.Index(strings.ToLower(s), needle)
 		if idx < 0 {

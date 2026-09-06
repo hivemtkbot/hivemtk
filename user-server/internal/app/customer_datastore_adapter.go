@@ -8,9 +8,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// customerDataStoreAdapter P2-3：repository.CustomerRepository → tooluse.CustomerDataStore 适配器。
-//
-// 装配期注入工具层，使 tooluse 不再 import repository。
 type customerDataStoreAdapter struct {
 	repo repository.CustomerRepository
 }
@@ -20,7 +17,6 @@ func NewCustomerDataStore() tooluse.CustomerDataStore {
 	return &customerDataStoreAdapter{repo: repository.NewCustomerRepository()}
 }
 
-// FindByIdentity 按身份标识查询客户（窄接口 5 参；xhs 由 GetByXiaohongshuID 单独处理）。
 func (a *customerDataStoreAdapter) FindByIdentity(ctx context.Context, phone, email, wechatOpenID, douyinOpenID string) (*model.Customer, error) {
 	return a.repo.FindByIdentity(ctx, phone, email, wechatOpenID, douyinOpenID, "")
 }
@@ -55,4 +51,3 @@ func (a *customerDataStoreAdapter) SearchByFilter(ctx context.Context, filter to
 		PageSize:      filter.PageSize,
 	})
 }
-

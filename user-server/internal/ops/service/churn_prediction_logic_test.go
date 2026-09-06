@@ -19,17 +19,17 @@ func TestChurn_CalculateInactiveScore(t *testing.T) {
 	}
 	cases := []tc{
 		{"th30_d0", 0, 30, 0},
-		{"th30_d15", 15, 30, 25},                 
-		{"th30_d29", 29, 30, 48.333333333333336}, 
-		{"th30_d30", 30, 30, 50},                 
-		{"th30_d45", 45, 30, 75},                 
-		{"th30_d60", 60, 30, 100},                
+		{"th30_d15", 15, 30, 25},
+		{"th30_d29", 29, 30, 48.333333333333336},
+		{"th30_d30", 30, 30, 50},
+		{"th30_d45", 45, 30, 75},
+		{"th30_d60", 60, 30, 100},
 		{"th30_d90", 90, 30, 100},
 		{"th30_d365", 365, 30, 100},
 		{"th60_d0", 0, 60, 0},
-		{"th60_d30", 30, 60, 25}, 
-		{"th60_d60", 60, 60, 50}, 
-		{"th60_d90", 90, 60, 75}, 
+		{"th60_d30", 30, 60, 25},
+		{"th60_d60", 60, 60, 50},
+		{"th60_d90", 90, 60, 75},
 		{"th60_d120", 120, 60, 100},
 		{"th7_d0", 0, 7, 0},
 		{"th7_d7", 7, 7, 50},
@@ -37,7 +37,7 @@ func TestChurn_CalculateInactiveScore(t *testing.T) {
 		{"th1_d0", 0, 1, 0},
 		{"th1_d1", 1, 1, 50},
 		{"th1_d2", 2, 1, 100},
-		{"th365_d100", 100, 365, 13.6986301369863}, 
+		{"th365_d100", 100, 365, 13.6986301369863},
 		{"th365_d365", 365, 365, 50},
 		{"th365_d730", 730, 365, 100},
 	}
@@ -75,7 +75,7 @@ func TestChurn_CalculatePurchaseFreqScore(t *testing.T) {
 		{"pf90", 90, 60, 75},
 		{"pf120", 120, 60, 100},
 		{"pf365", 365, 60, 100},
-		{"missing", 0, 60, 0}, 
+		{"missing", 0, 60, 0},
 	}
 
 	passed, failed := 0, 0
@@ -218,7 +218,7 @@ func TestChurn_DetermineRiskLevel(t *testing.T) {
 	passed, failed := 0, 0
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			// 模拟 CalculateChurnPrediction 中的判定逻辑
+
 			var got string
 			if tt.score >= cfg.CriticalRiskScore {
 				got = "critical"
@@ -301,7 +301,7 @@ func TestChurn_GenerateSuggestion(t *testing.T) {
 		name      string
 		factors   []string
 		wantEmpty bool
-		wantSub   string 
+		wantSub   string
 	}
 	cases := []tc{
 		{"empty", []string{}, true, ""},
@@ -369,7 +369,7 @@ func TestChurn_CalculateConfidence(t *testing.T) {
 		wantMax    float64
 	}
 	cases := []tc{
-		{"zero_sample", 50, 0, 0, 0}, 
+		{"zero_sample", 50, 0, 0, 0},
 		{"rate_50_n_1", 50, 1, 0, 1},
 		{"rate_50_n_100", 50, 100, 0.4, 0.6},
 		{"rate_50_n_10000", 50, 10000, 0.49, 0.51},
@@ -558,4 +558,3 @@ func TestChurn_FullCalculationEndToEnd(t *testing.T) {
 	}
 	t.Logf("FullCalculationEndToEnd: %d/%d passed", passed, passed+failed)
 }
-

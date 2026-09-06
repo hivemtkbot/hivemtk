@@ -51,7 +51,7 @@
       </div>
     </el-card>
 
-    <!-- 创建任务对话框 -->
+    
     <el-dialog v-model="dialogVisible" title="创建任务" width="600px" :before-close="handleDialogClose">
       <el-form :model="formData" label-width="100px" :rules="rules" ref="formRef">
         <el-form-item label="任务名称" prop="name">
@@ -135,7 +135,7 @@
       </template>
     </el-dialog>
 
-    <!-- 任务详情对话框 -->
+    
     <el-dialog v-model="detailVisible" title="任务详情" width="700px">
       <el-descriptions :column="1" border>
         <el-descriptions-item label="任务名称">{{ currentJob?.name }}</el-descriptions-item>
@@ -176,43 +176,36 @@ import i18n from '@/i18n'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import smsApi from '@/api/sms'
-// 订单/作业状态：取自统一 orderStatus 常量
-import { getOrderStatusLabel, getOrderStatusTagType } from '@/constants/orderStatus'
+import { getOrderStatusLabel, getOrderStatusTagType } from '@/constants/orderStatus';
 import DOMPurify from 'dompurify'
 
-// 任务列表数据
-const jobList = ref([])
+const jobList = ref([]);
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const loading = ref(false)
 
-// 对话框相关
-const dialogVisible = ref(false)
+const dialogVisible = ref(false);
 const detailVisible = ref(false)
 const formRef = ref(null)
 const currentJob = ref(null)
 const jobDetails = ref([])
 
-// 草稿选项
-const draftOptions = ref([])
+const draftOptions = ref([]);
 const selectedDraft = computed(() => {
   return draftOptions.value.find(draft => draft.id === formData.draftId)
 })
 
-// 表单数据
 const formData = reactive({
   name: '',
   draftId: '',
   phoneList: [],
   sendType: 'immediate',
   scheduleTime: null
-})
+});
 
-// 临时手机
-const tempPhone = ref('')
+const tempPhone = ref('');
 
-// 表单验证规则
 const rules = {
   name: [
     { required: true, message: i18n.global.t('请输入任务名称'), trigger: 'blur' },
@@ -228,9 +221,8 @@ const rules = {
   scheduleTime: [
     { required: true, message: i18n.global.t('请选择定时发送时间'), trigger: 'change' }
   ]
-}
+};
 
-// 获取状态类型
 const getStatusType = (status) => {
   const statusMap = {
     pending: 'info',
@@ -240,9 +232,8 @@ const getStatusType = (status) => {
     failed: 'danger'
   }
   return statusMap[status] || 'info'
-}
+};
 
-// 获取状态文本
 const getStatusText = (status) => {
   const statusMap = {
     pending: '待执行',
@@ -252,25 +243,21 @@ const getStatusText = (status) => {
     failed: '执行失败'
   }
   return statusMap[status] || '未知'
-}
+};
 
-// 禁用今天之前的时间
 const disabledBeforeToday = (time) => {
-  return time.getTime() < Date.now() - 8.64e7 // 禁用今天之前的时间
-}
+  return time.getTime() < Date.now() - 8.64e7;
+};
 
-// 获取草稿选项
 const getDraftOptions = async () => {
   try {
     const response = await smsApi.getDraftList({ page: 1, limit: 100 })
-    // 拦截器已解包，response 直接就是数据对象
-    draftOptions.value = response.list || []
+    draftOptions.value = response.list || [];
   } catch (error) {
     ElMessage.error(i18n.global.t('获取草稿列表失败'))
   }
-}
+};
 
-// 获取任务列表
 const getJobList = async () => {
   loading.value = true
   try {
@@ -279,17 +266,15 @@ const getJobList = async () => {
       limit: pageSize.value
     }
     const response = await smsApi.getJobList(params)
-    // 拦截器已解包，response 直接就是数据对象
-    jobList.value = response.list || []
+    jobList.value = response.list || [];
     total.value = response.total || 0
   } catch (error) {
     ElMessage.error(i18n.global.t('获取任务列表失败'))
   } finally {
     loading.value = false
   }
-}
+};
 
-// 重置表单
 const resetForm = () => {
   if (formRef.value) {
     formRef.value.resetFields()
@@ -300,9 +285,8 @@ const resetForm = () => {
   formData.sendType = 'immediate'
   formData.scheduleTime = null
   tempPhone.value = ''
-}
+};
 
-// 添加手机号
 const addPhone = () => {
   const phone = tempPhone.value.trim()
   if (!phone) {
@@ -322,22 +306,18 @@ const addPhone = () => {
   
   formData.phoneList.push(phone)
   tempPhone.value = ''
-}
+};
 
-// 移除手机号
 const removePhone = (index) => {
   formData.phoneList.splice(index, 1)
-}
+};
 
-// 文件上传相关
-const fileInputRef = ref(null)
+const fileInputRef = ref(null);
 
-// 批量上传
 const handleBatchUpload = () => {
   fileInputRef.value?.click()
-}
+};
 
-// 处理文件选择
 const handleFileChange = (event) => {
   const file = event.target.files?.[0]
   if (!file) return
@@ -347,8 +327,7 @@ const handleFileChange = (event) => {
     const content = e.target?.result
     if (typeof content !== 'string') return
 
-    // 按逗号、换行、分号、空格分隔
-    const rawNumbers = content.split(/[\r\n,;]+/).map(s => s.trim()).filter(Boolean)
+    const rawNumbers = content.split(/[\r\n,;]+/).map(s => s.trim()).filter(Boolean);
 
     const validPhones = []
     const invalidPhones = []
@@ -395,24 +374,20 @@ const handleFileChange = (event) => {
   }
   reader.readAsText(file)
 
-  // 重置文件输入以便重新上传同一文件
-  event.target.value = ''
-}
+  event.target.value = '';
+};
 
-// 创建任务
 const handleCreateJob = () => {
   resetForm()
   getDraftOptions()
   dialogVisible.value = true
-}
+};
 
-// 关闭对话框
 const handleDialogClose = () => {
   resetForm()
   dialogVisible.value = false
-}
+};
 
-// 提交表单
 const handleSubmit = async () => {
   try {
     if (!formRef.value) return
@@ -438,14 +413,12 @@ const handleSubmit = async () => {
       ElMessage.error('任务创建失败：' + (error.message || '未知错误'))
     }
   }
-}
+};
 
-// 查看任务详情
 const handleView = async (row) => {
   try {
     const response = await smsApi.getJobDetail(row.id)
     currentJob.value = response
-    // 加载任务执行明细
     try {
       const recordsRes = await smsApi.getJobRecords(row.id, { page: 1, page_size: 50 })
       const recordsData = toList(recordsRes)
@@ -457,9 +430,8 @@ const handleView = async (row) => {
   } catch (error) {
     ElMessage.error(i18n.global.t('获取任务详情失败'))
   }
-}
+};
 
-// 暂停任务
 const handlePause = async (row) => {
   try {
     await smsApi.pauseJob(row.id)
@@ -468,9 +440,8 @@ const handlePause = async (row) => {
   } catch (error) {
     ElMessage.error(i18n.global.t('任务暂停失败'))
   }
-}
+};
 
-// 继续任务
 const handleResume = async (row) => {
   try {
     await smsApi.resumeJob(row.id)
@@ -479,9 +450,8 @@ const handleResume = async (row) => {
   } catch (error) {
     ElMessage.error(i18n.global.t('任务继续失败'))
   }
-}
+};
 
-// 停止任务
 const handleStop = async (row) => {
   try {
     await ElMessageBox.confirm('确定要停止该任务吗？', '确认停止', {
@@ -497,9 +467,8 @@ const handleStop = async (row) => {
       ElMessage.error(i18n.global.t('任务停止失败'))
     }
   }
-}
+};
 
-// 删除任务
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm('确定要删除该任务吗？', '确认删除', {
@@ -515,19 +484,17 @@ const handleDelete = async (row) => {
       ElMessage.error(i18n.global.t('任务删除失败'))
     }
   }
-}
+};
 
-// 分页大小改变
 const handleSizeChange = (val) => {
   pageSize.value = val
   getJobList()
-}
+};
 
-// 当前页改变
 const handleCurrentChange = (val) => {
   currentPage.value = val
   getJobList()
-}
+};
 
 onMounted(() => {
   getJobList()

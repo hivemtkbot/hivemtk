@@ -8,7 +8,6 @@ import (
 	"hivemtk-user/internal/event"
 )
 
-
 // PublishKnowledgeDocumentChange 发布知识库文档变更事件
 //
 // 参数:
@@ -56,4 +55,3 @@ func PublishKnowledgeDocumentUpdate(workspaceID string, documentID uint, content
 func PublishKnowledgeDocumentDelete(workspaceID string, documentID uint, operatorID uint) string {
 	return PublishKnowledgeDocumentChange(workspaceID, documentID, "delete", "", operatorID, "")
 }
-

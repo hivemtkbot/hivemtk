@@ -31,7 +31,9 @@ func NewCustomerIDStandardizeMigration(db *gorm.DB) *CustomerIDStandardizeMigrat
 
 func (m *CustomerIDStandardizeMigration) Version() string { return "v3.22.0" }
 
-func (m *CustomerIDStandardizeMigration) Name() string { return "收敛 customer_id 字段类型为 varchar(64)" }
+func (m *CustomerIDStandardizeMigration) Name() string {
+	return "收敛 customer_id 字段类型为 varchar(64)"
+}
 
 func (m *CustomerIDStandardizeMigration) Description() string {
 	return "将所有 customer_id 列统一为 varchar(64)，消除 JOIN 隐式类型转换"
@@ -74,7 +76,7 @@ func (m *CustomerIDStandardizeMigration) Up(ctx context.Context) error {
 
 	var altered int
 	for _, c := range cols {
-		// 已经是 varchar(64) 则跳过，只加注释
+
 		if c.Type == "character varying" && c.MaxLen == 64 {
 			commentSQL := fmt.Sprintf(
 				`COMMENT ON COLUMN %q.%q.customer_id IS '统一 varchar(64)：客户 ID，JOIN 键'`,
@@ -83,7 +85,6 @@ func (m *CustomerIDStandardizeMigration) Up(ctx context.Context) error {
 			continue
 		}
 
-		// 非 varchar(64) 执行 ALTER
 		alterSQL := fmt.Sprintf(
 			`ALTER TABLE %q.%q ALTER COLUMN customer_id TYPE varchar(64)`,
 			c.Schema, c.Table)

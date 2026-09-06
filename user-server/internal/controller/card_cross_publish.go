@@ -16,10 +16,10 @@ import (
 
 // CardCrossPublishController 跨平台发布控制器
 type CardCrossPublishController struct {
-	douyin     service.DouyinCardService
-	kuaishou   service.KuaishouCardService
+	douyin      service.DouyinCardService
+	kuaishou    service.KuaishouCardService
 	xiaohongshu service.XiaohongshuCardService
-	xianyu     service.XianyuCardService
+	xianyu      service.XianyuCardService
 }
 
 // NewCardCrossPublishController 构造（DI 在路由装配完成）
@@ -32,7 +32,7 @@ func NewCardCrossPublishController(douyin service.DouyinCardService, kuaishou se
 func (c *CardCrossPublishController) CrossPublish(ctx *gin.Context) {
 	var req struct {
 		Platforms []string `json:"platforms"`
-		Platform  string   `json:"platform"` // 单平台快捷字段
+		Platform  string   `json:"platform"`
 		Data      struct {
 			Title       string `json:"title" binding:"required"`
 			Description string `json:"description"`

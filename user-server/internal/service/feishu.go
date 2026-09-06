@@ -94,7 +94,7 @@ func (s *FeishuService) GetSecretsByAccountID(ctx context.Context, accountID str
 	if s.accountRepo == nil {
 		return "", "", "", errors.New("db nil")
 	}
-	// 优先按 ID 解析
+
 	var id uint
 	if _, scanErr := fmt.Sscanf(accountID, "%d", &id); scanErr == nil && id > 0 {
 		if acc, gerr := s.accountRepo.GetByID(ctx, id); gerr == nil && acc != nil {
@@ -202,9 +202,7 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 	}
 	tk, err := s.getAccessToken(ctx, acc)
 	if err != nil {
-		// v3 审计 P3-40 修复：不要把飞书原始 msg 透传
-		// 原：fmt.Errorf("get access token: %w", err) → err 含飞书 app_id/租户名/IP
-		// 新：仅 log 详细 + 返回通用 error
+
 		logger.Errorf("[feishu] 拉 token 失败（accountID=%d）: %v", accountID, err)
 		return errors.New("get feishu access token failed")
 	}
@@ -216,9 +214,7 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 	if idType == "open_chat_id" {
 		chatType = "group"
 	}
-	// 2026-08-25 修复（交付阻断）：飞书 im/v1/messages 的 content 必须是「字符串化 JSON」
-	// （官方文档 Send message content structure：content 为 string，如 "{\"text\":\"...\"}"）。
-	// 原实现传 map[string]string 对象 → 平台必然拒绝，所有 AI 回复发送失败。
+
 	body := map[string]any{
 		"receive_id": openID,
 		"msg_type":   "text",
@@ -310,9 +306,7 @@ func (s *FeishuIntegrationService) getAccessToken(ctx context.Context, acc *mode
 		return "", err
 	}
 	if out.Code != 0 {
-		// v3 审计 P1-48 修复：Code != 0 时清空 token 让下次重新拉
-		// 原：保留旧 token → secret 错误被永久缓存
-		// 新：清空 + log + 显式 token 错误
+
 		acc.AccessToken = ""
 		acc.TokenExpires = nil
 		logger.Errorf("[feishu] 拉 token 失败 code=%d msg=%s（已清空旧 token）", out.Code, out.Msg)
@@ -474,9 +468,7 @@ func (s *TelegramIntegrationService) SendMessage(ctx context.Context, accountID 
 		return fmt.Errorf("get tg account: %w", err)
 	}
 	cli := telegram.NewTelegramClient(acc.BotToken, core.WithHTTPClient(httpclient.Client))
-	// T2（ChatbotX 模式移植）：保留平台返回的 message_id 作为 msg_id 落库，
-	// 用于 echo 精确去重与对账；message_id 在 (platform,msg_id,conversation_id)
-	// 唯一索引范围内（同 chat 内）唯一。解析失败回退占位 ID 保持旧语义。
+
 	messageID, err := cli.SendMessage(ctx, chatID, content)
 	if err != nil {
 		now := time.Now()
@@ -762,8 +754,7 @@ func (s *WhatsAppCloudIntegrationService) SendMessage(ctx context.Context, accou
 		return fmt.Errorf("get wa account: %w", err)
 	}
 	cli := whatsapp.NewCloudClient(acc.PhoneNumberID, acc.AccessToken, core.WithHTTPClient(httpclient.Client))
-	// T2（ChatbotX 模式移植）：保留平台返回的 wamid，发送成功后回写 message_hub.msg_id。
-	// 回写用于 echo 精确去重与 WA statuses 状态回执对账；失败仅 WARN 不阻断。
+
 	wamid, err := cli.SendText(ctx, toPhone, content)
 	if err != nil {
 		now := time.Now()
@@ -813,14 +804,14 @@ func DecryptFeishuEvent(encryptKey, encrypted string) ([]byte, error) {
 	}
 	key, err := base64.StdEncoding.DecodeString(encryptKey)
 	if err != nil {
-		// 官方 43 位 EncryptKey 是无 padding 的标准 base64，需用 RawStdEncoding 解码
+
 		if k2, e2 := base64.RawStdEncoding.DecodeString(encryptKey); e2 == nil && len(k2) == 32 {
 			key = k2
 			err = nil
 		}
 	}
 	if err != nil || len(key) != 32 {
-		// 兼容非标准配置：退回原始字节截断/零填充到 32 字节
+
 		kb := []byte(encryptKey)
 		if len(kb) > 32 {
 			kb = kb[:32]
@@ -851,8 +842,7 @@ func DecryptFeishuEvent(encryptKey, encrypted string) ([]byte, error) {
 		return nil, errors.New("invalid padding")
 	}
 	plain = plain[:len(plain)-padLen]
-	// 官方前缀：16B 随机 + 4B 大端长度。仅当长度字段与剩余字节数严格吻合才剥离，
-	// 否则视为无前缀数据原样返回（兼容旧测试夹具）。
+
 	if len(plain) > 20 {
 		n := binary.BigEndian.Uint32(plain[16:20])
 		if int(n) == len(plain)-20 {
@@ -862,11 +852,8 @@ func DecryptFeishuEvent(encryptKey, encrypted string) ([]byte, error) {
 	return plain, nil
 }
 
-// timePtr 工具
 func timePtr(t time.Time) *time.Time { return &t }
 
-// feishuTextContentJSON 构造飞书 im/v1/messages 的 content 字段：
-// 官方契约要求「字符串化 JSON」（如 "{\"text\":\"...\"}"），非 JSON 对象。
 func feishuTextContentJSON(text string) string {
 	b, _ := json.Marshal(map[string]string{"text": text})
 	return string(b)

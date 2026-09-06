@@ -6,13 +6,12 @@ package dto
 type LeadMiningConfig struct {
 	ID             int64    `json:"id"`
 	Enabled        bool     `json:"enabled"`
-	Keywords       []string `json:"keywords"`    
-	Tags           []string `json:"tags"`        
-	Requirement    string   `json:"requirement"` 
-	Channels       []string `json:"channels"`    
+	Keywords       []string `json:"keywords"`
+	Tags           []string `json:"tags"`
+	Requirement    string   `json:"requirement"`
+	Channels       []string `json:"channels"`
 	MinIntentScore int      `json:"min_intent_score"`
-	Model          string   `json:"model"` 
+	Model          string   `json:"model"`
 	CreatedAt      int64    `json:"created_at"`
 	UpdatedAt      int64    `json:"updated_at"`
 }
-

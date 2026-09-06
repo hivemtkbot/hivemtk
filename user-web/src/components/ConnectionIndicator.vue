@@ -9,17 +9,16 @@
 import { computed } from 'vue'
 
 const props = defineProps({
-  status: { type: String, default: 'connected' }, // 'connected' | 'reconnecting' | 'disconnected' | 'max_attempts'
+  status: { type: String, default: 'connected' },
   reconnectAttempts: { type: Number, default: 0 },
   lastConnectedAt: { type: Number, default: 0 },
   showLabel: { type: Boolean, default: true },
-  size: { type: String, default: 'small' } // 'small' | 'large'
+  size: { type: String, default: 'small' }
 })
 
 const statusClass = computed(() => {
   if (props.status === 'connected') {
-    // 已连接但持续 > 60s 视为黄（可能僵死）
-    const age = Date.now() - (props.lastConnectedAt || 0)
+    const age = Date.now() - (props.lastConnectedAt || 0);
     return age > 60000 ? 'connected-stale' : 'connected-fresh'
   }
   return props.status

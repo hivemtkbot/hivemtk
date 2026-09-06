@@ -1,6 +1,6 @@
 <template>
   <div class="faq-editor-page">
-    <!-- 页面头部 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="header-content">
         <div>
@@ -21,7 +21,7 @@
       label-width="120px"
       v-loading="pageLoading"
     >
-      <!-- 基本信息 -->
+      
       <el-card shadow="never" class="section-card">
         <template #header>
           <div class="card-title">
@@ -61,7 +61,7 @@
         </el-form-item>
       </el-card>
 
-      <!-- 分类与意图 -->
+      
       <el-card shadow="never" class="section-card">
         <template #header>
           <div class="card-title">
@@ -94,7 +94,7 @@
         </el-row>
       </el-card>
 
-      <!-- 匹配参数 -->
+      
       <el-card shadow="never" class="section-card">
         <template #header>
           <div class="card-title">
@@ -125,7 +125,7 @@
         </el-row>
       </el-card>
 
-      <!-- 底部按钮 -->
+      
       <div class="footer-actions">
         <el-button @click="goBack">取消</el-button>
         <el-button type="primary" :loading="saving" @click="onSave">
@@ -151,14 +151,12 @@ const t = i18n.global.t
 const route = useRoute()
 const router = useRouter()
 
-// ===== 状态 =====
-const formRef = ref()
+const formRef = ref();
 const pageLoading = ref(false)
 const saving = ref(false)
 const faqId = computed(() => route.params.id)
 const isEdit = computed(() => !!faqId.value)
 
-// 预设分类（电商客服常见）
 const presetCategories = [
   'logistics',
   'pricing',
@@ -167,9 +165,8 @@ const presetCategories = [
   'payment',
   'account',
   'general'
-]
+];
 
-// ===== 默认值 =====
 const getDefaultForm = () => ({
   question: '',
   answer: '',
@@ -179,11 +176,10 @@ const getDefaultForm = () => ({
   intent: '',
   confidence: 0.8,
   enabled: true
-})
+});
 
 const form = reactive(getDefaultForm())
 
-// ===== 验证 =====
 const rules = {
   question: [
     { required: true, message: t('请输入问题'), trigger: 'blur' }
@@ -191,12 +187,11 @@ const rules = {
   answer: [
     { required: true, message: t('请输入标准答案'), trigger: 'blur' }
   ]
-}
+};
 
-// ===== 工具 =====
 const removeKeyword = (k) => {
   form.keywords = form.keywords.filter((x) => x !== k)
-}
+};
 
 const parseKeywords = (input) => {
   if (!input) return []
@@ -206,7 +201,6 @@ const parseKeywords = (input) => {
     .filter(Boolean)
 }
 
-// ===== 加载详情 =====
 const loadDetail = async () => {
   if (!isEdit.value) return
   pageLoading.value = true
@@ -224,9 +218,8 @@ const loadDetail = async () => {
   } finally {
     pageLoading.value = false
   }
-}
+};
 
-// ===== 保存 =====
 const onSave = async () => {
   if (!formRef.value) return
   await formRef.value.validate(async (valid) => {
@@ -234,8 +227,7 @@ const onSave = async () => {
       ElMessage.warning(t('请完善必填项后再提交'))
       return
     }
-    // 合并 keywordsInput 和 keywords 数组
-    const fromInput = parseKeywords(form.keywordsInput)
+    const fromInput = parseKeywords(form.keywordsInput);
     const merged = Array.from(new Set([...(form.keywords || []), ...fromInput]))
     saving.value = true
     try {
@@ -262,7 +254,7 @@ const onSave = async () => {
       saving.value = false
     }
   })
-}
+};
 
 const goBack = () => {
   router.push('/faq/list')

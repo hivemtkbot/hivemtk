@@ -1,6 +1,6 @@
 <template>
   <div class="ai-agent-edit-page">
-    <!-- 页面头部 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="header-content">
         <div>
@@ -25,7 +25,7 @@
       label-width="120px"
       v-loading="pageLoading"
     >
-      <!-- 基本信息 -->
+      
       <el-card shadow="never" class="section-card">
         <template #header>
           <div class="card-title"><el-icon><InfoFilled /></el-icon> {{ $t('基本信息') }}</div>
@@ -89,7 +89,7 @@
         </el-row>
       </el-card>
 
-      <!-- 人设配置 -->
+      
       <el-card shadow="never" class="section-card">
         <template #header>
           <div class="card-title"><el-icon><UserFilled /></el-icon> 人设配置</div>
@@ -115,7 +115,7 @@
         </el-form-item>
       </el-card>
 
-      <!-- 知识库挂载（树形多选：按 KB 类型分组） -->
+      
       <el-card shadow="never" class="section-card">
         <template #header>
           <div class="card-title">
@@ -211,7 +211,7 @@
         </el-row>
       </el-card>
 
-      <!-- SOP 挂载 -->
+      
       <el-card shadow="never" class="section-card">
         <template #header>
           <div class="card-title"><el-icon><Connection /></el-icon> SOP 挂载</div>
@@ -235,7 +235,7 @@
         </el-form-item>
       </el-card>
 
-      <!-- 话术库挂载 -->
+      
       <el-card shadow="never" class="section-card">
         <template #header>
           <div class="card-title"><el-icon><ChatLineSquare /></el-icon> 话术库挂载</div>
@@ -259,7 +259,7 @@
         </el-form-item>
       </el-card>
 
-      <!-- LLM 配置 -->
+      
       <el-card shadow="never" class="section-card">
         <template #header>
           <div class="card-title"><el-icon><Cpu /></el-icon> LLM 配置</div>
@@ -307,7 +307,7 @@
         </el-row>
       </el-card>
 
-      <!-- 引擎开关 -->
+      
       <el-card shadow="never" class="section-card">
         <template #header>
           <div class="card-title"><el-icon><Open /></el-icon> 销售引擎开关</div>
@@ -341,7 +341,7 @@
         </el-row>
       </el-card>
 
-      <!-- 高级参数 -->
+      
       <el-card shadow="never" class="section-card">
         <template #header>
           <div class="card-title"><el-icon><Setting /></el-icon> 高级参数</div>
@@ -365,7 +365,7 @@
         </el-row>
       </el-card>
 
-      <!-- 底部操作按钮 -->
+      
       <div class="footer-actions">
         <el-button @click="goBack">取消</el-button>
         <el-button type="primary" :loading="saving" @click="onSave">
@@ -375,7 +375,7 @@
       </div>
     </el-form>
 
-    <!-- 测试弹窗（同列表页测试功能） -->
+    
     <el-dialog v-model="testDialogVisible" title="测试智能体" width="760px" top="6vh">
       <el-form :model="testForm" label-width="90px">
         <el-form-item label="智能体">
@@ -470,26 +470,22 @@ const targetLanguageOptions = TARGET_LANGUAGE_OPTIONS
 const route = useRoute()
 const router = useRouter()
 
-// ===== 基本状态 =====
-const formRef = ref()
+const formRef = ref();
 const pageLoading = ref(false)
 const saving = ref(false)
 const agentId = computed(() => route.params.id)
 const isEdit = computed(() => !!agentId.value)
 
-// 下拉选项数据
-const ragProductOptions = ref([])
+const ragProductOptions = ref([]);
 const sopOptions = ref([])
 const scriptOptions = ref([])
 const faqOptions = ref([])
 const sopTemplateOptions = ref([])
 
-// 知识库树（按类型 RAG/FAQ/SOP 分组）
-const kbTree = ref([])
+const kbTree = ref([]);
 const loadingKB = ref(false)
 const kbTreeProps = { value: 'id', label: 'label', children: 'children', isLeaf: 'isLeaf' }
 
-// 表单数据（默认值与后端 model.AIAgent 对齐）
 const getDefaultForm = () => ({
   agent_code: '',
   name: '',
@@ -501,9 +497,7 @@ const getDefaultForm = () => ({
   greeting: '',
   internal_language: 'zh',
   target_language: '',
-  // 知识库挂载（树形多选，新字段）
   kb_ids: [],
-  // 兼容旧字段（已废弃，仍保留写回后端，避免破坏旧数据）
   rag_product_ids: [],
   faq_entry_ids: [],
   sop_template_ids: [],
@@ -524,11 +518,10 @@ const getDefaultForm = () => ({
   confidence_threshold: 0.7,
   max_ai_consecutive: 5,
   status: 1
-})
+});
 
 const form = reactive(getDefaultForm())
 
-// 表单验证规则
 const rules = {
   agent_code: [
     { required: true, message: i18n.global.t('请输入智能体编码'), trigger: 'blur' },
@@ -543,10 +536,9 @@ const rules = {
   persona: [
     { required: true, message: i18n.global.t('请输入人设描述'), trigger: 'blur' }
   ]
-}
+};
 
-// ===== 测试弹窗 =====
-const testDialogVisible = ref(false)
+const testDialogVisible = ref(false);
 const testing = ref(false)
 const testForm = ref({ customer_id: '', message: '' })
 const testResult = ref(null)
@@ -558,16 +550,14 @@ const getStepStatusType = (status) => {
   return 'info'
 }
 
-// ===== 加载下拉选项 =====
 const loadRagProducts = async () => {
   try {
     const res = await ragProductConfigAPI.getRagProducts({ page: 1, page_size: 100 })
     ragProductOptions.value = res?.items || res?.list || []
   } catch (e) {
-    // 选项加载失败不阻塞主流程
-    console.warn('加载RAG产品列表失败：', e?.message)
+    console.warn('加载RAG产品列表失败：', e?.message);
   }
-}
+};
 
 const loadSopOptions = async () => {
   try {
@@ -605,7 +595,6 @@ const loadSopTemplateOptions = async () => {
   }
 }
 
-// 加载知识库（按 RAG/FAQ/SOP 三种类型组装树形结构）
 const buildKBTree = async () => {
   loadingKB.value = true
   try {
@@ -639,8 +628,7 @@ const buildKBTree = async () => {
       tree.push({ id: 'kb-type-sop', label: `SOP 模板库 (${sopChildren.length})`, children: sopChildren, isLeaf: false, disabled: true, kb_type: 'sop' })
     }
     if (tree.length === 0) {
-      // 后端无数据时给空提示结构，避免空树报错
-      tree.push({ id: 'kb-empty', label: '暂未配置任何知识库', isLeaf: true, disabled: true })
+      tree.push({ id: 'kb-empty', label: '暂未配置任何知识库', isLeaf: true, disabled: true });
     }
     kbTree.value = tree
     return tree
@@ -651,17 +639,15 @@ const buildKBTree = async () => {
   } finally {
     loadingKB.value = false
   }
-}
+};
 
 const loadKnowledgeBases = async () => {
   await buildKBTree()
-  // 编辑模式下，加载 KB 树完成后异步回填已挂载的 KB
   if (isEdit.value && agentId.value) {
     await loadAgentKBBindings()
   }
 }
 
-// 加载智能体已挂载的 KB 列表（编辑模式）
 const loadAgentKBBindings = async () => {
   try {
     const res = await listAgentKBs(agentId.value)
@@ -671,9 +657,8 @@ const loadAgentKBBindings = async () => {
     console.warn('加载智能体知识库绑定失败：', e?.message)
     form.kb_ids = []
   }
-}
+};
 
-// ===== 加载智能体详情（编辑模式） =====
 const loadAgentDetail = async () => {
   if (!isEdit.value) return
   pageLoading.value = true
@@ -681,15 +666,13 @@ const loadAgentDetail = async () => {
     const res = await getAgent(agentId.value)
     if (res) {
       Object.assign(form, getDefaultForm(), res)
-      // 确保 ID 数组为字符串形式（与后端 pq.StringArray 对齐）
-      form.rag_product_ids = (res.rag_product_ids || []).map(String)
+      form.rag_product_ids = (res.rag_product_ids || []).map(String);
       form.faq_entry_ids = (res.faq_entry_ids || []).map(String)
       form.sop_template_ids = (res.sop_template_ids || []).map(String)
       form.sop_ids = (res.sop_ids || []).map(String)
       form.script_library_ids = (res.script_library_ids || []).map(String)
       form.kb_ids = (res.kb_ids || []).map(String)
-      // 内部语言兜底 zh；目标语言允许空串（跟随内部语言）
-      form.internal_language = res.internal_language || 'zh'
+      form.internal_language = res.internal_language || 'zh';
       form.target_language = res.target_language || ''
     }
   } catch (e) {
@@ -698,9 +681,8 @@ const loadAgentDetail = async () => {
   } finally {
     pageLoading.value = false
   }
-}
+};
 
-// ===== 保存（创建/更新） =====
 const onSave = async () => {
   if (!formRef.value) return
   await formRef.value.validate(async (valid) => {
@@ -721,9 +703,7 @@ const onSave = async () => {
         greeting: form.greeting,
         internal_language: form.internal_language || 'zh',
         target_language: form.target_language || '',
-        // 新：知识库挂载（树形多选）
         kb_ids: form.kb_ids || [],
-        // 旧：兼容字段
         rag_product_ids: form.rag_product_ids || [],
         faq_entry_ids: form.faq_entry_ids || [],
         sop_template_ids: form.sop_template_ids || [],
@@ -747,7 +727,6 @@ const onSave = async () => {
       }
       if (isEdit.value) {
         await updateAgent(agentId.value, data)
-        // 同步 KB 挂载（多对多关系，replace 模式）
         try {
           await replaceAgentKBs(agentId.value, form.kb_ids.map(String))
         } catch (kbErr) {
@@ -756,8 +735,7 @@ const onSave = async () => {
         ElMessage.success(i18n.global.t('智能体更新成功'))
       } else {
         const created = await createAgent(data)
-        // 创建后挂载 KB
-        const newId = created?.id || created?.ID
+        const newId = created?.id || created?.ID;
         if (newId && form.kb_ids?.length) {
           try {
             await replaceAgentKBs(newId, form.kb_ids.map(String))
@@ -774,20 +752,17 @@ const onSave = async () => {
       saving.value = false
     }
   })
-}
+};
 
 const goBack = () => {
   router.push('/aiAgent/list')
 }
 
-// ===== 测试弹窗 =====
 const openTestDialog = () => {
-  // 编辑模式下未保存时提示
   if (isEdit.value && !form.id) {
     ElMessage.warning(i18n.global.t('智能体信息加载中，请稍候'))
     return
   }
-  // 创建模式下未保存不允许测试（后端需要 ID）
   if (!isEdit.value) {
     ElMessage.warning(i18n.global.t('请先创建智能体后再进行测试'))
     return
@@ -795,7 +770,7 @@ const openTestDialog = () => {
   testForm.value = { customer_id: '', message: '' }
   testResult.value = null
   testDialogVisible.value = true
-}
+};
 
 const runTest = async () => {
   if (!testForm.value.message || !testForm.value.message.trim()) {
@@ -819,17 +794,15 @@ const runTest = async () => {
   }
 }
 
-// 初始化
 onMounted(async () => {
   await Promise.all([loadRagProducts(), loadSopOptions(), loadScriptOptions()])
   if (isEdit.value) {
     await loadAgentDetail()
   }
-  // 异步加载 KB 树（不在首屏阻塞，挂在【加载知识库】按钮也支持）
   buildKBTree().then(() => {
     if (isEdit.value) loadAgentKBBindings()
-  })
-})
+  });
+});
 </script>
 
 <style scoped lang="scss">

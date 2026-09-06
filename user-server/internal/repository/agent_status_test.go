@@ -12,13 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ---------- helpers ----------
-
 func setupAgentStatusRepo(t *testing.T) (*AgentStatusRepository, context.Context) {
 	t.Helper()
 	db := testutil.NewTestDB(t, &model.AgentStatus{})
 	repo := NewAgentStatusRepository()
-	// NewAgentStatusRepository 默认用全局 _db.GetDB()，所以用 WithDB 更可控
+
 	repo = NewAgentStatusRepositoryWithDB(db)
 	return repo, context.Background()
 }
@@ -35,21 +33,15 @@ func newTestAgentStatus(agentID uint, name, status string) *model.AgentStatus {
 	}
 }
 
-// ---------- NewAgentStatusRepository / WithDB ----------
-
 func TestAgentStatus_NewAndWithDB(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.AgentStatus{})
 
-	// WithDB 构造
 	repo1 := NewAgentStatusRepositoryWithDB(db)
 	assert.NotNil(t, repo1)
 
-	// 默认构造 + 注入
 	repo2 := NewAgentStatusRepository()
 	assert.NotNil(t, repo2)
 }
-
-// ---------- Create ----------
 
 func TestAgentStatus_Create(t *testing.T) {
 	repo, ctx := setupAgentStatusRepo(t)
@@ -59,14 +51,11 @@ func TestAgentStatus_Create(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotZero(t, s.ID)
 
-	// 读回验证
 	got, err := repo.GetByAgentID(ctx, 1001)
 	require.NoError(t, err)
 	assert.Equal(t, "客服小明", got.AgentName)
 	assert.Equal(t, "online", got.Status)
 }
-
-// ---------- Update ----------
 
 func TestAgentStatus_Update(t *testing.T) {
 	repo, ctx := setupAgentStatusRepo(t)
@@ -83,8 +72,6 @@ func TestAgentStatus_Update(t *testing.T) {
 	assert.Equal(t, "online", got.Status)
 	assert.Equal(t, 2, got.ActiveSessions)
 }
-
-// ---------- GetByAgentID ----------
 
 func TestAgentStatus_GetByAgentID_Found(t *testing.T) {
 	repo, ctx := setupAgentStatusRepo(t)
@@ -106,12 +93,9 @@ func TestAgentStatus_GetByAgentID_NotFound(t *testing.T) {
 	assert.Nil(t, got)
 }
 
-// ---------- ListAllAgents ----------
-
 func TestAgentStatus_ListAllAgents(t *testing.T) {
 	repo, ctx := setupAgentStatusRepo(t)
 
-	// 空表
 	list, err := repo.ListAllAgents(ctx)
 	require.NoError(t, err)
 	assert.Len(t, list, 0)
@@ -123,17 +107,14 @@ func TestAgentStatus_ListAllAgents(t *testing.T) {
 	list, err = repo.ListAllAgents(ctx)
 	require.NoError(t, err)
 	assert.Len(t, list, 3)
-	// Order("agent_id ASC") 验证排序
+
 	assert.Equal(t, uint(3001), list[0].AgentID)
 	assert.Equal(t, uint(3003), list[2].AgentID)
 }
 
-// ---------- GetOnlineAgents ----------
-
 func TestAgentStatus_GetOnlineAgents(t *testing.T) {
 	repo, ctx := setupAgentStatusRepo(t)
 
-	// 准备 4 个客服
 	now := time.Now()
 	tooOld := time.Now().Add(-10 * time.Minute)
 
@@ -141,8 +122,8 @@ func TestAgentStatus_GetOnlineAgents(t *testing.T) {
 		{AgentID: 4001, AgentName: "Online1", Status: "online", MaxSessions: 5, ActiveSessions: 2, LastActiveAt: &now},
 		{AgentID: 4002, AgentName: "Busy1", Status: "busy", MaxSessions: 5, ActiveSessions: 3, LastActiveAt: &now},
 		{AgentID: 4003, AgentName: "Offline1", Status: "offline", MaxSessions: 5, ActiveSessions: 0, LastActiveAt: &now},
-		{AgentID: 4004, AgentName: "Full", Status: "online", MaxSessions: 5, ActiveSessions: 5, LastActiveAt: &now},     // sessions 已满
-		{AgentID: 4005, AgentName: "Stale", Status: "online", MaxSessions: 5, ActiveSessions: 1, LastActiveAt: &tooOld}, // 心跳过期
+		{AgentID: 4004, AgentName: "Full", Status: "online", MaxSessions: 5, ActiveSessions: 5, LastActiveAt: &now},
+		{AgentID: 4005, AgentName: "Stale", Status: "online", MaxSessions: 5, ActiveSessions: 1, LastActiveAt: &tooOld},
 	}
 	for _, a := range agents {
 		require.NoError(t, repo.Create(ctx, a))
@@ -150,7 +131,7 @@ func TestAgentStatus_GetOnlineAgents(t *testing.T) {
 
 	list, err := repo.GetOnlineAgents(ctx)
 	require.NoError(t, err)
-	// 应只包含 4001 和 4002
+
 	require.Len(t, list, 2)
 	ids := map[uint]bool{}
 	for _, a := range list {
@@ -158,11 +139,9 @@ func TestAgentStatus_GetOnlineAgents(t *testing.T) {
 	}
 	assert.True(t, ids[4001])
 	assert.True(t, ids[4002])
-	// 且按 active_sessions ASC 排序
+
 	assert.LessOrEqual(t, list[0].ActiveSessions, list[1].ActiveSessions)
 }
-
-// ---------- UpdateStatus ----------
 
 func TestAgentStatus_UpdateStatus_Online(t *testing.T) {
 	repo, ctx := setupAgentStatusRepo(t)
@@ -212,12 +191,9 @@ func TestAgentStatus_UpdateStatus_Busy_NoExtraTimestamps(t *testing.T) {
 	assert.NotNil(t, got.LastActiveAt)
 }
 
-// ---------- CountOnlineAgents ----------
-
 func TestAgentStatus_CountOnlineAgents(t *testing.T) {
 	repo, ctx := setupAgentStatusRepo(t)
 
-	// 空表
 	cnt, err := repo.CountOnlineAgents(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, 0, cnt)
@@ -229,21 +205,17 @@ func TestAgentStatus_CountOnlineAgents(t *testing.T) {
 
 	cnt, err = repo.CountOnlineAgents(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, 2, cnt) // online + busy
+	assert.Equal(t, 2, cnt)
 }
-
-// ---------- TouchHeartbeat ----------
 
 func TestAgentStatus_TouchHeartbeat(t *testing.T) {
 	repo, ctx := setupAgentStatusRepo(t)
 
-	// 设置一个旧的 last_active_at
 	oldTime := time.Now().Add(-30 * time.Minute)
 	s := newTestAgentStatus(7001, "小赵", "online")
 	s.LastActiveAt = &oldTime
 	require.NoError(t, repo.Create(ctx, s))
 
-	// Touch
 	time.Sleep(10 * time.Millisecond)
 	err := repo.TouchHeartbeat(ctx, 7001)
 	require.NoError(t, err)
@@ -252,11 +224,9 @@ func TestAgentStatus_TouchHeartbeat(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, got.LastActiveAt)
 	assert.True(t, got.LastActiveAt.After(oldTime), "last_active_at 应被刷新")
-	// 不应影响 status
+
 	assert.Equal(t, "online", got.Status)
 }
-
-// ---------- IncrementActiveSessions / DecrementActiveSessions ----------
 
 func TestAgentStatus_IncrementActiveSessions(t *testing.T) {
 	repo, ctx := setupAgentStatusRepo(t)
@@ -287,7 +257,6 @@ func TestAgentStatus_DecrementActiveSessions(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, got.ActiveSessions)
 
-	// 不能减到负数（源码 WHERE active_sessions > 0）
 	require.NoError(t, repo.DecrementActiveSessions(ctx, 8002))
 	require.NoError(t, repo.DecrementActiveSessions(ctx, 8002))
 	got, err = repo.GetByAgentID(ctx, 8002)
@@ -302,15 +271,12 @@ func TestAgentStatus_DecrementActiveSessions_Zero(t *testing.T) {
 	s.ActiveSessions = 0
 	require.NoError(t, repo.Create(ctx, s))
 
-	// 已经是 0，执行不应返回错误（只是 WHERE 条件没命中，RowsAffected=0）
 	err := repo.DecrementActiveSessions(ctx, 8003)
 	require.NoError(t, err)
 
 	got, _ := repo.GetByAgentID(ctx, 8003)
 	assert.Equal(t, 0, got.ActiveSessions)
 }
-
-// ---------- IncrementTodayMessages ----------
 
 func TestAgentStatus_IncrementTodayMessages(t *testing.T) {
 	repo, ctx := setupAgentStatusRepo(t)
@@ -327,12 +293,9 @@ func TestAgentStatus_IncrementTodayMessages(t *testing.T) {
 	assert.Equal(t, 5, got.TodayMessages)
 }
 
-// ---------- DecrementActiveSessions 不存在的 agent ----------
-
 func TestAgentStatus_IncrementDecrement_NonExistent(t *testing.T) {
 	repo, ctx := setupAgentStatusRepo(t)
 
-	// 对不存在的 agent 执行，不应返回错误（只是 RowsAffected=0）
 	err := repo.IncrementActiveSessions(ctx, 99999)
 	require.NoError(t, err)
 

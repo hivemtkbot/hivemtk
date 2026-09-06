@@ -8,14 +8,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ===== H-4 群聊沉默检测与复活信号 =====
-//
-// 决策依据 M17 H-4：
-//   - 三档判定：""（活跃/不干预）、>72h 且最后发言人为 bot → revive_candidate（可复活）、
-//     >168h 无条件 dead（放弃唤醒）
-//   - 复活信号经既有进程内事件总线（internal/event）发布，SOP/订阅方 Subscribe 消费
-//   - 文案结构仅承载"价值型内容建议"字段，不写死营销话术（话术由上层话术库渲染）
-
 // 判定结果档位
 const (
 	GroupReviveCandidate = "revive_candidate"

@@ -8,9 +8,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupCardRoutes 卡片管理路由（抖音、快手、小红书、闲鱼）
 func setupCardRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
-	// R39: 名片跨平台同步发布
+
 	crossPubCtrl := controller.NewCardCrossPublishController(
 		service.NewDouyinCardService(gormDB),
 		service.NewKuaishouCardService(gormDB),
@@ -78,7 +77,6 @@ func setupCardRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	auth.POST("/xianyu/:id/generate-short-link", xianyuCardCtrl.GenerateShortLink)
 }
 
-// setupCardStatsRoutes 卡片统计路由
 func setupCardStatsRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	douyinStatsCtrl := controller.NewDouyinCardStatsController(service.NewDouyinCardStatsService(gormDB))
 	auth.GET("/douyin-card/stats/:id", douyinStatsCtrl.GetCardStats)
@@ -114,4 +112,3 @@ func setupCardStatsRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	auth.GET("/card-stats/:platform/stats/:id", factory.GetCardStats)
 	auth.GET("/card-stats/:platform/overall", factory.GetOverallStats)
 }
-

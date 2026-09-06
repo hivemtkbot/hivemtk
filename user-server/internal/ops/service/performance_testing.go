@@ -27,7 +27,7 @@ func NewPerformanceTestService() *PerformanceTestService {
 type TestRequest struct {
 	TestName    string `json:"test_name"`
 	TargetURL   string `json:"target_url"`
-	TestType    string `json:"test_type"` 
+	TestType    string `json:"test_type"`
 	Concurrency int    `json:"concurrency"`
 	DurationSec int    `json:"duration_sec"`
 }
@@ -173,4 +173,3 @@ func average(data []float64) float64 {
 }
 
 func ptrTime(t time.Time) *time.Time { return &t }
-

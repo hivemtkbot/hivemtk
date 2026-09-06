@@ -19,4 +19,3 @@ type ReportUsageRequest struct {
 type ToggleActiveRequest struct {
 	Active bool `json:"active"`
 }
-

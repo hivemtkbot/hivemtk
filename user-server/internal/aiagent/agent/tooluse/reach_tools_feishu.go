@@ -45,4 +45,3 @@ func NewReachFeishuSendTool(deps ReachToolDeps) *ReachFeishuSendTool {
 		deps: deps,
 	}
 }
-

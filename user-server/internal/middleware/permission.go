@@ -172,7 +172,6 @@ func ParseJWTToken(tokenString string) (map[string]any, error) {
 	return result, nil
 }
 
-// checkPermission 通过注入的 PermChecker 检查权限；未注入时 fail-closed（拒绝）
 func checkPermission(c *gin.Context, role, permission string) bool {
 	checker := getPermChecker()
 	if checker == nil {
@@ -244,4 +243,3 @@ func RequireAllPermissions(permissions ...string) gin.HandlerFunc {
 		c.Next()
 	}
 }
-

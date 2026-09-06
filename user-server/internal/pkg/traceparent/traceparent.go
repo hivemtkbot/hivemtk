@@ -35,12 +35,12 @@ const (
 
 // Context 解析后的 W3C trace context。
 type Context struct {
-	Version   string // "00"
-	TraceID   string // 32 hex chars (lowercase)
-	SpanID    string // 16 hex chars (lowercase)
-	Sampled   bool   // flags bit 0
-	RawHeader string // 原始 header 值（用于回写）
-	Rest      string // tracestate 原样透传
+	Version   string
+	TraceID   string
+	SpanID    string
+	Sampled   bool
+	RawHeader string
+	Rest      string
 }
 
 // ErrInvalidHeader header 非法（不会 panic，仅返回错误供调用方降级生成新 trace_id）。
@@ -84,8 +84,6 @@ func Parse(header string) (Context, error) {
 		return Context{}, fmt.Errorf("%w: invalid flags %q", ErrInvalidHeader, flags)
 	}
 
-	// 兼容性：未来版本 "01"-"ff" 的前两位是版本号，本字段未来扩展可能不同。
-	// 当前规范仅定义 "00"，遇到更高版本仅记录但不拒绝（鼓励互操作）。
 	sampled := len(flags) >= 1 && (flags[1] == '1' || flags[1] == '3' || flags[1] == '5' || flags[1] == '7' ||
 		flags[1] == '9' || flags[1] == 'b' || flags[1] == 'd' || flags[1] == 'f')
 
@@ -152,7 +150,7 @@ func FormatTraceIDForLegacy(traceID string) string {
 	if len(traceID) == 0 {
 		return ""
 	}
-	// 仅去掉空格和大小写，不改变字符（避免破坏已有日志关联）
+
 	return strings.ToLower(traceID)
 }
 

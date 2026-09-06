@@ -39,7 +39,7 @@ type Voter[T any] interface {
 
 // SelfConsistency 多采样投票器
 type SelfConsistency[T any] struct {
-	samples int // 采样次数（默认 5）
+	samples int
 }
 
 // NewSelfConsistency 构造投票器
@@ -54,11 +54,11 @@ func NewSelfConsistency[T any](samples int) *SelfConsistency[T] {
 
 // VoteResult 投票结果
 type VoteResult[T any] struct {
-	Winner     T       // 胜出答案
-	WinnerKey  string  // 胜出 key
-	Count      int     // 胜出票数
-	Total      int     // 总票数
-	Confidence float64 // 胜出票数 / 总票数
+	Winner     T
+	WinnerKey  string
+	Count      int
+	Total      int
+	Confidence float64
 	AllKeys    []VoteCount[T]
 }
 
@@ -89,7 +89,6 @@ func (sc *SelfConsistency[T]) Run(ctx context.Context, sampler Sampler[T], voter
 		return VoteResult[T]{}, ErrNilVoter
 	}
 
-	// 并发采样
 	results := make([]sampledAnswer[T], sc.samples)
 	var wg sync.WaitGroup
 	errCh := make(chan error, sc.samples)
@@ -107,10 +106,9 @@ func (sc *SelfConsistency[T]) Run(ctx context.Context, sampler Sampler[T], voter
 	wg.Wait()
 	close(errCh)
 
-	// 统计有效答案
 	counts := make(map[string]int)
 	samples := make(map[string]T)
-	// allKeys 只保留一个 key 的一个 entry（避免重复）
+
 	allKeysMap := make(map[string]VoteCount[T])
 	total := 0
 	for _, r := range results {
@@ -122,11 +120,11 @@ func (sc *SelfConsistency[T]) Run(ctx context.Context, sampler Sampler[T], voter
 		if _, ok := samples[key]; !ok {
 			samples[key] = r.answer
 		}
-		// 同一 key 只保留第一个（票数随 counts 累加）
+
 		if _, ok := allKeysMap[key]; !ok {
 			allKeysMap[key] = VoteCount[T]{Key: key, Count: counts[key], Sample: r.answer}
 		} else {
-			// 更新已存在 entry 的 Count
+
 			existing := allKeysMap[key]
 			existing.Count = counts[key]
 			allKeysMap[key] = existing
@@ -140,11 +138,10 @@ func (sc *SelfConsistency[T]) Run(ctx context.Context, sampler Sampler[T], voter
 		}, ErrNoValidSamples
 	}
 
-	// 投票：找最高票数
 	type kv struct {
 		key   string
 		count int
-		idx   int // 第一次出现的 index（用于平票）
+		idx   int
 	}
 	pairs := make([]kv, 0, len(counts))
 	idx := 0
@@ -153,7 +150,7 @@ func (sc *SelfConsistency[T]) Run(ctx context.Context, sampler Sampler[T], voter
 		idx++
 	}
 	sort.SliceStable(pairs, func(i, j int) bool {
-		// 票数降序，相同票数按首次出现顺序（保证确定性）
+
 		if pairs[i].count != pairs[j].count {
 			return pairs[i].count > pairs[j].count
 		}
@@ -161,7 +158,6 @@ func (sc *SelfConsistency[T]) Run(ctx context.Context, sampler Sampler[T], voter
 	})
 	winner := pairs[0]
 
-	// 重组 allKeys 为按票数降序（从 map 转 slice）
 	allKeys := make([]VoteCount[T], 0, len(allKeysMap))
 	for _, v := range allKeysMap {
 		allKeys = append(allKeys, v)

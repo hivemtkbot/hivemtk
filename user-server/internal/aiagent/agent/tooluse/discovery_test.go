@@ -5,8 +5,6 @@ import (
 	"testing"
 )
 
-
-// discoveryMockTool 模拟工具（用于discovery测试）
 type discoveryMockTool struct {
 	BaseTool
 }
@@ -202,4 +200,3 @@ func TestLazyToolRegistry_Search(t *testing.T) {
 		t.Errorf("Search failed，期望1个结果，实际 %d", len(results))
 	}
 }
-

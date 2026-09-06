@@ -18,9 +18,9 @@ type GeoQueryChain struct {
 	Query         string         `gorm:"type:text" json:"query"`
 	Intent        string         `gorm:"type:varchar(20)" json:"intent"`
 	BrandName     string         `gorm:"type:varchar(200);index" json:"brand_name"`
-	BrandPosition string         `gorm:"type:varchar(20)" json:"brand_position"` // first/candidate/absent/negative
+	BrandPosition string         `gorm:"type:varchar(20)" json:"brand_position"`
 	CitedURLs     string         `gorm:"type:text" json:"cited_urls"`
-	Source        string         `gorm:"type:varchar(20)" json:"source"` // probe / inbox
+	Source        string         `gorm:"type:varchar(20)" json:"source"`
 	OneID         string         `gorm:"type:varchar(64);index" json:"one_id,omitempty"`
 	CreatedAt     time.Time      `gorm:"autoCreateTime;index" json:"created_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
@@ -41,7 +41,7 @@ type GeoContentTask struct {
 	ID        string         `gorm:"type:varchar(36);primaryKey" json:"id"`
 	Keyword   string         `gorm:"type:varchar(200);index" json:"keyword"`
 	Intent    string         `gorm:"type:varchar(20)" json:"intent"`
-	GapType   string         `gorm:"type:varchar(30)" json:"gap_type"` // missing_domain / missing_sourcetype / negative_counter
+	GapType   string         `gorm:"type:varchar(30)" json:"gap_type"`
 	Detail    string         `gorm:"type:text" json:"detail"`
 	Status    string         `gorm:"type:varchar(20);default:'pending';index" json:"status"`
 	CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`

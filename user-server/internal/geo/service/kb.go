@@ -38,7 +38,6 @@ func (s *KBService) Save(ctx context.Context, req *dto.SaveKnowledgeDocumentRequ
 		metadataJSON = string(b)
 	}
 
-	// 指定 ID 且已存在则更新（仅 NotFound 才走创建，其他 DB 错误直接上抛，避免误判导致重复文档）
 	if req.ID != "" {
 		existing, err := s.docRepo.GetByID(req.ID)
 		if err == nil {
@@ -168,7 +167,6 @@ func (s *KBService) GetContextForGeneration(ctx context.Context, query string) (
 	return builder.String(), nil
 }
 
-// toDocResponse 模型转响应 DTO
 func toDocResponse(d *model.GeoKnowledgeDocument) dto.KnowledgeDocumentResponse {
 	return dto.KnowledgeDocumentResponse{
 		ID:        d.ID,

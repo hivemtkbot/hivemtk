@@ -228,10 +228,8 @@ const loadCategories = async () => {
     const res = await listObjectionCategories()
     const data = res || []
     const raw = Array.isArray(data) ? data : data.list || []
-    // 后端返回 {category, name}，统一归一化为 {code, name}
-    categories.value = raw.map((c) => ({ code: c.code || c.category, name: c.name }))
+    categories.value = raw.map((c) => ({ code: c.code || c.category, name: c.name }));
     if (categories.value.length === 0) {
-      // 兜底：使用内置类别
       categories.value = [
         { code: 'price', name: '价格异议' },
         { code: 'need', name: '需求异议' },
@@ -240,7 +238,7 @@ const loadCategories = async () => {
         { code: 'compare', name: '比较异议' },
         { code: 'feature', name: '特性异议' },
         { code: 'other', name: '其他异议' }
-      ]
+      ];
     }
   } catch (e) {
     categories.value = [
@@ -300,8 +298,7 @@ const copyTemplate = async (template) => {
     await navigator.clipboard.writeText(template.content)
     ElMessage.success(i18n.global.t('已复制到剪贴板'))
   } catch (e) {
-    // 降级方案
-    const ta = document.createElement('textarea')
+    const ta = document.createElement('textarea');
     ta.value = template.content
     document.body.appendChild(ta)
     ta.select()
@@ -332,9 +329,7 @@ const markSuccess = async (row) => {
     try {
       await recordObjectionUsage({ template_id: row.template_id, success: true })
       ElMessage.success(i18n.global.t('已标记为成功'))
-    } catch (e) {
-      // 静默
-    }
+    } catch (e) {}
   }
 }
 
@@ -344,9 +339,7 @@ const markFailed = async (row) => {
     try {
       await recordObjectionUsage({ template_id: row.template_id, success: false })
       ElMessage.success(i18n.global.t('已标记为失败'))
-    } catch (e) {
-      // 静默
-    }
+    } catch (e) {}
   }
 }
 
@@ -356,8 +349,7 @@ const clearHistory = () => {
 }
 
 const switchToHandle = () => {
-  // 滚动到智能处理卡片
-  document.querySelector('.handle-card')?.scrollIntoView({ behavior: 'smooth' })
+  document.querySelector('.handle-card')?.scrollIntoView({ behavior: 'smooth' });
 }
 
 onMounted(() => {

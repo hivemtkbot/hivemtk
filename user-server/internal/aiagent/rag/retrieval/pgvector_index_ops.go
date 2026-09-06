@@ -10,34 +10,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-// M6 R-7 pgvector 索引运维（MASTER_COMPETITIVE_DECISIONS.md）
-//
-// 决策要点：
-//   - chunk 行数 < 50,000 时无需建向量索引（顺序扫描更快，避免维护开销）
-//   - KB chunk 数 > 50,000 时建 HNSW 索引：
-//
-//	CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_knowledge_chunks_embedding_hnsw
-//	    ON knowledge_chunks USING hnsw (embedding vector_cosine_ops)
-//	    WITH (m = 16, ef_construction = 200);
-//
-//   - 查询会话调参：SET hnsw.ef_search = 100
-//   - 过滤型查询（带 product_id 等条件）开启迭代扫描：
-//
-//	SET hnsw.iterative_scan = relaxed_order;
-//	SET hnsw.relax_iterative_scan_limit = 2;  -- 可选
-//
-//   - 记忆表（dialogue_memory 相关向量列）达到同量级时同样处理
-//
-// 运维手册：
-//  1. 检查行数：SELECT count(*) FROM knowledge_chunks;
-//  2. 检查索引：SELECT indexname FROM pg_indexes
-//               WHERE tablename='knowledge_chunks' AND indexdef LIKE '%hnsw%';
-//  3. 达到阈值后调用 EnsureHNSWIndexIfNeeded（或手工执行上面 DDL；
-//     大表务必用 CONCURRENTLY 避免锁写）。
-//  4. 建索引后观察 EXPLAIN ANALYZE 确认走 Index Scan。
-// ─────────────────────────────────────────────────────────────────────────────
-
 const (
 	// HNSWMinRowsForIndex 建议建 HNSW 索引的最小行数（R-7：<5 万不建）
 	HNSWMinRowsForIndex int64 = 50000
@@ -112,12 +84,11 @@ func ApplyHNSWSessionParams(ctx context.Context, db *gorm.DB) error {
 	if err := db.WithContext(ctx).Exec(fmt.Sprintf(`SET hnsw.ef_search = %d`, HNSWEfSearch)).Error; err != nil {
 		return err
 	}
-	// 老版本 pgvector 无该 GUC，忽略错误
+
 	_ = db.WithContext(ctx).Exec(`SET hnsw.iterative_scan = relaxed_order`).Error
 	return nil
 }
 
-// sanitizeIdent 白名单校验标识符（表/列/索引名），防 SQL 注入（拼接 DDL 场景）
 func sanitizeIdent(s string) string {
 	const allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_."
 	clean := strings.Map(func(r rune) rune {

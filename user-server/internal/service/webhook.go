@@ -37,9 +37,6 @@ type WebhookService struct {
 	tgIntegration     *TelegramIntegrationService
 	waIntegration     *WhatsAppCloudIntegrationService
 
-	// wechatIntegration 微信公众号客服消息发送（AI 回复出站）
-	// 2026-08-25 修复：sendOutbound 原先无 ChannelWechat 分支，公众号 AI 回复被
-	// default 分支静默丢弃（仅 Warn 日志），导致"机器人不回复"。
 	wechatIntegration *WechatService
 
 	telegramRepo *repository.TelegramAccountRepository
@@ -118,7 +115,7 @@ func NewWebhookService(db *gorm.DB) *WebhookService {
 	if db != nil {
 		waRepo.SetDB(context.Background(), db)
 	}
-	// 仅在 db 非空时初始化新仓库，保持与原 s.db == nil 守卫等价的 nil-safe 语义
+
 	var messageHubRepo *repository.MessageHubRepository
 	if db != nil {
 		messageHubRepo = repository.NewMessageHubRepository()
@@ -154,10 +151,9 @@ func NewWebhookService(db *gorm.DB) *WebhookService {
 	}
 	s.startWorkers(context.Background())
 	s.startRLJanitor(context.Background())
-	// ChatbotX 模式移植 T1：DB 真源兜底扫描器，重放内存队列丢失的事件
+
 	s.startRecoveryScanner()
 
-	// P1-7: 注册全局 WhatsApp 消息重排序缓冲 FlushHandler
 	globalReorderBuffer.FlushHandler = func(accountID, sessionID string, ordered [][]byte) {
 		ctx, cancel := context.WithTimeout(context.Background(), utils.DefaultHTTPTimeout)
 		defer cancel()
@@ -215,7 +211,6 @@ func (s *WebhookService) SetAgentBindingService(ctx context.Context, svc *Channe
 
 type webhookIngressAdapter struct{ svc *InboxIngressService }
 
-// HandleIngressMessage 实现 core.IngressHandler
 func (a webhookIngressAdapter) HandleIngressMessage(ctx context.Context, event *model.MessageEvent) error {
 	if a.svc == nil {
 		return nil
@@ -258,7 +253,7 @@ func (s *WebhookService) Stop(ctx context.Context) {
 func (s *WebhookService) startWorkers(ctx context.Context) {
 	for i := 0; i < s.workerCount; i++ {
 		s.wg.Add(1)
-		// 最高标准审计 P1-3 修复：webhook 消费 worker 改走 SafeGo，panic 不再击穿进程
+
 		id := i
 		utils.SafeGo(ctx, "webhook.worker", func(ctx context.Context) {
 			s.worker(ctx, id)
@@ -378,8 +373,7 @@ func (s *WebhookService) Receive(ctx context.Context, req *ReceiveRequest) (*Rec
 		account: req.AccountID,
 		payload: payload,
 	}
-	// 零值服务（未启动 worker 池）无队列可投递：按已接受返回，不做异步分发。
-	// nil channel 进 select 永远走 default，会被误判为队列满，故在此显式分流。
+
 	if s.queue == nil {
 		return &ReceiveResult{
 			Accepted:  true,
@@ -406,11 +400,6 @@ func (s *WebhookService) Receive(ctx context.Context, req *ReceiveRequest) (*Rec
 	}, nil
 }
 
-// insecureWebhookStartupError 判定 ALLOW_INSECURE_WEBHOOK=true 是否禁止启动。
-//
-// W-1 验签绕过防护：该开关会跳过所有渠道验签，生产环境一旦误配等于关闭回调鉴权。
-// 项目现有环境判断惯例为 APP_ENV（见 internal/pkg/db/db.go），此处兼容 MODE 别名。
-// 返回 nil 表示允许启动；返回非 nil 时调用方应 log.Fatal 拒绝启动。
 func insecureWebhookStartupError(appEnv, mode, allowInsecure string) error {
 	if allowInsecure != "true" {
 		return nil
@@ -431,8 +420,6 @@ func insecureWebhookStartupError(appEnv, mode, allowInsecure string) error {
 
 var insecureWebhookGuardOnce sync.Once
 
-// guardInsecureWebhookAtStartup 应用启动配置加载守卫：production 环境下
-// ALLOW_INSECURE_WEBHOOK=true 直接拒绝启动（dev/test 保持现状）。
 func guardInsecureWebhookAtStartup() {
 	insecureWebhookGuardOnce.Do(func() {
 		if err := insecureWebhookStartupError(
@@ -444,7 +431,7 @@ func guardInsecureWebhookAtStartup() {
 }
 
 func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, accountID string, body []byte, headers map[string]string, query map[string]string) (bool, error) {
-	// 显式开发模式总开关：跳过全部渠道验签（仅限联调；生产严禁设置）
+
 	if os.Getenv("ALLOW_INSECURE_WEBHOOK") == "true" {
 		return true, nil
 	}
@@ -456,8 +443,7 @@ func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, acc
 		}
 		return verifyWeCom(token, aesKey, body, query)
 	case ChannelWechat:
-		// W-6：secret 从公众号账号配置读取；未配置时明确 WARN 并跳过该渠道验签
-		// （原 getWechatSecrets 恒空串导致该渠道验签永远失败、回调全部被拒）。
+
 		token, _ := s.getWechatSecrets(ctx, accountID)
 		if token == "" {
 			logger.Warnf("[Webhook] wechat 验签 secret 未配置 account=%s，跳过该渠道验签（W-6）", accountID)
@@ -475,7 +461,7 @@ func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, acc
 			if os.Getenv("ALLOW_INSECURE_WEBHOOK") != "true" {
 				return false, errors.New("telegram webhook secret 未配置；开发放行需显式 ALLOW_INSECURE_WEBHOOK=true")
 			}
-			return true, nil // 显式开发模式：跳过验签
+			return true, nil
 		}
 		headerSecret := headers["X-Telegram-Bot-Api-Secret-Token"]
 		if headerSecret == "" {
@@ -486,11 +472,10 @@ func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, acc
 		}
 		return telegram.VerifyWebhook(secret, headerSecret), nil
 	case ChannelFeishu:
-		// 飞书使用专属 EncryptKey 与官方签名口径
+
 		secret, _ := s.getAccountSecret(ctx, string(channel), accountID)
 		if secret == "" {
-			// 2026-08-25 修复（交付阻断）：验签数据源断链——管理端只写 feishu_accounts.encrypt_key，
-			// integration_accounts 无记录 → secret 恒空 → 所有 POST 事件 401。回退读飞书账号表。
+
 			secret = s.getFeishuEncryptKey(ctx, accountID)
 		}
 		return verifyFeishu(secret, body, headers), nil
@@ -504,7 +489,7 @@ func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, acc
 			if os.Getenv("ALLOW_INSECURE_WEBHOOK") != "true" {
 				return false, errors.New("whatsapp app secret 未配置；开发放行需显式 ALLOW_INSECURE_WEBHOOK=true")
 			}
-			return true, nil // 显式开发模式：跳过验签
+			return true, nil
 		}
 		return whatsapp.VerifyWebhook(secret, body, headers["X-Hub-Signature-256"]), nil
 	default:
@@ -519,9 +504,6 @@ func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, acc
 	}
 }
 
-// verifyFeishu 飞书官方事件订阅签名校验：
-// X-Lark-Signature = base64(sha256(encrypt_key + X-Lark-Timestamp + X-Lark-Nonce + body))。
-// v3 审计 P1-6 修复：原走泛化 verifyHMAC(hex 口径、header 名拼凑)，真实飞书事件必然验签失败。
 func verifyFeishu(encryptKey string, body []byte, headers map[string]string) bool {
 	if encryptKey == "" {
 		return false
@@ -667,7 +649,6 @@ func (s *WebhookService) handleJob(ctx context.Context, job *webhookJob) {
 	s.markProcessed(ctx, job.event)
 }
 
-// dispatchToChannel 按渠道路由业务逻辑
 func (s *WebhookService) dispatchToChannel(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, raw []byte, headers map[string]string) (*model.MessageHub, *tgDispatchExtra, error) {
 	switch channel {
 	case ChannelWeCom:

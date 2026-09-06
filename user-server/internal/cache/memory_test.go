@@ -274,7 +274,6 @@ func TestMemoryCache_SetAndGetJSON(t *testing.T) {
 		t.Fatalf("SetJSON() 返回错误：%v", err)
 	}
 
-	// 获取 JSON 缓存
 	var result map[string]any
 	err = cache.GetJSON(ctx, key, &result)
 	if err != nil {
@@ -309,7 +308,6 @@ func TestMemoryCache_SetJSONAndGetStruct(t *testing.T) {
 		t.Fatalf("SetJSON() 返回错误：%v", err)
 	}
 
-	// 获取到 struct
 	var result struct {
 		Name string `json:"name"`
 		Age  int    `json:"age"`

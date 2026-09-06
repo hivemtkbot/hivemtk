@@ -88,4 +88,3 @@ func (r *materialRepo) GetByHash(hash string, licenseID string) (*model.Material
 	err := r.db.Where("hash = ? AND license_id = ?", hash, licenseID).First(&material).Error
 	return &material, err
 }
-

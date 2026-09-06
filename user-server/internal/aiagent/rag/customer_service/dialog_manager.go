@@ -282,7 +282,6 @@ func (dm *InMemoryDialogManager) ListUserSessions(ctx context.Context, userID, p
 	return sessions, nil
 }
 
-// startSessionCleanup 启动会话清理定时任务
 func (dm *InMemoryDialogManager) startSessionCleanup() {
 	ticker := time.NewTicker(dm.config.SessionCleanupInterval)
 	defer ticker.Stop()
@@ -293,7 +292,6 @@ func (dm *InMemoryDialogManager) startSessionCleanup() {
 	}
 }
 
-// updateLastActivity 更新最后活动时间
 func (dm *InMemoryDialogManager) updateLastActivity(sessionID string) {
 	dm.mutex.Lock()
 	defer dm.mutex.Unlock()
@@ -304,7 +302,6 @@ func (dm *InMemoryDialogManager) updateLastActivity(sessionID string) {
 	}
 }
 
-// generateSessionID 生成会话ID
 func generateSessionID(userID, platform string) string {
 	return fmt.Sprintf("%s_%s_%d", userID, platform, time.Now().UnixNano())
 }
@@ -345,7 +342,7 @@ func (cus *ContextUnderstandingServiceImpl) AnalyzeIntent(ctx context.Context, m
 	}
 
 	intent := IntentAnalysis{
-		Confidence: 0.8, 
+		Confidence: 0.8,
 	}
 
 	lowerMsg := toLower(message)
@@ -368,7 +365,7 @@ func (cus *ContextUnderstandingServiceImpl) AnalyzeIntent(ctx context.Context, m
 	} else {
 		intent.PrimaryIntent = "general_inquiry"
 		intent.Categories = []string{"general"}
-		intent.Confidence = 0.6 
+		intent.Confidence = 0.6
 	}
 
 	parameters := extractParameters(message)
@@ -496,8 +493,6 @@ func (cus *ContextUnderstandingServiceImpl) UpdateUserPreferences(ctx context.Co
 	return nil
 }
 
-
-// toLower 转换为小写
 func toLower(s string) string {
 	result := ""
 	for _, r := range s {
@@ -510,7 +505,6 @@ func toLower(s string) string {
 	return result
 }
 
-// containsAny 检查是否包含任意关键词
 func containsAny(text string, keywords []string) bool {
 	for _, keyword := range keywords {
 		if contains(text, keyword) {
@@ -520,12 +514,10 @@ func containsAny(text string, keywords []string) bool {
 	return false
 }
 
-// contains 检查是否包含指定词
 func contains(text, substr string) bool {
 	return len(text) >= len(substr) && findSubstring(text, substr) != -1
 }
 
-// findSubstring 查找子串位置
 func findSubstring(text, substr string) int {
 	if len(substr) == 0 {
 		return 0
@@ -549,7 +541,6 @@ func findSubstring(text, substr string) int {
 	return -1
 }
 
-// extractParameters 从消息中提取参数
 func extractParameters(message string) map[string]string {
 	parameters := make(map[string]string)
 
@@ -572,7 +563,6 @@ func extractParameters(message string) map[string]string {
 	return parameters
 }
 
-// extractTimeEntities 提取时间实体
 func extractTimeEntities(message string) []string {
 	var entities []string
 
@@ -587,7 +577,6 @@ func extractTimeEntities(message string) []string {
 	return entities
 }
 
-// extractProductEntities 提取商品实体
 func extractProductEntities(message string) []string {
 	var entities []string
 
@@ -602,7 +591,6 @@ func extractProductEntities(message string) []string {
 	return entities
 }
 
-// extractBrandEntities 提取品牌实体
 func extractBrandEntities(message string) []string {
 	var entities []string
 
@@ -617,7 +605,6 @@ func extractBrandEntities(message string) []string {
 	return entities
 }
 
-// calculateSentimentScore 计算情感分数
 func calculateSentimentScore(message string) float64 {
 	positiveWords := []string{"好", "棒", "不错", "满意", "喜欢", "推荐", "值得", "惊喜"}
 	negativeWords := []string{"差", "烂", "不好", "失望", "讨厌", "糟糕", "坑", "贵"}
@@ -647,7 +634,6 @@ func calculateSentimentScore(message string) float64 {
 	return float64(positiveCount-negativeCount) / float64(total)
 }
 
-// getSentimentLabel 获取情感标签
 func getSentimentLabel(score float64) string {
 	if score > 0.1 {
 		return "positive"
@@ -657,7 +643,6 @@ func getSentimentLabel(score float64) string {
 	return "neutral"
 }
 
-// detectEmotions 检测情感
 func detectEmotions(message string) []Emotion {
 	var emotions []Emotion
 
@@ -686,7 +671,6 @@ func detectEmotions(message string) []Emotion {
 	return emotions
 }
 
-// hasAnyWords 检查是否包含任一词汇
 func hasAnyWords(text string, words []string) bool {
 	for _, word := range words {
 		if contains(text, toLower(word)) {
@@ -696,7 +680,6 @@ func hasAnyWords(text string, words []string) bool {
 	return false
 }
 
-// isRelatedTopic 检查话题是否相关
 func isRelatedTopic(currentTopic, newIntent string) bool {
 	if currentTopic == "" {
 		return false
@@ -714,7 +697,6 @@ func isRelatedTopic(currentTopic, newIntent string) bool {
 	return (currentIsSales && newIsSales) || (currentIsSupport && newIsSupport)
 }
 
-// extractOrderNumber 提取订单号
 func extractOrderNumber(text string) string {
 	if contains(text, "号") {
 		return "ORDER123456"
@@ -722,7 +704,6 @@ func extractOrderNumber(text string) string {
 	return ""
 }
 
-// extractProductName 提取商品名
 func extractProductName(text string) string {
 	if contains(text, "裙子") {
 		return "裙子"
@@ -731,4 +712,3 @@ func extractProductName(text string) string {
 	}
 	return ""
 }
-

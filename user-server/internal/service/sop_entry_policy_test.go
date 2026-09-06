@@ -12,8 +12,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ============ S1-1 entry_policy 单元解析 ============
-
 func TestParseSOPEntryPolicy_DefaultOnce(t *testing.T) {
 	p := ParseSOPEntryPolicy(nil)
 	if p.Mode != SOPEntryModeOnce {
@@ -74,8 +72,6 @@ func TestGoalExitAchieved(t *testing.T) {
 	}
 }
 
-// ============ S1-1 三种 entry_policy（DB 集成） ============
-
 func newS1TestService(t *testing.T) *SOPService {
 	db := testutil.NewTestDB(t, &model.SOPAgent{}, &model.SOPExecution{})
 	return NewSOPService(db, nil)
@@ -124,7 +120,7 @@ func TestS1_1_EntryPolicy_Modes(t *testing.T) {
 			if err != nil {
 				t.Fatalf("首次进入应放行: %v", err)
 			}
-			// 置为终态，排除 running 干扰（once/cooldown 均按历史判断）
+
 			if err := svc.execRepo.UpdateStatus(ctx, first.ID, SOPStatusSuccess); err != nil {
 				t.Fatalf("update status: %v", err)
 			}
@@ -179,8 +175,6 @@ func TestS1_1_CooldownBoundary(t *testing.T) {
 	}
 }
 
-// ============ S1-2 max_wait 超时转 skipped ============
-
 type s1TaskRecorder struct{ tasks []*dispatchTask }
 
 func (r *s1TaskRecorder) DispatchOrLog(task *dispatchTask) { r.tasks = append(r.tasks, task) }
@@ -198,11 +192,11 @@ func TestS1_2_MaxWaitExceeded_TimerSkipped(t *testing.T) {
 		ExecutionID: exec.ID,
 		NodeID:      "wait_node",
 		WaitEvent:   WaitEventCustomerReply,
-		WaitUntil:   time.Now().Add(10 * time.Hour), // expires_at 未到
+		WaitUntil:   time.Now().Add(10 * time.Hour),
 		Status:      "pending",
 		Payload: model.JSONMap{
 			"expires_at":  time.Now().Add(10 * time.Hour).Format(time.RFC3339),
-			"max_wait_at": time.Now().Add(-1 * time.Minute).Format(time.RFC3339), // max_wait 已超
+			"max_wait_at": time.Now().Add(-1 * time.Minute).Format(time.RFC3339),
 		},
 	}
 	if err := db.Create(timer).Error; err != nil {
@@ -269,7 +263,7 @@ func TestWaitExecutor_WritesExpiresAndMaxWait(t *testing.T) {
 	if expiresAt.IsZero() || maxWaitAt.IsZero() {
 		t.Fatalf("payload 缺少 expires_at/max_wait_at: %v", tm.Payload)
 	}
-	// expires_at ≈ now+24h（默认 wait），max_wait_at ≈ now+60s
+
 	if maxWaitAt.Sub(start) < 30*time.Second || maxWaitAt.Sub(start) > 2*time.Minute {
 		t.Errorf("max_wait_at 应≈now+60s，实际 delta=%v", maxWaitAt.Sub(start))
 	}
@@ -278,14 +272,11 @@ func TestWaitExecutor_WritesExpiresAndMaxWait(t *testing.T) {
 	}
 }
 
-// ============ S1-5 dead_letter 迁移 ============
-
 func TestS1_5_DeadLetter_ClaimThreshold(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.SOPAgent{}, &model.SOPExecution{}, &model.SOPExecEvent{}, &model.SOPTimer{})
 
 	ctx := context.Background()
 
-	// WaitUntil 设为未来，确保不被正常 fire 路径处理，只走死信扫描
 	mkTimer := func(claims int) *model.SOPTimer {
 		tm := &model.SOPTimer{
 			ExecutionID: 1,
@@ -304,8 +295,8 @@ func TestS1_5_DeadLetter_ClaimThreshold(t *testing.T) {
 		return tm
 	}
 
-	below := mkTimer(sopTimerMaxClaims - 1) // 4 次：不迁移
-	atLimit := mkTimer(sopTimerMaxClaims)   // 5 次：迁移死信
+	below := mkTimer(sopTimerMaxClaims - 1)
+	atLimit := mkTimer(sopTimerMaxClaims)
 
 	outbox := &SOPOutboxDispatcher{
 		timerRepo:      repository.NewSOPTimerRepository(db),

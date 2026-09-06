@@ -12,7 +12,7 @@
     </el-alert>
 
     <el-row :gutter="16" style="margin-top: 16px">
-      <!-- 左侧:检索参数配置 -->
+      
       <el-col :span="8">
         <el-card>
           <template #header>
@@ -59,7 +59,7 @@
           </el-form>
         </el-card>
 
-        <!-- 常用查询 -->
+        
         <el-card style="margin-top: 16px">
           <template #header>
             <span>常用查询模板</span>
@@ -75,7 +75,7 @@
         </el-card>
       </el-col>
 
-      <!-- 右侧:结果展示 -->
+      
       <el-col :span="16">
         <el-card v-loading="searching">
           <template #header>
@@ -92,7 +92,7 @@
             </div>
           </template>
 
-          <!-- 统计 -->
+          
           <el-row v-if="result" :gutter="12" class="metric-row">
             <el-col :span="6">
               <el-statistic title="最高分" :value="result.max_score" :precision="3" />
@@ -148,7 +148,7 @@
           </div>
         </el-card>
 
-        <!-- 调试信息 -->
+        
         <el-card v-if="result && result.debug_info" style="margin-top: 16px">
           <template #header>
             <span>调试信息</span>

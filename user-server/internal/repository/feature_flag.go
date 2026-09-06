@@ -87,7 +87,6 @@ func (r *featureFlagRepo) List(ctx context.Context, page, pageSize int) ([]model
 	return list, total, err
 }
 
-// ListStale 查询疑似僵尸 Flag：更新时间早于 olderThan 且 100%/0% 单边（GrowthBook stale 判据轻量版）
 func (r *featureFlagRepo) ListStale(ctx context.Context, olderThan time.Time) ([]model.FeatureFlag, error) {
 	var list []model.FeatureFlag
 	err := r.db.WithContext(ctx).
@@ -133,7 +132,6 @@ func (r *featureFlagRepo) ListEvalLogs(ctx context.Context, flagKey string, limi
 	return list, err
 }
 
-// TouchEvaluated 更新 LastEvaluatedAt（stale 检测输入）
 func (r *featureFlagRepo) TouchEvaluated(ctx context.Context, id uint) error {
 	now := time.Now()
 	return r.db.WithContext(ctx).
@@ -142,4 +140,4 @@ func (r *featureFlagRepo) TouchEvaluated(ctx context.Context, id uint) error {
 		UpdateColumn("last_evaluated_at", &now).Error
 }
 
-var _ = errors.New // 保留 import 对齐
+var _ = errors.New

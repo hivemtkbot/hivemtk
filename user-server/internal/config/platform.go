@@ -14,12 +14,12 @@ import (
 // 兼容老字段（LogReportInterval / LicenseSyncInterval）仅作占位，
 // 读不到也允许（给前端 / 监控保持 schema 兼容）。
 type PlatformConfig struct {
-	APIURL string `yaml:"api_url" json:"api_url"`
-	Secret string `yaml:"secret" json:"secret"`
-	AdminUsername string `yaml:"admin_username" json:"admin_username"`
-	AdminPassword string `yaml:"admin_password" json:"admin_password"`
-	LogReportInterval int `yaml:"log_report_interval" json:"log_report_interval"`
-	LicenseSyncInterval int `yaml:"license_sync_interval" json:"license_sync_interval"`
+	APIURL              string `yaml:"api_url" json:"api_url"`
+	Secret              string `yaml:"secret" json:"secret"`
+	AdminUsername       string `yaml:"admin_username" json:"admin_username"`
+	AdminPassword       string `yaml:"admin_password" json:"admin_password"`
+	LogReportInterval   int    `yaml:"log_report_interval" json:"log_report_interval"`
+	LicenseSyncInterval int    `yaml:"license_sync_interval" json:"license_sync_interval"`
 }
 
 // PlatformCfg 全局平台配置（运行时唯一实例）
@@ -67,4 +67,3 @@ func LoadPlatform(path string) error {
 	PlatformCfg = &cfg
 	return nil
 }
-

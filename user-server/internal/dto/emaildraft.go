@@ -37,4 +37,3 @@ type GetEmailDraftListResponse struct {
 type DeleteEmailDraftRequest struct {
 	ID string `uri:"id" binding:"required"`
 }
-

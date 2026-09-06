@@ -21,10 +21,10 @@
 package controller
 
 import (
-	"time"
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 
@@ -32,13 +32,11 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 const (
 	chatWSClientSendBuffer = 64
 
 	chatWSBroadcastBuffer = 256
 )
-
 
 // Client 单个 WebSocket 连接客户端
 //
@@ -57,7 +55,7 @@ type Client struct {
 	traceID    string
 
 	mu     sync.Mutex
-	closed bool // v3 审计 P2-3：以标志位替代 close(chan)，根除并发 "send on closed channel" panic
+	closed bool
 }
 
 // NewClient 创建 Client 实例
@@ -93,7 +91,6 @@ func (c *Client) Close() {
 	close(c.send)
 }
 
-// sendSafe 线程安全发送：已关闭或缓冲满时返回 false（不阻塞、不 panic）。
 func (c *Client) sendSafe(payload []byte) (sent bool) {
 	c.mu.Lock()
 	if c.closed {
@@ -102,7 +99,7 @@ func (c *Client) sendSafe(payload []byte) (sent bool) {
 	}
 	c.mu.Unlock()
 	defer func() {
-		// 双保险：任何路径下 close 竞态导致的 panic 均降级为投递失败
+
 		if r := recover(); r != nil {
 			sent = false
 		}
@@ -114,7 +111,6 @@ func (c *Client) sendSafe(payload []byte) (sent bool) {
 		return false
 	}
 }
-
 
 // ChatWSHub WebSocket 连接管理 Hub
 //
@@ -134,10 +130,10 @@ type ChatWSHub struct {
 	broadcast   chan []byte
 	mu          sync.RWMutex
 	done        chan struct{}
-	startedCh   chan struct{} 
+	startedCh   chan struct{}
 	closeOnce   sync.Once
 	startedOnce sync.Once
-	wg sync.WaitGroup
+	wg          sync.WaitGroup
 }
 
 // NewChatWSHub 创建 Hub 实例
@@ -153,8 +149,7 @@ func NewChatWSHub() *ChatWSHub {
 		done:       make(chan struct{}),
 		startedCh:  make(chan struct{}),
 	}
-	// Run goroutine 的生命周期配额在构造期预占：
-	// 保证 Stop() 的 wg.Wait() 与 Run 的 defer Done 严格配对，无 Add/Wait 竞态窗口
+
 	h.wg.Add(1)
 	return h
 }
@@ -169,7 +164,7 @@ func NewChatWSHub() *ChatWSHub {
 // 通过 wg.Add(1) / defer wg.Done 跟踪 goroutine 生命周期，
 // 让 Stop() 阻塞等待 Run 真正退出（防止 Hub 关闭后 Run goroutine 残留）。
 func (h *ChatWSHub) Run() {
-	defer h.wg.Done() // 配额在 NewChatWSHub 预占
+	defer h.wg.Done()
 	h.startedOnce.Do(func() {
 		close(h.startedCh)
 	})
@@ -200,9 +195,7 @@ func (h *ChatWSHub) Stop() {
 	h.closeOnce.Do(func() {
 		close(h.done)
 	})
-	// v3 flaky 修复：done 关闭后原 select 两分支同时就绪，随机选中 done 分支
-	// 会跳过 wg.Wait()，导致 Run 尚未退出就返回（goleak 偶发误报/真泄漏窗口）。
-	// Run 未被调用时 startedCh 永不关闭 → 3s 超时兜底防死等。
+
 	select {
 	case <-h.startedCh:
 	case <-time.After(500 * time.Millisecond):
@@ -299,8 +292,6 @@ func (h *ChatWSHub) IsOnline(sessionID string) bool {
 	return ok
 }
 
-
-// addClient 内部方法：加入 clients map（不幂等；已存在则覆盖）
 func (h *ChatWSHub) addClient(c *Client) {
 	if c == nil {
 		return
@@ -316,7 +307,6 @@ func (h *ChatWSHub) addClient(c *Client) {
 		c.SessionID, c.CustomerID, c.traceID, len(h.clients))
 }
 
-// removeClient 内部方法：从 clients map 移除
 func (h *ChatWSHub) removeClient(c *Client) {
 	if c == nil {
 		return
@@ -331,7 +321,6 @@ func (h *ChatWSHub) removeClient(c *Client) {
 	}
 }
 
-// fanout 内部方法：向所有 Client 广播
 func (h *ChatWSHub) fanout(payload []byte) {
 	h.mu.RLock()
 	clients := make([]*Client, 0, len(h.clients))
@@ -347,7 +336,6 @@ func (h *ChatWSHub) fanout(payload []byte) {
 	}
 }
 
-// closeAll 内部方法：关闭所有 Client（Hub 停止时调用）
 func (h *ChatWSHub) closeAll() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -361,7 +349,6 @@ func (h *ChatWSHub) closeAll() {
 	h.clients = make(map[string]*Client)
 }
 
-
 // WrapErr 统一错误包装（避免 chat_ws.go / chat_ws_hub.go 重复 fmt.Errorf）
 //
 // 保留 error chain（使用 %w），便于 controller 层 fmt.Errorf("xxx: %w", err) 包装。
@@ -371,6 +358,3 @@ func WrapErr(op string, err error) error {
 	}
 	return fmt.Errorf("%s: %w", op, err)
 }
-
-
-

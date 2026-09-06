@@ -14,7 +14,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// setupAuditTestDB 建立审计测试所需表（含 operation_logs）
 func setupAuditTestDB(t *testing.T) {
 	t.Helper()
 	database := testutil.NewTestDB(t,
@@ -57,7 +56,6 @@ func TestIdentifyOrCreate_ConcurrentNoSplit(t *testing.T) {
 		}
 	}
 
-	// 表中该手机号仅 1 条（其余并发请求因唯一索引冲突被回查收敛）
 	var cnt int64
 	if err := db.GetDB().WithContext(context.Background()).Model(&model.Customer{}).
 		Where("phone = ?", phone).Count(&cnt).Error; err != nil {
@@ -67,8 +65,6 @@ func TestIdentifyOrCreate_ConcurrentNoSplit(t *testing.T) {
 		t.Fatalf("并发建档后客户数量为 %d，期望 1（存在分裂建档风险）", cnt)
 	}
 
-	// unified_id 唯一索引未被破坏：该标识对应的 unified_id 全局唯一
-	// （v3 审计 P0-2 后 phone 派生为盐化哈希，经 identity.UnifiedIDFromPhone 计算）
 	var uidCnt int64
 	uniqID := identity.UnifiedIDFromPhone(phone)
 	if err := db.GetDB().WithContext(context.Background()).Model(&model.Customer{}).
@@ -155,7 +151,6 @@ func TestMergeByIdentity_UsesInjectedSvc(t *testing.T) {
 		t.Fatalf("合并后两个原始客户应一存一删，实际 primary=%v secondary=%v", pAlive, sAlive)
 	}
 
-	// 审计应记录真实操作人，且由注入的 customerSvc 写入（资源 ID 为存活主客户）
 	var logs []model.OperationLog
 	if err := db.GetDB().WithContext(ctx).
 		Where("action = ? AND resource = ? AND resource_id = ?", "merge", "customer", fmt.Sprintf("%v", merged.ID)).

@@ -24,26 +24,26 @@ func NewPromptFanoutService(llm *LLMAdapter, probeSvc *ProbeService) *PromptFano
 
 // FanoutRequest 扇出研究请求
 type FanoutRequest struct {
-	Seed       string `json:"seed" binding:"required"` // 种子关键词/品牌词
-	Intent     string `json:"intent"`                  // 业务意图备注，辅助 LLM 生成更贴切的问法
-	WithProbes bool   `json:"with_probes"`             // 是否对每个变体跑真实探针
+	Seed       string `json:"seed" binding:"required"`
+	Intent     string `json:"intent"`
+	WithProbes bool   `json:"with_probes"`
 }
 
 // FanoutVariant 单个扇出变体
 type FanoutVariant struct {
-	Category   string  `json:"category"`              // direct / compare / recommend / faq / negative
-	Query      string  `json:"query"`                 // 变体问法
-	BrandHit   *bool   `json:"brand_hit,omitempty"`   // with_probes=true 时回填：品牌是否被提及
-	Engine     string  `json:"engine,omitempty"`      // 探针命中引擎
-	ProbeError string  `json:"probe_error,omitempty"` // 单变体探针失败原因（不中断整批）
+	Category   string `json:"category"`
+	Query      string `json:"query"`
+	BrandHit   *bool  `json:"brand_hit,omitempty"`
+	Engine     string `json:"engine,omitempty"`
+	ProbeError string `json:"probe_error,omitempty"`
 }
 
 // FanoutResult 扇出研究结果
 type FanoutResult struct {
 	Seed       string          `json:"seed"`
 	Variants   []FanoutVariant `json:"variants"`
-	ProbeCount int             `json:"probe_count"` // 实际执行的探针次数
-	Model      string          `json:"model"`       // 扇出生成使用的模型
+	ProbeCount int             `json:"probe_count"`
+	Model      string          `json:"model"`
 }
 
 const promptFanoutSystem = `你是 AI 搜索优化（GEO）专家。用户给出一个种子关键词，你需要模拟真实用户在
@@ -80,7 +80,7 @@ func (s *PromptFanoutService) Fanout(ctx context.Context, req *FanoutRequest) (*
 	if len(variants) == 0 {
 		return nil, fmt.Errorf("LLM 未返回有效变体")
 	}
-	// 成本护栏：with_probes 每变体×每引擎都是一次真实探针调用，超量截断
+
 	const maxVariants = 20
 	if len(variants) > maxVariants {
 		variants = variants[:maxVariants]
@@ -96,7 +96,7 @@ func (s *PromptFanoutService) Fanout(ctx context.Context, req *FanoutRequest) (*
 				v.ProbeError = "探针失败或无可用引擎"
 				continue
 			}
-			// 任一引擎提及品牌即算命中；优先记录第一个提及的引擎
+
 			hit := false
 			for _, r := range runs {
 				if r.BrandMentioned {
@@ -119,9 +119,6 @@ type fanoutLLMResponse struct {
 	} `json:"variants"`
 }
 
-// parseFanoutVariants 解析 LLM 返回（宽松：容错 category 空值与包裹文本）
-// 注意 extractJSONObject 的贪婪正则会从裸数组里抓出首个内层对象，
-// 因此对象路径解析不到 variants 时必须回退数组路径。
 func parseFanoutVariants(content string) ([]FanoutVariant, error) {
 	tryObj := extractJSONObject(content)
 	if tryObj != "" {

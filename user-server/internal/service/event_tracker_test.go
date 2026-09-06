@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupEventTrackerTestDB 设置测试数据库
 func setupEventTrackerTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.CustomerEvent{},
@@ -23,7 +22,6 @@ func setupEventTrackerTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupEventTracker 设置测试 EventTracker
 func setupEventTracker(t *testing.T) *EventTracker {
 	setupEventTrackerTestDB(t)
 	customerService := NewCustomerService()

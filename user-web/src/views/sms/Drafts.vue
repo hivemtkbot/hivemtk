@@ -36,7 +36,7 @@
       </div>
     </el-card>
 
-    <!-- 草稿对话框 -->
+    
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px" :before-close="handleDialogClose">
       <el-form :model="formData" label-width="80px" :rules="rules" ref="formRef">
         <el-form-item label="标题" prop="title">
@@ -61,7 +61,7 @@
       </template>
     </el-dialog>
 
-    <!-- 发送对话框 -->
+    
     <el-dialog v-model="sendDialogVisible" title="发送短信" width="400px">
       <el-form :model="sendForm" label-width="80px">
         <el-form-item label="手机号">
@@ -88,8 +88,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import smsApi from '@/api/sms'
 
-// 草稿列表数据
-const draftList = ref([])
+const draftList = ref([]);
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
@@ -97,25 +96,21 @@ const loading = ref(false)
 const sending = ref(false)
 const currentDraft = ref(null)
 
-// 对话框相关
-const dialogVisible = ref(false)
+const dialogVisible = ref(false);
 const sendDialogVisible = ref(false)
 const dialogTitle = ref('')
 const formRef = ref(null)
 const editingId = ref(null)
 
-// 表单数据
 const formData = reactive({
   title: '',
   content: ''
-})
+});
 
-// 发送表单
 const sendForm = reactive({
   phone: ''
-})
+});
 
-// 表单验证规则
 const rules = {
   title: [
     { required: true, message: i18n.global.t('请输入草稿标题'), trigger: 'blur' },
@@ -125,9 +120,8 @@ const rules = {
     { required: true, message: i18n.global.t('请输入短信内容'), trigger: 'blur' },
     { min: 1, max: 500, message: i18n.global.t('内容长度在 1 到 500 个字符'), trigger: 'blur' }
   ]
-}
+};
 
-// 获取草稿列表
 const getDraftList = async () => {
   loading.value = true
   try {
@@ -136,17 +130,15 @@ const getDraftList = async () => {
       limit: pageSize.value
     }
     const response = await smsApi.getDraftList(params)
-    // 拦截器已解包，response 直接就是数据对象
-    draftList.value = response.list || []
+    draftList.value = response.list || [];
     total.value = response.total || 0
   } catch (error) {
     ElMessage.error(i18n.global.t('获取草稿列表失败'))
   } finally {
     loading.value = false
   }
-}
+};
 
-// 重置表单
 const resetForm = () => {
   if (formRef.value) {
     formRef.value.resetFields()
@@ -154,21 +146,18 @@ const resetForm = () => {
   formData.title = ''
   formData.content = ''
   editingId.value = null
-}
+};
 
-// 新建草稿
 const handleCreateDraft = () => {
   resetForm()
   dialogTitle.value = '新建草稿'
   dialogVisible.value = true
-}
+};
 
-// 编辑草稿
 const handleEdit = async (row) => {
   try {
     const response = await smsApi.getDraftDetail(row.id)
-    // 修复：response 即业务数据本身（即草稿详情对象）
-    const data = response
+    const data = response;
     formData.title = data.title
     formData.content = data.content
     editingId.value = data.id
@@ -177,15 +166,13 @@ const handleEdit = async (row) => {
   } catch (error) {
     ElMessage.error(i18n.global.t('获取草稿详情失败'))
   }
-}
+};
 
-// 关闭对话框
 const handleDialogClose = () => {
   resetForm()
   dialogVisible.value = false
-}
+};
 
-// 提交表单
 const handleSubmit = async () => {
   try {
     if (!formRef.value) return
@@ -197,12 +184,10 @@ const handleSubmit = async () => {
     }
     
     if (editingId.value) {
-      // 更新草稿
-      await smsApi.updateDraft(editingId.value, draftData)
+      await smsApi.updateDraft(editingId.value, draftData);
       ElMessage.success(i18n.global.t('草稿更新成功'))
     } else {
-      // 创建草稿
-      await smsApi.createDraft(draftData)
+      await smsApi.createDraft(draftData);
       ElMessage.success(i18n.global.t('草稿创建成功'))
     }
     
@@ -213,16 +198,14 @@ const handleSubmit = async () => {
       ElMessage.error('操作失败：' + (error.message || '未知错误'))
     }
   }
-}
+};
 
-// 发送草稿
 const handleSend = (row) => {
   currentDraft.value = row
   sendForm.phone = ''
   sendDialogVisible.value = true
-}
+};
 
-// 确认发送
 const handleConfirmSend = async () => {
   if (!sendForm.phone || sendForm.phone.length !== 11) {
     ElMessage.warning(i18n.global.t('请输入正确的手机号'))
@@ -239,9 +222,8 @@ const handleConfirmSend = async () => {
   } finally {
     sending.value = false
   }
-}
+};
 
-// 删除草稿
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(`确定要删除草稿「${row.title}」吗？`, '确认删除', {
@@ -257,19 +239,17 @@ const handleDelete = async (row) => {
       ElMessage.error(i18n.global.t('草稿删除失败'))
     }
   }
-}
+};
 
-// 分页大小改变
 const handleSizeChange = (val) => {
   pageSize.value = val
   getDraftList()
-}
+};
 
-// 当前页改变
 const handleCurrentChange = (val) => {
   currentPage.value = val
   getDraftList()
-}
+};
 
 onMounted(() => {
   getDraftList()

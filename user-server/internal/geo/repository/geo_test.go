@@ -31,7 +31,6 @@ func TestGeoKeywordRepository(t *testing.T) {
 	db := setupGeoTestDB(t)
 	repo := NewGeoKeywordRepositoryWithDB(db)
 
-	// Create
 	kw := &model.GeoKeyword{Source: "ai", Keyword: "GEO优化", SearchVolume: 1000, Difficulty: 5.5}
 	if err := repo.Create(kw); err != nil {
 		t.Fatalf("Create keyword failed: %v", err)
@@ -40,7 +39,6 @@ func TestGeoKeywordRepository(t *testing.T) {
 		t.Fatal("keyword ID should be auto-generated")
 	}
 
-	// GetList
 	list, total, err := repo.GetList("", "", "", "", "", 1, 10)
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
@@ -52,7 +50,6 @@ func TestGeoKeywordRepository(t *testing.T) {
 		t.Fatal("expected non-empty list")
 	}
 
-	// Delete
 	if err := repo.Delete(kw.ID); err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}

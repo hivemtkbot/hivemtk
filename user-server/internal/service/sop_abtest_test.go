@@ -278,7 +278,6 @@ func TestParseSOPABTestConfig_Valid(t *testing.T) {
 	}
 }
 
-// intAbs 整数绝对值（避免与 customer_360_test.go 的 abs 重复声明）
 func intAbs(x int) int {
 	if x < 0 {
 		return -x

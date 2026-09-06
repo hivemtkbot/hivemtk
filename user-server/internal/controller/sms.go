@@ -57,7 +57,6 @@ func (c *SmsController) RegisterRoutes(router *gin.RouterGroup) {
 	}
 }
 
-
 // GetConfig godoc
 // @Summary      获取短信配置
 // @Description  读取当前商户的短信通道配置（签名、通道、限流）
@@ -370,7 +369,7 @@ func (c *SmsController) SendDraft(ctx *gin.Context) {
 
 	phone := ctx.PostForm("phone")
 	if phone == "" {
-		// 尝试从JSON体中获取
+
 		var req struct {
 			Phone string `json:"phone" binding:"required"`
 		}
@@ -500,10 +499,6 @@ func (c *SmsController) StopJob(ctx *gin.Context) {
 	response.Success(ctx, nil, "success")
 }
 
-
-
-// maskSMSConfig 凭证脱敏（v3 审计 P0）：各云厂商 AK/SK 仅保留尾4位，
-// 防止 GET /sms/config 明文回显凭证（泄露即等同盗用短信账户）
 func maskSMSConfig(config *dto.SmsConfigResponse) {
 	mask := func(v string) string {
 		if len(v) <= 4 {

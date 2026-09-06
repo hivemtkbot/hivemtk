@@ -54,7 +54,7 @@ func TestMutateSOPGraph_BranchPrune(t *testing.T) {
 			t.Fatalf("pruned node n1 still present")
 		}
 	}
-	// start.next 应重连到 n2
+
 	for _, n := range nodes {
 		if id, _ := n["id"].(string); id == "start" {
 			next, _ := n["next"].([]any)
@@ -130,7 +130,7 @@ func TestMutateSOPGraph_NodeMerge(t *testing.T) {
 			t.Fatal("merged node n2b should be removed")
 		}
 	}
-	// n2.next 应继承 n2b 的 next → n3
+
 	for _, n := range nodes {
 		if id, _ := n["id"].(string); id == "n2" {
 			next, _ := n["next"].([]any)
@@ -165,7 +165,7 @@ func TestMutateNodePrompt_ExactAndFallback(t *testing.T) {
 			}
 		}
 	}
-	// fallback：不存在的 nodeID → 首个 llm/message 节点
+
 	g2 := SOPGraphMutatorForNodePrompt("no_such", "兜底prompt")(sampleGraph())
 	if g2 == nil {
 		t.Fatal("expected fallback mutation")

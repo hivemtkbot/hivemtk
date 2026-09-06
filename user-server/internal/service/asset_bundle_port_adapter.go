@@ -73,7 +73,6 @@ func (a *AssetBundleWeavePortAdapter) IsBundleEnabled(assetID string) bool {
 	return a.svc.IsBundleEnabled(context.Background(), assetID)
 }
 
-// 编译期断言：AssetBundleWeavePortAdapter 实现 portcontract.AssetBundleWeavePort
 var _ portcontract.AssetBundleWeavePort = (*AssetBundleWeavePortAdapter)(nil)
 
 // KnowledgeSearchPortAdapter 适配 KnowledgeBaseService → portcontract.KnowledgeSearchPort
@@ -99,5 +98,4 @@ func (a *KnowledgeSearchPortAdapter) Search(ctx context.Context, query string, t
 	return a.svc.Search(ctx, query, topK)
 }
 
-// 编译期断言
 var _ portcontract.KnowledgeSearchPort = (*KnowledgeSearchPortAdapter)(nil)

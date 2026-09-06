@@ -1,6 +1,6 @@
 <template>
   <div class="kb-list-page">
-    <!-- 页面头部 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="header-content">
         <div>
@@ -22,7 +22,7 @@
       </div>
     </el-card>
 
-    <!-- 统计卡片（按当前 tab） -->
+    
     <el-row :gutter="20" class="stat-row" v-if="stats">
       <el-col :span="6">
         <el-card shadow="never" class="stat-card">
@@ -50,7 +50,7 @@
       </el-col>
     </el-row>
 
-    <!-- 搜索栏 + Tabs -->
+    
     <el-card shadow="never" class="filter-card">
       <el-tabs v-model="currentType" @tab-change="onTabChange">
         <el-tab-pane label="RAG 文档库" name="rag">
@@ -91,7 +91,7 @@
       </el-form>
     </el-card>
 
-    <!-- 列表 -->
+    
     <el-card shadow="never">
       <el-table :data="list" v-loading="loading" stripe border>
         <el-table-column prop="id" label="ID" width="70" align="center" />
@@ -176,14 +176,14 @@
       </div>
     </el-card>
 
-    <!-- 详情/反向追溯抽屉 -->
+    
     <KBDrawer
       v-model="drawerVisible"
       :kb-data="currentKB"
       @updated="loadList(currentType)"
     />
 
-    <!-- 新建/编辑知识库弹窗 -->
+    
     <el-dialog
       v-model="formVisible"
       :title="formData.id ? '编辑知识库' : '新建知识库'"
@@ -248,7 +248,7 @@ import KBDrawer from './KBDrawer.vue'
 const router = useRouter()
 const route = useRoute()
 
-const currentType = ref('rag') // rag / faq / sop
+const currentType = ref('rag');
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)
@@ -266,8 +266,7 @@ const filter = ref({
 const drawerVisible = ref(false)
 const currentKB = ref(null)
 
-// 新建/编辑弹窗
-const formVisible = ref(false)
+const formVisible = ref(false);
 const submitting = ref(false)
 const formData = ref({ id: null, kb_code: '', type: 'rag', name: '', description: '', owner_type: 'shared' })
 
@@ -302,8 +301,6 @@ const onSubmitForm = async () => {
         type: f.type,
         name: f.name.trim(),
         description: f.description,
-        // R84: 前端必须显式传 owner_type, 后端 private 模式强制 owner_agent_id
-        // (前端 form 无代理下拉), 默认 shared 模式创建公共 KB, 用户可后续编辑为私有
         owner_type: f.owner_type || 'shared'
       })
       ElMessage.success('创建成功')
@@ -378,12 +375,10 @@ const loadList = async (type) => {
     let items = extractList(res)
     total.value = extractTotal(res)
     if (items.length === 0) {
-      // 退化为按类型查询
-      const fb = await listByType(t, params).catch(() => null)
+      const fb = await listByType(t, params).catch(() => null);
       items = extractList(fb)
       total.value = total.value || extractTotal(fb)
     }
-    // 并发获取每个 KB 的关联智能体数（不阻塞主流程）
     const enriched = await Promise.all(
       items.map(async (it) => {
         let agent_count = it.agent_count ?? it.bind_agent_count ?? null
@@ -397,13 +392,12 @@ const loadList = async (type) => {
         }
         return { ...it, agent_count }
       })
-    )
+    );
     list.value = enriched
-    // 统计
     stats.value = {
       total: total.value || enriched.length,
       enabled: enriched.filter((x) => x.status === 1).length
-    }
+    };
     totalAgentBindings.value = enriched.reduce((s, x) => s + (x.agent_count || 0), 0)
     totalItems.value = enriched.reduce(
       (s, x) => s + (x.item_count ?? x.doc_count ?? 0),
@@ -466,8 +460,7 @@ const openDetail = async (row) => {
 }
 
 const openAgentBindings = (row) => {
-  // 直接打开详情抽屉，由抽屉内部展示"被哪些智能体使用"
-  openDetail(row)
+  openDetail(row);
 }
 
 const onToggle = async (row) => {
@@ -513,8 +506,8 @@ const onDelete = async (row) => {
 
 onMounted(() => {
   loadList('rag')
-  // 兼容旧入口：/knowledgeBase/create 直达时自动打开新建弹窗
-  if (route.name === 'KnowledgeBaseCreate') openCreateDialog()
+  if (route.name === 'KnowledgeBaseCreate')
+    openCreateDialog();
 })
 </script>
 

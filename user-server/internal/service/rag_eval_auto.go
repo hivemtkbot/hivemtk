@@ -40,7 +40,7 @@ func NewRagEvalAutoService() *RagEvalAutoService {
 // RagEvalConfig 评测配置
 type RagEvalConfig struct {
 	Name         string `json:"name"`
-	MaxQuestions int    `json:"max_questions"` // 最多生成多少问题，默认 50
+	MaxQuestions int    `json:"max_questions"`
 }
 
 // RunAutoEvaluation 执行一次完整的自动评测 pipeline
@@ -60,7 +60,6 @@ func (s *RagEvalAutoService) RunAutoEvaluation(ctx context.Context, cfg *RagEval
 		cfg.MaxQuestions = 50
 	}
 
-	// 1. 创建 run 记录
 	now := time.Now()
 	run := &model.RagEvalRun{
 		Name:      cfg.Name,
@@ -71,41 +70,28 @@ func (s *RagEvalAutoService) RunAutoEvaluation(ctx context.Context, cfg *RagEval
 		return nil, fmt.Errorf("RAG_EVAL_001: 创建 run 失败: %w", err)
 	}
 
-	// 2. 生成评测问题
 	questions, err := s.generateQuestions(ctx, cfg, run.ID)
 	if err != nil {
 		_ = s.repo.FailRun(ctx, run.ID, err.Error())
 		return nil, err
 	}
 
-	// 3. 写入问题
 	if err := s.repo.CreateQuestions(ctx, questions); err != nil {
 		_ = s.repo.FailRun(ctx, run.ID, err.Error())
 		return nil, fmt.Errorf("RAG_EVAL_002: 写入问题失败: %w", err)
 	}
 
-	// 4. 完成 run
 	if err := s.repo.CompleteRun(ctx, run.ID); err != nil {
 		_ = s.repo.FailRun(ctx, run.ID, err.Error())
 		return nil, fmt.Errorf("RAG_EVAL_003: 完成 run 失败: %w", err)
 	}
 
-	// 回读最新状态
 	return s.repo.GetRun(ctx, run.ID)
 }
 
-// generateQuestions 从真实生产查询构建评测问题集（R55 T7 修复）
-//
-// 此前问题=「关于「X」用户可能会问什么？」占位句 + relevant=文档自身（必然命中，
-// hit 恒 true 仪式化评测）。现分两级：
-//  1. 优先采样 rag_query_logs 真实用户查询（近 30 天），relevant=该查询真实命中的 doc
-//  2. 不足时回退 KB 文档标题生成（保留旧行为兜底，hit 判定走真实检索）
-//
-// hit 判定改为：真实调用 RAG 检索，topK 结果含 relevant doc 才算命中（非恒真）。
 func (s *RagEvalAutoService) generateQuestions(ctx context.Context, cfg *RagEvalConfig, runID uint) ([]*model.RagEvalQuestion, error) {
 	questions := make([]*model.RagEvalQuestion, 0, cfg.MaxQuestions)
 
-	// 一级来源：真实生产查询（去重，取最近优先）
 	var logs []*model.RagQueryLog
 	if err := s.db.WithContext(ctx).
 		Model(&model.RagQueryLog{}).
@@ -113,7 +99,7 @@ func (s *RagEvalAutoService) generateQuestions(ctx context.Context, cfg *RagEval
 		Order("created_at DESC").
 		Limit(cfg.MaxQuestions * 3).
 		Find(&logs).Error; err != nil {
-		logs = nil // 查询失败降级到文档来源
+		logs = nil
 	}
 
 	seen := make(map[string]bool, len(logs))
@@ -134,7 +120,6 @@ func (s *RagEvalAutoService) generateQuestions(ctx context.Context, cfg *RagEval
 		})
 	}
 
-	// 二级来源：KB 文档（不足时补齐；relevant=自身）
 	if len(questions) < cfg.MaxQuestions {
 		var docs []*model.KBDocument
 		if err := s.db.WithContext(ctx).
@@ -166,16 +151,11 @@ func (s *RagEvalAutoService) generateQuestions(ctx context.Context, cfg *RagEval
 		return nil, fmt.Errorf("RAG_EVAL_007: 无可用评测来源（无生产查询且无已索引文档）")
 	}
 
-	// 真实检索 hit 判定：用 RagSearcher 逐题检索，命中 relevant doc 才算 hit
 	s.evaluateRetrievalHit(ctx, questions)
 
 	return questions, nil
 }
 
-// evaluateRetrievalHit 真实调用 RAG 检索判定每题 hit/recall（R55 T7）
-//
-// 检索器不可用（TEI/rerank 未部署）时保留 hit=false 原值并记日志——诚实降级，
-// 不再恒 true 伪装满分。
 func (s *RagEvalAutoService) evaluateRetrievalHit(ctx context.Context, questions []*model.RagEvalQuestion) {
 	searcher := knowledgesvc.NewRagSearcher()
 	if searcher == nil || searcher.HybridSearcher() == nil {
@@ -185,7 +165,7 @@ func (s *RagEvalAutoService) evaluateRetrievalHit(ctx context.Context, questions
 	for _, q := range questions {
 		chunks, err := searcher.Search(ctx, q.Question, 5)
 		if err != nil {
-			continue // 单题失败不影响整轮
+			continue
 		}
 		q.RetrievedDocIDs = marshalDocIDs(chunks)
 		relevant := parseDocIDSet(q.RelevantDocIDs)
@@ -194,7 +174,7 @@ func (s *RagEvalAutoService) evaluateRetrievalHit(ctx context.Context, questions
 			if relevant[c.DocID] {
 				hitCount++
 				if i == 0 {
-					q.Hit = true // top1 命中
+					q.Hit = true
 				}
 			}
 		}

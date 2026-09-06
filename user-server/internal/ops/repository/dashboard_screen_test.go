@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupDashboardTestDB 设置数据大屏测试数据库
 func setupDashboardTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.DashboardScreen{},
@@ -23,7 +22,6 @@ func setupDashboardTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupDashboardRepositories 创建测试用的仓库实例
 func setupDashboardRepositories(t *testing.T) (*DashboardScreenRepository, *DashboardWidgetRepository, *MarketTemplateRepository, *MarketTemplateDownloadRepository) {
 	setupDashboardTestDB(t)
 
@@ -32,7 +30,6 @@ func setupDashboardRepositories(t *testing.T) (*DashboardScreenRepository, *Dash
 		&MarketTemplateRepository{db: db.GetDB()},
 		&MarketTemplateDownloadRepository{db: db.GetDB()}
 }
-
 
 // TestDashboardScreenRepository_Create 测试创建大屏
 func TestDashboardScreenRepository_Create(t *testing.T) {
@@ -132,9 +129,9 @@ func TestDashboardScreenRepository_GetByCode(t *testing.T) {
 	screenRepo, _, _, _ := setupDashboardRepositories(t)
 
 	screen := &model.DashboardScreen{
-		Name:      "Code Test Dashboard",
-		Code:      "unique_code_123",
-		IsPublic:  true, // v3 审计后 GetByCode 仅命中公开屏（公开路由防私有屏爆破）
+		Name:     "Code Test Dashboard",
+		Code:     "unique_code_123",
+		IsPublic: true,
 	}
 	screenRepo.Create(screen)
 
@@ -245,7 +242,6 @@ func TestDashboardScreenRepository_IncrementViewCount(t *testing.T) {
 	}
 }
 
-
 // TestDashboardWidgetRepository_Create 测试创建 Widget
 func TestDashboardWidgetRepository_Create(t *testing.T) {
 	_, widgetRepo, _, _ := setupDashboardRepositories(t)
@@ -338,7 +334,6 @@ func TestDashboardWidgetRepository_DeleteByScreenID(t *testing.T) {
 		t.Errorf("Expected 0 widgets after deletion, got %d", len(results))
 	}
 }
-
 
 // TestMarketTemplateRepository_GetList 测试获取模板列表
 func TestMarketTemplateRepository_GetList(t *testing.T) {
@@ -589,7 +584,6 @@ func TestMarketTemplateRepository_SearchTemplates(t *testing.T) {
 	}
 }
 
-
 // TestMarketTemplateDownloadRepository_Create 测试创建下载记录
 func TestMarketTemplateDownloadRepository_Create(t *testing.T) {
 	_, _, _, downloadRepo := setupDashboardRepositories(t)
@@ -608,4 +602,3 @@ func TestMarketTemplateDownloadRepository_Create(t *testing.T) {
 		t.Error("Expected download record ID to be set after creation")
 	}
 }
-

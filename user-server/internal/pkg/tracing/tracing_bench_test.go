@@ -32,7 +32,7 @@ func BenchmarkSinkAbsorb(b *testing.B) {
 // TestSinkNoDropsUnderNormalLoad 正常并发负载下不应发生背压丢帧（dropped=0），
 // 验证异步 sink 在典型 QPS 下对业务零损。
 func TestSinkNoDropsUnderNormalLoad(t *testing.T) {
-	Init(nil) 
+	Init(nil)
 	ctx := context.Background()
 	beforePub, beforeDrop := Stats()
 	const n = 50000
@@ -68,4 +68,3 @@ func TestPublishMarshalsInSink(t *testing.T) {
 		t.Fatalf("toModelFromPending 应将 any 序列化为 JSON 字符串，实际 input=%q output=%q", m.Input, m.Output)
 	}
 }
-

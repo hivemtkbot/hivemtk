@@ -10,7 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupKuaishouCardTestDB 设置快手卡片测试数据库
 func setupKuaishouCardTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.KuaishouCard{},
@@ -18,7 +17,6 @@ func setupKuaishouCardTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// setupKuaishouCardRepository 创建测试用的快手卡片仓库实例
 func setupKuaishouCardRepository(t *testing.T) KuaishouCardRepository {
 	database := setupKuaishouCardTestDB(t)
 	return NewKuaishouCardRepository(database)

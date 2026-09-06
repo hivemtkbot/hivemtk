@@ -7,7 +7,6 @@ import (
 	"sync"
 )
 
-
 // ToolDiscovery 工具发现接口
 type ToolDiscovery interface {
 	Search(query string, limit int) ([]Tool, error)
@@ -25,9 +24,8 @@ type ToolInfo struct {
 	Category    ToolCategory `json:"category"`
 	Description string       `json:"description"`
 	Tags        []string     `json:"tags,omitempty"`
-	Loaded      bool         `json:"loaded"` 
+	Loaded      bool         `json:"loaded"`
 }
-
 
 // DefaultToolDiscovery 默认工具发现实现
 type DefaultToolDiscovery struct {
@@ -38,7 +36,7 @@ type DefaultToolDiscovery struct {
 // ToolIndex 工具索引（支持快速搜索）
 type ToolIndex struct {
 	byName     map[string]*ToolInfo
-	byTag      map[string][]string 
+	byTag      map[string][]string
 	byCategory map[ToolCategory][]string
 	mu         sync.RWMutex
 }
@@ -164,7 +162,6 @@ func (idx *ToolIndex) ListByCategory(category ToolCategory) []*ToolInfo {
 	return infos
 }
 
-
 // NewDefaultToolDiscovery 创建默认工具发现实例
 func NewDefaultToolDiscovery(registry *ToolRegistry) *DefaultToolDiscovery {
 	d := &DefaultToolDiscovery{
@@ -177,7 +174,6 @@ func NewDefaultToolDiscovery(registry *ToolRegistry) *DefaultToolDiscovery {
 	return d
 }
 
-// rebuildIndex 重建索引
 func (d *DefaultToolDiscovery) rebuildIndex() {
 	d.index.mu.Lock()
 	defer d.index.mu.Unlock()
@@ -260,7 +256,6 @@ func (d *DefaultToolDiscovery) ListAll() []ToolInfo {
 func (d *DefaultToolDiscovery) Refresh() {
 	d.rebuildIndex()
 }
-
 
 // ToolLoader 工具加载器接口
 type ToolLoader interface {
@@ -345,7 +340,6 @@ func (l *LazyToolLoader) LoadAll() ([]Tool, error) {
 func (l *LazyToolLoader) IsLoaded(name string) bool {
 	return l.registry.Has(name)
 }
-
 
 // LazyToolRegistry 延迟加载注册中心
 type LazyToolRegistry struct {
@@ -435,4 +429,3 @@ func (r *LazyToolRegistry) ClearCache() {
 	defer r.mu.Unlock()
 	r.cache = make(map[string]Tool)
 }
-

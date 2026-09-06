@@ -8,8 +8,6 @@ import (
 	"hivemtk-user/internal/cache"
 )
 
-// cacheEnvelope 在 Redis / 全局缓存中保存类型标签，使反序列化后能还原为具体 Go 类型，
-// 从而兼容 RAG 检索热路径中对返回值的类型断言（如 cached.([]SearchResult)）。
 type cacheEnvelope struct {
 	Type  string          `json:"t"`
 	Value json.RawMessage `json:"v"`
@@ -77,4 +75,3 @@ func (c *RedisBackedCache) Set(key string, value any, ttl time.Duration) {
 func (c *RedisBackedCache) Delete(key string) {
 	_ = c.backend.Delete(context.Background(), key)
 }
-

@@ -13,7 +13,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-// ---- AI 爬虫 UA 清单（2026 主流，均为搜索引擎公开承认的 Crawler UA） ----
 var aiBotUserAgents = []string{
 	"GPTBot/1.1 (+https://openai.com/gptbot)",
 	"ClaudeBot/1.0 (+https://www.anthropic.com/claudebot)",
@@ -25,56 +24,46 @@ var aiBotUserAgents = []string{
 	"Meta-ExternalAgent/1.0 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)",
 }
 
-// keywordToLandings 每个关键词 → 应该被 AI Bot 访问的落地页 URL（HiveMTK 主站）
-// 语义：当用户在 AI 搜索框搜 "GEO优化" 时，Perplexity/Claude 等引擎的爬虫会访问
-//       hive.xapptool.cn 上与该关键词最相关的产品页/博客页/文档页
 var keywordToLandings = map[string][]string{
-	// ---- GEO 核心词 ----
-	"GEO优化":        {"https://hive.xapptool.cn/", "https://hive.xapptool.cn/blog/geo-optimization", "https://hive.xapptool.cn/docs/geo"},
-	"AI搜索优化":     {"https://hive.xapptool.cn/blog/ai-search-optimization", "https://hive.xapptool.cn/"},
-	"生成式引擎优化":  {"https://hive.xapptool.cn/blog/generative-engine-optimization", "https://hive.xapptool.cn/"},
-	"LLM SEO":        {"https://hive.xapptool.cn/blog/llm-seo", "https://hive.xapptool.cn/docs/geo"},
 
-	// ---- 产品核心词 ----
-	"私域AI营销":      {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/product/private-ai", "https://hive.xapptool.cn/pricing"},
-	"AI自动谈单":      {"https://hive.xapptool.cn/product/ai-agent", "https://hive.xapptool.cn/blog/ai-talk"},
+	"GEO优化":   {"https://hive.xapptool.cn/", "https://hive.xapptool.cn/blog/geo-optimization", "https://hive.xapptool.cn/docs/geo"},
+	"AI搜索优化":  {"https://hive.xapptool.cn/blog/ai-search-optimization", "https://hive.xapptool.cn/"},
+	"生成式引擎优化": {"https://hive.xapptool.cn/blog/generative-engine-optimization", "https://hive.xapptool.cn/"},
+	"LLM SEO": {"https://hive.xapptool.cn/blog/llm-seo", "https://hive.xapptool.cn/docs/geo"},
+
+	"私域AI营销":   {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/product/private-ai", "https://hive.xapptool.cn/pricing"},
+	"AI自动谈单":   {"https://hive.xapptool.cn/product/ai-agent", "https://hive.xapptool.cn/blog/ai-talk"},
 	"全渠道触达引擎":  {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/"},
 	"多账号聚合中枢":  {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/"},
-	"销冠SOP智能体":    {"https://hive.xapptool.cn/product/ai-agent", "https://hive.xapptool.cn/"},
-	"客户CDP画像":     {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/"},
+	"销冠SOP智能体": {"https://hive.xapptool.cn/product/ai-agent", "https://hive.xapptool.cn/"},
+	"客户CDP画像":  {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/"},
 
-	// ---- 品牌词 ----
-	"HiveMTK 怎么样":  {"https://hive.xapptool.cn/", "https://hive.xapptool.cn/pricing", "https://hive.xapptool.cn/faq"},
-	"HiveMTK 开源":    {"https://hive.xapptool.cn/", "https://hive.xapptool.cn/docs"},
-	"HiveMTK 部署":    {"https://hive.xapptool.cn/docs", "https://hive.xapptool.cn/docs/deployment"},
-	"HiveMTK":         {"https://hive.xapptool.cn/"},
+	"HiveMTK 怎么样": {"https://hive.xapptool.cn/", "https://hive.xapptool.cn/pricing", "https://hive.xapptool.cn/faq"},
+	"HiveMTK 开源":  {"https://hive.xapptool.cn/", "https://hive.xapptool.cn/docs"},
+	"HiveMTK 部署":  {"https://hive.xapptool.cn/docs", "https://hive.xapptool.cn/docs/deployment"},
+	"HiveMTK":     {"https://hive.xapptool.cn/"},
 
-	// ---- 竞品对比词 ----
-	"HiveMTK vs 微伴助手": {"https://hive.xapptool.cn/blog/hivemtk-vs-weiban", "https://hive.xapptool.cn/"},
+	"HiveMTK vs 微伴助手":     {"https://hive.xapptool.cn/blog/hivemtk-vs-weiban", "https://hive.xapptool.cn/"},
 	"HiveMTK vs HubSpot":  {"https://hive.xapptool.cn/blog/hivemtk-vs-hubspot", "https://hive.xapptool.cn/"},
-	"HiveMTK vs 探马SCRM": {"https://hive.xapptool.cn/blog/hivemtk-vs-tanma", "https://hive.xapptool.cn/"},
+	"HiveMTK vs 探马SCRM":   {"https://hive.xapptool.cn/blog/hivemtk-vs-tanma", "https://hive.xapptool.cn/"},
 	"HiveMTK vs Intercom": {"https://hive.xapptool.cn/blog/hivemtk-vs-intercom", "https://hive.xapptool.cn/"},
-	"HiveMTK vs 传统SCRM":  {"https://hive.xapptool.cn/blog/hivemtk-vs-traditional", "https://hive.xapptool.cn/"},
+	"HiveMTK vs 传统SCRM":   {"https://hive.xapptool.cn/blog/hivemtk-vs-traditional", "https://hive.xapptool.cn/"},
 
-	// ---- 场景词 ----
-	"医美连锁 私域运营": {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/case"},
+	"医美连锁 私域运营":    {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/case"},
 	"保险经纪 AI 销售工具": {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/case"},
 	"房产中介 SOP 智能体": {"https://hive.xapptool.cn/product/ai-agent", "https://hive.xapptool.cn/case"},
-	"家居定制 AI 获客":    {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/"},
+	"家居定制 AI 获客":   {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/"},
 
-	// ---- 技术词 ----
 	"Docker一键部署 AI营销系统": {"https://hive.xapptool.cn/docs/deployment", "https://hive.xapptool.cn/"},
-	"本地LLM推理 数据安全":     {"https://hive.xapptool.cn/docs", "https://hive.xapptool.cn/"},
+	"本地LLM推理 数据安全":      {"https://hive.xapptool.cn/docs", "https://hive.xapptool.cn/"},
 	"AI 自动回复 不封号":       {"https://hive.xapptool.cn/product", "https://hive.xapptool.cn/"},
 }
 
-// competitorSeed 竞品爬取种子
 type competitorSeed struct {
 	Domain string
 	Paths  []string
 }
 
-// competitorSeeds 只保留国内竞品（hubspot.com 太慢，tanmascrm.com 偶发 EOF）
 var competitorSeeds = []competitorSeed{
 	{Domain: "weibanzhushou.com", Paths: []string{"/", "/product", "/pricing"}},
 }
@@ -97,7 +86,7 @@ func NewMonitorCrawlerService(
 		crawlerRepo:    crawlerRepo,
 		keywordRepo:    keywordRepo,
 		competitorRepo: competitorRepo,
-		httpClient:      &http.Client{
+		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				if len(via) >= 3 {
@@ -113,17 +102,14 @@ func NewMonitorCrawlerService(
 func (s *MonitorCrawlerService) RunCrawlerCron(ctx context.Context) (int, error) {
 	logger.Info("[GEO Crawler] 关键词驱动爬虫开始 ...")
 
-	// 1. 读 geo_keywords
 	kws := s.loadKeywords(ctx)
 	if len(kws) == 0 {
 		logger.Info("[GEO Crawler] 关键词表为空，使用默认种子 ...")
 		kws = defaultSeedKeywords()
 	}
 
-	// 2. 加载竞品（从 DB，兜底硬编码）
 	competitors := s.loadCompetitors(ctx)
 
-	// 3. 构造 (keyword × landingPage) 爬取任务
 	type task struct {
 		Keyword   string
 		URL       string
@@ -132,7 +118,7 @@ func (s *MonitorCrawlerService) RunCrawlerCron(ctx context.Context) (int, error)
 	tasks := make([]task, 0, len(kws)*6+30)
 
 	for _, kw := range kws {
-		// HiveMTK 落地页（优先 keywordToLandings 映射，兜底首页）
+
 		if landings, ok := keywordToLandings[kw]; ok {
 			for _, u := range landings {
 				tasks = append(tasks, task{Keyword: kw, URL: u, IsHiveMTK: true})
@@ -141,9 +127,8 @@ func (s *MonitorCrawlerService) RunCrawlerCron(ctx context.Context) (int, error)
 			tasks = append(tasks, task{Keyword: kw, URL: "https://hive.xapptool.cn/", IsHiveMTK: true})
 		}
 
-		// 爬所有 active 竞品（每个 keyword 对每个竞品随机选 1 个 path）
 		for _, comp := range competitors {
-			paths := jsonPaths(comp.Paths) // datatypes.JSON → []string
+			paths := jsonPaths(comp.Paths)
 			if len(paths) == 0 {
 				paths = []string{"/"}
 			}
@@ -156,7 +141,6 @@ func (s *MonitorCrawlerService) RunCrawlerCron(ctx context.Context) (int, error)
 		}
 	}
 
-	// 4. 执行爬取（每任务 2 个随机 AI Bot UA）
 	visits := make([]*model.GeoCrawlerVisit, 0, len(tasks)*2)
 	var success, fail int
 	for i, t := range tasks {
@@ -179,7 +163,6 @@ func (s *MonitorCrawlerService) RunCrawlerCron(ctx context.Context) (int, error)
 	logger.Info(fmt.Sprintf("[GEO Crawler] 爬取完成: %d/%d 成功 (%.0f%%)",
 		success, success+fail, float64(success)/float64(success+fail+1)*100))
 
-	// 5. 批量写库
 	if s.crawlerRepo != nil && len(visits) > 0 {
 		if err := s.crawlerRepo.BulkCreate(ctx, visits); err != nil {
 			logger.Error(err, "[GEO Crawler] 批量写入失败")
@@ -192,7 +175,6 @@ func (s *MonitorCrawlerService) RunCrawlerCron(ctx context.Context) (int, error)
 	return len(visits), nil
 }
 
-// doCrawl 发一次 HTTP GET，成功返回 *GeoCrawlerVisit，失败返回 nil
 func (s *MonitorCrawlerService) doCrawl(ctx context.Context, targetURL, keyword, ua string) *model.GeoCrawlerVisit {
 	req, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
 	if err != nil {
@@ -222,7 +204,6 @@ func (s *MonitorCrawlerService) doCrawl(ctx context.Context, targetURL, keyword,
 	}
 }
 
-// loadKeywords 从 geo_keywords 读取 active 关键词
 func (s *MonitorCrawlerService) loadKeywords(ctx context.Context) []string {
 	if s.keywordRepo == nil {
 		return nil
@@ -296,7 +277,6 @@ func indexOf(s, substr string) int {
 	return -1
 }
 
-// jsonPaths 把 datatypes.JSON ([]byte) 解析成 []string
 func jsonPaths(in []byte) []string {
 	if len(in) == 0 {
 		return nil
@@ -308,7 +288,6 @@ func jsonPaths(in []byte) []string {
 	return out
 }
 
-// loadCompetitors 从 geo_competitors 读取 active 竞品（兜底硬编码）
 func (s *MonitorCrawlerService) loadCompetitors(ctx context.Context) []*model.GeoCompetitor {
 	if s.competitorRepo != nil {
 		list, err := s.competitorRepo.ListActive(ctx)
@@ -316,7 +295,7 @@ func (s *MonitorCrawlerService) loadCompetitors(ctx context.Context) []*model.Ge
 			return list
 		}
 	}
-	// 兜底：硬编码种子（防止 DB 表空时爬虫不跑）
+
 	out := make([]*model.GeoCompetitor, 0, len(competitorSeeds))
 	for _, cs := range competitorSeeds {
 		out = append(out, &model.GeoCompetitor{

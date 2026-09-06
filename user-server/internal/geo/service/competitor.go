@@ -117,7 +117,6 @@ func toCompetitorDTO(c *model.GeoCompetitor) CompetitorDTO {
 	}
 }
 
-// strSliceToJSON []string → datatypes.JSON
 func strSliceToJSON(in []string) []byte {
 	if in == nil {
 		return []byte("[]")
@@ -126,7 +125,6 @@ func strSliceToJSON(in []string) []byte {
 	return b
 }
 
-// jsonToStrSlice datatypes.JSON → []string
 func jsonToStrSlice(in []byte) []string {
 	if len(in) == 0 {
 		return []string{}

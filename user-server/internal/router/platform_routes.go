@@ -9,10 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupWhatsappRoutes WhatsApp 管理路由
-//
-// 权限分级（2026-08-18）：写操作（Create/Update/Delete/StartLogin/CreateDraft/CreateJob 等）admin only
-// 读操作任意登录用户
 func setupWhatsappRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	whatsappCtrl := controller.NewWhatsappController()
 	whatsappGroupMsgCtrl := controller.NewGroupMessagingController(
@@ -21,7 +17,7 @@ func setupWhatsappRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 		service.NewMessageQueueService(gormDB),
 		service.NewWhatsAppTemplateService(gormDB),
 	)
-	// 读操作
+
 	auth.GET("/whatsapp/accounts", whatsappCtrl.ListAccounts)
 	auth.GET("/whatsapp/login-status", whatsappCtrl.LoginStatus)
 	auth.GET("/whatsapp/drafts", whatsappCtrl.ListDrafts)
@@ -33,7 +29,7 @@ func setupWhatsappRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	auth.GET("/whatsapp/group-messaging/records", whatsappGroupMsgCtrl.GetSendRecords)
 	auth.GET("/whatsapp/templates", whatsappGroupMsgCtrl.GetTemplates)
 	auth.GET("/whatsapp/templates/:id", whatsappGroupMsgCtrl.GetTemplateByID)
-	// 写操作：admin only（2026-08-18 防 staff 越权）
+
 	admin := auth.Group("/whatsapp", middleware.AdminAuthMiddleware())
 	{
 		admin.POST("/accounts", whatsappCtrl.CreateAccount)
@@ -53,54 +49,30 @@ func setupWhatsappRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	}
 }
 
-// setupTelegramRoutes Telegram 机器人账号管理路由
-// 用于配置 TG Bot Token + Webhook + 智能体开关，
-// 配合 /api/webhook/telegram/{account_id} 自动触发智能体流程
-//
-// P0-22 权限分级（2026-08-31 四轮加固）：
-//   - Bot Token 是敏感凭据，整套账号管理 admin only（读+写）
 func setupTelegramRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	telegramAccountCtrl := controller.NewTelegramAccountController(service.NewTelegramService(gormDB))
 	admin := auth.Group("", middleware.AdminAuthMiddleware())
 	telegramAccountCtrl.RegisterRoutes(admin)
 }
 
-// setupFeishuRoutes 飞书机器人账号管理路由
-// 商户在 UI 配置 App ID / App Secret / Verification Token / Encrypt Key，
-// 配合 /api/webhook/feishu/{account_id} 自动触发智能体流程
-//
-// P0-22 权限分级：App Secret / Encrypt Key 敏感，整套 admin only
 func setupFeishuRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	feishuCtrl := controller.NewFeishuAccountController(service.NewFeishuService(gormDB), service.NewFeishuIntegrationService(gormDB))
 	admin := auth.Group("", middleware.AdminAuthMiddleware())
 	feishuCtrl.RegisterRoutes(admin)
 }
 
-// setupWhatsAppCloudRoutes WhatsApp Cloud API 商业账号管理路由
-// 商户在 UI 配置 Phone Number ID / WABA ID / Access Token / App Secret，
-// 配合 /api/webhook/whatsapp/{account_id} 自动触发智能体流程
-//
-// P0-22 权限分级：Access Token / App Secret 敏感，整套 admin only
 func setupWhatsAppCloudRoutes(auth *gin.RouterGroup, whatsappCloudSvc *service.WhatsAppCloudService, gormDB *gorm.DB) {
 	waCtrl := controller.NewWhatsAppCloudAccountController(whatsappCloudSvc, service.NewWhatsAppCloudIntegrationService(gormDB))
 	admin := auth.Group("", middleware.AdminAuthMiddleware())
 	waCtrl.RegisterRoutes(admin)
 }
 
-// setupDingTalkAppRoutes 钉钉企业内部应用（支持回调收消息）路由
-//
-// P0-22 权限分级：AppKey / AppSecret / AgentId 敏感，整套 admin only
 func setupDingTalkAppRoutes(auth *gin.RouterGroup, dingtalkAppSvc *service.DingTalkAppService) {
 	dtCtrl := controller.NewDingTalkAppAccountController(dingtalkAppSvc)
 	admin := auth.Group("", middleware.AdminAuthMiddleware())
 	dtCtrl.RegisterRoutes(admin)
 }
 
-// setupWechatRoutes 微信公众号账号管理路由
-// 商户在 UI 配置 App ID / App Secret / Token / EncodingAESKey，
-// 配合 /api/webhook/wechat/{account_id} 自动触发智能体流程
-//
-// P0-22 权限分级：App Secret / EncodingAESKey 敏感，整套 admin only
 func setupWechatRoutes(auth *gin.RouterGroup, gormDB *gorm.DB, ingressSvc *service.InboxIngressService) {
 	wechatCtrl := controller.NewWechatController(service.NewWechatService(gormDB))
 	if ingressSvc != nil {
@@ -110,8 +82,6 @@ func setupWechatRoutes(auth *gin.RouterGroup, gormDB *gorm.DB, ingressSvc *servi
 	wechatCtrl.RegisterRoutes(admin)
 }
 
-// setupWechatWebhookRoutes 微信公众号 webhook 路由（不需要认证）
-// 微信服务器用 GET 验证 URL，用 POST 推送消息
 func setupWechatWebhookRoutes(r *gin.RouterGroup, gormDB *gorm.DB, ingressSvc *service.InboxIngressService) {
 	wechatCtrl := controller.NewWechatController(service.NewWechatService(gormDB))
 	if ingressSvc != nil {
@@ -120,11 +90,9 @@ func setupWechatWebhookRoutes(r *gin.RouterGroup, gormDB *gorm.DB, ingressSvc *s
 	wechatCtrl.RegisterWebhookRoutes(r)
 }
 
-// setupTiktokRoutes TikTok 管理路由
 func setupTiktokRoutes(auth *gin.RouterGroup, gormDB *gorm.DB) {
 	tiktokCardCtrl := controller.NewTikTokCardController(
 		service.NewTikTokCardServiceWithDB(gormDB),
 	)
 	tiktokCardCtrl.RegisterRoutes(auth)
 }
-

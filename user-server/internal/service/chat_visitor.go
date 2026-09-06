@@ -68,9 +68,6 @@ func NewVisitorChatService(ctx context.Context, db *gorm.DB, channelSvc *ChatCha
 	}
 }
 
-// newInboxConversationRepo 构造收件箱会话仓储（绑定当前 db，缺失时回退全局默认库）
-//
-// 仓储初始化绑定 DB 的过程是同步轻量操作,使用 background ctx 隔离
 func newInboxConversationRepo(db *gorm.DB) *repository.InboxConversationRepository {
 	repo := repository.NewInboxConversationRepository()
 	if db != nil {
@@ -79,8 +76,6 @@ func newInboxConversationRepo(db *gorm.DB) *repository.InboxConversationReposito
 	return repo
 }
 
-// ensureVisitorCustomer 访客首次发消息时自动建档（CDP 客户中心）。
-// 以 unified_id = "visitor:<channel>:<visitor>" 去重，保证 customers 表随真实访客对话增长。
 func (s *VisitorChatService) ensureVisitorCustomer(ctx context.Context, req *VisitorSendMessageRequest, session *model.CustomerSession) error {
 	_ = ctx
 	if s.customerRepo == nil {
@@ -136,13 +131,11 @@ type VisitorOpenSessionResult struct {
 	VisitorToken   string                 `json:"visitor_token,omitempty"`
 }
 
-// visitorTokenSecret 获取 visitor token HMAC 密钥
-// 优先从配置读取，否则使用进程级默认密钥（建议生产环境配置）
 func visitorTokenSecret() []byte {
 	if cfg := config.GetAppConfig(); cfg.Security.VisitorTokenSecret != "" {
 		return []byte(cfg.Security.VisitorTokenSecret)
 	}
-	// v3 审计 P1-4：密钥未配置时返回 nil（调用方 fail-closed），不再回退硬编码默认值
+
 	return nil
 }
 
@@ -156,12 +149,6 @@ func ValidateVisitorToken(token, channelID, visitorID, sessionID string) error {
 	return security.ValidateVisitorToken(string(visitorTokenSecret()), token, channelID, visitorID, sessionID)
 }
 
-// resolveChannel 解析 channel（支持 channel_id / app_key / "default"）
-//
-// 私域部署（修复）：前端嵌入路由 /chat/embed/:channel_ref 把 app_key
-// 作为 path 参数透传过来，effectiveChannelId 收到的实际值可能是 channel_id 或
-// app_key。这里按"先按 channel_id 查 → 再按 app_key 查 → 最后 default 兜底"
-// 的顺序兼容三种取值，避免前端传 app_key 时报"渠道不存在"。
 func (s *VisitorChatService) resolveChannel(ctx context.Context, channelRef string) (*model.ChatChannel, error) {
 	ref := strings.TrimSpace(channelRef)
 	if ref == "" {
@@ -210,7 +197,7 @@ func (s *VisitorChatService) OpenSession(ctx context.Context, req *VisitorOpenSe
 		)
 		if err == nil && existing != nil {
 			online, _ := s.countOnlineAgents(ctx)
-			// IDOR 修复：为续接会话生成 visitor_token
+
 			token, terr := GenerateVisitorToken(channel.ChannelID, req.VisitorID, existing.SessionID)
 			if terr != nil {
 				return nil, fmt.Errorf("生成 visitor_token 失败: %w", terr)
@@ -273,10 +260,10 @@ func (s *VisitorChatService) OpenSession(ctx context.Context, req *VisitorOpenSe
 	}
 
 	_ = session
-	// IDOR 修复：为新会话生成 visitor_token，绑定 (channelID, visitorID, sessionID)
+
 	token, err := GenerateVisitorToken(channel.ChannelID, req.VisitorID, session.SessionID)
 	if err != nil {
-		// fail-closed：无 token 则后续 WS/会话操作全被拒，宁可开 会话 失败也不返回残缺态
+
 		return nil, fmt.Errorf("生成 visitor_token 失败: %w", err)
 	}
 	return &VisitorOpenSessionResult{
@@ -389,7 +376,6 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 
 	s.syncToInbox(ctx, session, req.Content)
 
-	// 非侵入钩子：Web Widget 消息成功落库并同步收件箱后，异步投递线索发掘
 	if s.leadMiningSvc != nil {
 		func() {
 			defer func() {
@@ -468,15 +454,12 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 		Content:    req.Content,
 		MessageID:  strconv.FormatUint(uint64(userMsg.ID), 10),
 	}
-	// 多 AI 智能体路由：网页客服与 webhook 保持一致，按 (渠道类型, 渠道账号) 加载绑定的智能体上下文。
-	// 这样「网页客服 AI 自动回复」才会真正接入 SmartCSOrchestrator（默认行为需绑定智能体，否则回退人工）。
+
 	var agentCtxFromChannel *AgentContext
 	if s.agentBindingSvc != nil {
 		agentCtxFromChannel, _ = s.agentBindingSvc.LoadAgentForChannel(ctx, NormalizeChannelType(string(model.PlatformWebEmbed)), channel.ChannelID)
 	}
-	// 服务端对 AI 推理设置硬性截止，避免 RAG/LLM 栈异常（如 embedding/rerank 不可达）时，
-	// 同步 HTTP 端点无限挂起（agentLoopTotalTimeout=180s 仅作后台安全网，不应让浏览器空等）。
-	// 超时后编排器 ctx 取消，返回「访客消息已保存、无 AI 回复」的降级结果，而非让客户端卡死。
+
 	const webChatReplyTimeout = 60 * time.Second
 	aiCtx, aiCancel := context.WithTimeout(ctx, webChatReplyTimeout)
 	defer aiCancel()
@@ -562,11 +545,6 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 	return result, nil
 }
 
-// syncToInbox 将网页客服会话同步到统一收件箱（inbox_conversations），
-// 使商户坐席能在「统一收件箱」看到并回复访客消息。
-// 与 WebhookService.upsertInboxFromHub 保持一致的幂等 upsert 语义：
-//   - 同一 (platform, account_id, customer_id) 已存在则仅更新最后消息 + 未读 +1
-//   - 不存在则新建一条 unread 会话
 func (s *VisitorChatService) syncToInbox(ctx context.Context, session *model.CustomerSession, content string) {
 	if s.inboxConvRepo == nil {
 		return
@@ -714,7 +692,6 @@ func (s *VisitorChatService) RateSession(ctx context.Context, channelID, visitor
 	return s.sessionSvc.RateSession(ctx, session.ID, rating, comment)
 }
 
-// countOnlineAgents 统计在线坐席数
 func (s *VisitorChatService) countOnlineAgents(ctx context.Context) (int, error) {
 	return s.agentStatusRepo.CountOnlineAgents(ctx)
 }
@@ -724,12 +701,6 @@ func (s *VisitorChatService) CountAvailableAgents(ctx context.Context) (int, err
 	return s.countOnlineAgents(ctx)
 }
 
-// shouldForceTransferByKeywords 判断用户消息是否命中"转人工"关键词
-//
-// 设计：
-//   - 大小写不敏感（统一转小写匹配）
-//   - 子串匹配（无需分词；词组内包含关键词即命中）
-//   - 多语言支持：中文 2-4 字关键词 / 英文单词
 func shouldForceTransferByKeywords(content string) bool {
 	return MatchTransferKeywords(content)
 }

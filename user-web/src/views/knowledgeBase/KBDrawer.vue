@@ -9,7 +9,7 @@
   >
     <div v-loading="loading" class="kb-drawer">
       <template v-if="kbData">
-        <!-- 基本信息 -->
+        
         <el-card shadow="never" class="section">
           <template #header>
             <div class="section-header">
@@ -45,7 +45,7 @@
           </el-descriptions>
         </el-card>
 
-        <!-- 统计 -->
+        
         <el-card shadow="never" class="section">
           <template #header>
             <div class="section-header">
@@ -75,7 +75,7 @@
           </el-row>
         </el-card>
 
-        <!-- 反向追溯：被哪些智能体使用 -->
+        
         <el-card shadow="never" class="section">
           <template #header>
             <div class="section-header">
@@ -130,7 +130,7 @@
           </el-table>
         </el-card>
 
-        <!-- 子项预览（RAG 文档 / FAQ 条目 / SOP 模板） -->
+        
         <el-card shadow="never" class="section">
           <template #header>
             <div class="section-header">
@@ -298,17 +298,14 @@ const loadStats = async () => {
         hit_count: res.hit_count ?? 0
       }
     }
-  } catch {
-    // 静默
-  }
+  } catch {}
 }
 
 const loadItemsPreview = async () => {
   if (!props.kbData?.id) return
   loadingItems.value = true
   try {
-    // 尝试从 knowledge 数据源预览（按 kb_type 调对应接口）
-    const t = props.kbData.kb_type
+    const t = props.kbData.kb_type;
     let url = ''
     if (t === 'rag') url = '/api/knowledge'
     else if (t === 'faq') url = '/api/faqs'

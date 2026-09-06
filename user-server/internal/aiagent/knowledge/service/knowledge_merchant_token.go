@@ -15,7 +15,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 // CreateTokenRequest 创建 Token
 type CreateTokenRequest struct {
 	Name      string     `json:"name"`
@@ -114,7 +113,6 @@ func (s *KnowledgeMerchantService) ValidateToken(ctx context.Context, plain stri
 	return tok, nil
 }
 
-
 func generateToken() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -167,4 +165,3 @@ func boolToInt(b bool) int {
 func BoolToInt(b bool) int {
 	return boolToInt(b)
 }
-

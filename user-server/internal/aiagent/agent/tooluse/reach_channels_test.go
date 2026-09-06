@@ -10,9 +10,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-
-
-// mockReachAdapter 记录所有调用，支持注入错误
 type mockReachAdapter struct {
 	sendTelegramCount   int32
 	sendWhatsAppCount   int32
@@ -59,7 +56,7 @@ func (m *mockReachAdapter) SendFeishu(_ context.Context, accountID, openID, cont
 	m.lastFeishuAccount = accountID
 	m.lastFeishuOpenID = openID
 	m.lastFeishuContent = content
-	m.lastFeishuMsgType = "text" 
+	m.lastFeishuMsgType = "text"
 	if m.feishuErr != nil {
 		return "", m.feishuErr
 	}
@@ -69,7 +66,6 @@ func (m *mockReachAdapter) SendWeb(_ context.Context, sessionID, content string)
 	return "web-msg-" + sessionID, nil
 }
 
-// 满足 ReachAdapter 接口其他方法（NoOp 行为）
 func (m *mockReachAdapter) SendSMS(_ context.Context, _, _, _ string, _ map[string]string) (string, error) {
 	return "", nil
 }
@@ -110,7 +106,6 @@ func (m *mockReachAdapter) AccountHealth(_ context.Context, _, _ string) (*Accou
 func (m *mockReachAdapter) ListAccounts(_ context.Context, _ string) ([]AccountInfo, error) {
 	return nil, nil
 }
-
 
 func TestReachTelegramSendTool_Name(t *testing.T) {
 	tool := NewReachTelegramSendTool(ReachToolDeps{Adapter: NoOpReachAdapter{}})
@@ -265,7 +260,6 @@ func TestReachTelegramSendTool_ToLLMFunction(t *testing.T) {
 	}
 }
 
-
 func TestReachWhatsAppSendTool_Name(t *testing.T) {
 	tool := NewReachWhatsAppSendTool(ReachToolDeps{Adapter: NoOpReachAdapter{}})
 	if tool.Name() != "reach.whatsapp.send" {
@@ -375,7 +369,6 @@ func TestReachWhatsAppSendTool_ToLLMFunction(t *testing.T) {
 	}
 }
 
-
 func TestReachFeishuSendTool_Name(t *testing.T) {
 	tool := NewReachFeishuSendTool(ReachToolDeps{Adapter: NoOpReachAdapter{}})
 	if tool.Name() != "reach.feishu.send" {
@@ -481,8 +474,6 @@ func TestReachFeishuSendTool_ToLLMFunction(t *testing.T) {
 	}
 }
 
-
-// dispatchBridge 测试辅助：包装 dispatchToAdapter，保留原桥接测试写法
 type dispatchBridge struct{ adapter ReachAdapter }
 
 func (b *dispatchBridge) dispatch(ctx context.Context, req *ReachSendRequest) (string, error) {
@@ -554,7 +545,6 @@ func TestReachChannelAdapterBridge_UnknownChannel(t *testing.T) {
 	}
 }
 
-
 func TestReachNewChannelsTools_RegistrationWithDB(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	registry := NewToolRegistry()
@@ -583,4 +573,3 @@ func TestReachNewChannelsTools_RegistrationWithDB(t *testing.T) {
 		t.Errorf("missing tools: telegram=%v whatsapp=%v feishu=%v", foundTelegram, foundWhatsApp, foundFeishu)
 	}
 }
-

@@ -7,8 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
-// setupSystemUserRoutes 注册 /api/system/users/* 路由
 func setupSystemUserRoutes(auth *gin.RouterGroup) {
 	ctrl := controller.NewSystemUserAdminController()
 	admin := auth.Group("/system/users", middleware.RequireAdminMiddleware())
@@ -21,9 +19,6 @@ func setupSystemUserRoutes(auth *gin.RouterGroup) {
 	}
 }
 
-
-
-// setupRoleRoutes 注册 /api/system/roles/* 路由
 func setupRoleRoutes(auth *gin.RouterGroup) {
 	ctrl := controller.NewRoleController()
 	admin := auth.Group("/system/roles", middleware.RequireAdminMiddleware())
@@ -34,9 +29,6 @@ func setupRoleRoutes(auth *gin.RouterGroup) {
 	}
 }
 
-
-
-// setupPermissionRoutes 注册 /api/system/permissions/* 路由
 func setupPermissionRoutes(auth *gin.RouterGroup) {
 	ctrl := controller.NewPermissionController()
 	admin := auth.Group("/system/permissions", middleware.RequireAdminMiddleware())
@@ -46,4 +38,3 @@ func setupPermissionRoutes(auth *gin.RouterGroup) {
 		admin.PUT("/:id/password", ctrl.ResetPassword)
 	}
 }
-

@@ -1,6 +1,5 @@
 package controller
 
-
 import (
 	"errors"
 	"net/http"
@@ -24,9 +23,6 @@ func NewSystemUserAdminController() *SystemUserAdminController {
 	}
 }
 
-// extractActorID 从 gin.Context 取 actor user_id（由 JWTAuthMiddleware 写入）
-//
-// 缺失或类型错误返回 401。
 func extractActorID(c *gin.Context) (uint, bool) {
 	v, ok := c.Get("user_id")
 	if !ok || v == nil {
@@ -60,7 +56,6 @@ func extractActorID(c *gin.Context) (uint, bool) {
 	}
 }
 
-// parseSysUserIDParam 解析路径参数 :id（避免与 base_card_controller.parseIDParam 冲突）
 func parseSysUserIDParam(c *gin.Context, paramName string) (uint, bool) {
 	raw := c.Param(paramName)
 	id, err := strconv.ParseUint(raw, 10, 64)
@@ -71,9 +66,6 @@ func parseSysUserIDParam(c *gin.Context, paramName string) (uint, bool) {
 	return uint(id), true
 }
 
-// writeServiceError 统一 service 错误响应：
-//   - service.ErrInvalidInput → 400
-//   - 其它（系统级 / DB） → 500
 func writeServiceError(c *gin.Context, err error) {
 	if err == nil {
 		return
@@ -186,4 +178,3 @@ func (c *SystemUserAdminController) Delete(ctx *gin.Context) {
 	}
 	response.Success(ctx, nil, "账号删除成功")
 }
-

@@ -102,7 +102,7 @@
               <h4>能力雷达图</h4>
               <div class="radar-chart">
                 <svg :viewBox="`0 0 ${svgSize} ${svgSize}`" width="100%" :style="{ maxWidth: svgSize + 'px', margin: '0 auto', display: 'block' }">
-                  <!-- 5 维度雷达图 -->
+                  
                   <g v-for="(ring, idx) in [0.2, 0.4, 0.6, 0.8, 1.0]" :key="`ring-${idx}`">
                     <polygon
                       :points="radarPoints(ring)"
@@ -111,7 +111,7 @@
                       stroke-width="1"
                     />
                   </g>
-                  <!-- 维度轴线 -->
+                  
                   <g v-for="(item, idx) in currentReport.items || []" :key="`axis-${idx}`">
                     <line
                       :x1="svgCenter"
@@ -129,14 +129,14 @@
                       fill="#606266"
                     >{{ item.name }}</text>
                   </g>
-                  <!-- 分数多边形 -->
+                  
                   <polygon
                     :points="scorePoints"
                     fill="rgba(64, 158, 255, 0.3)"
                     stroke="#4F46E5"
                     stroke-width="2"
                   />
-                  <!-- 分数点 -->
+                  
                   <g v-for="(item, idx) in currentReport.items || []" :key="`pt-${idx}`">
                     <circle
                       :cx="scoreX(idx)"
@@ -184,7 +184,7 @@
               </el-table>
             </div>
 
-            <!-- 对比分析 -->
+            
             <div v-if="compareMode" class="compare-section">
               <h4>员工对比</h4>
               <el-select
@@ -229,14 +229,14 @@
                       fill="#606266"
                     >{{ item.name }}</text>
                   </g>
-                  <!-- 主员工多边形（蓝色） -->
+                  
                   <polygon
                     :points="scorePoints"
                     fill="rgba(64, 158, 255, 0.2)"
                     stroke="#4F46E5"
                     stroke-width="2"
                   />
-                  <!-- 对比员工多边形（橙色） -->
+                  
                   <polygon
                     :points="comparePoints"
                     fill="rgba(230, 162, 60, 0.2)"
@@ -269,8 +269,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, DataLine, CaretTop, CaretBottom, Minus } from '@element-plus/icons-vue'
 import { listStaffs, getPersonaReport } from '@/api/persona.js'
-// 统一枚举：趋势方向
-import { getTrendLabel } from '@/constants/trend'
+import { getTrendLabel } from '@/constants/trend';
 
 const loadingStaffs = ref(false)
 const loadingReport = ref(false)
@@ -282,8 +281,7 @@ const compareMode = ref(false)
 const compareStaffId = ref(null)
 const compareReport = ref(null)
 
-// 雷达图参数
-const svgSize = 400
+const svgSize = 400;
 const svgCenter = svgSize / 2
 const svgRadius = 150
 
@@ -350,8 +348,7 @@ const loadReport = async () => {
     currentReport.value = res
   } catch (e) {
     ElMessage.error('画像生成失败：' + (e?.message || ''))
-    // 失败时清空，避免向运营展示伪造的评分数据（此前兜底假数据会造成误判）
-    currentReport.value = null
+    currentReport.value = null;
   } finally {
     loadingReport.value = false
   }
@@ -371,8 +368,7 @@ const loadCompareReport = async () => {
   }
 }
 
-// 雷达图计算
-const itemsCount = computed(() => (currentReport.value?.items || []).length || 5)
+const itemsCount = computed(() => (currentReport.value?.items || []).length || 5);
 
 const angle = (idx) => (Math.PI * 2 * idx) / itemsCount.value - Math.PI / 2
 

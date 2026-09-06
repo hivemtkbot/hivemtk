@@ -28,13 +28,6 @@ const (
 	sopAgentShared uint = 0
 )
 
-// sopTemplateWhitelist SOP 模板渲染白名单 (: 防 SSTI)
-//
-// 仅允许以下字段被传入 text/template.Execute, 其他字段 (特别是 user_message) 一律过滤。
-// 新增白名单字段需同时:
-//  1. 评估 SSTI 风险 (用户内容是否可控)
-//  2. 在此常量 + 单测中体现
-//  3. 文档化取值来源
 var sopTemplateWhitelist = map[string]struct{}{
 	"customer_id":  {},
 	"intent":       {},
@@ -44,10 +37,6 @@ var sopTemplateWhitelist = map[string]struct{}{
 	"intent_name":  {},
 }
 
-// sopRepoIface SOP Repository 接口 (Task 16: 抽象便于单测注入 mock)
-//
-// 与 *repository.SOPTemplateRepository 鸭子类型兼容, 生产代码无需感知。
-// Task 16 扩展: MatchByAgent(ctx, agentID, intent, stage) 用于强 1对1 匹配
 type sopRepoIface interface {
 	Create(ctx context.Context, tpl *model.SOPTemplate) error
 	GetByID(ctx context.Context, id uint) (*model.SOPTemplate, error)
@@ -62,11 +51,6 @@ type sopRepoIface interface {
 	Delete(ctx context.Context, id uint) error
 }
 
-// sopBindingRepoIface 智能体知识库绑定仓库接口 (Task 16 注入)
-//
-// 与 *repository.AgentKBBindingRepository 鸭子类型兼容。
-// 引入此接口是为了避免 service 对 bindingRepo 实现细节的直接依赖,
-// 同时方便单测注入 mock。
 type sopBindingRepoIface interface {
 	ListByAgent(ctx context.Context, agentID uint, kbType string) ([]model.AgentKBBinding, error)
 }
@@ -290,7 +274,6 @@ func (s *SOPTemplateService) Delete(ctx context.Context, id uint) error {
 	return nil
 }
 
-// sopToDTO 转换 model -> dto
 func sopToDTO(t *model.SOPTemplate) *dto.SOPTemplate {
 	if t == nil {
 		return nil
@@ -339,10 +322,6 @@ func (s *SOPTemplateService) Render(rawTpl string, vars map[string]any) (string,
 	return buf.String(), nil
 }
 
-// filterWhitelistVars 过滤 vars, 只保留白名单字段 (: 防 SSTI)
-//
-// 返回新 map, 不修改入参。
-// nil 入参返回空 map (nil-safe)。
 func filterWhitelistVars(vars map[string]any) map[string]any {
 	if vars == nil {
 		return map[string]any{}
@@ -361,8 +340,7 @@ func (s *SOPTemplateService) IncrementHitCount(ctx context.Context, id uint) {
 	if s.repo == nil || id == 0 {
 		return
 	}
-	// M1：原裸 go func() 改走 utils.SafeGo，自动 recover + 写 panic 计数。
-	// go func() 内吞掉的写库失败改 warn：hit_count 是统计型，丢失一次不影响正确性。
+
 	utils.SafeGo(context.Background(), "sop_template.IncrementHitCount", func(bgCtx context.Context) {
 		bgCtx, cancel := context.WithTimeout(bgCtx, utils.ShortTimeout)
 		defer cancel()
@@ -405,7 +383,7 @@ func (s *SOPTemplateService) WarmupCache(ctx context.Context, agentID uint) erro
 // 实现: 简单串行预热每个 agent, 失败不阻塞。
 func (s *SOPTemplateService) WarmupAll(ctx context.Context, agentIDs []uint) {
 	for _, id := range agentIDs {
-		// pre-warm 失败不阻塞主流程，但仍写 warn 以便观测缓存预热健康度。
+
 		utils.WarnErrKV("sop_template.WarmupCache",
 			s.WarmupCache(ctx, id),
 			"id", strconv.FormatUint(uint64(id), 10))

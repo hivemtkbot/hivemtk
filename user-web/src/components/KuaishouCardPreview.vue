@@ -11,10 +11,10 @@
     </div>
     
     <div class="preview-container" :class="{ 'preview-mode': isPreviewMode }">
-      <!-- 手机聊天界面 -->
+      
       <div class="phone-container">
         <div class="phone-frame">
-          <!-- 手机顶部状态栏 -->
+          
           <div class="phone-status-bar">
             <div class="status-left">
               <span class="time">9:41</span>
@@ -29,13 +29,13 @@
             </div>
           </div>
           
-          <!-- 聊天界面内容区 -->
+          
           <div class="chat-container">
-            <!-- 卡片消息 -->
+            
             <div class="message-container">
               <div class="message-bubble">
                 <div class="card-content">
-                  <!-- 卡片图片 -->
+                  
                   <div class="card-image" v-if="cardData.image_url">
                     <el-image 
                       :src="cardData.image_url" 
@@ -51,12 +51,12 @@
                     </el-image>
                   </div>
                   
-                  <!-- 卡片标题和描述 -->
+                  
                   <div class="card-text">
-                    <!-- 卡片标题 -->
+                    
                     <div class="card-title" v-if="cardData.title">{{ cardData.title }}</div>
                     
-                    <!-- 卡片描述 -->
+                    
                     <div class="card-description" v-if="cardData.description">{{ cardData.description }}</div>
                   </div>
                 </div>
@@ -76,27 +76,22 @@ import { ref, computed, watch } from 'vue'
 import { Picture, Connection, Link, CircleCheckFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
-// 定义props
 const props = defineProps({
   cardData: {
     type: Object,
     default: () => ({})
   }
-})
+});
 
-// 定义emits
-const emit = defineEmits(['view', 'like', 'share'])
+const emit = defineEmits(['view', 'like', 'share']);
 
-// 响应式数据
-const isPreviewMode = ref(false)
+const isPreviewMode = ref(false);
 
-// 方法
 const handleModeChange = (value) => {
-}
+};
 
-// 监听cardData变化
 watch(() => props.cardData, (newVal) => {
-}, { deep: true })
+}, { deep: true });
 </script>
 
 <style scoped>

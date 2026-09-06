@@ -104,7 +104,6 @@ func (f *FeedbackLearner) RecordFeedback(ctx context.Context, record *FeedbackRe
 	return nil
 }
 
-// updateIntentCache 更新意图缓存
 func (f *FeedbackLearner) updateIntentCache(ctx context.Context, record *FeedbackRecord) {
 	if record.IntentType == "" {
 		return
@@ -126,7 +125,6 @@ func (f *FeedbackLearner) updateIntentCache(ctx context.Context, record *Feedbac
 	stats.LastUpdated = time.Now()
 }
 
-// updateSOPCache 更新 SOP 缓存
 func (f *FeedbackLearner) updateSOPCache(ctx context.Context, record *FeedbackRecord) {
 	if record.SOPName == "" {
 		return

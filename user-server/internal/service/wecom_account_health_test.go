@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupWeComHealthTestDB 创建测试库
 func setupWeComHealthTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.WeComAccount{},
@@ -30,7 +29,6 @@ func newWeComHealthService(t *testing.T) (*WeComAccountHealthService, *gorm.DB) 
 	return NewWeComAccountHealthService(db), db
 }
 
-// mkWeComAccount 创建测试账号
 func mkWeComAccount(id uint) *model.WeComAccount {
 	now := time.Now()
 	return &model.WeComAccount{
@@ -1451,12 +1449,6 @@ func TestGetHealthSummary_TotalQuota(t *testing.T) {
 		t.Errorf("expected 700, got %d", summary.TotalUsed)
 	}
 }
-
-// ============================================================================
-// M14 W-7：ConsumeQuota 原子化回归测试
-// 原实现为「读 used → 内存判断 → 写回 used+count」的读改写模式，
-// 并发扣减互相覆盖导致超发。修复后必须由条件 UPDATE 原子保证不超配额。
-// ============================================================================
 
 // 105. 并发扣减不超发：quota=10，50 个并发各扣 1，恰好成功 10 次、used 终值 10
 func TestConsumeQuota_ConcurrentNoOvershoot(t *testing.T) {

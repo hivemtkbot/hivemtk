@@ -6,7 +6,6 @@ import (
 	"strings"
 )
 
-
 // BusinessIntentResult 业务结算结果（资产包模式 §六 协议）
 //
 // 字段：
@@ -41,15 +40,10 @@ func (DefaultIntentExtractor) Extract(reply string) (*BusinessIntentResult, erro
 	return nil, nil
 }
 
-// intentJSONBlockRE 匹配末尾 ```json ... ``` 代码块
-//
-// (?s) 让 . 匹配换行；非贪婪 [\\s\\S]*? 防止跨块吞噬
 var intentJSONBlockRE = regexp.MustCompile("(?s)```(?:json|JSON)?\\s*(\\{[\\s\\S]*?\\})\\s*```")
 
-// intentBareRE 匹配裸 {"intent": ...} JSON 段（最外层大括号匹配）
 var intentBareStartRE = regexp.MustCompile(`\{"intent"\s*:`)
 
-// extractFromCodeBlock 从 ```json {...} ``` 代码块提取
 func extractFromCodeBlock(reply string) *BusinessIntentResult {
 	matches := intentJSONBlockRE.FindAllStringSubmatch(reply, -1)
 	if len(matches) == 0 {
@@ -63,9 +57,6 @@ func extractFromCodeBlock(reply string) *BusinessIntentResult {
 	return parseIntentJSON(rawJSON)
 }
 
-// extractFromBareJSON 从裸 {"intent":...} JSON 段提取
-//
-// 找最后一个 {"intent" 起始位置，按大括号深度匹配到结尾
 func extractFromBareJSON(reply string) *BusinessIntentResult {
 	idxs := intentBareStartRE.FindAllStringIndex(reply, -1)
 	if len(idxs) == 0 {
@@ -96,13 +87,6 @@ func extractFromBareJSON(reply string) *BusinessIntentResult {
 	return parseIntentJSON(rawJSON)
 }
 
-// parseIntentJSON 解析 JSON 字符串为 BusinessIntentResult
-//
-// 容错：
-//   - JSON 解析失败返回 nil（不报错，避免日志噪声）
-//   - intent 字段允许缺失（默认 faq）
-//   - captured_data 字段允许缺失（默认空 map）
-//   - 非预期字段值类型不强校验（模型可能输出 number 而非 string）
 func parseIntentJSON(raw string) *BusinessIntentResult {
 	var dec struct {
 		Intent       string         `json:"intent"`
@@ -143,11 +127,7 @@ func parseIntentJSON(raw string) *BusinessIntentResult {
 	return ir
 }
 
-// formatBusinessFloat 格式化 float 为字符串（避免科学计数法）
-//
-// 注：刻意加 Business 前缀避免与 alignment_stage.go 已有的 formatFloat 冲突
 func formatBusinessFloat(f float64) string {
 	b, _ := json.Marshal(f)
 	return string(b)
 }
-

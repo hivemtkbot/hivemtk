@@ -10,7 +10,7 @@ import (
 	"hivemtk-user/internal/pkg/db"
 )
 
-var _ = sysmodel.JSONMap{} 
+var _ = sysmodel.JSONMap{}
 
 // TemplateMarketService 模板市场服务
 type TemplateMarketService struct {
@@ -73,7 +73,7 @@ func (s *TemplateMarketService) GetMyDownloads(page, pageSize int) ([]*model.Mar
 
 // UseTemplate 使用模板（导入到商户）
 func (s *TemplateMarketService) UseTemplate(userID uint, template *model.MarketTemplate) error {
-	// 根据模板类型导入到不同模块
+
 	var err error
 	switch template.Type {
 	case "flow":
@@ -99,8 +99,6 @@ func (s *TemplateMarketService) UseTemplate(userID uint, template *model.MarketT
 	return s.downloadRepo.Create(record)
 }
 
-// importFlowTemplate 导入流程模板
-// 解析模板内容并创建营销流程
 func (s *TemplateMarketService) importFlowTemplate(template *model.MarketTemplate) error {
 	var flowData struct {
 		Name          string `json:"name"`
@@ -133,8 +131,6 @@ func (s *TemplateMarketService) importFlowTemplate(template *model.MarketTemplat
 	return db.GetDB().Create(flow).Error
 }
 
-// importReportTemplate 导入报表模板
-// 解析模板内容并创建自定义报表
 func (s *TemplateMarketService) importReportTemplate(template *model.MarketTemplate) error {
 	var reportData struct {
 		Name        string `json:"name"`
@@ -168,8 +164,6 @@ func (s *TemplateMarketService) importReportTemplate(template *model.MarketTempl
 	return db.GetDB().Create(report).Error
 }
 
-// importScriptTemplate 导入话术模板
-// 解析模板内容并创建话术模板记录
 func (s *TemplateMarketService) importScriptTemplate(userID uint, template *model.MarketTemplate) error {
 	var scriptData struct {
 		Title     string `json:"title"`
@@ -201,8 +195,6 @@ func (s *TemplateMarketService) importScriptTemplate(userID uint, template *mode
 	return db.GetDB().Create(script).Error
 }
 
-// importEmailTemplate 导入邮件模板
-// 解析模板内容并创建邮件草稿
 func (s *TemplateMarketService) importEmailTemplate(template *model.MarketTemplate) error {
 	var emailData struct {
 		Subject string `json:"subject"`
@@ -288,7 +280,7 @@ func (s *TemplateMarketService) RateTemplate(id uint, rating float64) error {
 	if err != nil {
 		return errors.New("模板不存在")
 	}
-	// 简单平均：当前评分与新评分取平均
+
 	var newRating float64
 	if template.Rating > 0 {
 		newRating = (template.Rating + rating) / 2
@@ -297,4 +289,3 @@ func (s *TemplateMarketService) RateTemplate(id uint, rating float64) error {
 	}
 	return s.templateRepo.UpdateRating(id, newRating)
 }
-

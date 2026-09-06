@@ -57,14 +57,13 @@ type IntentRecognizer struct {
 	cache            *redis.Client
 	sopService       *SOPService
 
-	// 三级级联中间层（对标业界 Rule→Embedding→LLM 分层：60-70%/20-30%/5-10% 流量分布）
 	embedSvc          llm.EmbeddingServiceInterface
-	exampleRepo       *repository.IntentExampleRepository // M4 I-1: intent_examples pgvector 持久化锚点库
+	exampleRepo       *repository.IntentExampleRepository
 	anchorMu          sync.RWMutex
-	anchorVecs        map[string][][]float32 // intentType -> 预计算示例句向量
-	embDisabled       bool                   // 锚点为空（预计算失败）或运行期连续失败熔断
+	anchorVecs        map[string][][]float32
+	embDisabled       bool
 	embFailCount      int
-	embLastPrecompute time.Time // 上次预计算尝试时间（冷却懒重试用）
+	embLastPrecompute time.Time
 }
 
 // NewIntentRecognizer 创建意图识别器
@@ -108,8 +107,6 @@ func (s *IntentRecognizer) SetEmbeddingService(svc llm.EmbeddingServiceInterface
 	go s.safePrecomputeAnchors()
 }
 
-// safePrecomputeAnchors 带 recover 的后台预计算入口。
-// 头脑风暴 B1(SRE)：goroutine 内 panic 会击穿整个进程，后台任务必须自隔离。
 func (s *IntentRecognizer) safePrecomputeAnchors() {
 	defer func() {
 		if r := recover(); r != nil {
@@ -119,20 +116,12 @@ func (s *IntentRecognizer) safePrecomputeAnchors() {
 	s.precomputeAnchors()
 }
 
-// intentEmbeddingTop1 意图 embedding 层采信阈值（业界共识 0.75）
 const intentEmbeddingTop1 = 0.75
 
-// intentEmbeddingGap 歧义缺口阈值（M4 I-3）：top1 与 top2 相似度差低于该值
-// 且两者均过采信阈值时，不强选，返回 clarify 意图由编排层发澄清话术
 const intentEmbeddingGap = 0.05
 
-// intentTopKExamples RecognizeResult.TopKExamples 填充数量上限
 const intentTopKExamples = 3
 
-// precomputeAnchors 预计算全部意图示例句向量作为锚点库
-//
-// M4 I-1：优先从 intent_examples 表（pgvector 持久化锚点）加载；
-// 表为空/不可用时回退实时计算（行为不劣于现状，fail-open），成功后异步落库供重启复用。
 func (s *IntentRecognizer) precomputeAnchors() {
 	ctx := context.Background()
 	if s.loadAnchorsFromDB(ctx) {
@@ -153,8 +142,7 @@ func (s *IntentRecognizer) precomputeAnchors() {
 	}
 	s.anchorMu.Lock()
 	s.anchorVecs = vecs
-	// 红队审查 F1：启动时 TEI 可能尚未就绪，锚点全失败不应永久禁用——
-	// 改为可重试状态（recognizeByEmbedding 按 embRetryCooldown 冷却后懒重试）
+
 	s.embDisabled = len(vecs) == 0
 	if len(vecs) > 0 {
 		s.embFailCount = 0
@@ -166,7 +154,7 @@ func (s *IntentRecognizer) precomputeAnchors() {
 		total += len(v)
 	}
 	logger.Infof("[Intent] Embedding 中间层就绪: intents=%d anchors=%d disabled=%v", len(vecs), total, len(vecs) == 0)
-	// 实时计算成功后落库（best-effort，失败不影响中间层可用性）
+
 	if len(dbRows) > 0 && s.exampleRepo != nil {
 		if err := s.exampleRepo.UpsertBatch(ctx, dbRows); err != nil {
 			logger.Warnf("[Intent] 示例向量落库失败（下次启动将重算）: %v", err)
@@ -174,8 +162,6 @@ func (s *IntentRecognizer) precomputeAnchors() {
 	}
 }
 
-// loadAnchorsFromDB 从 intent_examples 表加载持久化锚点（M4 I-1）。
-// 成功加载≥1条返回 true 并写入 anchorVecs；表空/DB 不可用/解析失败返回 false（调用方回退实时计算）。
 func (s *IntentRecognizer) loadAnchorsFromDB(ctx context.Context) bool {
 	if s.exampleRepo == nil || s.embedSvc == nil {
 		return false
@@ -247,7 +233,6 @@ func (s *IntentRecognizer) EnsureIntentExamplesIndexed(ctx context.Context) (int
 	return imported, nil
 }
 
-// vecToPGLiteral []float32 → pgvector 字面量 '[v1,v2,...]'
 func vecToPGLiteral(v []float32) string {
 	var sb strings.Builder
 	sb.WriteByte('[')
@@ -261,7 +246,6 @@ func vecToPGLiteral(v []float32) string {
 	return sb.String()
 }
 
-// parsePGVectorLiteral pgvector 字面量 '[v1,v2,...]' → []float32
 func parsePGVectorLiteral(s string, expectDim int) ([]float32, error) {
 	s = strings.TrimSpace(s)
 	s = strings.TrimPrefix(s, "[")
@@ -284,11 +268,8 @@ func parsePGVectorLiteral(s string, expectDim int) ([]float32, error) {
 	return out, nil
 }
 
-// embRetryCooldown 锚点预计算失败后的重试冷却（TEI 启动慢/重启场景）
 const embRetryCooldown = 60 * time.Second
 
-// recognizeByEmbedding 三级级联中间层：示例句锚点余弦匹配。
-// 返回 nil 表示"不采信"（相似度不足或歧义缺口过小），调用方继续下沉 LLM。
 func (s *IntentRecognizer) recognizeByEmbedding(ctx context.Context, text string) *dto.RecognizeResult {
 	if s.embedSvc == nil {
 		return nil
@@ -298,9 +279,7 @@ func (s *IntentRecognizer) recognizeByEmbedding(ctx context.Context, text string
 	disabled := s.embDisabled
 	lastTry := s.embLastPrecompute
 	s.anchorMu.RUnlock()
-	// 冷却懒重试：锚点为空（如 TEI 启动慢）时按冷却间隔后台重试预计算，而非永久禁用。
-	// 二次复审 V2：重试必须在后台 goroutine 执行——同步 41 次 Embed 调用在 TEI 抖动时
-	// 会阻塞用户请求数分钟；本请求直接返回 nil 下沉 LLM 层，预计算完成后自动恢复。
+
 	if len(anchors) == 0 || disabled {
 		if time.Since(lastTry) < embRetryCooldown {
 			return nil
@@ -356,8 +335,7 @@ func (s *IntentRecognizer) recognizeByEmbedding(ctx context.Context, text string
 	if top1Type == "" || top1Sim < intentEmbeddingTop1 {
 		return nil
 	}
-	// M4 I-3 歧义澄清：top1 与 top2 均过采信阈值且缺口 <0.05 时不强选（强选=伪精度），
-	// 返回 clarify 意图，由编排层发澄清话术
+
 	if top1Sim-top2Sim < intentEmbeddingGap && top2Sim >= intentEmbeddingTop1 {
 		conf := 0.55 + top1Sim*0.4
 		if conf > 0.92 {
@@ -379,7 +357,7 @@ func (s *IntentRecognizer) recognizeByEmbedding(ctx context.Context, text string
 			},
 		}
 	}
-	// 仅 top2 未过阈值（缺口小但次优候选本就不可信）→ 正常采信 top1
+
 	var def IntentDef
 	for _, d := range DefaultIntents {
 		if d.Type == top1Type {
@@ -422,7 +400,7 @@ const (
 	IntentGreeting            = "greeting"
 	IntentComplaint           = "complaint"
 	IntentUnknown             = "unknown"
-	IntentClarify             = "clarify" // M4 I-3: 歧义澄清意图，由编排层发澄清话术
+	IntentClarify             = "clarify"
 
 	IntentStall         = IntentObjectionTiming
 	IntentAskTrust      = IntentObjectionTrust
@@ -563,7 +541,7 @@ func (s *IntentRecognizer) Recognize(ctx context.Context, sessionID, customerID,
 		s.saveRecord(ctx, sessionID, customerID, text, r, "", 0, 0)
 		result = r
 	} else if r := s.recognizeByEmbedding(ctx, text); r != nil {
-		// 三级级联中间层：规则未命中 → Embedding 锚点匹配（仅高置信且无歧义时采信）
+
 		s.saveRecord(ctx, sessionID, customerID, text, r, "", 0, 0)
 		result = r
 	} else if s.dispatcher != nil {
@@ -584,20 +562,17 @@ func (s *IntentRecognizer) Recognize(ctx context.Context, sessionID, customerID,
 		}
 	}
 
-	// I-5 弱标签打点：规则命中即以命中意图为伪真值记账（纯内存零阻塞）
 	RecordIntentWeakLabel(result)
 
 	if customerID != "" {
 		s.triggerSOPByIntent(ctx, customerID, sessionID, result.IntentType, result.Confidence)
 	}
 
-	// P1-6 + K-5: 填充 Top-K few-shot 示例（动态 kNN 优先，异常/无向量回退静态），供后续 agent prompt 注入
 	s.fillTopKExamplesDynamic(ctx, text, result)
 
 	return result, nil
 }
 
-// triggerSOPByIntent 触发匹配的 SOP
 func (s *IntentRecognizer) triggerSOPByIntent(ctx context.Context, customerID, sessionID, intentType string, confidence float64) {
 	if s.sopService == nil {
 		return
@@ -605,7 +580,7 @@ func (s *IntentRecognizer) triggerSOPByIntent(ctx context.Context, customerID, s
 	if confidence < 0.7 {
 		return
 	}
-	// M4 I-3：clarify 是澄清信号而非业务意图，不触发 SOP（编排层负责发澄清话术）
+
 	if intentType == IntentClarify || intentType == IntentUnknown {
 		return
 	}
@@ -617,7 +592,7 @@ func (s *IntentRecognizer) triggerSOPByIntent(ctx context.Context, customerID, s
 		if !agent.IsActive {
 			continue
 		}
-		// 去重：检查是否已有 running 的执行（经 SOP 执行仓储查询）
+
 		if s.sopExecutionRepo != nil {
 			count, err := s.sopExecutionRepo.CountRunningBySOPAndCustomer(ctx, agent.ID, customerID, SOPStatusRunning)
 			if err != nil || count > 0 {
@@ -642,13 +617,12 @@ func (s *IntentRecognizer) triggerSOPByIntent(ctx context.Context, customerID, s
 	}
 }
 
-// recognizeByRule 规则匹配
 func (s *IntentRecognizer) recognizeByRule(ctx context.Context, text string) *dto.RecognizeResult {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return nil
 	}
-	// R55 T10: 默认词表 + 租户覆盖词表合并
+
 	activeIntents := intentsForRule()
 	for _, def := range activeIntents {
 		for _, ex := range def.Examples {
@@ -664,7 +638,7 @@ func (s *IntentRecognizer) recognizeByRule(ctx context.Context, text string) *dt
 			}
 		}
 	}
-	// 关键词匹配
+
 	var bestMatch *IntentDef
 	bestScore := 0
 	for _, def := range activeIntents {
@@ -700,12 +674,6 @@ func (s *IntentRecognizer) recognizeByRule(ctx context.Context, text string) *dt
 	return nil
 }
 
-// recognizeByLLM LLM 识别（三级级联末层）
-//
-// 业界契约（对标 Rasa/意图级联实践）：
-//  1. unknown 是一等公民——prompt 显式声明"无法确定时返回 unknown 是合法答案"
-//  2. temperature=0（分类任务确定性输出，无需创造性）
-//  3. 置信度 <0.7 视为 unknown（fail-closed：强选比承认未知更危险）
 func (s *IntentRecognizer) recognizeByLLM(ctx context.Context, text string) (*dto.RecognizeResult, error) {
 	intentList := make([]string, 0, len(DefaultIntents))
 	for _, def := range DefaultIntents {
@@ -769,7 +737,7 @@ unknown: 无法确定或消息不属于以上任何意图（这是合法答案�
 		parsed.IntentType = "unknown"
 		intentName = "未知意图"
 	}
-	// fail-closed：低置信强选视为 unknown（业界健康区间：LLM 层 unknown 率 20-30%）
+
 	if parsed.IntentType != IntentUnknown && parsed.Confidence < 0.7 {
 		logger.Infof("[Intent] LLM 低置信强选降级 unknown: type=%s conf=%.2f", parsed.IntentType, parsed.Confidence)
 		parsed.IntentType = "unknown"
@@ -797,12 +765,6 @@ unknown: 无法确定或消息不属于以上任何意图（这是合法答案�
 	}, nil
 }
 
-// BuildClarifyReply 由 clarify 意图结果生成澄清话术（M4 I-3，供编排层消费）。
-// 从 Entities 中读取 top1/top2 候选意图名，生成二选一澄清问句；
-// 候选信息缺失时退化为通用澄清话术。
-
-// fillTopKExamples 为 RecognizeResult 填充 TopKExamples 字段。
-// 从 DefaultIntents 中找到对应 IntentType 的 Examples，取前 K 个（intentTopKExamples=3）。
 func fillTopKExamples(r *dto.RecognizeResult) {
 	if r == nil || r.IntentType == "" || r.IntentType == IntentUnknown || r.IntentType == IntentClarify {
 		return
@@ -839,7 +801,6 @@ func BuildClarifyReply(r *dto.RecognizeResult) string {
 	return fmt.Sprintf("不好意思确认一下：您是想了解【%s】，还是想说说【%s】方面的事呢？", nameOf(top1), nameOf(top2))
 }
 
-// inferSentiment 根据意图推断情感
 func inferSentiment(intentType string) string {
 	switch intentType {
 	case IntentChurn, IntentComplaint, IntentObjectionPrice, IntentObjectionNeed, IntentObjectionTrust:
@@ -851,7 +812,6 @@ func inferSentiment(intentType string) string {
 	}
 }
 
-// saveRecord 保存识别记录
 func (s *IntentRecognizer) saveRecord(ctx context.Context, sessionID, customerID, text string, result *dto.RecognizeResult, llmModel string, costTokens, latencyMs int) {
 	if s.db == nil {
 		return
@@ -978,7 +938,6 @@ func (s *IntentRecognizer) GetRecentIntentsPaged(ctx context.Context, customerID
 	return s.recordRepo.ListPaged(ctx, customerID, intentType, page, pageSize)
 }
 
-// 全局实例管理
 var (
 	intentRecognizerOnce sync.Once
 	intentRecognizer     *IntentRecognizer
@@ -1066,29 +1025,19 @@ func InitIntentRecognizer(db *gorm.DB, dispatcher *llm.Dispatcher, cache *redis.
 		}
 
 		intentRecognizer = NewIntentRecognizer(db, dispatcher, cache)
-		// 三级级联中间层：注入本地 Embedding 服务（TEI bge-m3）。
-		// 失败时中间层自动停用（fail-open），不影响主链路。
+
 		intentRecognizer.SetEmbeddingService(llm.NewEmbeddingService())
 
-		// R55 T10: 启动加载租户意图词表覆盖
 		InitIntentKeywordOverride(ctx)
 	})
 	return intentRecognizer
 }
 
-// ===== R55 T10：意图词表租户可配置 =====
-//
-// 此前 DefaultIntents 13 类硬编码，医美/教育等行业关键词不可改，跨行业适配需改源码。
-// 现支持 system_config_kv 覆盖层：key=intent_keywords_override，
-// PUT 覆盖词表后 recognizeByRule/recognizeByEmbedding 立即合并生效（无需重启）。
-
 // IntentKeywordsOverrideKey 覆盖词表存储 key
 const IntentKeywordsOverrideKey = "intent_keywords_override"
 
-// intentOverrideMu 保护 intentKeywordOverride 并发读写
 var intentOverrideMu sync.RWMutex
 
-// intentKeywordOverride 租户覆盖词表（type → 追加关键词），nil=未配置
 var intentKeywordOverride map[string][]string
 
 // LoadIntentKeywordOverride 从 system_config_kv 加载覆盖词表
@@ -1148,7 +1097,6 @@ func InitIntentKeywordOverride(ctx context.Context) {
 	}
 }
 
-// intentsForRule 合并默认词表与租户覆盖词表（覆盖为追加语义，不删除默认词）
 func intentsForRule() []IntentDef {
 	intentOverrideMu.RLock()
 	override := intentKeywordOverride

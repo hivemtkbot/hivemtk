@@ -25,7 +25,7 @@
       </el-col>
     </el-row>
 
-    <!-- SOV 柱状对比图 -->
+    
     <el-card class="mb-4">
       <template #header><span class="font-bold">品牌 SOV 对比（AI 引擎声量份额）</span></template>
       <div v-if="!loading && sovData.length === 0" class="py-12 text-center text-gray-400">
@@ -34,7 +34,7 @@
       <div ref="barChartRef" v-show="sovData.length > 0" style="height:320px"></div>
     </el-card>
 
-    <!-- SOV 明细表 -->
+    
     <el-card class="mb-4">
       <template #header>
         <div class="flex items-center gap-4">
@@ -90,12 +90,11 @@ let chartInstance = null
 const hiveMTKEntry = computed(() => sovData.value.find(r => r.is_own))
 const hiveMTKSov = computed(() => hiveMTKEntry.value?.sov_percent || 0)
 const hiveMTKMentions = computed(() => hiveMTKEntry.value?.mentions || 0)
-// 趋势：默认与平均值对比（简化版，后端暂不返回历史趋势）
 const hiveMTKSovTrend = computed(() => {
   if (sovData.value.length <= 1) return 0
   const avg = sovData.value.reduce((s, r) => s + r.sov_percent, 0) / sovData.value.length
   return Number((hiveMTKSov.value - avg).toFixed(2))
-})
+});
 
 const summary = computed(() => ({
   competitor_count: Math.max(0, sovData.value.filter(r => !r.is_own).length),
@@ -143,8 +142,7 @@ const load = async () => {
   loading.value = true
   try {
     const data = await getSOV()
-    // 后端返回: [{ brand, mentions, total_mentions_all_brands, sov_percent, avg_sentiment }]
-    const list = Array.isArray(data) ? data : (data?.list || data?.data || [])
+    const list = Array.isArray(data) ? data : (data?.list || data?.data || []);
     sovData.value = list.map(r => ({
       brand: r.brand || '未知',
       mentions: Number(r.mentions || 0),

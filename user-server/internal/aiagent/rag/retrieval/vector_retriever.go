@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"fmt"
@@ -15,7 +14,7 @@ import (
 // VectorRetriever pgvector HNSW 向量召回器
 type VectorRetriever struct {
 	db              *gorm.DB
-	embeddingClient llm.EmbeddingServiceInterface 
+	embeddingClient llm.EmbeddingServiceInterface
 	efSearch        int
 }
 
@@ -35,7 +34,6 @@ func NewVectorRetriever(db *gorm.DB, embeddingClient llm.EmbeddingServiceInterfa
 	}
 }
 
-// chunkScanRow 数据库扫描行
 type chunkScanRow struct {
 	ID         uint64  `gorm:"column:id"`
 	DocumentID uint64  `gorm:"column:document_id"`
@@ -115,8 +113,6 @@ func (r *VectorRetriever) Retrieve(ctx context.Context, productID string, query 
 	}
 	vecLiteral := vecToPGString(queryVec)
 
-	// 在事务内 SET LOCAL hnsw.ef_search，仅影响本次查询
-	// 用 GORM Transaction 包裹，确保 SET LOCAL 不会污染连接池
 	var rows []chunkScanRow
 	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec(fmt.Sprintf("SET LOCAL hnsw.ef_search = %d", r.efSearch)).Error; err != nil {
@@ -151,10 +147,6 @@ func (r *VectorRetriever) Retrieve(ctx context.Context, productID string, query 
 	return rowsToChunks(rows), nil
 }
 
-// countUnembeddedChunks 统计指定 product 下仍存在未向量化 chunk 的数量。
-//
-// 判定：embed_status='pending' OR embedding IS NULL。仅用于空召回告警，不影响主流程；
-// 任何错误（列不存在/无 product 过滤）返回 0（不打扰主链路）。
 func (r *VectorRetriever) countUnembeddedChunks(ctx context.Context, productID string) int64 {
 	sql := `
 		SELECT COUNT(*) FROM knowledge_chunks
@@ -172,7 +164,6 @@ func (r *VectorRetriever) countUnembeddedChunks(ctx context.Context, productID s
 	return n
 }
 
-// rowsToChunks chunkScanRow → Chunk
 func rowsToChunks(rows []chunkScanRow) []Chunk {
 	out := make([]Chunk, 0, len(rows))
 	for _, r := range rows {
@@ -185,4 +176,3 @@ func rowsToChunks(rows []chunkScanRow) []Chunk {
 	}
 	return out
 }
-

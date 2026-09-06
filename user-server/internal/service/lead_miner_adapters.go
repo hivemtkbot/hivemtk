@@ -131,11 +131,10 @@ func (a BridgeLeadAdapter) DisplayName(fromName, username, accountKey string) st
 }
 func (a BridgeLeadAdapter) ExtraKeywords() (high, medium []string) { return nil, nil }
 func (a BridgeLeadAdapter) TriggerOutreach(ctx context.Context, s *WebhookService, accountID, fromID, groupID, groupTitle string, score int, originalText string) {
-	// Bridge 渠道主动触达复用抖音私信通道（通过 DeliverBridgeOutbound 投递）
+
 	s.triggerDouyinDMOutreach(ctx, accountID, fromID, groupID, groupTitle, score, originalText)
 }
 
-// bridgeLeadAdapterForChannel 根据渠道名返回对应的 Bridge 适配器（修正类型映射 Bug）。
 func bridgeLeadAdapterForChannel(channel string) BridgeLeadAdapter {
 	switch channel {
 	case "xiaohongshu":
@@ -189,7 +188,7 @@ func (WhatsAppLeadAdapter) DisplayName(fromName, username, accountKey string) st
 }
 func (WhatsAppLeadAdapter) ExtraKeywords() (high, medium []string) { return nil, nil }
 func (WhatsAppLeadAdapter) TriggerOutreach(_ context.Context, _ *WebhookService, _, _, _, _ string, _ int, _ string) {
-	// WhatsApp 24h 客户服务窗口限制，不主动触达
+
 }
 
 // WeComLeadAdapter 企业微信渠道线索适配器

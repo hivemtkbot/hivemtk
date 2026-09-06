@@ -33,7 +33,6 @@ type WechatService struct {
 	tokenClients map[uint]*wechatTokenClient
 }
 
-// wechatTokenClient AccessToken 管理
 type wechatTokenClient struct {
 	appID       string
 	appSecret   string
@@ -49,8 +48,6 @@ func NewWechatService(db *gorm.DB) *WechatService {
 		tokenClients: make(map[uint]*wechatTokenClient),
 	}
 }
-
-// ========== 账号管理 ==========
 
 // ListAccounts 列出所有公众号账号
 func (s *WechatService) ListAccounts(ctx context.Context) ([]model.WechatAccount, error) {
@@ -124,8 +121,6 @@ func (s *WechatService) DeleteAccount(ctx context.Context, id uint) error {
 	return s.db.WithContext(ctx).Delete(&model.WechatAccount{}, id).Error
 }
 
-// ========== 服务器配置验证 ==========
-
 // VerifySignature 验证微信服务器签名
 // 微信服务器在配置 URL 时用 GET 请求带 signature/timestamp/nonce/echostr 参数
 func (s *WechatService) VerifySignature(token, signature, timestamp, nonce string) bool {
@@ -135,8 +130,6 @@ func (s *WechatService) VerifySignature(token, signature, timestamp, nonce strin
 	expected := fmt.Sprintf("%x", hash)
 	return expected == signature
 }
-
-// ========== 消息接收 ==========
 
 // WechatIncomingMessage 微信推送的 XML 消息结构
 type WechatIncomingMessage struct {
@@ -174,9 +167,6 @@ func (s *WechatService) ParseIncomingMessage(body []byte) (*WechatIncomingMessag
 	return &msg, nil
 }
 
-// ========== AccessToken 管理 ==========
-
-// getTokenClient 获取或创建 token client
 func (s *WechatService) getTokenClient(ctx context.Context, accountID uint) (*wechatTokenClient, error) {
 	s.mu.RLock()
 	client, ok := s.tokenClients[accountID]
@@ -203,7 +193,6 @@ func (s *WechatService) getTokenClient(ctx context.Context, accountID uint) (*we
 	return client, nil
 }
 
-// getAccessToken 获取有效的 access_token（自动刷新）
 func (c *wechatTokenClient) getAccessToken(ctx context.Context) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -218,14 +207,12 @@ func (c *wechatTokenClient) getAccessToken(ctx context.Context) (string, error) 
 	}
 
 	c.accessToken = token
-	c.expiresAt = time.Now().Add(time.Duration(expiresIn-300) * time.Second) // 提前 5 分钟刷新
+	c.expiresAt = time.Now().Add(time.Duration(expiresIn-300) * time.Second)
 	return c.accessToken, nil
 }
 
-// wechatAPIBase 微信 API 基地址（包级变量便于单测注入 httptest 仿服务）
 var wechatAPIBase = "https://api.weixin.qq.com"
 
-// fetchAccessToken 从微信 API 获取 access_token
 func (c *wechatTokenClient) fetchAccessToken(ctx context.Context) (string, int, error) {
 	url := fmt.Sprintf("%s/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s",
 		wechatAPIBase, c.appID, c.appSecret)
@@ -258,8 +245,6 @@ func (c *wechatTokenClient) fetchAccessToken(ctx context.Context) (string, int, 
 	return result.AccessToken, result.ExpiresIn, nil
 }
 
-// ========== 客服消息发送 ==========
-
 // SendCustomMessage 发送客服消息
 // 支持 msgType: text / image / news / template
 //
@@ -290,7 +275,7 @@ func (s *WechatService) SendCustomMessage(ctx context.Context, accountID uint, o
 	case "text":
 		payload["text"] = map[string]string{"content": content}
 	case "image":
-		// content 此时是 media_id
+
 		payload["image"] = map[string]string{"media_id": content}
 	default:
 		payload["text"] = map[string]string{"content": content}
@@ -323,7 +308,6 @@ func (s *WechatService) SendCustomMessage(ctx context.Context, accountID uint, o
 		return "", fmt.Errorf("wechat send error: %d %s", result.Errcode, result.Errmsg)
 	}
 
-	// 记录消息
 	msg := &model.WechatMessage{
 		AccountID:  accountID,
 		FromUser:   "SYSTEM",
@@ -354,8 +338,6 @@ func (s *WechatService) SaveIncomingMessage(ctx context.Context, accountID uint,
 	}
 	return s.db.WithContext(ctx).Create(record).Error
 }
-
-// ========== 回复消息构建 ==========
 
 // BuildTextReply 构建文本回复 XML
 func (s *WechatService) BuildTextReply(toUser, fromUser, content string) string {

@@ -133,7 +133,7 @@ func TestTriggerDMOutreach_ScoreBelowThreshold(t *testing.T) {
 	db := setupTelegramTestDB(t)
 	ws := &WebhookService{db: db}
 	svc := NewTelegramDMOutreachService(ws)
-	// score=59 < 60 阈值，不会触达 SendMessage（避免真实 API 调用）
+
 	svc.TriggerDMOutreach(context.Background(), "1", 9999991, "-100", "群", 59, true, "hi")
 }
 
@@ -153,10 +153,9 @@ func TestTriggerDMOutreach_CooldownBlocks(t *testing.T) {
 	ws := &WebhookService{db: db}
 	svc := NewTelegramDMOutreachService(ws)
 	const uid int64 = 9999993
-	// 首次：tgIntegration.SendMessage 会失败（无账号），但冷却 key 已设置
+
 	svc.TriggerDMOutreach(context.Background(), "1", uid, "-100", "群", 80, true, "hi")
-	// 第二次：冷却期内，应在 tgLeadOutreachAllowed 处被拦截（不会走到 SendMessage）
-	// 用 recover 验证不 panic
+
 	defer func() {
 		if r := recover(); r != nil {
 			t.Fatalf("冷却路径不应 panic: %v", r)
@@ -246,7 +245,6 @@ func TestRecordDMOutreachEvent(t *testing.T) {
 		t.Fatalf("应记录 outreach 事件到 message_hub")
 	}
 
-	// 验证 Extra 字段含 scenario/trigger/intent_score/source_group
 	var hubs []telegramOutreachHub
 	if err := db.Table("message_hub").Where("platform = ? AND sender_id = ?", "telegram", "1").
 		Order("created_at DESC").Limit(1).Scan(&hubs).Error; err != nil || len(hubs) == 0 {

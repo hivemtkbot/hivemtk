@@ -16,7 +16,7 @@ import (
 // SetAdminInit / GetInstallLock / CurrentVersion / GetAdminUsername / MarkAdminInitialized），
 // 但内部已不再请求平台获取授权。
 type LicenseChecker struct {
-	ServerURL string
+	ServerURL  string
 	LicenseKey string
 
 	mu sync.Mutex
@@ -104,4 +104,3 @@ func (c *LicenseChecker) GetAdminUsername() string {
 func (c *LicenseChecker) MarkAdminInitialized() error {
 	return install.MarkAdminInitializedStandalone()
 }
-

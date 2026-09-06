@@ -179,24 +179,19 @@ import { getCustomerList, getCustomerDetail, addCustomerTag, removeCustomerTag }
 import { createSession, sendMessage } from '@/api/customerSession.js'
 import { getExternalOrdersByCustomer } from '@/api/integration.js'
 import { toList } from '@/utils/list'
-// 渠道 label：取自统一 channel 常量
-import { getChannelLabel } from '@/constants/channel'
-// 客户状态 label/type：取自统一 customerTag 常量（active/inactive/lost/churn）
+import { getChannelLabel } from '@/constants/channel';
 import {
   getCustomerStatusLabel as getCustomerStatusLabelFromConst,
-  getCustomerStatusTagType as getCustomerStatusTagTypeFromConst
-} from '@/constants/customerTag'
-// 客户状态 label/type：取自统一 enabled 常量（active/disabled）
-import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled'
+  getCustomerStatusTagType as getCustomerStatusTagTypeFromConst,
+} from '@/constants/customerTag';
+import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled';
 
-// 客户状态 label/type：active=正常，inactive/lost=流失/不活跃
-const getCustomerStatusLabel = (s) => getCustomerStatusLabelFromConst(s) || getEnabledLabel(s)
+const getCustomerStatusLabel = (s) => getCustomerStatusLabelFromConst(s) || getEnabledLabel(s);
 const getCustomerStatusTagType = (s) => getCustomerStatusTagTypeFromConst(s) || getEnabledTagType(s)
 
 const loading = ref(false)
 const searchKeyword = ref('')
 const customers = ref([])
-// 后端 GetCustomerList 暂不支持 keyword，这里做前端本地过滤（姓名/手机/邮箱）
 const filteredCustomers = computed(() => {
   const k = (searchKeyword.value || '').trim().toLowerCase()
   if (!k) return customers.value
@@ -205,7 +200,7 @@ const filteredCustomers = computed(() => {
     (c.phone || '').includes(k) ||
     (c.email || '').toLowerCase().includes(k)
   )
-})
+});
 const current = ref(null)
 const activeTab = ref('basic')
 const behaviors = ref([])
@@ -227,7 +222,6 @@ const loadCustomers = async () => {
   try {
     const res = await getCustomerList({ keyword: searchKeyword.value })
     const map = res?.list
-    // 后端返回 list 为 { user_id: { basic_info: {...}, ... } } 的对象映射，需转成数组
     customers.value = map && typeof map === 'object' && !Array.isArray(map)
       ? Object.entries(map).map(([uid, c]) => {
           const b = c?.basic_info || {}
@@ -239,13 +233,12 @@ const loadCustomers = async () => {
             source: b.source_platform || ''
           }
         })
-      : toList(res)
+      : toList(res);
   } finally {
     loading.value = false
   }
 }
 
-// 后端详情返回 basic_info / session_stats / message_history 等结构，这里做字段映射。
 const toCustomerModel = (raw, fallbackId) => {
   const b = raw?.basic_info || {}
   return {
@@ -260,7 +253,7 @@ const toCustomerModel = (raw, fallbackId) => {
     status: 'active',
     tags: raw?.tags || []
   }
-}
+};
 
 const selectCustomer = async (row) => {
   const raw = await getCustomerDetail(row.id)
@@ -278,11 +271,9 @@ const selectCustomer = async (row) => {
     direction: m.sender_type === 'user' ? 'in' : 'out',
     content: m.content
   }))
-  // 客服从外部电商同步的订单镜像，仅查询展示（不下单/不履约）
-  loadOrders(current.value.phone, current.value.name)
+  loadOrders(current.value.phone, current.value.name);
 }
 
-// 加载客户近期订单（只读镜像，用于客服 360 视图）
 const loadOrders = async (phone, name) => {
   orders.value = []
   if (!phone && !name) return
@@ -295,7 +286,7 @@ const loadOrders = async (phone, name) => {
   } finally {
     ordersLoading.value = false
   }
-}
+};
 
 const contactCustomer = () => {
   contactForm.value.content = ''
@@ -315,8 +306,7 @@ const submitContact = async () => {
       user_name: current.value.name || '',
       user_phone: current.value.phone || ''
     })
-    // 修复：res 即业务数据本身，res.id 即新会话 ID
-    const sessionId = res?.id
+    const sessionId = res?.id;
     await sendMessage({ sessionId, content: contactForm.value.content, sender_type: 'agent' })
     ElMessage.success(i18n.global.t('会话已创建，消息已发送'))
     contactVisible.value = false

@@ -17,18 +17,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// ginUserKey 与 middleware.JWTAuthMiddleware / utils.CtxKeyUserID 同步；
-// 若以后调整字段名，需同步更新本常量。
 const ginUserKey = "user_id"
 
-// roleAdminKey 与 middleware.JWTAuthMiddleware 注入的 role 字段对应。
 const roleAdminKey = "role"
 
-// fromGinContext 尝试从 ctx.Value 还原 gin 注入的字段。
-//
-// 由于 service 层拿到的是 context.Context（非 *gin.Context），需要约定：
-// 在 router handler 调用 service 时，由 handler 通过 SetGinValuesToCtx
-// 把需要的字段提前拷贝到 ctx.Value，避免 service 内反射 gin.Context 类型。
 func fromGinContext(ctx context.Context, key string) (any, bool) {
 	if ctx == nil {
 		return nil, false
@@ -123,7 +115,6 @@ func OwnedBy(ctx context.Context) func(db *gorm.DB) *gorm.DB {
 	return StrictTenantScope(ctx)
 }
 
-// currentUID 还原 ctx 里的 uid（支持 uint/uint64/int/int64）。
 func currentUID(ctx context.Context) uint {
 	v, ok := fromGinContext(ctx, ginUserKey)
 	if !ok {
@@ -148,7 +139,6 @@ func currentUID(ctx context.Context) uint {
 	return 0
 }
 
-// isAdmin 还原 ctx 里的 role 字段并判断是否为 admin。
 func isAdmin(ctx context.Context) bool {
 	v, ok := fromGinContext(ctx, roleAdminKey)
 	if !ok {

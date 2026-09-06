@@ -20,9 +20,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-// setupTelegramControllerTestDB 准备 PostgreSQL 测试 DB + Telegram 相关表
-// 使用 testutil.NewTestDB 确保多连接共享同一测试库，避免 worker goroutine
-// 因连接池分配到不同连接而看不到 AutoMigrate 创建的表
 func setupTelegramControllerTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.TelegramAccount{},
@@ -37,7 +34,6 @@ func setupTelegramControllerTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupTelegramAccountRouter 创建 Bot 账号管理路由（不经过 license 中间件）
 func setupTelegramAccountRouter(ctrl *TelegramAccountController) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -45,8 +41,6 @@ func setupTelegramAccountRouter(ctrl *TelegramAccountController) *gin.Engine {
 	return r
 }
 
-// setupTelegramWebhookRouter 创建 Webhook 路由（不经过 license 中间件）
-// 返回 router 和 svc（svc 用于测试中直接查询 db，避免异步 worker 时序问题）
 func setupTelegramWebhookRouter(database *gorm.DB) (*gin.Engine, *service.WebhookService) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -59,9 +53,6 @@ func setupTelegramWebhookRouter(database *gorm.DB) (*gin.Engine, *service.Webhoo
 	return r, svc
 }
 
-// waitForWorker 等待异步 worker 处理完成（轮询 db 直到有记录或超时）
-// E2E 测试场景下 worker 处理 webhook 完整链路（落库 + AI 编排）需 2-5s，
-// 默认 200 * 100ms = 20s 留足 buffer。
 func waitForWorker(t *testing.T, database *gorm.DB, query string, args ...any) {
 	for i := 0; i < 200; i++ {
 		var count int64
@@ -73,7 +64,6 @@ func waitForWorker(t *testing.T, database *gorm.DB, query string, args ...any) {
 	}
 	t.Logf("⚠️ worker 处理超时，查询: %s args: %v", query, args)
 }
-
 
 // TestTelegramAccountController_CreateAndList 创建账号并列表查询
 func TestTelegramAccountController_CreateAndList(t *testing.T) {
@@ -100,7 +90,7 @@ func TestTelegramAccountController_CreateAndList(t *testing.T) {
 		t.Fatalf("创建账号期望 200, 实际 %d, body: %s", w.Code, w.Body.String())
 	}
 	var createResp struct {
-		Code int `json:"code"`
+		Code int            `json:"code"`
 		Data map[string]any `json:"data"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &createResp); err != nil {
@@ -128,7 +118,7 @@ func TestTelegramAccountController_CreateAndList(t *testing.T) {
 		t.Fatalf("列表查询期望 200, 实际 %d", w.Code)
 	}
 	var listResp struct {
-		Code int `json:"code"`
+		Code int              `json:"code"`
 		Data map[string]any   `json:"data"`
 		List []map[string]any `json:"list"`
 	}
@@ -278,12 +268,11 @@ func TestTelegramAccountController_Delete(t *testing.T) {
 	t.Logf("✅ 删除成功")
 }
 
-
 // TestTelegramWebhook_JoinEvent_E2E 完整链路：
 // HTTP POST /api/webhook/telegram/:account_id → dispatchTelegram → MessageHub
 func TestTelegramWebhook_JoinEvent_E2E(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
-	t.Setenv("ALLOW_INSECURE_TELEGRAM_WEBHOOK", "true") // channelbot 层独立开关
+	t.Setenv("ALLOW_INSECURE_TELEGRAM_WEBHOOK", "true")
 	database := setupTelegramControllerTestDB(t)
 
 	repo := repository.NewTelegramAccountRepository()
@@ -291,7 +280,7 @@ func TestTelegramWebhook_JoinEvent_E2E(t *testing.T) {
 	acc := &model.TelegramAccount{
 		AccountName:    "E2E测试Bot",
 		BotToken:       "123456789:abcdefghijklmnopqrstuvwxyz123456789",
-		WebhookSecret:  "", 
+		WebhookSecret:  "",
 		AIAgentEnabled: false,
 		Status:         1,
 	}
@@ -356,7 +345,7 @@ func TestTelegramWebhook_JoinEvent_E2E(t *testing.T) {
 // TestTelegramWebhook_RegularMessage_E2E 普通消息端到端
 func TestTelegramWebhook_RegularMessage_E2E(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
-	t.Setenv("ALLOW_INSECURE_TELEGRAM_WEBHOOK", "true") // channelbot 层独立开关
+	t.Setenv("ALLOW_INSECURE_TELEGRAM_WEBHOOK", "true")
 	database := setupTelegramControllerTestDB(t)
 
 	repo := repository.NewTelegramAccountRepository()
@@ -417,7 +406,7 @@ func TestTelegramWebhook_RegularMessage_E2E(t *testing.T) {
 // TestTelegramWebhook_LeftEvent_E2E 退群事件端到端
 func TestTelegramWebhook_LeftEvent_E2E(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
-	t.Setenv("ALLOW_INSECURE_TELEGRAM_WEBHOOK", "true") // channelbot 层独立开关
+	t.Setenv("ALLOW_INSECURE_TELEGRAM_WEBHOOK", "true")
 	database := setupTelegramControllerTestDB(t)
 
 	repo := repository.NewTelegramAccountRepository()
@@ -495,7 +484,6 @@ func TestTelegramWebhook_BotMembersSkipped(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 验证不产生 event 类型记录
 	var eventCount int64
 	database.Model(&model.MessageHub{}).Where("platform = ? AND msg_type = ?", "telegram", "event").Count(&eventCount)
 	if eventCount > 0 {
@@ -504,11 +492,10 @@ func TestTelegramWebhook_BotMembersSkipped(t *testing.T) {
 	t.Logf("✅ 仅 bot 入群正确跳过: event 记录 %d 条", eventCount)
 }
 
-
 // TestTelegramWebhook_Idempotent 相同 update_id 重复请求应被去重
 func TestTelegramWebhook_Idempotent(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_WEBHOOK", "true")
-	t.Setenv("ALLOW_INSECURE_TELEGRAM_WEBHOOK", "true") // channelbot 层独立开关
+	t.Setenv("ALLOW_INSECURE_TELEGRAM_WEBHOOK", "true")
 	database := setupTelegramControllerTestDB(t)
 
 	repo := repository.NewTelegramAccountRepository()
@@ -570,7 +557,6 @@ func TestTelegramWebhook_Idempotent(t *testing.T) {
 	t.Logf("✅ 幂等去单: 第一次 duplicate=%v, 第二次 duplicate=%v", firstResp.Duplicate, secondResp.Duplicate)
 }
 
-
 func uintToStr(n uint) string {
 	return fmtUint(n)
 }
@@ -593,4 +579,3 @@ func min(a, b int) int {
 	}
 	return b
 }
-

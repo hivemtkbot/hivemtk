@@ -35,11 +35,6 @@ func (e *SalesEngine) SetOutputCalibrator(c OutputCalibrator) {
 	e.calibrator = c
 }
 
-// resolveTargetLang 计算最终输出语种（与 ragcustomerservice 同源逻辑）。
-//
-// 显式配置了与内部语种不同的 target_language 时严格遵循配置（不自动检测）；
-// 否则依据客户消息自动检测语种，命中可识别语种且与内部语种不同时按客户语种回复。
-// 无法识别时回退到内部语种，保证向后兼容。
 func (e *SalesEngine) resolveTargetLang(ctx context.Context, query string) string {
 	internalLang := i18npkg.GetInternalLang(ctx)
 	configuredTarget := i18npkg.GetTargetLang(ctx)
@@ -52,8 +47,6 @@ func (e *SalesEngine) resolveTargetLang(ctx context.Context, query string) strin
 	return internalLang
 }
 
-// personaWithLang 在 persona（system prompt 基座）后追加多语言指令与术语表块。
-// 仅当解析出与内部语种不同的目标语种时生效（同语种零开销，返回原 persona）。
 func (e *SalesEngine) personaWithLang(ctx context.Context, persona, targetLang string) string {
 	internalLang := i18npkg.GetInternalLang(ctx)
 	if targetLang == internalLang {
@@ -76,7 +69,6 @@ func (e *SalesEngine) personaWithLang(ctx context.Context, persona, targetLang s
 	return b.String()
 }
 
-// langReplyInstruction 生成强制用目标语种回复的 system prompt 指令（英文，通用且 LLM 易理解）。
 func langReplyInstruction(targetLangName string) string {
 	return fmt.Sprintf(
 		"## LANGUAGE REQUIREMENT (CRITICAL)\n"+
@@ -87,8 +79,6 @@ func langReplyInstruction(targetLangName string) string {
 	)
 }
 
-// calibrate 对 LLM 输出做后置校准（术语 + 模式保护）。仅注入校准器时生效。
-// 失败时回退原文，不影响主流程可用性。
 func (e *SalesEngine) calibrate(ctx context.Context, text, targetLang string) string {
 	if e.calibrator == nil || text == "" {
 		return text

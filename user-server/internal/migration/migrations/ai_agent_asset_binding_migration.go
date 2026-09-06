@@ -62,4 +62,3 @@ func (m *AgentAssetBindingMigration) Down(ctx context.Context) error {
 	}
 	return nil
 }
-

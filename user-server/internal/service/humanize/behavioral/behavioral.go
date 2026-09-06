@@ -26,20 +26,20 @@ import (
 //   - 分条最小间隔：1.5 秒
 //   - 错别字概率：3%（1/33 字符；用于降低 AI 痕迹）
 type BehaviorConfig struct {
-	EnableTypingDelay   bool    // 是否启用打字延迟
-	TypingSpeedCPS      float64 // 打字速度（字符/秒），默认 25
-	ThinkingPauseSec    float64 // 思考停顿（秒），默认 3
-	EnableMessageSplit  bool    // 是否启用分条发送
-	SplitThresholdChars int     // 超过此字符数时分段，默认 80
-	SplitMinIntervalSec float64 // 分段间最小间隔（秒），默认 1.5
-	EnableTypoInjection bool    // 是否启用轻微错别字注入
-	TypoProbability     float64 // 错别字概率（0-1），默认 0.03
+	EnableTypingDelay   bool
+	TypingSpeedCPS      float64
+	ThinkingPauseSec    float64
+	EnableMessageSplit  bool
+	SplitThresholdChars int
+	SplitMinIntervalSec float64
+	EnableTypoInjection bool
+	TypoProbability     float64
 
 	// A11（ACM CHI'24 hesitation 研究）：匀速=机器人特征，变速+偶发犹豫更拟人
-	TypingSpeedJitter float64 // 每段打字速度随机浮动比例（±），默认 0.2 → CPS ∈ [0.8x, 1.2x]
-	HesitationProb    float64 // 每段间触发犹豫停顿的概率，默认 0.15
-	HesitationMinSec  float64 // 犹豫停顿最短秒数，默认 0.4
-	HesitationMaxSec  float64 // 犹豫停顿最长秒数，默认 1.2
+	TypingSpeedJitter float64
+	HesitationProb    float64
+	HesitationMinSec  float64
+	HesitationMaxSec  float64
 }
 
 // DefaultBehaviorConfig 返回默认行为配置
@@ -51,7 +51,7 @@ func DefaultBehaviorConfig() BehaviorConfig {
 		EnableMessageSplit:  true,
 		SplitThresholdChars: 80,
 		SplitMinIntervalSec: 1.5,
-		EnableTypoInjection: false, // 默认关闭：风险大
+		EnableTypoInjection: false,
 		TypoProbability:     0.03,
 
 		TypingSpeedJitter: 0.2,
@@ -63,9 +63,9 @@ func DefaultBehaviorConfig() BehaviorConfig {
 
 // SendPlan 一次"发送计划"：包含若干条消息和它们之间的时间间隔
 type SendPlan struct {
-	Messages   []string  // 消息片段（按发送顺序）
-	Intervals  []float64 // 片段间延迟（秒）；len = len(Messages) - 1
-	TotalDelay float64   // 整个发送完成的总延迟（秒）
+	Messages   []string
+	Intervals  []float64
+	TotalDelay float64
 }
 
 // PlanSend 根据行为配置产出"发送计划"。
@@ -86,21 +86,19 @@ func PlanSend(text string, cfg BehaviorConfig, isFirstMessage bool, rng *rand.Ra
 
 	plan := SendPlan{}
 
-	// 步骤 1：决定是否分条
 	if cfg.EnableMessageSplit && shouldSplit(text, cfg.SplitThresholdChars) {
 		plan.Messages = splitByPunctuation(text, rng)
 	} else {
 		plan.Messages = []string{text}
 	}
 
-	// 步骤 2：计算片段间延迟
 	if len(plan.Messages) > 1 {
 		plan.Intervals = make([]float64, len(plan.Messages)-1)
 		for i := range plan.Intervals {
-			// 随机化 ±20%，避免机械感
+
 			jitter := (1 - cfg.TypingSpeedJitter) + 2*cfg.TypingSpeedJitter*rng.Float64()
 			interval := cfg.SplitMinIntervalSec * jitter
-			// 犹豫停顿：以 HesitationProb 概率插入一次"思考卡壳"
+
 			if cfg.HesitationProb > 0 && rng.Float64() < cfg.HesitationProb {
 				lo, hi := cfg.HesitationMinSec, cfg.HesitationMaxSec
 				if hi < lo {
@@ -112,16 +110,14 @@ func PlanSend(text string, cfg BehaviorConfig, isFirstMessage bool, rng *rand.Ra
 		}
 	}
 
-	// 步骤 3：可选的错别字注入
 	if cfg.EnableTypoInjection && cfg.TypoProbability > 0 {
 		for i := range plan.Messages {
 			plan.Messages[i] = injectTypos(plan.Messages[i], cfg.TypoProbability, rng)
 		}
 	}
 
-	// 步骤 4：总延迟
 	if cfg.EnableTypingDelay {
-		// 总延迟 = sum(各片段打字时间) + 片段间隔 + 思考停顿
+
 		var total float64
 		if !isFirstMessage {
 			total += cfg.ThinkingPauseSec
@@ -130,7 +126,7 @@ func PlanSend(text string, cfg BehaviorConfig, isFirstMessage bool, rng *rand.Ra
 			j := cfg.TypingSpeedJitter
 			speedCPS := cfg.TypingSpeedCPS
 			if j > 0 {
-				// 每段独立随机速度 ∈ [(1-j)x, (1+j)x]：模拟人类忽快忽慢
+
 				speedCPS = speedCPS * ((1 - j) + 2*j*rng.Float64())
 			}
 			total += typingTime(msg, speedCPS)
@@ -140,7 +136,7 @@ func PlanSend(text string, cfg BehaviorConfig, isFirstMessage bool, rng *rand.Ra
 		}
 		plan.TotalDelay = total
 	} else {
-		// 即便不模拟延迟，片段间仍保留最小间隔（保证接收方看到分段）
+
 		for _, iv := range plan.Intervals {
 			plan.TotalDelay += iv
 		}
@@ -149,21 +145,15 @@ func PlanSend(text string, cfg BehaviorConfig, isFirstMessage bool, rng *rand.Ra
 	return plan
 }
 
-// shouldSplit 决定文本是否应被分段
 func shouldSplit(text string, threshold int) bool {
-	// 中文/英文都按 rune 计算
+
 	return len([]rune(text)) > threshold
 }
 
-// splitByPunctuation 按中英文标点边界分段
-//
-// 优先级：句号 > 问号/感叹号 > 逗号/分号
-// 避免产生 < 5 字符的短段（用户体验差）
 func splitByPunctuation(text string, rng *rand.Rand) []string {
-	// 强分隔符：句末标点 + 换行
+
 	strongSplitters := []rune{'。', '!', '?', '！', '?', '.', '\n'}
 
-	// 先用强分隔符切
 	var segments []string
 	var current []rune
 	for _, r := range text {
@@ -180,7 +170,6 @@ func splitByPunctuation(text string, rng *rand.Rand) []string {
 		segments = append(segments, rem)
 	}
 
-	// 若段数 < 2 切不动，尝试用逗号切
 	if len(segments) < 2 {
 		weakSplitters := []rune{'，', ',', ';', '；'}
 		segments = nil
@@ -200,7 +189,6 @@ func splitByPunctuation(text string, rng *rand.Rand) []string {
 		}
 	}
 
-	// 合并过短段（< 8 字符）：与下一段合并
 	merged := make([]string, 0, len(segments))
 	var buf string
 	for _, s := range segments {
@@ -226,12 +214,6 @@ func splitByPunctuation(text string, rng *rand.Rand) []string {
 	return merged
 }
 
-// typingTime 计算打字时间（秒）
-//
-// 业界打字速度（中英文混合场景）：
-//   - 英文：40 wpm ≈ 3.3 chars/sec
-//   - 中文：30 chars/min ≈ 0.5 chars/sec
-//   - 移动端 IM：~25 cps
 func typingTime(text string, speedCPS float64) float64 {
 	if speedCPS <= 0 {
 		speedCPS = 25.0
@@ -239,15 +221,11 @@ func typingTime(text string, speedCPS float64) float64 {
 	return float64(len([]rune(text))) / speedCPS
 }
 
-// injectTypos 注入轻微错别字（降低 AI 痕迹）
-//
-// 实现：随机将字符替换为相邻键位（仅 ASCII 字母区，不改中文）
-// 业界研究：3% 错别字率与人类真实 IM 打字一致；>5% 显得不专业
 func injectTypos(text string, prob float64, rng *rand.Rand) string {
 	if prob <= 0 {
 		return text
 	}
-	// 邻接键位映射（简化版：qwerty 邻位）
+
 	adjacent := map[rune]string{
 		'a': "s", 'b': "vn", 'c': "xv", 'd': "sf", 'e': "wr", 'f': "dg",
 		'g': "fh", 'h': "gj", 'i': "uo", 'j': "hk", 'k': "jl", 'l': "k",

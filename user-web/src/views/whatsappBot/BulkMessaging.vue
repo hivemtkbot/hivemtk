@@ -168,7 +168,7 @@
       </el-tabs>
     </el-card>
 
-    <!-- 模板编辑对话框 -->
+    
     <el-dialog :title="templateDialogTitle" v-model="showTemplateDialog" width="60%">
       <el-form :model="templateForm" :rules="templateRules" ref="templateFormRef" label-width="100px">
         <el-form-item label="模板名称" prop="name">
@@ -229,8 +229,7 @@ import i18n from '@/i18n'
 
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-// 修复：引入 DOMPurify 净化消息预览 HTML，防止 XSS
-import DOMPurify from 'dompurify'
+import DOMPurify from 'dompurify';
 import * as bulkMessagingApi from '@/api/bulkMessaging'
 import * as clueApi from '@/api/clue'
 import * as whatsappApi from '@/api/whatsapp'
@@ -245,13 +244,12 @@ const templateDialogTitle = ref('')
 const sendFormRef = ref()
 const templateFormRef = ref()
 
-// 发送表单
 const sendForm = reactive({
   templateId: '',
   accountId: '',
   leadIds: [],
   scheduleAt: null
-})
+});
 
 const sendRules = {
   templateId: [{ required: true, message: i18n.global.t('请选择消息模板'), trigger: 'change' }],
@@ -259,7 +257,6 @@ const sendRules = {
   leadIds: [{ required: true, message: i18n.global.t('请选择目标线索'), trigger: 'change' }]
 }
 
-// 模板表单
 const templateForm = reactive({
   id: '',
   name: '',
@@ -267,26 +264,24 @@ const templateForm = reactive({
   category: 'marketing',
   isActive: true,
   description: ''
-})
+});
 
 const templateRules = {
   name: [{ required: true, message: i18n.global.t('请输入模板名称'), trigger: 'blur' }],
   content: [{ required: true, message: i18n.global.t('请输入消息内容'), trigger: 'blur' }]
 }
 
-// 数据
-const templates = ref([])
+const templates = ref([]);
 const accounts = ref([])
 const allLeads = ref([])
 const sendRecords = ref([])
 const renderedContent = ref('')
 
-// 分页
 const templatePagination = reactive({
   currentPage: 1,
   pageSize: 20,
   total: 0
-})
+});
 
 const recordPagination = reactive({
   currentPage: 1,
@@ -294,14 +289,13 @@ const recordPagination = reactive({
   total: 0
 })
 
-// 计算属性
 const transferData = computed(() => {
   return allLeads.value.map(lead => ({
     key: lead.id,
     label: `${lead.name} (${lead.phone})`,
     disabled: false
   }))
-})
+});
 
 const canSend = computed(() => {
   return sendForm.templateId && sendForm.accountId && sendForm.leadIds.length > 0
@@ -329,8 +323,7 @@ const loadTemplates = async () => {
 const loadAccounts = async () => {
   try {
     const response = await whatsappApi.getAccounts({ limit: 100 })
-    // 拦截器已解包，response 直接就是数据对象
-    accounts.value = response || []
+    accounts.value = response || [];
   } catch (error) {
     ElMessage.error(i18n.global.t('加载账号失败'))
   }
@@ -338,18 +331,16 @@ const loadAccounts = async () => {
 
 const loadLeads = async () => {
   try {
-    // 使用clueApi.list获取线索列表
-    const response = await clueApi.clueApi.list(1, 1000) // 获取前1000条线索
-    // 修复：request.js 拦截器已解包 data.data，response 即业务数据本身（{list,total}）
-    const clueData = response?.list || response || []
+    const response = await clueApi.clueApi.list(1, 1000);
+    const clueData = response?.list || response || [];
     allLeads.value = clueData.map(clue => ({
       id: clue.ID,
       name: clue.Name || clue.name || '未知',
       phone: clue.Account || clue.account || '',
-      email: '', // 线索表中没有email字段
+      email: '',
       company: clue.Address || clue.address || clue.City || clue.city || '',
       source: 'clue',
-      score: 80, // 默认评分
+      score: 80,
       status: 'new'
     }))
   } catch (error) {
@@ -364,8 +355,7 @@ const loadSendRecords = async () => {
       page: recordPagination.currentPage,
       limit: recordPagination.pageSize
     })
-    // 拦截器已解包，response 直接就是数据对象
-    sendRecords.value = toList(response)
+    sendRecords.value = toList(response);
   } catch (error) {
     ElMessage.error(i18n.global.t('加载发送记录失败'))
   } finally {
@@ -376,14 +366,12 @@ const loadSendRecords = async () => {
 const onTemplateChange = (templateId) => {
   const template = templates.value.find(t => t.id === templateId)
   if (template) {
-    // 这里可以预渲染模板内容，用示例数据填充变量
-    // 修复：渲染后经 DOMPurify 净化再赋值给 v-html，防止模板变量注入恶意 HTML
     const rawHtml = template.content
       .replace('{{name}}', '张三')
       .replace('{{phone}}', '13800138000')
       .replace('{{email}}', 'zhangsan@example.com')
       .replace('{{company}}', '示例公司')
-      .replace('{{source}}', '网站注册')
+      .replace('{{source}}', '网站注册');
     renderedContent.value = DOMPurify.sanitize(rawHtml, { USE_PROFILES: { html: true } })
   }
 }
@@ -398,8 +386,7 @@ const handleSend = async () => {
     
     ElMessage.success(response.message || '消息已添加到发送队列')
     
-    // 清空表单
-    resetForm()
+    resetForm();
   } catch (error) {
     ElMessage.error(i18n.global.t('发送失败'))
   } finally {
@@ -431,9 +418,7 @@ const deleteTemplate = async (row) => {
     await bulkMessagingApi.deleteTemplate(row.id)
     ElMessage.success(i18n.global.t('模板删除成功'))
     loadTemplates()
-  } catch (error) {
-    // 用户取消删除
-  }
+  } catch (error) {}
 }
 
 const saveTemplate = async () => {
@@ -466,8 +451,6 @@ const resetTemplateForm = () => {
 }
 
 const viewRecordDetails = (row) => {
-  // 修复：dangerouslyUseHTMLString 拼接了用户可控的 row.templateName 等字段，
-  // 必须先经 DOMPurify 净化，杜绝模板名注入恶意 HTML/脚本
   ElMessageBox.alert(DOMPurify.sanitize(`
     <div style="text-align: left;">
       <p><strong>模板名称:</strong> ${row.templateName}</p>
@@ -480,7 +463,7 @@ const viewRecordDetails = (row) => {
   `), '发送记录详情', {
     dangerouslyUseHTMLString: true,
     customClass: 'record-detail-box'
-  })
+  });
 }
 
 const getStatusType = (status) => {

@@ -1,10 +1,10 @@
 package websocket
 
 import (
-	"os"
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -16,14 +16,9 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// isAllowedOrigin 检查 origin 是否在允许列表中
-// 策略：
-//  1. 无 Origin 头（非浏览器请求）放行
-//  2. 白名单包含 "*" 时全部放行（调试模式）
-//  3. 严格匹配白名单
 func isAllowedOrigin(origin string) bool {
 	if origin == "" {
-		return true // 非浏览器请求
+		return true
 	}
 	allowed := config.GetAllowedWSOrigins()
 	for _, a := range allowed {
@@ -37,18 +32,14 @@ func isAllowedOrigin(origin string) bool {
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	// 安全修复：不再全放行，使用 origin 白名单
+
 	CheckOrigin: func(r *http.Request) bool {
 		return isAllowedOrigin(r.Header.Get("Origin"))
 	},
 }
 
-// heartbeatTouchInterval S-3：readPump 每帧心跳上报的最小间隔（节流，避免高频写库）
 const heartbeatTouchInterval = 30 * time.Second
 
-// heartbeatToucher S-3 坐席心跳上报钩子。
-// 由 main 装配注入（service.AgentStatusService.TouchHeartbeat），
-// 避免本包反向依赖 service（service 已依赖 websocket，会成环）。
 var heartbeatToucher func(ctx context.Context, agentID uint) error
 
 // SetHeartbeatToucher 注入心跳上报实现（启动时调用一次）
@@ -56,7 +47,6 @@ func SetHeartbeatToucher(fn func(ctx context.Context, agentID uint) error) {
 	heartbeatToucher = fn
 }
 
-// touchHeartbeat 节流上报坐席活跃；未注入或失败均不影响消息主链路（best-effort）。
 func touchHeartbeat(ctx context.Context, agentID uint) {
 	if heartbeatToucher == nil {
 		return
@@ -105,16 +95,12 @@ func (h *WSHandler) HandleWebSocket(c *gin.Context) {
 		return
 	}
 
-	// v3 审计 P2-4：坐席域与系统用户无外键绑定，无法做归属校验；
-	// 默认要求 admin 角色（防止任意登录用户冒充他人坐席订阅通知）。
-	// 如业务确需普通用户接入，显式设置 WS_AGENT_ALLOW_ALL_USERS=true。
 	if os.Getenv("WS_AGENT_ALLOW_ALL_USERS") != "true" {
 		if role, _ := c.Get("role"); role != "admin" {
 			c.JSON(http.StatusForbidden, gin.H{"error": "仅管理员可订阅坐席通知"})
 			return
 		}
 	}
-
 
 	ctx := logger.WithTraceID(c.Request.Context(), c.GetHeader("X-Trace-Id"))
 	ctx = logger.WithModule(ctx, "websocket")
@@ -141,13 +127,6 @@ func (h *WSHandler) HandleWebSocket(c *gin.Context) {
 		Msg("agent connected")
 }
 
-// writePump 向客户端发送消息
-//
-// 修复：
-//   - 每次写操作前 SetWriteDeadline，防止对端 TCP 窗口关闭时本协程永久阻塞。
-//   - 启动 pingPeriod 周期 ticker，主动发 PingMessage；
-//     对端回 Pong 后会触发 readPump 中已注册的 SetPongHandler，
-//     从而刷新 ReadDeadline，避免 60s 后误判超时断开。
 func (h *WSHandler) writePump(client *Client, conn *websocket.Conn, ctx context.Context) {
 	defer func() {
 		conn.Close()
@@ -192,13 +171,6 @@ func (h *WSHandler) writePump(client *Client, conn *websocket.Conn, ctx context.
 	}
 }
 
-// readPump 从客户端接收消息
-//
-// 修复：
-//   - SetReadLimit：限制单条消息 8KB，防止恶意大帧耗尽内存。
-//   - SetReadDeadline + SetPongHandler：60s 内必须收到对端 Pong 或任何帧，
-//     否则判定连接僵死主动关闭；PongHandler 在收到 Pong 时刷新 ReadDeadline。
-//   - 配合 writePump 的 pingPeriod ticker，形成完整的心跳保活闭环。
 func (h *WSHandler) readPump(client *Client, conn *websocket.Conn, agentID uint, ctx context.Context) {
 	defer func() {
 		h.hub.Unregister(client)
@@ -213,7 +185,6 @@ func (h *WSHandler) readPump(client *Client, conn *websocket.Conn, agentID uint,
 		return nil
 	})
 
-	// S-3：每帧节流上报坐席心跳（HTTP 轮询端点另有兜底）
 	lastBeat := time.Now().Add(-heartbeatTouchInterval)
 
 	for {
@@ -230,7 +201,6 @@ func (h *WSHandler) readPump(client *Client, conn *websocket.Conn, agentID uint,
 			touchHeartbeat(ctx, agentID)
 		}
 
-		// 处理客户端消息
 		var msg map[string]any
 		if err := json.Unmarshal(message, &msg); err != nil {
 			logger.Ctx(ctx).Warn().Err(err).Uint("agent_id", agentID).Msg("message parse failed")
@@ -254,7 +224,6 @@ func (h *WSHandler) readPump(client *Client, conn *websocket.Conn, agentID uint,
 	}
 }
 
-// handleMarkRead 处理标记已读
 func (h *WSHandler) handleMarkRead(client *Client, msg map[string]any) {
 	sessionID, ok := msg["session_id"].(string)
 	if !ok {
@@ -267,7 +236,6 @@ func (h *WSHandler) handleMarkRead(client *Client, msg map[string]any) {
 		Msg("mark session read")
 }
 
-// handleSessionAction 处理会话操作
 func (h *WSHandler) handleSessionAction(client *Client, msg map[string]any) {
 	action, ok := msg["action"].(string)
 	if !ok {
@@ -293,7 +261,6 @@ func (h *WSHandler) handleSessionAction(client *Client, msg map[string]any) {
 	}
 }
 
-// handleTakeOver 处理接管会话
 func (h *WSHandler) handleTakeOver(client *Client, sessionID string) {
 	logger.GetLogger().Info().
 		Str("agent_name", client.agentName).
@@ -301,7 +268,6 @@ func (h *WSHandler) handleTakeOver(client *Client, sessionID string) {
 		Msg("take over session")
 }
 
-// handleTransfer 处理转接会话
 func (h *WSHandler) handleTransfer(client *Client, sessionID string, targetAgentID uint) {
 	logger.GetLogger().Info().
 		Str("agent_name", client.agentName).
@@ -310,7 +276,6 @@ func (h *WSHandler) handleTransfer(client *Client, sessionID string, targetAgent
 		Msg("transfer session")
 }
 
-// handleClose 处理关闭会话
 func (h *WSHandler) handleClose(client *Client, sessionID string) {
 	logger.GetLogger().Info().
 		Str("agent_name", client.agentName).
@@ -326,4 +291,3 @@ func (h *WSHandler) BroadcastMessage(messageType string, data any) error {
 func (h *WSHandler) SendToAgent(agentID uint, messageType string, data any) error {
 	return GetHub().SendToAgent(strconv.FormatUint(uint64(agentID), 10), messageType, data)
 }
-

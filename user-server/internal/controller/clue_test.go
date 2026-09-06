@@ -17,7 +17,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupClueTestDB 设置线索测试数据库
 func setupClueTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.Clue{},
@@ -26,7 +25,6 @@ func setupClueTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupClueController 设置线索控制器测试环境
 func setupClueController(t *testing.T) (*ClueController, *gin.Engine) {
 	setupClueTestDB(t)
 	ctrl := NewClueController()
@@ -34,7 +32,6 @@ func setupClueController(t *testing.T) (*ClueController, *gin.Engine) {
 
 	return ctrl, router
 }
-
 
 // TestClueController_GetClueList_Success 测试获取线索列表成功
 func TestClueController_GetClueList_Success(t *testing.T) {
@@ -82,7 +79,7 @@ func TestClueController_GetClueList_InvalidParams(t *testing.T) {
 	ctrl, router := setupClueController(t)
 	router.GET("/clues", ctrl.GetClueList)
 
-	req, _ := http.NewRequest("GET", "/clues", nil) 
+	req, _ := http.NewRequest("GET", "/clues", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -117,7 +114,7 @@ func TestClueController_DeleteClue_InvalidID(t *testing.T) {
 	ctrl, router := setupClueController(t)
 	router.DELETE("/clues/:id", ctrl.DeleteClue)
 
-	req, _ := http.NewRequest("DELETE", "/clues/", nil) 
+	req, _ := http.NewRequest("DELETE", "/clues/", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -267,4 +264,3 @@ func TestClueController_NewClueController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
-

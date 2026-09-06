@@ -41,9 +41,6 @@ func (m *SOPHeatmapIndexMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 
-	// 复合索引：sop_id 精确匹配 + created_at 倒序
-	// 使用 CONCURRENTLY 避免锁表（需非事务块，gorm 默认开启事务需注意）
-	// 这里使用 NOT IN TRANSACTION 检查：gorm.Exec 在单语句时不显式开启事务
 	if err := m.db.WithContext(ctx).Exec(`
 		CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_sop_executions_sop_created
 		ON sop_executions(sop_id, created_at DESC)
@@ -62,5 +59,4 @@ func (m *SOPHeatmapIndexMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// compile-time 接口断言
 var _ migration.Migration = (*SOPHeatmapIndexMigration)(nil)

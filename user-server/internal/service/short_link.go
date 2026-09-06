@@ -47,7 +47,6 @@ func IsShortLinkActive(s *model.ShortLink) bool {
 	return s != nil && s.Status == 1 && !IsShortLinkExpired(s)
 }
 
-// shortLinkService 短链服务实现
 type shortLinkService struct {
 	shortLinkRepo repository.ShortLinkRepository
 	domainRepo    repository.DomainPoolRepository
@@ -63,9 +62,6 @@ func NewShortLinkService(db *gorm.DB) ShortLinkService {
 	}
 }
 
-// Create 创建短链
-// validateTargetURL 铁律#24: 短链 target_url 必须 https。
-// （备案核验依赖外部 ICP 接口，暂以 https 强校验为最低门槛）
 func validateTargetURL(raw string) error {
 	u := strings.TrimSpace(raw)
 	if u == "" {
@@ -100,7 +96,6 @@ func (s *shortLinkService) Create(ctx context.Context, req *dto.CreateShortLinkR
 		}
 	}
 
-	// R48 T11: UTM 参数自动追加（Mautic 口径：utm_source/medium/campaign 存在即拼到目标链接）
 	if req.UtmSource != "" || req.UtmMedium != "" || req.UtmCampaign != "" {
 		req.OriginalURL = appendUTM(req.OriginalURL, req.UtmSource, req.UtmMedium, req.UtmCampaign)
 	}
@@ -124,7 +119,6 @@ func (s *shortLinkService) Create(ctx context.Context, req *dto.CreateShortLinkR
 	return s.modelToResponse(ctx, shortLink), nil
 }
 
-// Update 更新短链
 func (s *shortLinkService) Update(ctx context.Context, req *dto.UpdateShortLinkRequest) (*dto.ShortLinkResponse, error) {
 	if req.OriginalURL != "" {
 		if err := validateTargetURL(req.OriginalURL); err != nil {
@@ -170,40 +164,25 @@ func (s *shortLinkService) Update(ctx context.Context, req *dto.UpdateShortLinkR
 	return s.modelToResponse(ctx, shortLink), nil
 }
 
-// Delete 删除短链
-// OPT-ARC-09：删除顺序改为"先删主表 → 再删依赖表"
-//
-// 旧顺序：先删 access（依赖表）→ 再删 short_link（主表）
-//
-//	风险：若主表删除失败，access 已被删除，主表成为"幽灵"
-//
-// 新顺序：先删主表 → 再删 access
-//
-//	优势：若 access 删除失败，主表已删，access 残留为孤儿（FK 启用后会被 CASCADE）
-//	兼容旧行为：当 short_link_delete 失败时，回退到旧顺序的等效状态
 func (s *shortLinkService) Delete(ctx context.Context, id uint) error {
-	// 1) 校验存在性
+
 	_, err := s.shortLinkRepo.GetByID(ctx, id)
 	if err != nil {
 		return errors.New("短链不存在")
 	}
 
-	// 2) 先删主表（OPT-ARC-09：先主后从，避免孤儿主表）
 	if err := s.shortLinkRepo.Delete(ctx, id); err != nil {
 		return fmt.Errorf("删除短链失败: %v", err)
 	}
 
-	// 3) 再删依赖表
 	if err := s.accessRepo.DeleteByShortLinkID(ctx, id); err != nil {
-		// 警告：access 删除失败，但主表已删
-		// 启用 FK CASCADE 后，孤儿 access 会被自动清理
+
 		return fmt.Errorf("删除短链访问记录失败(主表已删): %v", err)
 	}
 
 	return nil
 }
 
-// GetByID 根据ID获取短链
 func (s *shortLinkService) GetByID(ctx context.Context, id uint) (*dto.ShortLinkResponse, error) {
 	shortLink, err := s.shortLinkRepo.GetByID(ctx, id)
 	if err != nil {
@@ -213,7 +192,6 @@ func (s *shortLinkService) GetByID(ctx context.Context, id uint) (*dto.ShortLink
 	return s.modelToResponse(ctx, shortLink), nil
 }
 
-// GetByShortCode 根据短码获取短链
 func (s *shortLinkService) GetByShortCode(ctx context.Context, shortCode string) (*dto.ShortLinkResponse, error) {
 	shortLink, err := s.shortLinkRepo.GetByShortCode(ctx, shortCode)
 	if err != nil {
@@ -223,7 +201,6 @@ func (s *shortLinkService) GetByShortCode(ctx context.Context, shortCode string)
 	return s.modelToResponse(ctx, shortLink), nil
 }
 
-// GetList 获取短链列表
 func (s *shortLinkService) GetList(ctx context.Context, req *dto.ListShortLinkRequest) (*dto.ShortLinkListResponse, error) {
 	if req.Page <= 0 {
 		req.Page = 1
@@ -248,7 +225,6 @@ func (s *shortLinkService) GetList(ctx context.Context, req *dto.ListShortLinkRe
 	}, nil
 }
 
-// AccessShortLink 访问短链
 func (s *shortLinkService) AccessShortLink(ctx context.Context, req *dto.AccessShortLinkRequest) (*dto.AccessShortLinkResponse, error) {
 	shortLink, err := s.shortLinkRepo.GetByShortCode(ctx, req.ShortCode)
 	if err != nil {
@@ -291,7 +267,6 @@ func (s *shortLinkService) AccessShortLink(ctx context.Context, req *dto.AccessS
 	}, nil
 }
 
-// GenerateShortCode 生成短码
 func (s *shortLinkService) GenerateShortCode(ctx context.Context, req *dto.GenerateShortCodeRequest) (*dto.GenerateShortCodeResponse, error) {
 	if req.Length <= 0 {
 		req.Length = 6
@@ -314,7 +289,6 @@ func (s *shortLinkService) GenerateShortCode(ctx context.Context, req *dto.Gener
 	return nil, errors.New("生成短码失败，请重试")
 }
 
-// generateRandomString 生成随机字符串
 func (s *shortLinkService) generateRandomString(ctx context.Context, length int, charset string) string {
 	result := make([]byte, length)
 	charsetLength := big.NewInt(int64(len(charset)))
@@ -327,7 +301,6 @@ func (s *shortLinkService) generateRandomString(ctx context.Context, length int,
 	return string(result)
 }
 
-// modelToResponse 将模型转换为响应
 func (s *shortLinkService) modelToResponse(ctx context.Context, shortLink *model.ShortLink) *dto.ShortLinkResponse {
 	statusStr := "正常"
 	if shortLink.Status == 2 {
@@ -353,14 +326,12 @@ func (s *shortLinkService) modelToResponse(ctx context.Context, shortLink *model
 	}
 }
 
-// GetStats 获取短链统计
 func (s *shortLinkService) GetStats(ctx context.Context, req *dto.ShortLinkStatsRequest) (*dto.ShortLinkStatsResponse, error) {
 	shortLink, err := s.shortLinkRepo.GetByID(ctx, req.ID)
 	if err != nil {
 		return nil, errors.New("短链不存在")
 	}
 
-	// 解析日期
 	var startDate, endDate time.Time
 	if req.StartDate != "" {
 		startDate, err = time.Parse("2006-01-02", req.StartDate)
@@ -377,13 +348,11 @@ func (s *shortLinkService) GetStats(ctx context.Context, req *dto.ShortLinkStats
 		endDate = endDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	}
 
-	// OPT-ARC-08：合并两次 GetDailyStatsByShortLinkID 调用（原 L338 + L381 重复查询）
-	// 新实现：先查询一次 daily stats，再在内存中同时计算 totalAccess + dailyStatsResponse
 	var dailyStatsResponse []dto.DailyStats
 	var totalAccess int64
 
 	if startDate.IsZero() && endDate.IsZero() {
-		// 无日期范围：直接用 GetByShortLinkID 拿总数
+
 		_, totalAccessCount, err := s.accessRepo.GetByShortLinkID(ctx, req.ID, 1, 0)
 		if err != nil {
 			totalAccess = 0
@@ -391,7 +360,7 @@ func (s *shortLinkService) GetStats(ctx context.Context, req *dto.ShortLinkStats
 			totalAccess = totalAccessCount
 		}
 	} else {
-		// 有日期范围：1 次查询得到全部数据
+
 		dailyStats, err := s.accessRepo.GetDailyStatsByShortLinkID(ctx, req.ID, startDate, endDate)
 		if err == nil {
 			for _, stat := range dailyStats {
@@ -427,7 +396,6 @@ func (s *shortLinkService) GetStats(ctx context.Context, req *dto.ShortLinkStats
 			deviceType, _ := stat["device_type"].(string)
 			count, _ := stat["count"].(int64)
 
-			// 计算百分比
 			var percentage float64
 			if totalAccess > 0 {
 				percentage = float64(count) / float64(totalAccess) * 100
@@ -453,9 +421,8 @@ func (s *shortLinkService) GetStats(ctx context.Context, req *dto.ShortLinkStats
 	}, nil
 }
 
-// GetAllStats 获取所有短链统计
 func (s *shortLinkService) GetAllStats(ctx context.Context, req *dto.AllShortLinksStatsRequest) (*dto.AllShortLinksStatsResponse, error) {
-	// 解析日期
+
 	var startDate, endDate time.Time
 	var err error
 
@@ -474,7 +441,6 @@ func (s *shortLinkService) GetAllStats(ctx context.Context, req *dto.AllShortLin
 		endDate = endDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	}
 
-	// 获取总访问量
 	var totalAccess int64
 	dailyStats, err := s.accessRepo.GetAllDailyStats(ctx, startDate, endDate)
 	if err == nil {
@@ -506,7 +472,6 @@ func (s *shortLinkService) GetAllStats(ctx context.Context, req *dto.AllShortLin
 			deviceType, _ := stat["device_type"].(string)
 			count, _ := stat["count"].(int64)
 
-			// 计算百分比
 			var percentage float64
 			if totalAccess > 0 {
 				percentage = float64(count) / float64(totalAccess) * 100
@@ -561,7 +526,6 @@ func (s *shortLinkService) GetAllStats(ctx context.Context, req *dto.AllShortLin
 	}, nil
 }
 
-// ShareShortLink 分享短链
 func (s *shortLinkService) ShareShortLink(ctx context.Context, req *dto.ShareShortLinkRequest) (*dto.ShareShortLinkResponse, error) {
 	shortLink, err := s.shortLinkRepo.GetByID(ctx, req.ID)
 	if err != nil {
@@ -578,7 +542,6 @@ func (s *shortLinkService) ShareShortLink(ctx context.Context, req *dto.ShareSho
 	}, nil
 }
 
-// appendUTM 向目标链接追加 UTM 参数（已有参数用 & 连接；去重：已含同名参数不重复追加）
 func appendUTM(rawURL, source, medium, campaign string) string {
 	sep := "?"
 	if strings.Contains(rawURL, "?") {

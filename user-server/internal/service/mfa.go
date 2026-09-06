@@ -23,11 +23,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// TOTP 默认参数（RFC 6238）
-//   - 时间步长：30 秒
-//   - 数字位数：6
-//   - 哈希算法：SHA1
-//   - 密钥长度：20 字节（base32 编码后 32 字符）
 const (
 	totpTimeStep      = 30
 	totpDigits        = 6
@@ -73,11 +68,6 @@ func NewMFAService() *MFAService {
 	}
 }
 
-// tempTokenStore 临时令牌存储（登录后等待 MFA 二次验证阶段）
-// 业务需要：登录请求与 MFA 验证在 HA 多实例下可能落到不同实例，令牌必须跨实例共享，
-// 否则验证请求落到无令牌的实例会永远失败。
-// 实现：走全局缓存（cache.GetGlobalCache）——REDIS_HOST 配置时为 Redis 共享后端，
-// 否则为进程内内存单例；令牌 JSON 化存储并带 5 分钟 TTL，天然跨实例一致且自动过期。
 const tempTokenCachePrefix = "mtk:mfa:temp:"
 
 type tempTokenEntry struct {
@@ -358,7 +348,7 @@ func (s *MFAService) VerifyBackupCode(ctx context.Context, userID uint, code str
 
 	for i, hashed := range hashedCodes {
 		if bcrypt.CheckPassword(hashed, code) == nil {
-			// 匹配！从数组中移除（恢复码一次性）
+
 			remaining := append(hashedCodes[:i], hashedCodes[i+1:]...)
 			remainingJSON, _ := json.Marshal(remaining)
 			if err := s.mfaRepo.UpdateBackupCodes(ctx, userID, string(remainingJSON)); err != nil {
@@ -390,7 +380,6 @@ func (s *MFAService) VerifyMFALogin(ctx context.Context, tempToken, code string)
 		return 0, "", "", errors.New("验证码已使用，请等待下一次刷新")
 	}
 
-	// 先尝试 TOTP
 	if s.VerifyTOTP(ctx, mfa.MFASecret, code) {
 		now := time.Now()
 		if err := s.mfaRepo.UpdateLastUsed(ctx, userID, code, &now); err != nil {
@@ -400,7 +389,6 @@ func (s *MFAService) VerifyMFALogin(ctx context.Context, tempToken, code string)
 		return userID, username, role, nil
 	}
 
-	// Fallback: 尝试 backup recovery code
 	if s.VerifyBackupCode(ctx, userID, code) {
 		now := time.Now()
 		if err := s.mfaRepo.UpdateLastUsed(ctx, userID, code, &now); err != nil {
@@ -417,7 +405,7 @@ func (s *MFAService) VerifyMFALogin(ctx context.Context, tempToken, code string)
 // 返回明文（仅展示给用户一次）+ bcrypt 哈希（存储到数据库）
 // v3 审计 P2-15 修复：使用 const-dict 字符集（去除 0/O/1/l 等易混字符）
 func (s *MFAService) GenerateBackupCodes(ctx context.Context, userID uint) ([]string, error) {
-	// Crockford base32 字符集（去除 0/O/1/l/I 等易混淆字符）
+
 	const charset = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 	codes := make([]string, 10)
 	hashedCodes := make([]string, 10)

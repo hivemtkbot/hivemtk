@@ -53,7 +53,7 @@
     </el-row>
 
     <el-tabs v-model="activeTab" @tab-change="onTabChange">
-      <!-- 备份记录 -->
+      
       <el-tab-pane :label="$t('备份记录')" name="backup">
         <el-card>
           <div class="filter-bar">
@@ -134,7 +134,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- 恢复记录 -->
+      
       <el-tab-pane label="恢复记录" name="restore">
         <el-card>
           <div class="filter-bar">
@@ -188,7 +188,7 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- 创建备份对话框 -->
+    
     <el-dialog v-model="createVisible" title="创建备份" width="520px">
       <el-form :model="createForm" :rules="createRules" ref="createFormRef" label-width="100px">
         <el-form-item label="备份名称" prop="backup_name">
@@ -211,7 +211,7 @@
       </template>
     </el-dialog>
 
-    <!-- 恢复确认对话框 -->
+    
     <el-dialog v-model="restoreVisible" title="恢复备份" width="520px">
       <el-descriptions :column="1" border v-if="restoreTarget">
         <el-descriptions-item label="备份ID">{{ restoreTarget.id }}</el-descriptions-item>
@@ -229,7 +229,7 @@
       </template>
     </el-dialog>
 
-    <!-- 备份详情对话框 -->
+    
     <el-dialog v-model="detailVisible" title="备份详情" width="600px">
       <el-descriptions :column="1" border v-if="detailRecord">
         <el-descriptions-item label="备份ID">{{ detailRecord.id }}</el-descriptions-item>
@@ -266,28 +266,28 @@ import {
   restoreBackup as callRestoreApi,
   getRestoreList
 } from '@/api/backup.js'
-// 备份状态：取自统一 status 常量
-import { BACKUP_STATUS, getStatusLabel as getStatusLabelFromArr, getStatusTagType as getStatusTagTypeFromArr } from '@/constants/status'
+import {
+  BACKUP_STATUS,
+  getStatusLabel as getStatusLabelFromArr,
+  getStatusTagType as getStatusTagTypeFromArr,
+} from '@/constants/status';
 
 const activeTab = ref('backup')
 
-// 备份相关
-const loading = ref(false)
+const loading = ref(false);
 const backups = ref([])
 const pagination = reactive({ page: 1, size: 20, total: 0 })
 const searchKeyword = ref('')
 const filterType = ref('')
 const filterStatus = ref('')
 
-// 恢复相关
-const restoreLoading = ref(false)
+const restoreLoading = ref(false);
 const restores = ref([])
 const restorePagination = reactive({ page: 1, size: 20, total: 0 })
 const restoreKeyword = ref('')
 const restoreStatus = ref('')
 
-// 创建备份
-const createVisible = ref(false)
+const createVisible = ref(false);
 const creating = ref(false)
 const createFormRef = ref()
 const createForm = reactive({
@@ -298,16 +298,13 @@ const createRules = {
   backup_type: [{ required: true, message: i18n.global.t('请选择备份类型'), trigger: 'change' }]
 }
 
-// 恢复
-const restoreVisible = ref(false)
+const restoreVisible = ref(false);
 const restoring = ref(false)
 const restoreTarget = ref(null)
 
-// 详情
-const detailVisible = ref(false)
+const detailVisible = ref(false);
 const detailRecord = ref(null)
 
-// 统计
 const stats = computed(() => {
   const result = { completed: 0, running: 0, failed: 0, pending: 0 }
   backups.value.forEach(b => {
@@ -317,7 +314,7 @@ const stats = computed(() => {
     else if (b.status === 'pending') result.pending++
   })
   return result
-})
+});
 
 const filteredBackups = computed(() => {
   let result = backups.value
@@ -348,8 +345,7 @@ const getTypeTag = (type) => {
   const map = { full: 'primary', incremental: 'success', differential: 'warning' }
   return map[type] || 'info'
 }
-// 状态显示（统一取自 status 常量 BACKUP_STATUS）
-const getStatusText = (status) => getStatusLabelFromArr(status, BACKUP_STATUS)
+const getStatusText = (status) => getStatusLabelFromArr(status, BACKUP_STATUS);
 const getStatusType = (status) => getStatusTagTypeFromArr(status, BACKUP_STATUS)
 const formatSize = (bytes) => {
   if (!bytes || bytes <= 0) return '-'

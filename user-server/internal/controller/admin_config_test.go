@@ -79,4 +79,3 @@ func TestAdminConfigController_NewAdminConfigController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
-

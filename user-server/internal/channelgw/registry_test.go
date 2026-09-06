@@ -71,4 +71,3 @@ func TestDefaultRegistry(t *testing.T) {
 		t.Errorf("Default 渠道数 = %d, want %d", len(Default.Names()), len(want))
 	}
 }
-

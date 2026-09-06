@@ -11,19 +11,18 @@ import (
 	"hivemtk-user/internal/aiagent/knowledge/model"
 )
 
-
 // PlaygroundRequest 检索 Playground 请求
 type PlaygroundRequest struct {
-	ProductID           string         `json:"product_id"`
-	Query               string         `json:"query"`
-	TopK                int            `json:"top_k"`
-	SimilarityThreshold float64        `json:"similarity_threshold"`
-	FilterCategory      string         `json:"filter_category"`
-	UseThreeTier        bool           `json:"use_three_tier"`
-	UseRerank           bool           `json:"use_rerank"`
-	Tags                []string       `json:"tags"`
-	Extra               map[string]any `json:"extra"`
-	MetadataFilters map[string]string `json:"metadata_filters"`
+	ProductID           string            `json:"product_id"`
+	Query               string            `json:"query"`
+	TopK                int               `json:"top_k"`
+	SimilarityThreshold float64           `json:"similarity_threshold"`
+	FilterCategory      string            `json:"filter_category"`
+	UseThreeTier        bool              `json:"use_three_tier"`
+	UseRerank           bool              `json:"use_rerank"`
+	Tags                []string          `json:"tags"`
+	Extra               map[string]any    `json:"extra"`
+	MetadataFilters     map[string]string `json:"metadata_filters"`
 }
 
 // PlaygroundChunk 命中分段
@@ -33,7 +32,7 @@ type PlaygroundChunk struct {
 	Title      string         `json:"title"`
 	Content    string         `json:"content"`
 	Score      float64        `json:"score"`
-	Source     string         `json:"source"` 
+	Source     string         `json:"source"`
 	FromCache  bool           `json:"from_cache"`
 	Metadata   map[string]any `json:"metadata"`
 }
@@ -165,4 +164,3 @@ func (s *KnowledgeMerchantService) recordSearchLog(ctx context.Context, productI
 	}
 	return s.searchLogRepo.Create(ctx, logEntry)
 }
-

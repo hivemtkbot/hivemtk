@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// stubAITrigger 记录 TriggerInboundAI 调用（防抖测试桩）。
 type stubAITrigger struct {
 	mu    sync.Mutex
 	calls []stubAICall
@@ -46,7 +45,7 @@ func (s *stubAITrigger) last() stubAICall {
 
 func newDebounceFixture(t *testing.T, seconds int) (*InboxIngressService, *stubAITrigger, string) {
 	t.Helper()
-	svc := NewInboxIngressServiceWithDB(nil, nil) // cache 走内存回退
+	svc := NewInboxIngressServiceWithDB(nil, nil)
 	stub := &stubAITrigger{}
 	svc.aiTrigger = stub
 	return svc, stub, fmt.Sprintf("debounce-test-%d", time.Now().UnixNano())
@@ -94,7 +93,7 @@ func TestAIDebounce_CoalesceWindow(t *testing.T) {
 			t.Fatalf("合并内容应包含 %q, got %q", want, last.content)
 		}
 	}
-	// 时间序校验：在吗 在 就是那个订单 之前
+
 	if strings.Index(last.content, "在吗") > strings.Index(last.content, "就是那个订单") {
 		t.Fatalf("合并内容应为时间序, got %q", last.content)
 	}
@@ -167,10 +166,9 @@ func TestAIDebounce_NewWindowAfterClose(t *testing.T) {
 	if stub.count() != 1 {
 		t.Fatalf("第一窗口应触发, got %d", stub.count())
 	}
-	// 生产语义：AI 推理完成后释放处理锁（orchestrator 调 ReleaseAIProcessingFlag）。
-	// 不释放则第二窗口命中 AI 排他锁被跳过——那是既有防重复回复语义，非防抖问题。
+
 	svc.ReleaseAIProcessingFlag(context.Background(), session+"-conv")
-	// 新窗口
+
 	svc.triggerAIWithDebounce(ctx, debounceEvent(session, "第二窗口", 1))
 	deadline = time.Now().Add(4 * time.Second)
 	for stub.count() < 2 && time.Now().Before(deadline) {

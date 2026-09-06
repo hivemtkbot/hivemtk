@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupMigrationTestDB 设置迁移任务测试数据库
 func setupMigrationTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.UpgradeTask{},
@@ -24,7 +23,6 @@ func setupMigrationTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupMigrationRouter 设置迁移路由（路径已由 /upgrade/* 改为 /migration/*）
 func setupMigrationRouter(ctrl *MigrationController) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
@@ -142,4 +140,3 @@ func TestMigrationController_GetUpgradeTask_NotFound(t *testing.T) {
 		t.Errorf("Expected 404, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
-

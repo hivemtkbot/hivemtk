@@ -238,7 +238,7 @@ func (c *AlertRuleController) Unread(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	// unread_count 为 count 的语义别名（兼容前端两种取值字段）
+
 	response.Success(ctx, gin.H{
 		"count":        out.Count,
 		"unread_count": out.Count,
@@ -246,7 +246,6 @@ func (c *AlertRuleController) Unread(ctx *gin.Context) {
 	}, "")
 }
 
-// toUint 把 ctx 值转成 uint
 func toUint(v any) (uint, bool) {
 	switch t := v.(type) {
 	case uint:

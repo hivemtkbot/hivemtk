@@ -9,7 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 // PrivateMessageToolDeps 私信工具依赖
 //
 // 所有方法统一走 portcontract.SessionPort。
@@ -50,7 +49,6 @@ func RegisterPrivateMessageTools(registry *ToolRegistry, deps PrivateMessageTool
 	}
 	return nil
 }
-
 
 type openPrivateSessionTool struct {
 	BaseTool
@@ -109,7 +107,6 @@ func (t *openPrivateSessionTool) Execute(ctx context.Context, args map[string]an
 	}).withTiming(t.Name(), start), nil
 }
 
-
 type readPrivateSessionTool struct {
 	BaseTool
 	sessionPort portcontract.SessionPort
@@ -164,7 +161,6 @@ func (t *readPrivateSessionTool) Execute(ctx context.Context, args map[string]an
 		"messages":   messages,
 	}).withTiming(t.Name(), start), nil
 }
-
 
 type sendPrivateMessageTool struct {
 	BaseTool
@@ -224,7 +220,7 @@ func (t *sendPrivateMessageTool) Execute(ctx context.Context, args map[string]an
 	if err != nil {
 		return ErrorResult(t.Name(), err), nil
 	}
-	_ = mediaURL 
+	_ = mediaURL
 	_ = senderName
 	return SuccessResult(t.Name(), map[string]any{
 		"message_id":  msg.ID,
@@ -235,14 +231,12 @@ func (t *sendPrivateMessageTool) Execute(ctx context.Context, args map[string]an
 
 var errInvalidSenderType = errStr("sender_type 必须为 ai 或 agent")
 
-// errStr 轻量错误构造（避免重复 import errors）
 func errStr(s string) error { return &simpleErr{s} }
 
 type simpleErr struct{ msg string }
 
 func (e *simpleErr) Error() string { return e.msg }
 
-// toStr 将任意参数值转为字符串（用于数值型 page/page_size 解析）
 func toStr(v any) string {
 	switch x := v.(type) {
 	case string:
@@ -257,4 +251,3 @@ func toStr(v any) string {
 		return ""
 	}
 }
-

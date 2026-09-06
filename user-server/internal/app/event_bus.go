@@ -21,4 +21,3 @@ func InitEventBus() {
 
 	event.SetGlobalBus(bus)
 }
-

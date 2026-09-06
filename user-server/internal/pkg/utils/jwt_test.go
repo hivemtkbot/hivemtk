@@ -225,4 +225,3 @@ func TestJWTConfig(t *testing.T) {
 		t.Errorf("Expected Issuer 'custom-issuer', got %s", config.Issuer)
 	}
 }
-

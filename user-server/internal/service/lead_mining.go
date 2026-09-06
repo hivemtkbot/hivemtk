@@ -59,7 +59,6 @@ type Service struct {
 	wg             sync.WaitGroup
 }
 
-// singleton 全局单例，供控制器热更新配置缓存
 var singleton *Service
 
 // NewLeadMiningService 构造并启动线索发掘服务（后台 worker，非阻塞）
@@ -106,8 +105,6 @@ func GetLeadMiningConfig(ctx context.Context) (*dto.LeadMiningConfig, error) {
 	}
 	return leadMiningConfigToDTO(cfg), nil
 }
-
-// SaveLeadMiningConfig 保存配置并热更新运行中的缓存
 
 // GetStatus 返回线索挖掘服务运行时状态
 func GetStatus() map[string]any {
@@ -202,7 +199,6 @@ func (s *Service) worker(ctx context.Context) {
 	}
 }
 
-// process 单条消息的异步判定流程（在 worker 内执行，与核心业务解耦）
 func (s *Service) process(ctx context.Context, hub *model.MessageHub) {
 	if hub == nil || hub.Direction != "inbound" {
 		return
@@ -220,8 +216,6 @@ func (s *Service) process(ctx context.Context, hub *model.MessageHub) {
 		return
 	}
 
-	// debounceKey: 群聊用 platform:convID:senderID，单聊用 platform:senderID
-	// 同一用户在不同群聊中的行为应独立判定
 	account := fmt.Sprintf("%s:%s", hub.Platform, hub.SenderID)
 	debounceKey := account
 	if hub.IsGroup && hub.ConversationID != "" {
@@ -252,7 +246,6 @@ func (s *Service) process(ctx context.Context, hub *model.MessageHub) {
 	s.persistLead(ctx, cfg, hub, account, jd)
 }
 
-// loadConfig 读取配置（带 TTL 缓存）
 func (s *Service) loadConfig(ctx context.Context) *model.LeadMiningConfig {
 	s.mu.Lock()
 	if s.cfgCache != nil && time.Since(s.cfgLoadedAt) < leadMiningConfigTTL {
@@ -274,7 +267,6 @@ func (s *Service) loadConfig(ctx context.Context) *model.LeadMiningConfig {
 	return cfg
 }
 
-// fetchHistory 取该客户的多轮会话历史（可注入 fetcher 便于测试，默认走 DB）
 func (s *Service) fetchHistory(ctx context.Context, hub *model.MessageHub) []llm.ChatMessage {
 	if s.historyFetcher != nil {
 		return s.historyFetcher(ctx, hub)
@@ -282,7 +274,6 @@ func (s *Service) fetchHistory(ctx context.Context, hub *model.MessageHub) []llm
 	return s.fetchHistoryDB(ctx, hub)
 }
 
-// fetchHistoryDB 从 message_hub 取该客户最近 N 条入站消息，按时间正序构造多轮上下文
 func (s *Service) fetchHistoryDB(ctx context.Context, hub *model.MessageHub) []llm.ChatMessage {
 	hubs, err := s.hubRepo.ListRecentInboundBySender(ctx, hub.Platform, hub.SenderID, leadMiningHistorySize)
 	if err != nil {
@@ -303,7 +294,6 @@ func (s *Service) fetchHistoryDB(ctx context.Context, hub *model.MessageHub) []l
 	return msgs
 }
 
-// persistLead 打标签 + 写入线索库存
 func (s *Service) persistLead(ctx context.Context, cfg *model.LeadMiningConfig, hub *model.MessageHub, account string, jd *LeadJudgement) {
 	customer, err := s.resolveCustomer(ctx, hub.Platform, hub.SenderID, hub.SenderName)
 	if err != nil || customer == nil {
@@ -318,9 +308,6 @@ func (s *Service) persistLead(ctx context.Context, cfg *model.LeadMiningConfig, 
 		}
 	}
 
-	// 通用 LLM 线索发掘路径统一使用 ClueTypeLeadMining 类型（type=8），
-	// 与渠道专用关键词 miner（如 ClueTypeTelegram/ClueTypeDouyin）区分开，
-	// 避免两套路径写同一 (type, account) 线索时意向分来源混乱。
 	clueType := ClueTypeLeadMining
 
 	clue := &model.Clue{
@@ -357,14 +344,13 @@ func (s *Service) persistLead(ctx context.Context, cfg *model.LeadMiningConfig, 
 	}
 }
 
-// resolveCustomer 按稳定键 lm:platform:sender 复用/创建客户（避免重复建客户）
 func (s *Service) resolveCustomer(ctx context.Context, platform, senderID, name string) (*model.Customer, error) {
 	if platform == "" || senderID == "" {
 		return nil, fmt.Errorf("无客户身份标识")
 	}
 	key := "lm:" + platform + ":" + senderID
 	if c, gerr := s.custRepo.GetByUnifiedID(ctx, key); gerr == nil && c != nil {
-		// 仅当 name 有值且客户名称为空/占位时才补充更新
+
 		if c.Name == "" || c.Name == key {
 			if name != "" {
 				c.Name = name
@@ -383,7 +369,6 @@ func (s *Service) resolveCustomer(ctx context.Context, platform, senderID, name 
 	return c, nil
 }
 
-// tagCustomer 合并标签并写入 Customer.Tags（JSON 数组）
 func (s *Service) tagCustomer(ctx context.Context, customer *model.Customer, newTags []string) error {
 	var cur []string
 	_ = json.Unmarshal([]byte(customer.Tags), &cur)
@@ -408,7 +393,6 @@ func channelEnabled(cfg *model.LeadMiningConfig, platform string) bool {
 	return false
 }
 
-// mergeTags 合并两组标签，按小写去重（避免 AI兴趣/ai兴趣 重复），保留首次出现的原始大小写
 func mergeTags(a, b []string) []string {
 	set := map[string]string{}
 	add := func(t string) {
@@ -453,7 +437,6 @@ func displayName(c *model.Customer, hub *model.MessageHub) string {
 	return "未知"
 }
 
-// dispatcherJudge 基于全局 LLM dispatcher 的默认判定实现
 type dispatcherJudge struct{}
 
 func (j *dispatcherJudge) Judge(ctx context.Context, cfg *model.LeadMiningConfig, history []llm.ChatMessage) (*LeadJudgement, error) {
@@ -475,7 +458,6 @@ func (j *dispatcherJudge) Judge(ctx context.Context, cfg *model.LeadMiningConfig
 	return &jd, nil
 }
 
-// buildSystemPrompt 构造系统提示词（含用户配置的关键词/标签/要求）
 func buildSystemPrompt(cfg *model.LeadMiningConfig) string {
 	var b strings.Builder
 	b.WriteString("你是企业私域的「线索发掘」助手。下面是运营设置的发掘规则，请你基于提供的多轮客户对话，判断是否构成值得跟进的销售线索。\n\n")

@@ -11,8 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GeoDecisionController GEO 决策链报表与补位任务消费 API（v3 Phase 度量重构 L4）
-
 type GeoDecisionController struct {
 	chainRepo repository.GeoQueryChainRepository
 	taskRepo  repository.GeoContentTaskRepository
@@ -63,8 +61,8 @@ func (c *GeoDecisionController) GetDecisionReport(ctx *gin.Context) {
 		leads, _ = c.report.CountCapturedLeads(ctxReq)
 	}
 	response.Success(ctx, gin.H{
-		"tasks_pending": len(pending),
-		"tasks_done":    doneN,
+		"tasks_pending":  len(pending),
+		"tasks_done":     doneN,
 		"leads_captured": leads,
 	}, "ok")
 }

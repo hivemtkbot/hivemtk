@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -69,7 +68,6 @@ func (m *ConfidenceMigration) Up(ctx context.Context) error {
 	return nil
 }
 
-// createConfidenceSignals 创建 confidence_signals 表
 func (m *ConfidenceMigration) createConfidenceSignals(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS confidence_signals (
@@ -99,7 +97,6 @@ func (m *ConfidenceMigration) createConfidenceSignals(ctx context.Context) error
 	return execAll(ctx, m.db, stmts)
 }
 
-// createConfidenceCalibrations 创建 confidence_calibrations 表
 func (m *ConfidenceMigration) createConfidenceCalibrations(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS confidence_calibrations (
@@ -125,7 +122,6 @@ func (m *ConfidenceMigration) createConfidenceCalibrations(ctx context.Context) 
 	return execAll(ctx, m.db, stmts)
 }
 
-// createHandoffDecisions 创建 handoff_decisions 表
 func (m *ConfidenceMigration) createHandoffDecisions(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS handoff_decisions (
@@ -157,7 +153,6 @@ func (m *ConfidenceMigration) createHandoffDecisions(ctx context.Context) error 
 	return execAll(ctx, m.db, stmts)
 }
 
-// createThresholdPolicies 创建 threshold_policies 表
 func (m *ConfidenceMigration) createThresholdPolicies(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS threshold_policies (
@@ -182,7 +177,6 @@ func (m *ConfidenceMigration) createThresholdPolicies(ctx context.Context) error
 	return execAll(ctx, m.db, stmts)
 }
 
-// createABTests 创建 ab_tests 表
 func (m *ConfidenceMigration) createABTests(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS ab_tests (
@@ -211,7 +205,6 @@ func (m *ConfidenceMigration) createABTests(ctx context.Context) error {
 	return execAll(ctx, m.db, stmts)
 }
 
-// createABTestMetrics 创建 ab_test_metrics 表
 func (m *ConfidenceMigration) createABTestMetrics(ctx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS ab_test_metrics (
@@ -227,16 +220,6 @@ func (m *ConfidenceMigration) createABTestMetrics(ctx context.Context) error {
 	return execAll(ctx, m.db, stmts)
 }
 
-// seedDefaultPolicies 插入默认 threshold_policies（幂等：仅当表为空时）
-//
-// 默认策略来自设计文档 §15.2.5
-//   - complaint / churn:         base=0.85
-//   - objection_*:               base=0.75
-//   - ask_product / ask_service: base=0.70
-//   - price_inquiry / purchase:  base=0.65
-//   - after_sale:                base=0.80
-//   - social / greeting:         base=0.50
-//   - default:                   base=0.70
 func (m *ConfidenceMigration) seedDefaultPolicies(ctx context.Context) error {
 	var count int64
 	if err := m.db.WithContext(ctx).
@@ -245,7 +228,7 @@ func (m *ConfidenceMigration) seedDefaultPolicies(ctx context.Context) error {
 		return err
 	}
 	if count > 0 {
-		return nil 
+		return nil
 	}
 
 	policies := []struct {
@@ -295,7 +278,6 @@ func (m *ConfidenceMigration) Down(ctx context.Context) error {
 	return execAll(ctx, m.db, stmts)
 }
 
-// execAll 批量执行 SQL（出错即返回）
 func execAll(ctx context.Context, db *gorm.DB, stmts []string) error {
 	if db == nil {
 		return fmt.Errorf("db is nil")
@@ -308,6 +290,4 @@ func execAll(ctx context.Context, db *gorm.DB, stmts []string) error {
 	return nil
 }
 
-// compile-time 接口断言
 var _ migration.Migration = (*ConfidenceMigration)(nil)
-

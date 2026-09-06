@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupKuaishouCardServiceTestDB 设置快手卡片服务测试数据库
 func setupKuaishouCardServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.KuaishouCard{},

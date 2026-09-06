@@ -149,4 +149,3 @@ func (r *promptTemplateRepo) IncrementUseCount(id uint) error {
 	return r.db.Model(&model.PromptTemplate{}).Where("id = ?", id).
 		UpdateColumn("use_count", gorm.Expr("use_count + ?", 1)).Error
 }
-

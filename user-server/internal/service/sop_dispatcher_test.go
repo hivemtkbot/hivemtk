@@ -131,7 +131,6 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_FiresPendingTimers(t *testing.T) {
 		t.Fatalf("create timer: %v", err)
 	}
 
-	// 用原子计数器记录派发任务数
 	var dispatchedCount int32
 	mockDispatcher := &mockExecDispatcher{
 		dispatchFn: func(task *dispatchTask) {
@@ -153,7 +152,6 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_FiresPendingTimers(t *testing.T) {
 		t.Errorf("dispatchedCount=%d want=1", dispatchedCount)
 	}
 
-	// 验证 timer 已标记为 fired
 	var updated model.SOPTimer
 	db.First(&updated, timer.ID)
 	if updated.Status != "fired" {
@@ -199,7 +197,6 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_SkipsFutureTimers(t *testing.T) {
 		t.Errorf("dispatchedCount=%d want=0 (future timer should not fire)", dispatchedCount)
 	}
 
-	// timer 应仍为 pending
 	var updated model.SOPTimer
 	db.First(&updated, futureTimer.ID)
 	if updated.Status != "pending" {
@@ -235,7 +232,6 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_MultiInstanceIdempotent(t *testing
 		},
 	}
 
-	// 模拟两个 outbox 实例并发扫描
 	var wg sync.WaitGroup
 	for i := 0; i < 2; i++ {
 		wg.Add(1)
@@ -386,5 +382,4 @@ func (m *mockExecDispatcher) DispatchOrLog(task *dispatchTask) {
 	}
 }
 
-// 引用 context 包以避免 unused import（在测试函数未用到时）
 var _ = context.Background

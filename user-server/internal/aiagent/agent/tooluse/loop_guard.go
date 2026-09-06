@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-
-
 // ErrLoopDetected 工具调用循环被检测到
 var ErrLoopDetected = fmt.Errorf("tool loop detected: same tool called too many times with equivalent args")
 
@@ -20,14 +18,14 @@ var ErrLoopDetected = fmt.Errorf("tool loop detected: same tool called too many 
 type StopReason string
 
 const (
-	StopReasonNone           StopReason = ""              // 未触发，继续迭代
-	StopReasonLoopLimit      StopReason = "loop_limit"    // 同参重复调用超限
-	StopReasonTimeLimit      StopReason = "time_limit"    // wall-clock 超时
-	StopReasonTokenLimit     StopReason = "token_limit"   // token 预算耗尽
-	StopReasonCostLimit      StopReason = "cost_limit"    // 美元成本预算耗尽 / 成本漂移熔断
-	StopReasonApprovalDenied StopReason = "approval_denied" // 外发工具审批拒绝
-	StopReasonCompleted      StopReason = "completed"     // 正常完成
-	StopReasonError          StopReason = "error"         // 其他错误
+	StopReasonNone           StopReason = ""
+	StopReasonLoopLimit      StopReason = "loop_limit"
+	StopReasonTimeLimit      StopReason = "time_limit"
+	StopReasonTokenLimit     StopReason = "token_limit"
+	StopReasonCostLimit      StopReason = "cost_limit"
+	StopReasonApprovalDenied StopReason = "approval_denied"
+	StopReasonCompleted      StopReason = "completed"
+	StopReasonError          StopReason = "error"
 )
 
 // StopReasonOf 将错误分类为结构化 StopReason（A-3：统一出口，供调用方写 trace span status）。
@@ -52,9 +50,9 @@ const CostDriftFactor = 5.0
 // LoopGuardConfig 循环检测配置
 type LoopGuardConfig struct {
 	MaxRepeatCount int
-	WindowSize time.Duration
-	MaxTraces int
-	Enabled bool
+	WindowSize     time.Duration
+	MaxTraces      int
+	Enabled        bool
 	// CostBudgetUSD 单 trace 累计美元成本预算（A-2）；<=0 表示禁用成本护栏
 	CostBudgetUSD float64
 }
@@ -69,24 +67,22 @@ func DefaultLoopGuardConfig() LoopGuardConfig {
 	}
 }
 
-
 // LoopGuard 工具调用循环检测器
 //
 // 线程安全；按 trace_id 维度跟踪调用历史
 type LoopGuard struct {
 	mu     sync.Mutex
-	traces map[string]*traceHistory 
+	traces map[string]*traceHistory
 	config LoopGuardConfig
 }
 
 type traceHistory struct {
-	calls    []callRecord 
-	lastSeen time.Time    
+	calls    []callRecord
+	lastSeen time.Time
 
-	// A-2 成本预算追踪：调用方每轮传入本轮 LLM 美元成本，由 LoopGuard 累计
-	costTotal float64     // 累计成本
-	roundCosts []float64  // 每轮成本序列（漂移检测用）
-	lastStop   StopReason // 最近一次触发的结构化停止原因（供 trace span status）
+	costTotal  float64
+	roundCosts []float64
+	lastStop   StopReason
 }
 
 type callRecord struct {
@@ -204,7 +200,6 @@ func (g *LoopGuard) RecordCost(traceID string, costUSD float64) StopReason {
 	}
 	history.lastSeen = time.Now()
 
-	// 漂移检测（先于累计追加）：本轮成本与已有轮次均值比较
 	n := len(history.roundCosts)
 	if n > 0 {
 		var sum float64
@@ -265,7 +260,6 @@ func (g *LoopGuard) FinishTrace(traceID string) {
 	delete(g.traces, traceID)
 }
 
-// evictOldestLocked 清理最旧的 trace（已持锁）
 func (g *LoopGuard) evictOldestLocked() {
 	var oldestKey string
 	var oldestTime time.Time
@@ -289,8 +283,8 @@ func (g *LoopGuard) Reset() {
 
 // Stats 返回当前追踪统计（用于监控/调试）
 type LoopGuardStats struct {
-	ActiveTraces int `json:"active_traces"` 
-	TotalRecords int `json:"total_records"` 
+	ActiveTraces int `json:"active_traces"`
+	TotalRecords int `json:"total_records"`
 }
 
 // Stats 返回统计信息
@@ -307,13 +301,9 @@ func (g *LoopGuard) Stats() LoopGuardStats {
 	}
 }
 
-// hashArgs 保留为旧名（不导出），实际委托给 structuralFingerprint。
-// 删去实现以避免分叉；外部如需 hash 调用 structuralFingerprint。
-// 本函数保留仅为二进制兼容（被同包内其它代码引用）。
 func hashArgs(args map[string]any) string {
 	return structuralFingerprint(args)
 }
-
 
 // LoopGuardDecorator 工具级循环检测装饰器
 //
@@ -342,4 +332,3 @@ func LoopGuardDecorator(guard *LoopGuard) ToolDecorator {
 		}
 	}
 }
-

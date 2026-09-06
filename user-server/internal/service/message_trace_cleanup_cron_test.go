@@ -13,8 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// 决策源：docs/architecture/MASTER_COMPETITIVE_DECISIONS.md M16 表 TR-2 / TR-3
-
 func TestMaskPII_PhoneAndEmail(t *testing.T) {
 	cases := []struct {
 		name string
@@ -59,11 +57,11 @@ func TestTraceCleanup_TTLAndPII(t *testing.T) {
 
 	now := time.Now()
 	rows := []*model.MessageTrace{
-		// 95 天前：应被 TTL 置 NULL
+
 		{TraceID: "tr-old", Node: "ingest", Input: "旧正文 13812345678", Output: "旧输出", CreatedAt: now.Add(-95 * 24 * time.Hour)},
-		// 60 天前：应被打码但保留正文
+
 		{TraceID: "tr-mid", Node: "ingest", Input: "手机 13812345678 邮箱 bob@corp.com", Output: "正常回复", CreatedAt: now.Add(-60 * 24 * time.Hour)},
-		// 10 天前：完全不处理
+
 		{TraceID: "tr-new", Node: "ingest", Input: "手机 13812345678", Output: "新回复", CreatedAt: now.Add(-10 * 24 * time.Hour)},
 	}
 	if err := database.Create(&rows).Error; err != nil {
@@ -85,7 +83,7 @@ func TestTraceCleanup_TTLAndPII(t *testing.T) {
 	if err := database.Where("trace_id = ?", "tr-old").First(&oldRow).Error; err != nil {
 		t.Fatal(err)
 	}
-	// TR-2：正文置 NULL（结构字段保留）
+
 	if oldRow.Input != "" || oldRow.Output != "" {
 		t.Errorf("90 天前正文未清除: input=%q output=%q", oldRow.Input, oldRow.Output)
 	}
@@ -93,7 +91,6 @@ func TestTraceCleanup_TTLAndPII(t *testing.T) {
 		t.Error("TTL 清理不得破坏结构字段")
 	}
 
-	// TR-3：30~90 天区间仅打码，正文保留
 	if err := database.Where("trace_id = ?", "tr-mid").First(&midRow).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +104,6 @@ func TestTraceCleanup_TTLAndPII(t *testing.T) {
 		t.Errorf("无 PII 正文不应被改动: %q", midRow.Output)
 	}
 
-	// 实时链路数据不受影响
 	if err := database.Where("trace_id = ?", "tr-new").First(&newRow).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +111,6 @@ func TestTraceCleanup_TTLAndPII(t *testing.T) {
 		t.Errorf("30 天内正文被误处理: %q", newRow.Input)
 	}
 
-	// 幂等：重复执行结果不变
 	masked2, nulled2, err := task.RunOnce(context.Background())
 	if err != nil {
 		t.Fatalf("RunOnce #2: %v", err)
@@ -130,7 +125,7 @@ func TestTraceCleanup_BatchBoundaryRowsAllProcessed(t *testing.T) {
 	task := newSilentCleanupTask(database)
 
 	now := time.Now()
-	total := traceMaskBatchSize + 37 // 强制跨两个批次
+	total := traceMaskBatchSize + 37
 	rows := make([]*model.MessageTrace, 0, total)
 	for i := 0; i < total; i++ {
 		rows = append(rows, &model.MessageTrace{

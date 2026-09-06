@@ -123,8 +123,7 @@ func (r *geoAPICallRepo) GetList(provider, modelName string, page, limit int) ([
 
 func (r *geoAPICallRepo) GetCostStatistics(startDate, endDate string) ([]map[string]any, error) {
 	var statistics []map[string]any
-	// 用 Model 构建器替代 Table() 字符串表名，让 GORM 自动附加软删除作用域（deleted_at IS NULL），
-	// 与 GetList/Raw 统计口径保持一致，避免成本报表虚高
+
 	query := r.db.Model(&model.GeoAPICall{}).
 		Select("provider, model, COUNT(*) AS call_count, COALESCE(SUM(input_tokens),0) AS input_tokens, COALESCE(SUM(output_tokens),0) AS output_tokens, COALESCE(SUM(cost_usd),0) AS cost_usd, COALESCE(SUM(cost_cny),0) AS cost_cny").
 		Group("provider, model").
@@ -147,13 +146,11 @@ func (r *geoAPICallRepo) GetByProvider(provider string) ([]*model.GeoAPICall, er
 	return calls, err
 }
 
-
-// ListAllForSOV SOV 统计：按 intent 过滤返回全部验证行
 func (r *geoVerifyResultRepo) ListAllForSOV(ctx context.Context, intent string) ([]*model.GeoVerifyResult, error) {
 	var rows []*model.GeoVerifyResult
 	q := r.db.WithContext(ctx)
 	if intent != "" {
-		// intent 存于 Query 语义中，此处简化为全量由 service 层按意图过滤
+
 		_ = intent
 	}
 	err := q.Find(&rows).Error

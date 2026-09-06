@@ -186,9 +186,9 @@ func (r *HelpCenterRepo) IncArticleViews(ctx context.Context, id uint64) error {
 
 // TopArticleRow TopArticles 行
 type TopArticleRow struct {
-	ID     uint64
-	Title  string
-	Views  int64
+	ID    uint64
+	Title string
+	Views int64
 }
 
 // TopArticles 按访问量排序取前 N 篇已发布文档

@@ -1,6 +1,5 @@
 import { http } from '@/utils/request';
 
-// 批量操作 - 匹配后端 /api/batch/* 路径
 export function batchImportFile(data) {
   return http.post('/api/batch/import', data)
 }
@@ -17,7 +16,6 @@ export function batchUpdate(data) {
   return http.post('/api/batch/update', data)
 }
 
-// 兼容旧接口
 export function getBatchTools() {
   return http.get('/api/batch/tools')
 }

@@ -7,7 +7,6 @@
 // bigramSet 实现，无外部依赖，可安全用于 CI 冒烟。
 package eval
 
-// ragEvalRecallK 默认 top-k 截断数，与线上召回返回给生成阶段的片段数对齐
 const ragEvalRecallK = 3
 
 // RAGEvalCaseDetail 单条样例在 RAG 口径下的明细得分

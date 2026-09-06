@@ -9,7 +9,6 @@ import (
 	"hivemtk-user/internal/aiagent/agent/tooluse"
 )
 
-// mockReachAdapter 实现 tooluse.ReachAdapter，按字段返回预设值
 type mockReachAdapter struct {
 	msgID string
 	err   error
@@ -55,7 +54,7 @@ func (m *mockReachAdapter) SendWeixin(ctx context.Context, openID, msgType, cont
 	return m.msgID, m.err
 }
 func (m *mockReachAdapter) SendDouyin(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
-	return "", nil // 本结构体 inner 不走这路径
+	return "", nil
 }
 func (m *mockReachAdapter) SendKuaishou(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
 	return "", nil
@@ -295,9 +294,9 @@ func TestBridgeReachAdapter_DirectDeliver(t *testing.T) {
 	t.Run("SendDouyin 格式验证", func(t *testing.T) {
 		adapter := NewBridgeReachAdapter(mock)
 		id, err := adapter.SendDouyin(ctx, "acc-dy", "open-dy", "text", "hi")
-		// 没初始化 DB/bridge channel 映射会 error，但可以验证返回格式
+
 		if err != nil {
-			// 预期：DeliverBridgeOutbound 报 notReady 或 channel 不支持
+
 			t.Logf("SendDouyin err (预期未注入): %v", err)
 		} else if id == "" {
 			t.Error("SendDouyin 成功时应返回非空 id")
@@ -307,7 +306,7 @@ func TestBridgeReachAdapter_DirectDeliver(t *testing.T) {
 	t.Run("SendKuaishou 格式验证", func(t *testing.T) {
 		adapter := NewBridgeReachAdapter(mock)
 		id, _ := adapter.SendKuaishou(ctx, "acc-ks", "open-ks", "text", "hi")
-		_ = id // 同上
+		_ = id
 	})
 
 	t.Run("SendXHS 格式验证", func(t *testing.T) {
@@ -330,6 +329,6 @@ func TestBridgeReachAdapter_DirectDeliver(t *testing.T) {
 
 	t.Run("SetIngress 注入", func(t *testing.T) {
 		adapter := NewBridgeReachAdapter(mock)
-		adapter.SetIngress(nil) // 可以后期注入（即使 nil 也不 panic）
+		adapter.SetIngress(nil)
 	})
 }

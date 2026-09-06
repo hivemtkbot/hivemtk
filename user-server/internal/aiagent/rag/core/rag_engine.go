@@ -17,7 +17,7 @@ type Document struct {
 	ID        string         `json:"id"`
 	Content   string         `json:"content"`
 	Metadata  map[string]any `json:"metadata"`
-	Embedding []float32      `json:"-"` 
+	Embedding []float32      `json:"-"`
 	CreatedAt time.Time      `json:"created_at"`
 }
 
@@ -27,18 +27,18 @@ type Chunk struct {
 	DocumentID string         `json:"document_id"`
 	Content    string         `json:"content"`
 	Metadata   map[string]any `json:"metadata"`
-	Embedding  []float32      `json:"-"`     
-	Score      float64        `json:"score"` 
+	Embedding  []float32      `json:"-"`
+	Score      float64        `json:"score"`
 	TokenCount int            `json:"token_count"`
 }
 
 // RAGConfig RAG引擎配置
 type RAGConfig struct {
-	ChunkSize           int     `json:"chunk_size"`             
-	ChunkOverlap        int     `json:"chunk_overlap"`          
-	MaxChunksToRetrieve int     `json:"max_chunks_to_retrieve"` 
-	SimilarityThreshold float64 `json:"similarity_threshold"`   
-	VectorDimension     int     `json:"vector_dimension"`       
+	ChunkSize           int     `json:"chunk_size"`
+	ChunkOverlap        int     `json:"chunk_overlap"`
+	MaxChunksToRetrieve int     `json:"max_chunks_to_retrieve"`
+	SimilarityThreshold float64 `json:"similarity_threshold"`
+	VectorDimension     int     `json:"vector_dimension"`
 }
 
 // RAGEngineInterface RAG引擎接口
@@ -57,8 +57,7 @@ type RAGEngine struct {
 	documents map[string]*Document
 	chunks    []*Chunk
 	embedder  EmbedderInterface
-	// v3 审计 P0-19 修复：保护 documents/chunks 并发读写
-	// 原：AddDocuments/Search/DeleteDocument 全字段无锁 → fatal error: concurrent map read and map write
+
 	mu sync.RWMutex
 }
 
@@ -126,7 +125,6 @@ func NewMockEmbedder(dimension int) *MockEmbedder {
 	return &MockEmbedder{dimension: dimension}
 }
 
-// hashToFloat32Vector FNV-1a 派生 dim 维伪向量（与 vector 包 hashToVector 算法一致）
 func hashToFloat32Vector(text string, dim int) []float32 {
 	vec := make([]float32, dim)
 	const (
@@ -172,7 +170,7 @@ func NewRAGEngine(config *RAGConfig) *RAGEngine {
 			ChunkOverlap:        50,
 			MaxChunksToRetrieve: 5,
 			SimilarityThreshold: 0.5,
-			VectorDimension: 1024,
+			VectorDimension:     1024,
 		}
 	}
 
@@ -208,8 +206,7 @@ func NewRAGEngineWithEmbedder(config *RAGConfig, embedder EmbedderInterface) *RA
 
 // AddDocuments 添加文档到知识库
 func (r *RAGEngine) AddDocuments(ctx context.Context, docs []Document) error {
-	// v3 审计 P0-19 + BUG-3 修复：先批量 embedding（无锁，远程调用不持锁），
-	// 再持写锁做 map/slice 写入，避免 embedder 慢时阻塞 Search。
+
 	type embeddedDoc struct {
 		doc    Document
 		chunks []*Chunk
@@ -243,7 +240,6 @@ func (r *RAGEngine) AddDocuments(ctx context.Context, docs []Document) error {
 	return nil
 }
 
-// splitDocument 文档分片逻辑
 func (r *RAGEngine) splitDocument(doc Document) []*Chunk {
 	content := doc.Content
 
@@ -265,22 +261,17 @@ func (r *RAGEngine) splitDocument(doc Document) []*Chunk {
 			DocumentID: doc.ID,
 			Content:    content[start:actualEnd],
 			Metadata:   doc.Metadata,
-			// v3 审计 P0-20 修复：使用 rune 计数（中文友好）
-			// 原：len(strings.Fields(...)) 中文无空格整段算 1 个词
+
 			TokenCount: utf8.RuneCountInString(content[start:actualEnd]),
 		}
 
 		chunks = append(chunks, chunk)
 
-		// v3 审计 P0-17 修复：overlap 真正生效
-		// 原：start = actualEnd - overlap; if start < actualEnd { start = actualEnd }
-		//     (overlap > 0 时恒等，overlap 永远失效)
-		// 新：取 max(0, actualEnd - overlap)
 		newStart := actualEnd - r.config.ChunkOverlap
 		if newStart < 0 {
 			newStart = 0
 		}
-		// 防止死循环：如果新 start == 旧 start（overlap>=chunk size），强制推进
+
 		if newStart == start || newStart == prevStart {
 			newStart = actualEnd
 		}
@@ -291,7 +282,6 @@ func (r *RAGEngine) splitDocument(doc Document) []*Chunk {
 	return chunks
 }
 
-// findSentenceBoundary 查找句子边界以避免在单词中间分割
 func (r *RAGEngine) findSentenceBoundary(content string, start, suggestedEnd int) int {
 	if suggestedEnd >= len(content) {
 		return len(content)
@@ -330,7 +320,6 @@ func (r *RAGEngine) Search(ctx context.Context, query string, topK int) ([]Chunk
 		topK = r.config.MaxChunksToRetrieve
 	}
 
-	// v3 审计 BUG-3 修复：embedder 调用不持锁（远程调用慢，会阻塞 AddDocuments）
 	queryEmbedding, err := r.embedder.EmbedQuery(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to embed query: %w", err)
@@ -348,10 +337,8 @@ func (r *RAGEngine) Search(ctx context.Context, query string, topK int) ([]Chunk
 		scores = append(scores, scored{chunk: chunk, score: cosineSimilarity(queryEmbedding, chunk.Embedding)})
 	}
 
-	// 排序用 sort.Slice O(n log n)，避免原 O(n²) 选择排序
 	sort.Slice(scores, func(i, j int) bool { return scores[i].score > scores[j].score })
 
-	// 返回topK结果，过滤掉低于阈值的
 	results := make([]Chunk, 0, topK)
 	for _, sc := range scores {
 		if len(results) >= topK {
@@ -368,7 +355,6 @@ func (r *RAGEngine) Search(ctx context.Context, query string, topK int) ([]Chunk
 	return results, nil
 }
 
-// cosineSimilarity 计算余弦相似度
 func cosineSimilarity(a, b []float32) float64 {
 	if len(a) != len(b) {
 		return 0
@@ -429,4 +415,3 @@ func (r *RAGEngine) GetAllChunksForTest(ctx context.Context) ([]*Chunk, error) {
 	copy(out, r.chunks)
 	return out, nil
 }
-

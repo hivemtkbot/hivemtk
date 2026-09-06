@@ -36,42 +36,34 @@ const DISMISSED_MESSAGES_KEY = 'dismissed_messages'
 
 let checkInterval = null
 
-// 从localStorage获取已忽略的消息ID列表
 const getDismissedMessages = () => {
   const dismissed = localStorage.getItem(DISMISSED_MESSAGES_KEY)
   return dismissed ? JSON.parse(dismissed) : []
-}
+};
 
-// 将消息ID添加到已忽略列表
 const addToDismissedMessages = (messageId) => {
   const dismissedMessages = getDismissedMessages()
   if (!dismissedMessages.includes(messageId)) {
     dismissedMessages.push(messageId)
     localStorage.setItem(DISMISSED_MESSAGES_KEY, JSON.stringify(dismissedMessages))
   }
-}
+};
 
-// 检查消息是否已被忽略
 const isMessageDismissed = (messageId) => {
   return getDismissedMessages().includes(messageId)
-}
+};
 
-// 检查新消息
-let pollingStopped = false // 403(角色无权限)等永久性拒绝时停表，避免 staff 每30s刷一次403噪音
+let pollingStopped = false;
 const checkNewMessage = async () => {
   if (pollingStopped) return
   try {
-    // 修复：request.js 拦截器已解包 data.data，response 即业务数据本身（即 message）
-    const message = await platformAPI.getLatestMessage()
+    const message = await platformAPI.getLatestMessage();
     if (message && message.id && message.id !== currentMessage.value.id && !isMessageDismissed(message.id)) {
       currentMessage.value = message
       hasNewMessage.value = true
       dismissed.value = false
     }
   } catch (error) {
-    // 后台轮询：平台不可用时仅开发态记录，避免生产控制台噪声
-    // HTTP 403 = 当前角色无权接收平台消息（如 staff），永久性拒绝 → 停止轮询
-    // （axios error: error.response.status；拦截器包装 error: bizCode = data.code，403时为数字403）
     if (error?.response?.status === 403 || error?.bizCode === 403) {
       pollingStopped = true
       if (checkInterval) { clearInterval(checkInterval); checkInterval = null }
@@ -81,13 +73,11 @@ const checkNewMessage = async () => {
   }
 }
 
-// 标记为已读
 const markAsRead = async () => {
   try {
     if (currentMessage.value.id) {
       await platformAPI.markMessageRead(currentMessage.value.id)
-      // 添加到已忽略列表，下次不再提示
-      addToDismissedMessages(currentMessage.value.id)
+      addToDismissedMessages(currentMessage.value.id);
     }
     hasNewMessage.value = false
     dismissed.value = true
@@ -96,20 +86,17 @@ const markAsRead = async () => {
     console.error('标记消息已读失败:', error)
     ElMessage.error(i18n.global.t('标记消息已读失败'))
   }
-}
+};
 
-// 关闭消息
 const dismiss = () => {
   hasNewMessage.value = false
   dismissed.value = true
-}
+};
 
 onMounted(() => {
-  // 立即检查一次
-  checkNewMessage()
+  checkNewMessage();
   
-  // 每30秒检查一次新消息
-  checkInterval = setInterval(checkNewMessage, 30000)
+  checkInterval = setInterval(checkNewMessage, 30000);
 })
 
 onUnmounted(() => {

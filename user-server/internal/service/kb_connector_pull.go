@@ -26,24 +26,20 @@ import (
 const (
 	ConnectorPullMaxPagesDefault = 10
 	ConnectorPullMaxPagesCap     = 20
-	notionAPIRateGap             = 350 * time.Millisecond // 尊重 Notion 3 rps
+	notionAPIRateGap             = 350 * time.Millisecond
 )
-
-// ConnectorPullResult 拉取导入结果
 
 // ConnectorPuller 连接器拉取函数签名（闭包形式，s 由调用方注入）
 type ConnectorPuller func(ctx context.Context, productID string, saved *SaveConnectorRequest, req *ConnectorPullRequest) (*ConnectorPullResult, error)
 
 var kbPullers = map[string]ConnectorPuller{}
 
-// init 注册内置连接器实现
 func init() {
 	RegisterKBPuller("notion", func(ctx context.Context, productID string, saved *SaveConnectorRequest, req *ConnectorPullRequest) (*ConnectorPullResult, error) {
 		return globalKBPullService.pullNotion(ctx, productID, saved, req)
 	})
 }
 
-// globalKBPullService 供 init 闭包使用的全局服务实例
 var globalKBPullService = &KBConnectorService{}
 
 // RegisterKBPuller 注册一个新的连接器拉取实现（供外部扩展）
@@ -53,7 +49,7 @@ type ConnectorPullResult struct {
 	Source   string                 `json:"source"`
 	Imported int                    `json:"imported"`
 	Failed   int                    `json:"failed"`
-	Skipped  int                    `json:"skipped"` // 空内容页面
+	Skipped  int                    `json:"skipped"`
 	Details  []ConnectorPullPageRow `json:"details"`
 }
 
@@ -61,17 +57,16 @@ type ConnectorPullResult struct {
 type ConnectorPullPageRow struct {
 	PageID  string `json:"page_id"`
 	Title   string `json:"title"`
-	Status  string `json:"status"` // imported/failed/skipped
+	Status  string `json:"status"`
 	Message string `json:"message,omitempty"`
 }
 
 // ConnectorPullRequest 拉取参数
 type ConnectorPullRequest struct {
-	Query    string `json:"query"`     // 可选搜索词（空=全部）
-	MaxPages int    `json:"max_pages"` // 默认 10 上限 20
+	Query    string `json:"query"`
+	MaxPages int    `json:"max_pages"`
 }
 
-// kbImportSink KB 导入管线端口（适配 knowledgesvc.KnowledgeService.Import，测试可注入 mock）
 type kbImportSink interface {
 	Import(ctx context.Context, req *knowledgesvc.ImportRequest) (any, error)
 }
@@ -99,7 +94,6 @@ func (s *KBConnectorService) Pull(ctx context.Context, source, productID string,
 	return puller(ctx, productID, &saved, req)
 }
 
-// pullNotion Notion 拉取：search → blocks children 提取文本 → Import 管线
 func (s *KBConnectorService) pullNotion(ctx context.Context, productID string, saved *SaveConnectorRequest, req *ConnectorPullRequest) (*ConnectorPullResult, error) {
 	token, _ := saved.Config["token"].(string)
 	if strings.TrimSpace(token) == "" {
@@ -113,7 +107,6 @@ func (s *KBConnectorService) pullNotion(ctx context.Context, productID string, s
 		maxPages = ConnectorPullMaxPagesCap
 	}
 
-	// 1. search 列页面
 	pages, err := s.notionSearch(ctx, token, req.Query)
 	if err != nil {
 		return nil, fmt.Errorf("Notion 搜索失败: %w", err)
@@ -162,19 +155,17 @@ func (s *KBConnectorService) pullNotion(ctx context.Context, productID string, s
 			res.Imported++
 		}
 		res.Details = append(res.Details, row)
-		time.Sleep(notionAPIRateGap) // 尊重 3 rps
+		time.Sleep(notionAPIRateGap)
 	}
 	return res, nil
 }
 
-// notionPage 搜索结果条目
 type notionPage struct {
 	ID    string
 	Title string
 	URL   string
 }
 
-// notionSearch POST /v1/search 列页面（按最后编辑时间倒序）
 func (s *KBConnectorService) notionSearch(ctx context.Context, token, query string) ([]notionPage, error) {
 	body := map[string]any{
 		"page_size": ConnectorPullMaxPagesCap,
@@ -224,7 +215,6 @@ func (s *KBConnectorService) notionSearch(ctx context.Context, token, query stri
 	return pages, nil
 }
 
-// notionPageText GET /v1/blocks/{id}/children 提取纯文本（单层 blocks + rich_text）
 func (s *KBConnectorService) notionPageText(ctx context.Context, token, pageID string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		"https://api.notion.com/v1/blocks/"+pageID+"/children?page_size=100", nil)
@@ -246,7 +236,7 @@ func (s *KBConnectorService) notionPageText(ctx context.Context, token, pageID s
 		_ = json.Unmarshal(raw, &e)
 		return "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, e.Message)
 	}
-	// 通用解码：results[] 内每种类型是同名字段
+
 	var generic struct {
 		Results []map[string]any `json:"results"`
 	}
@@ -271,7 +261,6 @@ func (s *KBConnectorService) notionPageText(ctx context.Context, token, pageID s
 	return sb.String(), nil
 }
 
-// notionRichText 提取 rich_text 数组的 plain_text 拼接
 func notionRichText(v any) string {
 	arr, ok := v.([]any)
 	if !ok {
@@ -290,12 +279,11 @@ func notionRichText(v any) string {
 	return sb.String()
 }
 
-// extractNotionTitle 从页面 properties 提取标题（首个 title 类型属性）
 func extractNotionTitle(props map[string]any) string {
 	if props == nil {
 		return ""
 	}
-	// Notion 页面标题属性名不定（"Name"/"title"/自定义）——遍历取首个 title 类属性
+
 	for _, pv := range props {
 		pm, ok := pv.(map[string]any)
 		if !ok {

@@ -15,8 +15,7 @@ export const useUserStore = defineStore('user', () => {
   
   const username = computed(() => userInfo.value.username)
   const role = computed(() => userInfo.value.role || '')
-  // 阶段 7：超管标记，供 Layout / router 校验使用
-  const isAdmin = computed(() => role.value === 'admin')
+  const isAdmin = computed(() => role.value === 'admin');
   
   const setUserInfo = (info) => {
     userInfo.value = {
@@ -25,8 +24,7 @@ export const useUserStore = defineStore('user', () => {
       email: info.email || '',
       role: info.role || ''
     }
-    // 持久化用户信息，刷新后可恢复（含首次强制改密页所需的 username）
-    localStorage.setItem('user_info', JSON.stringify(userInfo.value))
+    localStorage.setItem('user_info', JSON.stringify(userInfo.value));
   }
   
   const setToken = (newToken) => {
@@ -55,7 +53,6 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem('user_info')
   }
   
-  // 初始化时从localStorage恢复token与用户信息
   const initAuth = () => {
     const savedToken = localStorage.getItem('token')
     if (savedToken) {
@@ -75,10 +72,9 @@ export const useUserStore = defineStore('user', () => {
         localStorage.removeItem('user_info')
       }
     }
-  }
+  };
   
-  // 初始化
-  initAuth()
+  initAuth();
   
   return {
     userInfo,

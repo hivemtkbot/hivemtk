@@ -24,10 +24,10 @@ type Handler func(evt Event) error
 
 // Event 事件结构
 type Event struct {
-	Topic     string    
-	Payload   any       
-	Timestamp time.Time 
-	Source    string    
+	Topic     string
+	Payload   any
+	Timestamp time.Time
+	Source    string
 }
 
 // EventBus 进程内事件总线
@@ -40,8 +40,8 @@ type Event struct {
 type EventBus struct {
 	subscribers    map[string][]Handler
 	mu             sync.RWMutex
-	queue          chan Event 
-	criticalQueue  chan Event 
+	queue          chan Event
+	criticalQueue  chan Event
 	criticalTopics map[string]bool
 	stopCh         chan struct{}
 	wg             sync.WaitGroup
@@ -130,9 +130,6 @@ func (b *EventBus) Publish(evt Event) {
 		evt.Timestamp = time.Now()
 	}
 
-	// v3 审计 P1-32 修复：criticalTopics 读写也需加锁
-	// 原：Publish 路径不持 b.mu，并发 MarkCritical 改 map 会 panic
-	// 新：临界区扩到 criticalTopics 查询
 	b.mu.RLock()
 	target := b.queue
 	if b.criticalTopics[evt.Topic] {
@@ -148,7 +145,6 @@ func (b *EventBus) Publish(evt Event) {
 	_ = len(b.criticalQueue)
 }
 
-// worker 消费者协程（绑定到指定队列 q）
 func (b *EventBus) worker(q chan Event, id int) {
 	defer b.wg.Done()
 	for {
@@ -162,7 +158,6 @@ func (b *EventBus) worker(q chan Event, id int) {
 	}
 }
 
-// drainFrom 排空指定队列中剩余事件
 func (b *EventBus) drainFrom(q chan Event) {
 	for {
 		select {
@@ -174,8 +169,6 @@ func (b *EventBus) drainFrom(q chan Event) {
 	}
 }
 
-// dispatch 分发事件给所有订阅者
-// 单个 handler 失败不影响其他 handler，仅记录日志
 func (b *EventBus) dispatch(evt Event) {
 	b.mu.RLock()
 	handlers := b.subscribers[evt.Topic]
@@ -215,7 +208,6 @@ func (b *EventBus) HasSubscribers(topic string) bool {
 	defer b.mu.RUnlock()
 	return len(b.subscribers[topic]) > 0
 }
-
 
 var (
 	globalBus *EventBus
@@ -258,4 +250,3 @@ func StopGlobal() {
 		globalBus = nil
 	}
 }
-

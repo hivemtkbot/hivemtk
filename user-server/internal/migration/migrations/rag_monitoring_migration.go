@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -49,15 +48,6 @@ func (m *RagMonitoringMigration) Up(ctx context.Context) error {
 	return nil
 }
 
-// createRagQueryLogs 创建 rag_query_logs 表
-//
-// 用途：每次检索的明细日志（query + retrieved + relevant + precision/recall/latency）
-// 写入时机：检索完成后异步写入（RagMetricsService.RecordQuery）
-// 查询场景：
-//   - GetRecallMetrics 聚合时间窗口指标
-//   - GetLowRecallQueries 查询低召回样本（调优）
-//
-// 延迟计算（偏移法）
 func (m *RagMonitoringMigration) createRagQueryLogs(ctx context.Context) error {
 	stmt := `
 		CREATE TABLE IF NOT EXISTS rag_query_logs (
@@ -86,14 +76,6 @@ func (m *RagMonitoringMigration) createRagQueryLogs(ctx context.Context) error {
 	return m.db.WithContext(ctx).Exec(stmt).Error
 }
 
-// createRagMetricsDaily 创建 rag_metrics_daily 表
-//
-// 用途：每 5 分钟聚合 rag_query_logs 写入的指标快照
-// 写入时机：RagMetricsCron 每 5 分钟调用 AggregateLastWindow
-// 查询场景：
-//   - GetLatestMetrics 趋势图
-//   - 健康度评分（最近窗口的 recall/precision/p99）
-//   - 风控预警判断（recall < 0.3 等）
 func (m *RagMonitoringMigration) createRagMetricsDaily(ctx context.Context) error {
 	stmt := `
 		CREATE TABLE IF NOT EXISTS rag_metrics_daily (
@@ -128,6 +110,4 @@ func (m *RagMonitoringMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// compile-time 接口断言
 var _ migration.Migration = (*RagMonitoringMigration)(nil)
-

@@ -13,14 +13,14 @@ const (
 	TypeAISuggestion  = "ai_suggestion"
 	TypeHeartbeat     = "heartbeat"
 
-	TypeWelcome         = "welcome"          
-	TypeMessage         = "message"          
-	TypeAgentJoined     = "agent_joined"     
-	TypeSessionClosed   = "session_closed"   
-	TypeAITyping        = "ai_typing"        
-	TypeError           = "error"            
-	TypePong            = "pong"             
-	TypeOfflineMessages = "offline_messages" 
+	TypeWelcome         = "welcome"
+	TypeMessage         = "message"
+	TypeAgentJoined     = "agent_joined"
+	TypeSessionClosed   = "session_closed"
+	TypeAITyping        = "ai_typing"
+	TypeError           = "error"
+	TypePong            = "pong"
+	TypeOfflineMessages = "offline_messages"
 )
 
 // SendToAgent 发送消息给指定客服（坐席 ID 为 uint）
@@ -56,7 +56,6 @@ func BroadcastToAll(messageType string, payload any) error {
 func BroadcastToAgents(messageType string, payload any) error {
 	return GetHub().BroadcastToAgents(messageType, payload)
 }
-
 
 // SendToVisitor 发送消息给指定会话的访客
 //
@@ -144,4 +143,3 @@ func (h *Hub) BroadcastToAgents(messageType string, payload any) error {
 	}
 	return nil
 }
-

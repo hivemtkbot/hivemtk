@@ -1,9 +1,9 @@
 <template>
   <el-container class="app-shell">
-    <!-- 全局消息通知组件 -->
+    
     <MessageNotification />
 
-    <!-- 顶部导航栏 -->
+    
     <el-header class="app-header">
       <div class="brand">
         <span class="brand-mark"></span>
@@ -27,14 +27,14 @@
         </el-menu-item>
       </el-menu>
 
-      <!-- 通知铃铛（顶栏内联） -->
+      
       <div v-if="userStore.isLoggedIn" class="notif-bell" @click="router.push({ name: 'Notifications' })">
         <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99">
           <el-icon :size="20"><Bell /></el-icon>
         </el-badge>
       </div>
 
-      <!-- 用户登录状态 -->
+      
       <div class="user-area" v-if="userStore.isLoggedIn">
         <LanguageSwitcher />
         <el-dropdown @command="handleUserCommand" trigger="click">
@@ -59,7 +59,7 @@
         </el-dropdown>
       </div>
 
-      <!-- 登录按钮 -->
+      
       <div class="login-button" v-else @click="handleLogin">
         <el-icon><User /></el-icon>
         <span>{{ t('layout.login') }}</span>
@@ -67,7 +67,7 @@
     </el-header>
 
     <el-container class="app-body">
-      <!-- 侧边栏 -->
+      
       <el-aside :width="sidebarCollapsed ? '64px' : '240px'" v-if="currentTopMenu && currentTopMenu.children" class="app-aside" :class="{ 'is-collapsed': sidebarCollapsed }">
         <div class="aside-brand">
           <el-icon v-show="!sidebarCollapsed"><Menu /></el-icon>
@@ -97,7 +97,7 @@
           </el-menu>
         </el-scrollbar>
 
-        <!-- 授权信息显示 -->
+        
         <div class="license-info" v-if="licenseInfo && !sidebarCollapsed">
           <div class="license-expiry" :class="{ 'expired': isLicenseExpired }">
             <el-icon><Timer /></el-icon>
@@ -114,7 +114,7 @@
         </div>
       </el-aside>
 
-      <!-- 主内容区 -->
+      
       <el-main class="app-main">
         <div class="breadcrumb-wrap" v-if="breadcrumb.length">
           <el-breadcrumb separator="/">
@@ -145,10 +145,7 @@ import { Timer, Warning, InfoFilled, Bell, Menu, SwitchButton, Fold, Expand, Que
 import { routeIconMap } from '@/utils/iconMap'
 void Bell; void Timer; void Warning; void InfoFilled; void Menu; void SwitchButton; void Fold; void Expand
 
-// 不再使用 `import * as ElementPlusIconsVue` 全量命名空间导入构建 iconComponents,
-// 改用 utils/iconMap.js 中显式导入的 routeIconMap(仅含路由配置实际使用的 52 个图标),
-// 使打包工具能 tree-shake 未引用的图标,显著减小 elementPlus chunk 体积。
-const iconComponents = routeIconMap
+const iconComponents = routeIconMap;
 
 const route = useRoute()
 const router = useRouter()
@@ -170,13 +167,10 @@ const sidebarCollapsed = ref(readSidebarCollapsed())
 const persistSidebarCollapsed = () => {
   try {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed.value ? '1' : '0')
-  } catch {
-    // localStorage 不可用时静默忽略
-  }
+  } catch {}
 }
 
-// 授权信息相关
-const licenseInfo = ref(null)
+const licenseInfo = ref(null);
 const isLicenseExpired = computed(() => {
   if (!licenseInfo.value || !licenseInfo.value.expire_at) return false
   const expiryTime = new Date(licenseInfo.value.expire_at).getTime()
@@ -184,11 +178,6 @@ const isLicenseExpired = computed(() => {
   return currentTime > expiryTime
 })
 
-// 授权状态展示文本：
-// - 开源版后端 /api/license/status 不返回 expire_at，而是返回 status/licensed/message
-//   （如 { status: "active", licensed: true, message: "开源版无需授权" }），
-//   此时直接展示后端 message / 由 status 推导的文案，避免显示"未知"。
-// - 商业版若返回 expire_at，则展示到期时间（兼容旧逻辑）。
 const formattedExpiryTime = computed(() => {
   const info = licenseInfo.value
   if (!info) return ''
@@ -198,25 +187,19 @@ const formattedExpiryTime = computed(() => {
     const localeMap = { zh: 'zh-CN', en: 'en-US', ja: 'ja-JP', ar: 'ar-SA' }
     return date.toLocaleString(localeMap[loc] || 'zh-CN')
   }
-  // 无 expire_at：优先用后端语义化 message，其次由 status 推导
-  if (info.message) return info.message
+  if (info.message)
+    return info.message;
   if (info.status === 'active' || info.licensed) return t('layout.licenseActive')
   return t('layout.unknown')
-})
+});
 
-// 获取授权状态
-// 开源版已移除授权（License）相关接口，此处静默请求：接口缺失时不弹错误提示、不打印报错，
-// licenseInfo 保持为空，侧边栏授权信息面板自然隐藏。
 const loadLicenseInfo = async () => {
   try {
     const response = await getLicenseStatus({ _silent: true })
     if (response) licenseInfo.value = response
-  } catch (error) {
-    // 开源版无授权接口，忽略
-  }
-}
+  } catch (error) {}
+};
 
-// 一级菜单配置（对齐 V6 架构 M1-M6 + 平台运维）
 const topMenus = ref([
   {
     key: 'workspace',
@@ -247,8 +230,12 @@ const topMenus = ref([
         icon: 'Connection',
         roles: ['admin', 'manager'],
         children: [
-          { key: 'oneidList', title: 'OneID 列表', icon: 'List', path: '/oneid/list' }
-          // 注：身份冲突解决(/oneid/conflicts) 暂未接通后端接口，已从菜单隐藏，待后端冲突接口就绪后恢复
+          {
+            key: 'oneidList',
+            title: 'OneID 列表',
+            icon: 'List',
+            path: '/oneid/list'
+          }
         ]
       }
     ]
@@ -273,8 +260,12 @@ const topMenus = ref([
         title: '被动应答',
         icon: 'ChatDotRound',
         children: [
-          // R1-D1 修复: unifiedInbox(统一收件箱)已随后端 W-3 废弃摘除
-          { key: 'customerSession', title: '客服会话', icon: 'Service', path: '/customerSession/list' },
+          {
+            key: 'customerSession',
+            title: '客服会话',
+            icon: 'Service',
+            path: '/customerSession/list'
+          },
           { key: 'intentRecognition', title: '意图识别', icon: 'Aim', path: '/intentRecognition/list' },
           { key: 'dialogueMemory', title: '对话记忆', icon: 'ChatDotRound', path: '/dialogueMemory/list' },
           { key: 'llmRouting', title: 'LLM 路由', icon: 'Cpu', path: '/llmRouting/list' }
@@ -617,15 +608,14 @@ const topMenus = ref([
       }
     ]
   }
-])
+]);
 
-// 角色权限检查
 const hasPermission = (menu) => {
   if (!menu.roles || menu.roles.length === 0) return true
   const currentRole = userStore.role
   if (currentRole === 'admin') return true
   return menu.roles.includes(currentRole)
-}
+};
 
 const filterMenuByRole = (menu) => {
   if (!hasPermission(menu)) return null
@@ -645,7 +635,6 @@ const currentTopMenu = computed(() => {
   return filteredTopMenus.value.find(menu => menu.key === activeTopMenu.value)
 })
 
-// 面包屑（基于菜单配置推导当前路径标题链）
 const breadcrumb = computed(() => {
   const chain = []
   const build = (items, trail) => {
@@ -660,7 +649,7 @@ const breadcrumb = computed(() => {
     if (build([top], [])) break
   }
   return chain
-})
+});
 
 const hasActiveChild = (menu, path) => {
   if (menu.path === path) return true

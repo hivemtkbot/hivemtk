@@ -40,7 +40,7 @@ func (r *QuickReplyFolderRepository) Create(ctx context.Context, name string) (*
 		return nil, err
 	}
 	if f.ID == 0 {
-		// 冲突未插入 → 回读现有
+
 		var existing model.QuickReplyFolder
 		if err := r.db.WithContext(ctx).Where("name = ?", name).First(&existing).Error; err != nil {
 			return nil, err
@@ -58,7 +58,7 @@ func (r *QuickReplyFolderRepository) UpdateSortOrder(ctx context.Context, id uin
 		Update("sort_order", sortOrder).Error
 }
 
-var _ = time.Now // 保留 time import 对齐
+var _ = time.Now
 
 // Delete 删除文件夹（R43: 用户可建文件夹但无删除路由——补齐）
 func (r *QuickReplyFolderRepository) Delete(ctx context.Context, id uint) error {

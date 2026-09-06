@@ -5,11 +5,6 @@ import (
 	"time"
 )
 
-
-// HandleCustomerMessage 处理客户消息事件
-//
-// 骨架实现：仅打印日志 + 返回默认值
-// 完整实现在任务 6（订阅实现）+ 后续业务联调
 func (r *defaultAgentRuntime) HandleCustomerMessage(ctx context.Context, payload CustomerMessagePayload) (*SalesResponse, error) {
 	if r.stopped {
 		return nil, ErrRuntimeStopped
@@ -56,7 +51,6 @@ func (r *defaultAgentRuntime) HandleCustomerMessage(ctx context.Context, payload
 	}
 }
 
-// LoadAgentContext 加载智能体上下文（带缓存）
 func (r *defaultAgentRuntime) LoadAgentContext(ctx context.Context, channelType, accountID string) (*AgentContext, error) {
 	if r.loader == nil {
 		return &AgentContext{
@@ -96,7 +90,6 @@ func (r *defaultAgentRuntime) LoadAgentContext(ctx context.Context, channelType,
 	return agentCtx, nil
 }
 
-// RefreshCache 刷新指定智能体的缓存
 func (r *defaultAgentRuntime) RefreshCache(ctx context.Context, agentID uint) error {
 	if r.loader != nil {
 		if err := r.loader.Invalidate(ctx, agentID); err != nil {
@@ -114,7 +107,6 @@ func (r *defaultAgentRuntime) RefreshCache(ctx context.Context, agentID uint) er
 	return nil
 }
 
-// Stop 优雅关闭运行时
 func (r *defaultAgentRuntime) Stop(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -123,7 +115,6 @@ func (r *defaultAgentRuntime) Stop(ctx context.Context) error {
 	return nil
 }
 
-// fallbackResponse 降级响应（无 engine bridge 时的兜底）
 func (r *defaultAgentRuntime) fallbackResponse(payload CustomerMessagePayload, agentCtx *AgentContext) *SalesResponse {
 	return &SalesResponse{
 		ReplyContent: "系统暂不可用，请稍后再试。",
@@ -139,7 +130,6 @@ func (r *defaultAgentRuntime) fallbackResponse(payload CustomerMessagePayload, a
 	}
 }
 
-
 // ErrRuntimeStopped 运行时已停止
 var ErrRuntimeStopped = &RuntimeError{Code: "stopped", Message: "agent runtime stopped"}
 
@@ -152,4 +142,3 @@ type RuntimeError struct {
 func (e *RuntimeError) Error() string {
 	return e.Code + ": " + e.Message
 }
-

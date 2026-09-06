@@ -225,8 +225,8 @@ func TestAB_VariantSelectionLogic(t *testing.T) {
 		wantName string
 	}
 	cases := []tc{
-		{"50_50_a", "user_001", []variant{{"A", 50}, {"B", 50}}, ""}, 
-		{"50_50_b", "user_001", []variant{{"A", 50}, {"B", 50}}, ""}, 
+		{"50_50_a", "user_001", []variant{{"A", 50}, {"B", 50}}, ""},
+		{"50_50_b", "user_001", []variant{{"A", 50}, {"B", 50}}, ""},
 		{"70_30", "user_test", []variant{{"A", 70}, {"B", 30}}, ""},
 		{"single", "user_x", []variant{{"A", 100}}, "A"},
 		{"three_variants", "user_y", []variant{{"A", 33}, {"B", 33}, {"C", 34}}, ""},
@@ -349,7 +349,7 @@ func TestAB_TrafficSplitValidation(t *testing.T) {
 		{"split_0", 0, true},
 		{"split_50", 50, true},
 		{"split_100", 100, true},
-		{"split_neg", -10, true}, 
+		{"split_neg", -10, true},
 		{"split_over_100", 150, true},
 		{"split_max_int", 2147483647, true},
 		{"split_min_int", -2147483648, true},
@@ -450,4 +450,3 @@ func TestAB_VariantWeightCombinations(t *testing.T) {
 	}
 	t.Logf("VariantWeightCombinations: %d/%d passed", passed, passed+failed)
 }
-

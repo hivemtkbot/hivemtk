@@ -81,7 +81,6 @@ func TestValidateParams_NestedObject(t *testing.T) {
 		},
 	}
 
-	// 嵌套必填字段缺失
 	err := validateParams("test", schema, map[string]any{
 		"user": map[string]any{"age": 30},
 	})
@@ -92,7 +91,6 @@ func TestValidateParams_NestedObject(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	// 嵌套类型错误
 	err = validateParams("test", schema, map[string]any{
 		"user": map[string]any{"email": "x@y.z", "age": "not-a-number"},
 	})
@@ -100,7 +98,6 @@ func TestValidateParams_NestedObject(t *testing.T) {
 		t.Fatal("expected nested type error")
 	}
 
-	// 正常
 	if err := validateParams("test", schema, map[string]any{
 		"user": map[string]any{"email": "x@y.z", "age": 30},
 	}); err != nil {
@@ -119,7 +116,6 @@ func TestValidateParams_ArrayItems(t *testing.T) {
 		},
 	}
 
-	// 数组元素类型错误
 	err := validateParams("test", schema, map[string]any{
 		"tags": []any{"valid", 123, "another"},
 	})
@@ -130,7 +126,6 @@ func TestValidateParams_ArrayItems(t *testing.T) {
 		t.Errorf("error should pinpoint element index, got: %v", err)
 	}
 
-	// 全部合法
 	if err := validateParams("test", schema, map[string]any{
 		"tags": []any{"a", "b", "c"},
 	}); err != nil {
@@ -216,7 +211,6 @@ func TestValidateParams_DeepNesting(t *testing.T) {
 		},
 	}
 
-	// items[1].sku missing
 	err := validateParams("test", schema, map[string]any{
 		"order": map[string]any{
 			"items": []any{
@@ -232,7 +226,6 @@ func TestValidateParams_DeepNesting(t *testing.T) {
 		t.Errorf("error path should show full chain, got: %v", err)
 	}
 
-	// items[1].count < minimum
 	err = validateParams("test", schema, map[string]any{
 		"order": map[string]any{
 			"items": []any{

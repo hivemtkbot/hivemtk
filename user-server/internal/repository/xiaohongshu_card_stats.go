@@ -32,7 +32,6 @@ type XiaohongshuCardStatsRepository interface {
 	IncrementCardViewCount(ctx context.Context, cardID uint) error
 }
 
-// xiaohongshuCardStatsRepository 小红书卡片统计仓库实现
 type xiaohongshuCardStatsRepository struct {
 	db *gorm.DB
 }
@@ -42,7 +41,6 @@ func NewXiaohongshuCardStatsRepository(db *gorm.DB) XiaohongshuCardStatsReposito
 	return &xiaohongshuCardStatsRepository{db: db}
 }
 
-// GetCardByID 按 ID 获取卡片
 func (r *xiaohongshuCardStatsRepository) GetCardByID(ctx context.Context, cardID uint) (*model.XiaohongshuCard, error) {
 	var card model.XiaohongshuCard
 	if err := r.db.WithContext(ctx).First(&card, cardID).Error; err != nil {
@@ -51,7 +49,6 @@ func (r *xiaohongshuCardStatsRepository) GetCardByID(ctx context.Context, cardID
 	return &card, nil
 }
 
-// CountCardViews 统计卡片浏览量
 func (r *xiaohongshuCardStatsRepository) CountCardViews(ctx context.Context, cardID uint) (int64, error) {
 	var views int64
 	err := r.db.WithContext(ctx).Model(&model.XiaohongshuCardActivity{}).
@@ -60,7 +57,6 @@ func (r *xiaohongshuCardStatsRepository) CountCardViews(ctx context.Context, car
 	return views, err
 }
 
-// applyXiaohongshuStatsGroupBy 根据分组方式构建查询 Select/Group/Order
 func applyXiaohongshuStatsGroupBy(query *gorm.DB, groupBy string) *gorm.DB {
 	switch groupBy {
 	case "day":
@@ -82,7 +78,6 @@ func applyXiaohongshuStatsGroupBy(query *gorm.DB, groupBy string) *gorm.DB {
 	}
 }
 
-// GetCardDailyStats 按时间分组获取卡片统计
 func (r *xiaohongshuCardStatsRepository) GetCardDailyStats(ctx context.Context, cardID uint, startDate, endDate, groupBy string) ([]XiaohongshuCardStatsTempStat, error) {
 	query := r.db.WithContext(ctx).Model(&model.XiaohongshuCardActivity{}).Where("card_id = ?", cardID)
 	if startDate != "" && endDate != "" {
@@ -96,7 +91,6 @@ func (r *xiaohongshuCardStatsRepository) GetCardDailyStats(ctx context.Context, 
 	return stats, nil
 }
 
-// GetRecentActivitiesByCard 获取卡片的最近活动
 func (r *xiaohongshuCardStatsRepository) GetRecentActivitiesByCard(ctx context.Context, cardID uint, limit int) ([]model.XiaohongshuCardActivity, error) {
 	var activities []model.XiaohongshuCardActivity
 	err := r.db.WithContext(ctx).Where("card_id = ? AND activity_type = ?", cardID, "view").
@@ -104,35 +98,30 @@ func (r *xiaohongshuCardStatsRepository) GetRecentActivitiesByCard(ctx context.C
 	return activities, err
 }
 
-// CountTotalCards 统计卡片总数
 func (r *xiaohongshuCardStatsRepository) CountTotalCards(ctx context.Context) (int64, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Model(&model.XiaohongshuCard{}).Count(&n).Error
 	return n, err
 }
 
-// CountActiveCards 统计激活卡片数
 func (r *xiaohongshuCardStatsRepository) CountActiveCards(ctx context.Context) (int64, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Model(&model.XiaohongshuCard{}).Where("is_active = ?", true).Count(&n).Error
 	return n, err
 }
 
-// CountTotalViews 统计总浏览量
 func (r *xiaohongshuCardStatsRepository) CountTotalViews(ctx context.Context) (int64, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Model(&model.XiaohongshuCardActivity{}).Where("activity_type = ?", "view").Count(&n).Error
 	return n, err
 }
 
-// GetTopCards 获取热门卡片
 func (r *xiaohongshuCardStatsRepository) GetTopCards(ctx context.Context, limit int) ([]model.XiaohongshuCard, error) {
 	var cards []model.XiaohongshuCard
 	err := r.db.WithContext(ctx).Order("view_count DESC").Limit(limit).Find(&cards).Error
 	return cards, err
 }
 
-// GetOverallDailyStats 获取全部卡片的按时间分组统计
 func (r *xiaohongshuCardStatsRepository) GetOverallDailyStats(ctx context.Context, startDate, endDate, groupBy string) ([]XiaohongshuCardStatsTempStat, error) {
 	query := r.db.WithContext(ctx).Model(&model.XiaohongshuCardActivity{})
 	if startDate != "" {
@@ -149,7 +138,6 @@ func (r *xiaohongshuCardStatsRepository) GetOverallDailyStats(ctx context.Contex
 	return stats, nil
 }
 
-// GetRecentActivities 获取最近活动
 func (r *xiaohongshuCardStatsRepository) GetRecentActivities(ctx context.Context, limit int) ([]model.XiaohongshuCardActivity, error) {
 	var activities []model.XiaohongshuCardActivity
 	err := r.db.WithContext(ctx).Where("activity_type = ?", "view").
@@ -157,7 +145,6 @@ func (r *xiaohongshuCardStatsRepository) GetRecentActivities(ctx context.Context
 	return activities, err
 }
 
-// CreateActivity 创建活动记录
 func (r *xiaohongshuCardStatsRepository) CreateActivity(ctx context.Context, activity *model.XiaohongshuCardActivity) error {
 	if err := r.db.WithContext(ctx).Create(activity).Error; err != nil {
 		return fmt.Errorf("记录活动失败: %w", err)
@@ -165,7 +152,6 @@ func (r *xiaohongshuCardStatsRepository) CreateActivity(ctx context.Context, act
 	return nil
 }
 
-// IncrementCardViewCount 增加卡片浏览量
 func (r *xiaohongshuCardStatsRepository) IncrementCardViewCount(ctx context.Context, cardID uint) error {
 	return r.db.WithContext(ctx).Model(&model.XiaohongshuCard{}).
 		Where("id = ?", cardID).

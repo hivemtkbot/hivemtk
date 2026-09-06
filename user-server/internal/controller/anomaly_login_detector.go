@@ -1,6 +1,5 @@
 package controller
 
-
 import (
 	"context"
 	"net/http"
@@ -169,4 +168,3 @@ func (c *AnomalyLoginDetectorController) IgnoreAlert(ctx *gin.Context) {
 
 	response.Success(ctx, nil, "告警已忽略")
 }
-

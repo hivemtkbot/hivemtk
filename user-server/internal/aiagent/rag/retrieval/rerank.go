@@ -58,11 +58,9 @@ type RerankConfig struct {
 // 两者响应字段一致：results[].index / results[].relevance_score，业务代码零改动。
 type LocalReranker struct {
 	httpClient *http.Client
-	cfg        *RerankConfig 
+	cfg        *RerankConfig
 }
 
-// sharedRerankTransport 进程级共享 Transport，避免每次请求 new http.Client 导致连接不复用、
-// 连接数随并发线性膨胀。
 var sharedRerankTransport = &http.Transport{
 	MaxIdleConns:        100,
 	MaxIdleConnsPerHost: 20,
@@ -155,7 +153,7 @@ func DefaultRerankConfig() *RerankConfig {
 type rerankRequest struct {
 	Model     string   `json:"model"`
 	Query     string   `json:"query"`
-	Documents []string `json:"documents"` 
+	Documents []string `json:"documents"`
 }
 
 type rerankResponse struct {
@@ -262,7 +260,6 @@ func (r *LocalReranker) callOnce(ctx context.Context, endpoint string, timeout t
 	return &rr, nil
 }
 
-// mapRerankResults 将 TEI 返回（index + score）映射回原始文档 ID，并按分数降序
 func mapRerankResults(docs []RerankDoc, rr *rerankResponse) []RerankResult {
 	type scored struct {
 		id    string
@@ -296,7 +293,6 @@ func (r *RagRetrievalServiceImpl) SetReranker(reranker RerankerInterface) {
 	r.reranker = reranker
 }
 
-// toRerankDocs 将检索分片转为重排文档
 func toRerankDocs(chunks []Chunk) []RerankDoc {
 	docs := make([]RerankDoc, 0, len(chunks))
 	for _, c := range chunks {
@@ -305,7 +301,6 @@ func toRerankDocs(chunks []Chunk) []RerankDoc {
 	return docs
 }
 
-// applyRerank 依据重排结果对分片重新排序（保留未出现在结果中的分片于末尾）
 func applyRerank(chunks []Chunk, results []RerankResult) []Chunk {
 	byID := make(map[string]Chunk, len(chunks))
 	for _, c := range chunks {
@@ -334,4 +329,3 @@ func maxInt(a, b int) int {
 	}
 	return b
 }
-

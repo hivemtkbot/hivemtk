@@ -170,9 +170,6 @@ func (r *MessageHubRepository) GetOutboundByPlatformSenderContentConv(ctx contex
 		return nil, err
 	}
 
-	// 包含匹配兜底：inbound content 完整包含某条近期 outbound content。
-	// 仅在 conversationID 非空时执行（避免跨会话误杀）；要求 outbound content 长度 >= 10
-	// 且 inbound content 长度 > outbound content 长度（即 inbound 是 outbound 的超集）。
 	if conversationID == "" || len(content) < 20 {
 		return nil, nil
 	}
@@ -241,7 +238,6 @@ func (r *MessageHubRepository) AckOutboundDeliveredBatchReturningWithStatus(
 	}
 	updatedIDs = make([]string, 0, len(msgIDs))
 
-	// SQL 拼接：conversation_id 过滤可选
 	const qBase = `UPDATE message_hub
 		SET status = ?, sent_at = now()
 		WHERE platform = ? AND account_id = ? AND direction = 'outbound'
@@ -251,7 +247,6 @@ func (r *MessageHubRepository) AckOutboundDeliveredBatchReturningWithStatus(
 		q = qBase + " AND conversation_id = ?"
 	}
 
-	// 用 Raw + Scan 到 []string：RETURNING 集合大小 = 实际受影响行数
 	var tx *gorm.DB
 	if conversationID != "" {
 		tx = r.db.WithContext(ctx).Raw(q+" RETURNING msg_id", terminalStatus, channel, accountID, msgIDs, conversationID)

@@ -53,4 +53,3 @@ func (a *AssetMarketClientAdapter) MyPurchases(ctx context.Context) ([]map[strin
 func (a *AssetMarketClientAdapter) ReportUsage(ctx context.Context, assetID string, delta int64) error {
 	return a.inner.ReportUsage(ctx, assetID, delta)
 }
-

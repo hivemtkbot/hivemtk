@@ -1,6 +1,5 @@
 package controller
 
-
 import (
 	"sync"
 	"sync/atomic"
@@ -10,12 +9,10 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// newTestClient 创建测试用 Client (不依赖真实 websocket 连接)
 func newTestClient(sessionID, customerID string) *Client {
 	return NewClient(sessionID, customerID, nil, "trace-"+sessionID)
 }
 
-// waitUntil 每隔 20ms 轮询 cond 直到为真或超时（异步事件消费的确定性等待，替代固定 sleep）
 func waitUntil(cond func() bool, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	for !cond() {
@@ -27,10 +24,6 @@ func waitUntil(cond func() bool, timeout time.Duration) bool {
 	return true
 }
 
-// drainSendChan 异步消费 client.send 通道, 避免测试时通道满阻塞
-//
-// 启动一个 goroutine 持续读取 client.send 直到 channel 被 Close 关闭。
-// 返回一个 chan []byte 接收所有已发送的 payload (用于断言)。
 func drainSendChan(c *Client) <-chan []byte {
 	out := make(chan []byte, 1024)
 	go func() {
@@ -41,8 +34,6 @@ func drainSendChan(c *Client) <-chan []byte {
 	}()
 	return out
 }
-
-
 
 // TestHub_NewChatWSHub 验证 Hub 初始状态
 func TestHub_NewChatWSHub(t *testing.T) {
@@ -275,8 +266,7 @@ func TestHub_ClientCount(t *testing.T) {
 		c := newTestClient(string(rune('a'+i)), "c")
 		hub.Register(c)
 	}
-	// 固定 sleep 在负载下不可靠（Run 单协程 select 消费 register 通道有延迟），
-	// 改为轮询等待消除确定性缺陷
+
 	if !waitUntil(func() bool { return hub.ClientCount() == 5 }, 5*time.Second) {
 		t.Errorf("expected 5 clients, got %d", hub.ClientCount())
 	}
@@ -333,7 +323,6 @@ func TestHub_RegisterNoRun(t *testing.T) {
 func TestClient_Close(t *testing.T) {
 	c := newTestClient("s1", "c1")
 
-	// v3 审计 P2-3 后 Close 幂等：标志位 + 安全关闭通道，重复调用不 panic
 	c.Close()
 	c.Close()
 	c.Close()
@@ -447,5 +436,3 @@ func TestHub_Broadcast_NoClient(t *testing.T) {
 		t.Errorf("expected 0 clients, got %d", hub.ClientCount())
 	}
 }
-
-

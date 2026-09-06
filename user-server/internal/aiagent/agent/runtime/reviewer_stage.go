@@ -140,7 +140,6 @@ func (r *DefaultReviewer) Review(_ context.Context, ic *InferenceContext) (*Revi
 	return result, nil
 }
 
-// checkLength 长度合规
 func (r *DefaultReviewer) checkLength(reply string, min int, result *ReviewResult) {
 	passed := len([]rune(reply)) >= min
 	score := 1.0
@@ -158,7 +157,6 @@ func (r *DefaultReviewer) checkLength(reply string, min int, result *ReviewResul
 	}
 }
 
-// checkConfidence 置信度门槛
 func (r *DefaultReviewer) checkConfidence(conf, min float64, result *ReviewResult) {
 	passed := conf >= min
 	score := conf
@@ -182,7 +180,6 @@ func (r *DefaultReviewer) checkConfidence(conf, min float64, result *ReviewResul
 	}
 }
 
-// checkAlignment 拟人度门槛
 func (r *DefaultReviewer) checkAlignment(alignTotal, min float64, result *ReviewResult) {
 	passed := alignTotal >= min
 	score := alignTotal / 5.0
@@ -206,7 +203,6 @@ func (r *DefaultReviewer) checkAlignment(alignTotal, min float64, result *Review
 	}
 }
 
-// checkSensitive 敏感词拦截
 func (r *DefaultReviewer) checkSensitive(reply string, result *ReviewResult) {
 	words := r.SensitiveWords
 	if len(words) == 0 {
@@ -240,7 +236,6 @@ func (r *DefaultReviewer) checkSensitive(reply string, result *ReviewResult) {
 	})
 }
 
-// adjustReply 修正话术（极简实现：加上致歉/未知声明）
 func (r *DefaultReviewer) adjustReply(reply string, result *ReviewResult) string {
 	prefix := ""
 	suffix := ""

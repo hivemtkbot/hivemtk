@@ -17,7 +17,6 @@ func GenerateFingerprint() (string, error) {
 	return hex.EncodeToString(hash[:]), nil
 }
 
-// collectDeviceInfo 收集设备信息
 func collectDeviceInfo() string {
 	var info strings.Builder
 
@@ -39,4 +38,3 @@ func collectDeviceInfo() string {
 
 	return info.String()
 }
-

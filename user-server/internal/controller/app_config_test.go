@@ -159,4 +159,3 @@ func TestAppConfigController_NewAppConfigController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
-

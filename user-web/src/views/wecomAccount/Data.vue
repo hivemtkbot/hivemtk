@@ -21,7 +21,7 @@
         <span class="tip">客户「发消息」将用所选账号从企业微信外部联系人通道下发</span>
       </div>
 
-      <!-- 概览卡片 -->
+      
       <div class="summary-row">
         <div class="summary-card">
           <div class="summary-value">{{ total.customers || 0 }}</div>
@@ -37,7 +37,7 @@
         </div>
       </div>
 
-      <!-- 图表 -->
+      
       <div class="chart-grid">
         <el-card shadow="hover" class="chart-card">
           <div ref="sourceChart" class="chart-box"></div>
@@ -51,7 +51,7 @@
       </div>
 
       <el-tabs v-model="activeTab" @tab-change="onTabChange">
-        <!-- 客户 -->
+        
         <el-tab-pane label="客户" name="customers">
           <el-table :data="customers" v-loading="loading.customers" border stripe size="small">
             <el-table-column prop="avatar" label="头像" width="60">
@@ -85,7 +85,7 @@
           />
         </el-tab-pane>
 
-        <!-- 客户群 -->
+        
         <el-tab-pane label="客户群" name="groups">
           <el-table :data="groups" v-loading="loading.groups" border stripe size="small">
             <el-table-column prop="name" label="群名" min-width="160" />
@@ -107,7 +107,7 @@
           />
         </el-tab-pane>
 
-        <!-- 标签 -->
+        
         <el-tab-pane label="标签" name="tags">
           <el-table :data="tags" v-loading="loading.tags" border stripe size="small">
             <el-table-column prop="tag_name" label="标签名" min-width="160" />
@@ -115,7 +115,7 @@
           </el-table>
         </el-tab-pane>
 
-        <!-- 消息 -->
+        
         <el-tab-pane label="消息记录" name="messages">
           <el-table :data="messages" v-loading="loading.messages" border stripe size="small">
             <el-table-column prop="to_user" label="接收人" min-width="160" show-overflow-tooltip />
@@ -149,7 +149,7 @@
       </el-tabs>
     </el-card>
 
-    <!-- 发送消息对话框 -->
+    
     <WeComSendDialog v-model:visible="sendVisible" :account-id="selectedAccountId" :external-userid="sendExternalUserID" />
   </div>
 </template>
@@ -185,8 +185,7 @@ const loadingAny = ref(false)
 const sendVisible = ref(false)
 const sendExternalUserID = ref('')
 
-// 图表实例
-const sourceChart = ref(null)
+const sourceChart = ref(null);
 const groupSizeChart = ref(null)
 const msgTrendChart = ref(null)
 let sourceChartInst = null
@@ -278,7 +277,6 @@ const loadMessages = async () => {
   }
 }
 
-// ===== 图表数据聚合 =====
 const loadChartData = async () => {
   loading.charts = true
   try {
@@ -291,23 +289,20 @@ const loadChartData = async () => {
     const allGroups = toList(gRes.list)
     const allMessages = toList(mRes.list)
 
-    // 客户来源分布
-    const sourceMap = {}
+    const sourceMap = {};
     for (const c of allCustomers) {
       const k = c.source || '未知'
       sourceMap[k] = (sourceMap[k] || 0) + 1
     }
     const sourceData = Object.keys(sourceMap).map((k) => ({ name: k, value: sourceMap[k] }))
 
-    // 客户群规模 Top10
     const topGroups = [...allGroups]
       .sort((a, b) => (Number(b.member_count) || 0) - (Number(a.member_count) || 0))
-      .slice(0, 10)
+      .slice(0, 10);
     const groupNames = topGroups.map((g) => g.name || g.chat_id || '群')
     const groupSizes = topGroups.map((g) => Number(g.member_count) || 0)
 
-    // 消息趋势（近30天）
-    const days = []
+    const days = [];
     const now = new Date()
     for (let i = 29; i >= 0; i--) {
       const d = new Date(now)
@@ -333,7 +328,7 @@ const loadChartData = async () => {
   } finally {
     loading.charts = false
   }
-}
+};
 
 const renderSourceChart = (data) => {
   if (sourceChartInst) sourceChartInst.dispose()
@@ -414,8 +409,7 @@ const onTabChange = (tab) => {
 }
 
 const onAccountChange = () => {
-  // 账号切换后刷新概览与图表（列表按当前账号过滤由后端依据登录态处理，这里整体刷新）
-  refreshAll()
+  refreshAll();
 }
 
 const openSendTo = (externalUserid) => {

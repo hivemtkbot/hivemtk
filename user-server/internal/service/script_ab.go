@@ -27,8 +27,8 @@ const ScriptABAttributionHours = 48
 // ScriptABConfig 话术级 AB 配置（system_config_kv: script_ab.{scriptID}）
 type ScriptABConfig struct {
 	Enabled      bool `json:"enabled"`
-	SplitA       int  `json:"split_a"`       // A 桶百分比（0-100），B=100-A
-	AttributionH int  `json:"attribution_h"` // 归因窗口小时数
+	SplitA       int  `json:"split_a"`
+	AttributionH int  `json:"attribution_h"`
 }
 
 // DefaultScriptABConfig 默认配置：启用 50/50，48h 归因
@@ -204,8 +204,6 @@ func (s *ScriptABService) RecordExposure(scriptID uint, version int, oneID strin
 	}
 }
 
-// attributionHoursFor 读取指定话术的归因窗口配置（此前硬编码 48h 死变量，
-// 用户配置 attribution_h 不生效 → 统计口径与预期不符）
 func (s *ScriptABService) attributionHoursFor(ctx context.Context, scriptID uint) int {
 	if s.kvGetter == nil {
 		return ScriptABAttributionHours
@@ -224,10 +222,10 @@ func (s *ScriptABService) attributionHoursFor(ctx context.Context, scriptID uint
 // R55 T4 修复：归因窗口此前死变量 48h，现读取 AB 配置（scriptID 无法从 oneID 推出时，
 // 扫描该 one_id 归属的 script 逐个按其配置回写）。
 func (s *ScriptABService) RecordConversion(ctx context.Context, oneID, conversationID, outcome string) error {
-	// 查出该 one_id/conversation 有曝光的话术集合，逐个按其归因窗口回写
+
 	scriptIDs, err := s.repo.ListScriptIDsByExposureAnchor(ctx, oneID, conversationID)
 	if err != nil || len(scriptIDs) == 0 {
-		// 无已知 script 归属 → 退回默认窗口兜底
+
 		since := s.now().Add(-ScriptABAttributionHours * time.Hour)
 		n, err := s.repo.MarkScriptExposuresConverted(ctx, oneID, conversationID, outcome, s.now(), since)
 		if err != nil {

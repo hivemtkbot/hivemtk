@@ -57,11 +57,6 @@ func (c *SignalCollector) Collect(ctx context.Context, in *dto.SignalCollectionI
 	return signals, nil
 }
 
-// computeEntityComp 实体完整性
-//
-// 公式：|extracted ∩ expected| / |expected|
-// expected 为空时返回 1.0（无期望实体则视为完整）
-// 值为比较时：expected[k] 与 extracted[k] 相等才算命中
 func (c *SignalCollector) computeEntityComp(extracted, expected map[string]any) float64 {
 	if len(expected) == 0 {
 		return 1.0
@@ -75,10 +70,6 @@ func (c *SignalCollector) computeEntityComp(extracted, expected map[string]any) 
 	return clamp01(float64(hit) / float64(len(expected)))
 }
 
-// computeCtxRelev 上下文相关性
-//
-// 公式：cosine(embed(query), mean(embed(last_3_turns)))
-// 无上下文或 query 为空时返回 0.5（中性值）
 func (c *SignalCollector) computeCtxRelev(ctx context.Context, query string, lastTurns []string) (float64, error) {
 	if c.embedder == nil {
 		return 0.5, nil
@@ -118,16 +109,6 @@ func (c *SignalCollector) computeCtxRelev(ctx context.Context, query string, las
 	return clamp01(cosineSim(queryVec, meanVec)), nil
 }
 
-// computeRAGQual RAG 检索质量
-//
-// 公式：mean(top-k chunk score) * coverage_ratio
-// coverage_ratio = min(1, len(chunks) / expected_k)，expected_k=5
-//
-// ⚠️ RAG 未实际执行（如 handoff 预检在 RAG 跑之前调用）：该维度未知，返回中性 0.5，
-// 避免把"未测量"误当作"低质量"而系统性拉低聚合置信度、误触发转人工。
-// 与 computeCtxRelev（无上下文→0.5）、computeLLMEntropy（无 logprobs→0.5）的降级语义一致。
-// 判定：仅当「未标记 RAGExecuted 且未提供任何 chunks」视为未执行(中性 0.5)；
-// 已标记执行但无命中(chunks 为空)仍返回 0（确实低质量）；提供 chunks 则按质量计算。
 func (c *SignalCollector) computeRAGQual(in *dto.SignalCollectionInput) float64 {
 	if !in.RAGExecuted && len(in.RAGChunks) == 0 {
 		return 0.5
@@ -146,12 +127,6 @@ func (c *SignalCollector) computeRAGQual(in *dto.SignalCollectionInput) float64 
 	return clamp01(meanScore * coverage)
 }
 
-// computeLLMEntropy LLM 生成熵
-//
-// 公式：1 - normalize(ShannonEntropy(top-k logprobs))
-// 归一化：除以 log(k)，使熵 ∈ [0, 1]
-// LLMEntropy 信号 = 1 - normalized_entropy（高熵→低置信）
-// 无 logprobs 时返回 0.5（中性值，对应 API 未返回 logprobs 场景）
 func (c *SignalCollector) computeLLMEntropy(logprobs []float64) float64 {
 	if len(logprobs) == 0 {
 		return 0.5
@@ -186,7 +161,6 @@ func (c *SignalCollector) computeLLMEntropy(logprobs []float64) float64 {
 	return clamp01(1.0 - normalizedEntropy)
 }
 
-// cosineSim 余弦相似度
 func cosineSim(a, b []float32) float64 {
 	if len(a) != len(b) || len(a) == 0 {
 		return 0.0
@@ -205,7 +179,6 @@ func cosineSim(a, b []float32) float64 {
 	return dot / (math.Sqrt(na) * math.Sqrt(nb))
 }
 
-// clamp01 把 v 限制到 [0, 1]
 func clamp01(v float64) float64 {
 	if v < 0 {
 		return 0

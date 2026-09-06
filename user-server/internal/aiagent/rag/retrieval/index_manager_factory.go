@@ -10,7 +10,6 @@ import (
 // IndexManagerFactory 索引管理器工厂
 type IndexManagerFactory struct{}
 
-
 // NewIndexManagerWithDB 根据配置创建索引管理器（带数据库实例）
 // 当前统一返回 InMemoryIndexManager 作为兜底（DB 参数保留供未来扩展使用）
 func NewIndexManagerWithDB(db *gorm.DB, cfg config.VectorDatabaseConfig) (IndexManagerInterface, error) {
@@ -31,4 +30,3 @@ func NewIndexManager(cfg config.VectorDatabaseConfig) (IndexManagerInterface, er
 	}
 	return NewInMemoryIndexManager(512), nil
 }
-

@@ -118,14 +118,6 @@ func (s *CustomerSessionService) ListActiveBlacklist(ctx context.Context, page, 
 	return s.blacklistRepo.ListActive(ctx, page, pageSize)
 }
 
-// 编译期类型断言：确保 CustomerSessionService.blacklistRepo 字段保持 *UserBlacklistRepository
-//
-// 设计：使用 reflect 读取 struct 字段类型并比对，**不实例化 struct / 不访问字段值**，
-// 避免 init 阶段 nil pointer dereference（(*CustomerSessionService)(nil).field 会求值）。
-//
-// 错误信息会在 init() 阶段被检测到：
-//   - 字段被删除 → "blacklistRepo field is missing"
-//   - 字段类型被改 → "blacklistRepo field type changed"
 var _ = func() error {
 	t := reflect.TypeOf(CustomerSessionService{})
 	field, ok := t.FieldByName("blacklistRepo")
@@ -139,16 +131,6 @@ var _ = func() error {
 	return nil
 }()
 
-// preCreateBlacklistGuard 创建会话前的黑名单守卫
-//
-// 在 CustomerSessionService.CreateSession 入口处调用：
-//   - user_id 为空（匿名访客）→ 跳过
-//   - user_id 在 platform 维度已被拉黑 → 返回中文错误
-//   - 校验仓储异常 → 透传错误
-//
-// 拆分为独立方法，便于：
-//  1. 单元测试单独覆盖该守卫逻辑
-//  2. 未来扩展其它守卫（如限流、风控评分）只需追加调用
 func (s *CustomerSessionService) preCreateBlacklistGuard(ctx context.Context, req *CreateSessionRequest) error {
 	if req == nil {
 		return errors.New("请求体不能为空")

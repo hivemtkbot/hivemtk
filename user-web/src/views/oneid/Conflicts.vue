@@ -79,7 +79,7 @@
         </el-table-column>
       </el-table>
 
-      <!-- 合并确认弹窗 -->
+      
       <el-dialog v-model="mergeDialog" title="确认合并客户" width="520px">
         <div v-if="selected">
           <p>冲突标识：<b>{{ channelLabel(selected.identity_type) }}</b> = <b>{{ selected.identity_value }}</b></p>
@@ -155,7 +155,6 @@ async function confirmMerge() {
   const row = selected.value
   if (!row || !row.customer_ids || row.customer_ids.length < 2) return
   const [primary, ...secondary] = row.customer_ids
-  // 二次确认：合并为不可逆操作，从属客户将被物理删除
   try {
     await ElMessageBox.confirm(
       `即将把以下客户合并为主客户 ${primary}：\n从属客户 ${secondary[0]} 将被永久删除，其会话与事件归属迁移至主客户。\n该操作不可撤销，确认继续？`,

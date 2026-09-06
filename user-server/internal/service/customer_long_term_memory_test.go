@@ -16,15 +16,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupLongTermMemoryTestDB 初始化测试 DB（含 CustomerLongTermMemory 表）
 func setupLongTermMemoryTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.CustomerLongTermMemory{},
 	)
 }
 
-// newLongTermMemorySystem 构造带 HashEmbeddingService 的 MemorySystem
-// 数据库 customer_long_term_memory.embedding 字段已为 vector(1024)。
 func newLongTermMemorySystem(db *gorm.DB) *MemorySystem {
 	return &MemorySystem{
 		memoryRepo:   repository.NewMemoryRepositoryWithDB(db),
@@ -535,7 +532,6 @@ func TestLongTermMemory_ListLongTermMemories_DefaultLimit(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
 
-	// 注意：内容必须各不相同——M-2 去重合并后，相同内容只会保留一条
 	for i := 0; i < 60; i++ {
 		m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, fmt.Sprintf("事实-%d", i), 5)
 	}
@@ -683,7 +679,6 @@ func TestBytesToFloat32Slice_Empty(t *testing.T) {
 	}
 }
 
-// hashVecForTest 用 HashEmbeddingService 生成测试向量
 func hashVecForTest(text string) []float32 {
 	svc := llm.NewHashEmbeddingService(1024)
 	vec, _ := svc.EmbedOne(context.Background(), svc.DefaultConfig(), text)

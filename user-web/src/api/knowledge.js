@@ -1,27 +1,18 @@
 import { http } from '@/utils/request'
 
-/**
- * 知识库 API - 对应后端 /api/knowledge/*
- * 涵盖:文档导入(上传/文本/URL)、文档管理、检索、OpenAPI 数据源、统计
- */
 export const knowledgeAPI = {
-  // ============ 文档导入 ============
-  // 上传文件导入
   importUpload(formData) {
     return http.post('/api/knowledge/import/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
   },
-  // 文本导入
   importText(data) {
     return http.post('/api/knowledge/import/text', data)
   },
-  // URL 导入
   importURL(data) {
     return http.post('/api/knowledge/import/url', data)
   },
 
-  // ============ 文档管理 ============
   listDocuments(params) {
     return http.get('/api/knowledge/documents', { params })
   },
@@ -44,7 +35,6 @@ export const knowledgeAPI = {
     return http.post(`/api/knowledge/documents/${id}/reindex`, null, { params })
   },
 
-  // ============ 产品级 ============
   rebuildProductIndex(productId) {
     return http.post(`/api/knowledge/products/${productId}/rebuild-index`)
   },
@@ -52,17 +42,14 @@ export const knowledgeAPI = {
     return http.get(`/api/knowledge/products/${productId}/overview`)
   },
 
-  // ============ 检索 ============
   search(data) {
     return http.post('/api/knowledge/search', data)
   },
 
-  // ============ 导入日志 ============
   listImportLogs(params) {
     return http.get('/api/knowledge/import-logs', { params })
   },
 
-  // ============ OpenAPI 数据源 ============
   listOpenAPISources(params) {
     return http.get('/api/knowledge/openapi/sources', { params })
   },
@@ -88,7 +75,6 @@ export const knowledgeAPI = {
     return http.post(`/api/knowledge/openapi/sources/${id}/toggle`, data, { params })
   },
 
-  // ============ 统计 ============
   getOverviewStats(params) {
     return http.get('/api/knowledge/stats/overview', { params })
   },
@@ -104,6 +90,6 @@ export const knowledgeAPI = {
   getOpenAPIStats(params) {
     return http.get('/api/knowledge/stats/openapi', { params })
   }
-}
+};
 
 export default knowledgeAPI

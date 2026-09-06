@@ -16,17 +16,17 @@ import (
 
 // RateLimitConfig 限流配置
 type RateLimitConfig struct {
-	RPS float64
-	BucketSize int
-	Enabled bool
+	RPS         float64
+	BucketSize  int
+	Enabled     bool
 	ExemptPaths []string
 }
 
 // DefaultRateLimitConfig 默认限流配置
 var DefaultRateLimitConfig = RateLimitConfig{
-	RPS:        10,   
-	BucketSize: 100,  
-	Enabled:    true, 
+	RPS:        10,
+	BucketSize: 100,
+	Enabled:    true,
 }
 
 // ClientLimiter 客户端限流器
@@ -44,9 +44,6 @@ type RateLimiter struct {
 	stopChan chan struct{}
 }
 
-// isValidAppKeyFormat 校验 X-API-KEY 格式合法性
-// v3 审计 P1-25 修复：防止攻击者用随机短串轮换绕过限流
-// 真实 AppKey 应满足：长度 16-128，仅含 [A-Za-z0-9_-]
 func isValidAppKeyFormat(s string) bool {
 	if len(s) < 16 || len(s) > 128 {
 		return false
@@ -61,7 +58,6 @@ func isValidAppKeyFormat(s string) bool {
 	return true
 }
 
-// 全局限流器实例
 var globalRateLimiter *RateLimiter
 
 // InitRateLimiter 初始化全局限流器
@@ -83,7 +79,6 @@ func InitRateLimiter(config RateLimitConfig) {
 	go globalRateLimiter.cleanupLoop()
 }
 
-// cleanupLoop 定期清理不活跃的客户端限流器
 func (rl *RateLimiter) cleanupLoop() {
 	ticker := time.NewTicker(rl.cleanup)
 	defer ticker.Stop()
@@ -98,7 +93,6 @@ func (rl *RateLimiter) cleanupLoop() {
 	}
 }
 
-// cleanupClients 清理超过 30 分钟未使用的客户端
 func (rl *RateLimiter) cleanupClients() {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -111,7 +105,6 @@ func (rl *RateLimiter) cleanupClients() {
 	}
 }
 
-// getLimiter 获取或创建客户端限流器
 func (rl *RateLimiter) getLimiter(clientKey string) *rate.Limiter {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -159,9 +152,6 @@ func RateLimitMiddleware(config ...RateLimitConfig) gin.HandlerFunc {
 			}
 		}
 
-		// v3 审计 P1-25 修复：clientKey 必须绑定身份
-		// 原：信任 X-API-KEY 头，攻击者可随机带 X-API-KEY 头绕过限流
-		// 新：仅在已认证场景下使用 X-API-KEY；否则强制用 IP
 		clientKey := c.ClientIP()
 		if authVal, exists := c.Get("authenticated"); exists {
 			if isAuthenticated, ok := authVal.(bool); ok && isAuthenticated {
@@ -251,4 +241,3 @@ func GetRateLimitStatus(clientKey string) (remaining int, resetAfter float64) {
 	}
 	return int(rem), 0
 }
-

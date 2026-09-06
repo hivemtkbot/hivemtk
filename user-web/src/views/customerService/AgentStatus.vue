@@ -81,7 +81,7 @@
       </el-table>
     </el-card>
 
-    <!-- 新增坐席 -->
+    
     <el-dialog v-model="createVisible" title="新增坐席" width="420px">
       <el-form :model="createForm" label-width="100px">
         <el-form-item label="坐席 ID" required>
@@ -100,7 +100,7 @@
       </template>
     </el-dialog>
 
-    <!-- 修改状态 -->
+    
     <el-dialog v-model="statusVisible" title="修改坐席状态" width="380px">
       <el-form :model="statusForm" label-width="100px">
         <el-form-item label="状态">
@@ -120,7 +120,7 @@
       </template>
     </el-dialog>
 
-    <!-- 会话列表 -->
+    
     <el-dialog v-model="sessionsVisible" :title="`坐席 ${currentAgent.agent_name || currentAgent.agent_id || currentAgent.id} 的会话`" width="640px">
       <el-table :data="agentSessions" v-loading="sessionsLoading" stripe>
         <el-table-column prop="id" label="会话 ID" min-width="100" />
@@ -161,18 +161,13 @@ import {
   goOffline,
   getAgentSessions
 } from '@/api/customerService.js'
-// 渠道 label：取自统一 channel 常量
-import { getChannelLabel } from '@/constants/channel'
-// 启用/禁用 label：取自统一 enabled 常量
-import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled'
-// 坐席状态/会话状态：取自统一 status 集
-import { AGENT_STATUS, SESSION_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status'
+import { getChannelLabel } from '@/constants/channel';
+import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled';
+import { AGENT_STATUS, SESSION_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status';
 
-// 坐席在线/忙碌/离线 label/type
-const getAgentStatusLabel = (s) => getStatusLabel(s, AGENT_STATUS)
+const getAgentStatusLabel = (s) => getStatusLabel(s, AGENT_STATUS);
 const getAgentStatusTagType = (s) => getStatusTagType(s, AGENT_STATUS)
-// 会话 active/closed 等 label/type
-const getSessionStatusLabel = (s) => getStatusLabel(s, SESSION_STATUS)
+const getSessionStatusLabel = (s) => getStatusLabel(s, SESSION_STATUS);
 const getSessionStatusTagType = (s) => getStatusTagType(s, SESSION_STATUS)
 
 const loading = ref(false)

@@ -18,7 +18,6 @@ type XianyuCardRepository interface {
 	GetList(ctx context.Context, req CardListFilter) ([]model.XianyuCard, int64, error)
 }
 
-// xianyuCardRepository 闲鱼卡片仓库实现
 type xianyuCardRepository struct {
 	db *gorm.DB
 }
@@ -28,7 +27,6 @@ func NewXianyuCardRepository(db *gorm.DB) XianyuCardRepository {
 	return &xianyuCardRepository{db: db}
 }
 
-// Create 创建闲鱼卡片
 func (r *xianyuCardRepository) Create(ctx context.Context, card *model.XianyuCard) error {
 	if err := r.db.WithContext(ctx).Create(card).Error; err != nil {
 		return fmt.Errorf("创建闲鱼卡片失败: %w", err)
@@ -36,7 +34,6 @@ func (r *xianyuCardRepository) Create(ctx context.Context, card *model.XianyuCar
 	return nil
 }
 
-// Update 更新闲鱼卡片
 func (r *xianyuCardRepository) Update(ctx context.Context, card *model.XianyuCard) error {
 	if err := r.db.WithContext(ctx).Save(card).Error; err != nil {
 		return fmt.Errorf("更新闲鱼卡片失败: %w", err)
@@ -44,7 +41,6 @@ func (r *xianyuCardRepository) Update(ctx context.Context, card *model.XianyuCar
 	return nil
 }
 
-// Delete 删除闲鱼卡片
 func (r *xianyuCardRepository) Delete(ctx context.Context, id uint) error {
 	result := r.db.WithContext(ctx).Delete(&model.XianyuCard{}, id)
 	if result.Error != nil {
@@ -56,7 +52,6 @@ func (r *xianyuCardRepository) Delete(ctx context.Context, id uint) error {
 	return nil
 }
 
-// GetByID 根据ID获取闲鱼卡片
 func (r *xianyuCardRepository) GetByID(ctx context.Context, id uint) (*model.XianyuCard, error) {
 	var card model.XianyuCard
 	if err := r.db.WithContext(ctx).First(&card, id).Error; err != nil {
@@ -68,7 +63,6 @@ func (r *xianyuCardRepository) GetByID(ctx context.Context, id uint) (*model.Xia
 	return &card, nil
 }
 
-// GetList 获取闲鱼卡片列表
 func (r *xianyuCardRepository) GetList(ctx context.Context, req CardListFilter) ([]model.XianyuCard, int64, error) {
 	var cards []model.XianyuCard
 	var total int64

@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-
 // initGlobalToolExecutor 初始化全局 ToolExecutor（含真实装饰器链）
 //
 // 调用方：router.Setup() （必须最先调用，先于所有 register 函数和 buildSalesEngine）
@@ -32,14 +31,13 @@ func InitGlobalToolExecutor() {
 	memAuditLogger = tooluse.NewMemoryAuditLogger(10000)
 	memCostTracker = tooluse.NewMemoryCostTracker()
 	config := tooluse.ToolExecutorConfig{
-		DefaultTimeout: 30 * time.Second,
+		DefaultTimeout:    30 * time.Second,
 		PermissionChecker: GetGlobalPermissionChecker(),
 		RateLimiter:       tooluse.NewTokenBucketLimiter(20, 50),
 		RetryPolicy:       tooluse.NewExponentialBackoffPolicy(3, 200*time.Millisecond, 5*time.Second),
 		AuditLogger:       memAuditLogger,
 		CostTracker:       memCostTracker,
-		// v7 审计修复：接通反馈回流（FeedbackCollector 装饰器），激活 feedback_events/signals 生产链路。
-		// InitFeedbackCollector 在 main.go 先于 router.Setup() 执行，此处取到的是已初始化的全局单例。
+
 		FeedbackSink: NewFeedbackCollectorAdapter(service.GetFeedbackCollector()),
 	}
 	exec := tooluse.NewToolExecutor(tooluse.GetGlobalRegistry(), config)
@@ -47,11 +45,6 @@ func InitGlobalToolExecutor() {
 	logger.Info("[agent] ✅ 全局 ToolExecutor 已初始化（装饰器链：权限/限流/重试/超时/审计/计费 全部启用）")
 }
 
-// memAuditLogger / memCostTracker 本文件级引用
-//
-// 在 initGlobalToolExecutor 中创建并注入 ToolExecutor，
-// 同时通过 GetGlobalMemoryAuditLogger / GetGlobalMemoryCostTracker 暴露给调试 API。
-// 替换为 DB 持久化版本时，将这两个变量改为 nil 即可（调试 API 会自动降级返回空数据）。
 var (
 	memAuditLogger *tooluse.MemoryAuditLogger
 	memCostTracker *tooluse.MemoryCostTracker
@@ -72,7 +65,6 @@ func GetGlobalMemoryAuditLogger() *tooluse.MemoryAuditLogger {
 func GetGlobalMemoryCostTracker() *tooluse.MemoryCostTracker {
 	return memCostTracker
 }
-
 
 var (
 	globalToolRouter     *tooluse.ToolRouter
@@ -117,48 +109,6 @@ func GetGlobalToolRouter() *tooluse.ToolRouter {
 // SetGlobalToolRouterForTest 仅用于测试：临时替换/清空全局 ToolRouter
 func SetGlobalToolRouterForTest(r *tooluse.ToolRouter) { globalToolRouter = r }
 
-// registerAgentCustomerTools 生产接线：把 8 个客户工具接入全局注册中心
-//
-// 工具清单：
-//  1. customer.search     - 按身份标识（phone/email/wechat_open_id 等）搜索客户
-//  2. customer.get        - 按 ID 获取客户详情（含 360 视图）
-//  3. customer.create     - 创建新客户
-//  4. customer.update     - 更新客户基本信息
-//  5. customer.merge      - 合并两个客户（OneID）
-//  6. customer.add_tag    - 给客户添加标签
-//  7. customer.remove_tag - 移除客户标签
-//  8. customer.segment    - 按 tag/RFM/churn_risk 等条件分群
-//
-// 通过 service.NewCustomerPortAdapter 注入 portcontract.CustomerPort，
-// 工具层不再持有 *service.CustomerService 字段依赖。
-//
-// 调用方：router.Setup()
-
-
-// registerAgentKnowledgeTools 生产接线：把 4 个知识工具接入全局注册中心
-//
-// 工具清单：
-//  1. rag.search          - RAG 检索（向量 + BM25-lite + 阈值过滤 + 检索日志）
-//  2. knowledge.feedback  - 知识反馈（标记答案质量 helpful/bad/补充评论）
-//  3. knowledge.add_doc   - 添加知识文档（文本/URL/批量，触发异步分片+向量化）
-//  4. knowledge.list_kb    - 列出知识库（RagProduct 列表 + 文档/分段统计）
-//
-// 调用方：router.Setup()
-
-
-// registerAgentBusinessTools 生产接线：把业务工具接入全局注册中心
-//
-// 工具清单（客服系统不是电商：订单只读 + 售后发起，绝不下单/履约）：
-//  1. follow_task.create  - 创建跟进任务（联动 FollowUpService + 客户旅程）
-//  2. follow_task.update  - 更新跟进任务（完成/取消/重新安排）
-//  3. order.lookup        - 查询客户订单（只读，替代已删的 order.query）
-//  4. aftersale.create    - 发起售后（退款/退货，回写电商，客服侧唯一允许写订单的入口）
-//  5. aftersale.query     - 查询售后进度
-//  6. logistics.track     - 查快递/物流轨迹（本地订单状态兜底 + 可选实时快递 API）
-//
-// 调用方：router.Setup()
-
-
 // registerAllAgentTools 一次性注册全部智能体工具到全局注册中心
 //
 // 调用方：router.Setup()（在 initGlobalToolExecutor 之后、buildSalesEngine 之前）
@@ -171,4 +121,3 @@ func SetGlobalToolRouterForTest(r *tooluse.ToolRouter) { globalToolRouter = r }
 func RegisterAllAgentTools(gormDB *gorm.DB) {
 	registerAllAgentToolsViaProviders(gormDB)
 }
-

@@ -394,8 +394,6 @@ func TestMemorySystem_L1Append_UpdatedAt(t *testing.T) {
 	}
 }
 
-// ---------- M-2：L2 fact 去重合并 ----------
-
 // M2-a: 完全相同内容语义等价 → 跳过写入，返回旧记忆
 func TestMemorySystem_Remember_DedupSkip(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
@@ -439,7 +437,6 @@ func TestMemorySystem_Remember_DedupUpdateKeepID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 新内容与旧记录 embedding 完全一致（cosine=1.0）但文本不同 → 走 UPDATE 保 ID
 	item, err := m.Remember(ctx, "c-d2", model.LongTermMemoryFact, "客户预算确定为 8000 元", 9)
 	if err != nil {
 		t.Fatal(err)
@@ -485,16 +482,13 @@ func TestMemorySystem_Remember_NoDedupAcrossTypes(t *testing.T) {
 	}
 }
 
-// ---------- M-4：L4 importance 感知淘汰 ----------
-
-// seedL4 直接落库构造淘汰候选（绕过 cap 触发逻辑，定向验证淘汰顺序）
 func seedL4(t *testing.T, db *gorm.DB, customerID string, items []model.BusinessMemory) {
 	for i := range items {
 		items[i].CustomerID = customerID
 		if err := db.Create(&items[i]).Error; err != nil {
 			t.Fatal(err)
 		}
-		time.Sleep(2 * time.Millisecond) // 保证 created_at 可区分新旧
+		time.Sleep(2 * time.Millisecond)
 	}
 }
 
@@ -509,7 +503,7 @@ func TestMemorySystem_L4Evict_LowImportanceFirst(t *testing.T) {
 		{MemoryType: "order", Content: "高重要-最旧", Importance: 9},
 		{MemoryType: "order", Content: "中重要", Importance: 5},
 	})
-	// 淘汰 1 条：应删 importance=2 的"低重要-最旧"，而非更早插入的 imp=9
+
 	m.l4EvictImportanceAware(ctx, "c-e1", 1)
 
 	var contents []string
@@ -535,7 +529,7 @@ func TestMemorySystem_L4Evict_ProtectedHighImportance(t *testing.T) {
 		{MemoryType: "order", Content: "高-最旧", Importance: 8},
 		{MemoryType: "order", Content: "中-次旧", Importance: 6},
 	})
-	// 淘汰 2 条：两条中重要性被删，imp=8 保留
+
 	m.l4EvictImportanceAware(ctx, "c-e2", 2)
 
 	var contents []string
@@ -544,7 +538,6 @@ func TestMemorySystem_L4Evict_ProtectedHighImportance(t *testing.T) {
 		t.Errorf("expected only protected imp>=8 remain, got %v", contents)
 	}
 
-	// 即使要求淘汰数量超过存量，受保护记忆也不被删
 	m.l4EvictImportanceAware(ctx, "c-e2", 10)
 	var count int64
 	db.Model(&model.BusinessMemory{}).Where("customer_id = ?", "c-e2").Count(&count)
@@ -559,14 +552,13 @@ func TestMemorySystem_L4Record_EvictionPrefersLowImportance(t *testing.T) {
 	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 	ctx := context.Background()
 
-	// 先放一条最旧的高重要记忆
 	seedL4(t, db, "c-e3", []model.BusinessMemory{
 		{MemoryType: "vip", Content: "VIP关键事实", Importance: 9},
 	})
 	for i := 0; i < L4MaxPerCust; i++ {
 		m.L4Record(ctx, "c-e3", "order", fmt.Sprintf("订单-%d", i), "", 5, nil)
 	}
-	// 第 501+1 条触发淘汰：应删 imp=5 的旧订单而非 VIP 关键事实
+
 	m.L4Record(ctx, "c-e3", "note", "新记忆", "", 5, nil)
 
 	var vipCount int64

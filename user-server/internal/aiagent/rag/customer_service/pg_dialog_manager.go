@@ -199,4 +199,3 @@ func (dm *PgDialogManager) startSessionCleanup() {
 		}
 	}
 }
-

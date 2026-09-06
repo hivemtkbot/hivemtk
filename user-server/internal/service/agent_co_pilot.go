@@ -17,11 +17,10 @@ import (
 // 存储于 system_config_kv，key = "co_pilot_auto_execute"
 type CoPilotAutoExecuteConfig struct {
 	Enabled             bool    `json:"enabled"`
-	ConfidenceThreshold float64 `json:"confidence_threshold"` // 置信度阈值，默认 0.85
-	CostLimit           float64 `json:"cost_limit"`           // 单次成本上限（USD），默认 0.5
+	ConfidenceThreshold float64 `json:"confidence_threshold"`
+	CostLimit           float64 `json:"cost_limit"`
 }
 
-// 默认配置
 func defaultCoPilotConfig() CoPilotAutoExecuteConfig {
 	return CoPilotAutoExecuteConfig{
 		Enabled:             false,

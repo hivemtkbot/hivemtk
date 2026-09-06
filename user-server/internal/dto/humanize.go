@@ -1,17 +1,16 @@
 package dto
 
-
 import "time"
 
 // HumanizeDimension 拟人度评估 5 维度
 type HumanizeDimension string
 
 const (
-	HumanizeDimNaturalness     HumanizeDimension = "naturalness"     
-	HumanizeDimConciseness     HumanizeDimension = "conciseness"     
-	HumanizeDimEmpathy         HumanizeDimension = "empathy"         
-	HumanizeDimProfessionalism HumanizeDimension = "professionalism" 
-	HumanizeDimPersuasiveness  HumanizeDimension = "persuasiveness"  
+	HumanizeDimNaturalness     HumanizeDimension = "naturalness"
+	HumanizeDimConciseness     HumanizeDimension = "conciseness"
+	HumanizeDimEmpathy         HumanizeDimension = "empathy"
+	HumanizeDimProfessionalism HumanizeDimension = "professionalism"
+	HumanizeDimPersuasiveness  HumanizeDimension = "persuasiveness"
 )
 
 // AllHumanizeDimensions 全部 5 维度（遍历用）
@@ -55,7 +54,7 @@ type HumanizeEvalInput struct {
 // HumanizeDimensionScore 单维度得分
 type HumanizeDimensionScore struct {
 	Dimension HumanizeDimension `json:"dimension"`
-	Score     float64           `json:"score"` 
+	Score     float64           `json:"score"`
 	Reason    string            `json:"reason,omitempty"`
 }
 
@@ -68,8 +67,8 @@ type HumanizeEvalResult struct {
 	AttemptCount       int                      `json:"attempt_count,omitempty"`
 	FinalReply         string                   `json:"final_reply,omitempty"`
 	AllReplies         []string                 `json:"all_replies,omitempty"`
-	SampleStrategy     string                   `json:"sample_strategy,omitempty"` 
-	EvaluatorType      string                   `json:"evaluator_type,omitempty"`  
+	SampleStrategy     string                   `json:"sample_strategy,omitempty"`
+	EvaluatorType      string                   `json:"evaluator_type,omitempty"`
 	LLMModel           string                   `json:"llm_model,omitempty"`
 	LLMLatencyMs       int                      `json:"llm_latency_ms,omitempty"`
 	Input              *HumanizeEvalInput       `json:"input,omitempty"`
@@ -104,11 +103,11 @@ type ABTestStatsResult struct {
 	MannWhitneyU    float64 `json:"mann_whitney_u"`
 	MannWhitneyP    float64 `json:"mann_whitney_p"`
 	CohensD         float64 `json:"cohens_d"`
-	EffectSizeLabel string  `json:"effect_size_label"` 
+	EffectSizeLabel string  `json:"effect_size_label"`
 	BootstrapCILow  float64 `json:"bootstrap_ci_low"`
 	BootstrapCIHigh float64 `json:"bootstrap_ci_high"`
 	Significant     bool    `json:"significant"`
-	Winner          string  `json:"winner"` 
+	Winner          string  `json:"winner"`
 }
 
 // ChampionBaselineDTO 销冠基线 DTO（供 service 层使用，与 model.ChampionBaseline 解耦）
@@ -122,4 +121,3 @@ type ChampionBaselineDTO struct {
 	Professionalism float64 `json:"professionalism"`
 	Persuasiveness  float64 `json:"persuasiveness"`
 }
-

@@ -77,9 +77,9 @@ func TestWeComQuotaResetCron_StartStopIdempotent(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		c.Start(context.Background())
-		c.Start(context.Background()) // 幂等
+		c.Start(context.Background())
 		c.Stop(context.Background())
-		c.Stop(context.Background()) // 幂等
+		c.Stop(context.Background())
 		close(done)
 	}()
 	select {

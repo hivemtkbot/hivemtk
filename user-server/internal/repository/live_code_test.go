@@ -10,7 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupLiveCodeTestDB 设置活码测试数据库
 func setupLiveCodeTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.LiveCode{},
@@ -18,7 +17,6 @@ func setupLiveCodeTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// setupLiveCodeRepository 创建测试用的活码仓库实例
 func setupLiveCodeRepository(t *testing.T) LiveCodeRepository {
 	database := setupLiveCodeTestDB(t)
 	return NewLiveCodeRepository(database)

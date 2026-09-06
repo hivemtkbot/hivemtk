@@ -138,13 +138,13 @@ func JaccardSimilarity(text1, text2 string) float64 {
 	words2 := getUniqueWords(text2)
 
 	intersection := 0
-	union := len(words2) 
+	union := len(words2)
 
 	for word := range words1 {
 		if _, exists := words2[word]; exists {
 			intersection++
 		} else {
-			union++ 
+			union++
 		}
 	}
 
@@ -155,7 +155,6 @@ func JaccardSimilarity(text1, text2 string) float64 {
 	return float64(intersection) / float64(union)
 }
 
-// getUniqueWords 获取唯一词汇集合
 func getUniqueWords(text string) map[string]bool {
 	words := strings.Fields(strings.ToLower(text))
 	wordSet := make(map[string]bool)
@@ -169,4 +168,3 @@ func getUniqueWords(text string) map[string]bool {
 
 	return wordSet
 }
-

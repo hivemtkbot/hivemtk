@@ -88,7 +88,6 @@ func (s *RagMetricsService) Stop(ctx context.Context) {
 	_ = s.flush(ctx)
 }
 
-// flushLoop 后台定时刷写
 func (s *RagMetricsService) flushLoop(ctx context.Context) {
 	defer s.wg.Done()
 	ticker := time.NewTicker(RagMetricsFlushInterval)
@@ -154,7 +153,6 @@ func (s *RagMetricsService) RecordQuerySync(ctx context.Context, req *RecordQuer
 	return s.repo.CreateQueryLog(ctx, log)
 }
 
-// buildQueryLog 计算并构造 RagQueryLog
 func (s *RagMetricsService) buildQueryLog(ctx context.Context, req *RecordQueryRequest) *model.RagQueryLog {
 	retrievedSet := toStringSet(req.RetrievedDocIDs)
 	relevantSet := toStringSet(req.RelevantDocIDs)
@@ -203,7 +201,6 @@ func (s *RagMetricsService) buildQueryLog(ctx context.Context, req *RecordQueryR
 	}
 }
 
-// flush 把队列中的日志批量写入数据库
 func (s *RagMetricsService) flush(ctx context.Context) error {
 	s.mu.Lock()
 	if len(s.queue) == 0 {
@@ -248,7 +245,6 @@ func (s *RagMetricsService) GetRecallMetrics(ctx context.Context, start, end tim
 		return nil, fmt.Errorf("end before start")
 	}
 
-	// 直接从 rag_query_logs 聚合（数据量小用 SQL；数据量大可走 rag_metrics_daily）
 	var metrics RecallMetrics
 	metrics.WindowStart = start
 	metrics.WindowEnd = end
@@ -403,7 +399,6 @@ func (s *RagMetricsService) GetLatestMetrics(ctx context.Context, limit int) ([]
 	return rows, nil
 }
 
-// toStringSet 把字符串切片转为集合（去重）
 func toStringSet(ids []string) map[string]struct{} {
 	set := make(map[string]struct{}, len(ids))
 	for _, id := range ids {
@@ -415,7 +410,6 @@ func toStringSet(ids []string) map[string]struct{} {
 	return set
 }
 
-// toJSONString 把字符串切片序列化为 JSON
 func toJSONString(ids []string) string {
 	if len(ids) == 0 {
 		return "[]"
@@ -427,7 +421,6 @@ func toJSONString(ids []string) string {
 	return string(b)
 }
 
-// hashQueryShort 计算 query 哈希（短，16 字符）
 func hashQueryShort(query string) string {
 	h := sha256.Sum256([]byte(query))
 	return hex.EncodeToString(h[:])[:16]
@@ -457,7 +450,6 @@ func (c *RagMetricsCron) Stop(ctx context.Context) {
 	c.wg.Wait()
 }
 
-// run 定时循环
 func (c *RagMetricsCron) run(ctx context.Context) {
 	defer c.wg.Done()
 	ticker := time.NewTicker(RagMetricsAggregationInterval)

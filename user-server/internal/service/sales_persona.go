@@ -34,7 +34,6 @@ func NewSalesPersonaServiceWithDB(db *gorm.DB) *SalesPersonaService {
 	return &SalesPersonaService{db: db, repo: repo}
 }
 
-// ensureReposFromDB 在 struct 直接构造时，按需派生新仓库实例
 func (s *SalesPersonaService) ensureReposFromDB(ctx context.Context) {
 	if s.db == nil {
 		return

@@ -10,7 +10,7 @@ import (
 // TestMain 在测试前设置测试 KEY（CI 环境也安全）
 func TestMain(m *testing.M) {
 	os.Setenv("FIELD_ENCRYPTION_KEY", "test-encryption-key-must-be-32-chars-min")
-	// 防止 sync.Once 缓存空 Init() 结果
+
 	once = sync.Once{}
 	gcm = nil
 	initErr = nil
@@ -70,7 +70,7 @@ func TestDecryptInvalidBase64(t *testing.T) {
 }
 
 func TestEncryptProducesDifferentCiphertexts(t *testing.T) {
-	// 同一明文两次加密应该产生不同密文（因为 nonce 随机）
+
 	Init()
 	plaintext := "test_plaintext_aaa"
 	ct1, _ := Encrypt(plaintext)
@@ -115,7 +115,7 @@ func TestMaskEmail(t *testing.T) {
 			t.Errorf("MaskEmail should mask input, got original: %q", got)
 		}
 	}
-	// 空字符串：函数直接返回空（既不脱敏也不报错）
+
 	if got := MaskEmail(""); got != "" {
 		t.Errorf("MaskEmail(\"\") should return empty, got %q", got)
 	}

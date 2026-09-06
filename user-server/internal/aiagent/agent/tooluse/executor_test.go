@@ -11,9 +11,6 @@ import (
 	"time"
 )
 
-
-
-// mockTool 通用 mock 工具
 type mockTool struct {
 	BaseTool
 	executeFn func(ctx context.Context, args map[string]any) (ToolResult, error)
@@ -40,28 +37,24 @@ func newMockTool(name string, category ToolCategory, fn func(ctx context.Context
 	}
 }
 
-// echoTool 返回入参的简单工具
 func echoTool(name string) *mockTool {
 	return newMockTool(name, CategoryCustomer, func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		return SuccessResult(name, args), nil
 	})
 }
 
-// failTool 始终失败的工具
 func failTool(name string) *mockTool {
 	return newMockTool(name, CategoryCustomer, func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		return ErrorResult(name, errors.New("intentional failure")), errors.New("intentional failure")
 	})
 }
 
-// panicTool panic 工具
 func panicTool(name string) *mockTool {
 	return newMockTool(name, CategoryCustomer, func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		panic("intentional panic")
 	})
 }
 
-// slowTool 慢工具
 func slowTool(name string, delay time.Duration) *mockTool {
 	return newMockTool(name, CategoryCustomer, func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		select {
@@ -73,14 +66,12 @@ func slowTool(name string, delay time.Duration) *mockTool {
 	})
 }
 
-// countTool 记录调用次数的工具
 func countTool(name string, counter *int32) *mockTool {
 	return newMockTool(name, CategoryCustomer, func(ctx context.Context, args map[string]any) (ToolResult, error) {
 		atomic.AddInt32(counter, 1)
 		return SuccessResult(name, atomic.LoadInt32(counter)), nil
 	})
 }
-
 
 func TestToolExecutor_ExecuteSuccess(t *testing.T) {
 	registry := NewToolRegistry()
@@ -153,7 +144,6 @@ func TestToolExecutor_ExecuteByName(t *testing.T) {
 		t.Fatalf("期望 Success=true")
 	}
 }
-
 
 func TestToolExecutor_DecoratorChainApplied(t *testing.T) {
 	registry := NewToolRegistry()
@@ -257,7 +247,6 @@ func TestToolExecutor_PanicRecovery(t *testing.T) {
 	}
 }
 
-
 func TestToolExecutor_HandlerCached(t *testing.T) {
 	registry := NewToolRegistry()
 	var calls int32
@@ -282,7 +271,6 @@ func TestToolExecutor_HandlerCached(t *testing.T) {
 	}
 }
 
-
 func TestToolExecutor_SetOverrideDisabled(t *testing.T) {
 	registry := NewToolRegistry()
 	registry.MustRegister(echoTool("test.echo"))
@@ -305,7 +293,7 @@ func TestToolExecutor_SetOverrideTimeout(t *testing.T) {
 	registry := NewToolRegistry()
 	registry.MustRegister(slowTool("test.slow", 500*time.Millisecond))
 	executor := NewToolExecutor(registry, ToolExecutorConfig{
-		DefaultTimeout: 1 * time.Second, 
+		DefaultTimeout: 1 * time.Second,
 	})
 	r := executor.Execute(context.Background(), ExecuteRequest{
 		ToolName: "test.slow",
@@ -398,7 +386,6 @@ func TestToolExecutor_GetOverride(t *testing.T) {
 	}
 }
 
-
 func TestToolExecutor_BatchExecuteSequential(t *testing.T) {
 	registry := NewToolRegistry()
 	var calls int32
@@ -477,7 +464,7 @@ func TestToolExecutor_BatchExecuteStopOnError(t *testing.T) {
 	if resp.SuccessCount != 1 {
 		t.Fatalf("期望 1 个成功，实际 %d", resp.SuccessCount)
 	}
-	if resp.FailedCount != 2 { 
+	if resp.FailedCount != 2 {
 		t.Fatalf("期望 2 个失败，实际 %d", resp.FailedCount)
 	}
 	if atomic.LoadInt32(&calls) != 1 {
@@ -501,7 +488,7 @@ func TestToolExecutor_BatchExecuteMaxConcurrency(t *testing.T) {
 			{ToolName: "test.slow3"},
 		},
 		Parallel:       true,
-		MaxConcurrency: 1, 
+		MaxConcurrency: 1,
 	})
 	elapsed := time.Since(start)
 	if resp.SuccessCount != 3 {
@@ -525,7 +512,6 @@ func TestToolExecutor_BatchExecuteEmpty(t *testing.T) {
 		t.Fatalf("总耗时不应为负")
 	}
 }
-
 
 func TestToolExecutor_DispatchByLLMToolCall(t *testing.T) {
 	registry := NewToolRegistry()
@@ -673,7 +659,6 @@ func TestToolExecutor_DispatchByLLMToolCall_WithToolCtx(t *testing.T) {
 	}
 }
 
-
 func TestToolExecutor_ExecuteByNameWithCtx(t *testing.T) {
 	registry := NewToolRegistry()
 	logger := NewMemoryAuditLogger(100)
@@ -745,7 +730,6 @@ func TestToolExecutor_ListAvailableLLMFunctions(t *testing.T) {
 	}
 }
 
-
 func TestToolExecutor_ToolResultFieldsCompleted(t *testing.T) {
 	registry := NewToolRegistry()
 	emptyResultTool := newMockTool("test.empty", CategoryCustomer, func(ctx context.Context, args map[string]any) (ToolResult, error) {
@@ -785,7 +769,6 @@ func TestToolExecutor_AuditTracePassedThrough(t *testing.T) {
 	}
 }
 
-
 func TestGlobalExecutor(t *testing.T) {
 	original := globalExecutor
 	defer func() { globalExecutor = original }()
@@ -821,7 +804,6 @@ func TestGetGlobalExecutor_DefaultNil(t *testing.T) {
 	}
 }
 
-
 func TestToolExecutor_ConcurrentExecute(t *testing.T) {
 	registry := NewToolRegistry()
 	var calls int32
@@ -829,7 +811,7 @@ func TestToolExecutor_ConcurrentExecute(t *testing.T) {
 	executor := NewToolExecutor(registry, ToolExecutorConfig{
 		DefaultTimeout:    1 * time.Second,
 		PermissionChecker: allowAllChecker{},
-		RateLimiter:       NewTokenBucketLimiter(10000, 100), 
+		RateLimiter:       NewTokenBucketLimiter(10000, 100),
 	})
 	var wg sync.WaitGroup
 	N := 50
@@ -889,7 +871,6 @@ func TestToolExecutor_ConcurrentSetOverride(t *testing.T) {
 	wg.Wait()
 }
 
-
 func TestToolExecutor_ClearCache(t *testing.T) {
 	registry := NewToolRegistry()
 	registry.MustRegister(echoTool("test.a"))
@@ -921,7 +902,6 @@ func TestToolExecutor_ClearCache(t *testing.T) {
 	}
 }
 
-
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsStr(s, substr))
 }
@@ -935,6 +915,4 @@ func containsStr(s, substr string) bool {
 	return false
 }
 
-// 确保 fmt 包被使用（避免 import 报错）
 var _ = fmt.Sprintf
-

@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupEmailTrackingTestDB 设置邮件追踪测试数据库
 func setupEmailTrackingTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.EmailTrackingEvent{},
@@ -145,7 +144,6 @@ func TestEmailTracking_RecordOpenEvent(t *testing.T) {
 		t.Fatalf("RecordOpenEvent failed: %v", err)
 	}
 
-	// 验证事件已记录
 	var count int64
 	database.Model(&model.EmailTrackingEvent{}).Where("email = ? AND event_type = ?", "open-event@demo.com", model.EmailEventTypeOpen).Count(&count)
 	if count != 1 {
@@ -185,7 +183,6 @@ func TestEmailTracking_RecordClickEvent(t *testing.T) {
 		t.Errorf("Expected target 'https://example.com/x', got %s", target)
 	}
 
-	// 验证事件已记录
 	var count int64
 	database.Model(&model.EmailTrackingEvent{}).Where("email = ? AND event_type = ?", "click-event@demo.com", model.EmailEventTypeClick).Count(&count)
 	if count != 1 {
@@ -378,7 +375,6 @@ func TestEmailTracking_RefreshJobMetrics(t *testing.T) {
 		t.Fatalf("RefreshJobMetrics failed: %v", err)
 	}
 
-	// 验证指标已持久化
 	var metric model.EmailJobMetric
 	if err := database.Where("job_id = ?", jobID).First(&metric).Error; err != nil {
 		t.Fatalf("查询指标失败: %v", err)

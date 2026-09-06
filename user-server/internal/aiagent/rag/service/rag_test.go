@@ -9,7 +9,6 @@ import (
 	rag_core "hivemtk-user/internal/aiagent/rag/core"
 )
 
-// mockThreeTier 用于在 rag_service 内做单元测试
 type mockThreeTier struct {
 	results []*ThreeTierResult
 	err     error
@@ -35,7 +34,6 @@ func (m *mockThreeTier) Stats() ThreeTierStats {
 	return ThreeTierStats{Total: int64(m.calls), L2Hits: int64(m.calls)}
 }
 
-// requireRealAPIKey 跳过需要真实 LLM API 的测试（无 mock 模式下，无 API Key 应跳过）
 func requireRealAPIKey(t *testing.T) {
 	t.Helper()
 	if os.Getenv("OPENAI_API_KEY") == "" {
@@ -159,7 +157,6 @@ func TestQueryResponse_Fields(t *testing.T) {
 	}
 }
 
-
 func TestRAGService_SetThreeTier(t *testing.T) {
 	llmSvc := llm.NewLLMService()
 	ragEngine := rag_core.NewRAGEngine(nil)
@@ -191,7 +188,7 @@ func TestRAGService_ThreeTierStats(t *testing.T) {
 		t.Error("expected true after set")
 	}
 	if stats.Total == 0 {
-		_ = stats 
+		_ = stats
 	}
 }
 
@@ -285,4 +282,3 @@ func TestThreeTierResult_Fields(t *testing.T) {
 		t.Error("expected FromCache true")
 	}
 }
-

@@ -24,21 +24,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// ============================================================================
-// 2026-08-25 全渠道「交付即可用」修复回归测试
-//
-// 覆盖：
-//  A. 钉钉：AI 回复经 sessionWebhook 送达（原 sendOutbound 无分支被静默丢弃）
-//  B. 钉钉：sessionWebhook 缺失/过期时不盲发
-//  C. 钉钉入站：senderStaffId 归一 + sessionWebhook 捕获并透传 AI 触发链
-//  D. 飞书：POST url_verification 官方挑战回显（token 校验）
-//  E. 飞书：POST 事件验签回退 feishu_accounts.encrypt_key（数据源断链）
-//  F. 飞书：加密信封事件解密
-//  G. 飞书：content 字符串化 JSON 契约（官方 im/v1/messages 要求）
-// ============================================================================
-
-// ---- 测试工具 ----
-
 var _ = json.Marshal
 
 func dtEncryptForTest(aesKey, plain string) (string, error) {
@@ -60,16 +45,13 @@ func dtEncryptForTest(aesKey, plain string) (string, error) {
 	pt := []byte(plain)
 	pad := aes.BlockSize - len(pt)%aes.BlockSize
 	pt = append(pt, bytes.Repeat([]byte{byte(pad)}, pad)...)
-	// 与产品解密口径一致（dingTalkDecrypt）：IV 取 key 前 16 字节，
-	// 密文即纯 CBC 块序列（不含 IV 前缀）。
+
 	ct := make([]byte, len(pt))
 	mode := cipher.NewCBCEncrypter(block, k[:aes.BlockSize])
 	mode.CryptBlocks(ct, pt)
 	return base64.StdEncoding.EncodeToString(ct), nil
 }
 
-// feishuEncryptForTest 飞书加密信封夹具（与 DecryptFeishuEvent 口径一致）：
-// key 为 EncryptKey 原始字节（零填充至 32 字节），密文格式为 IV 前缀 + CBC 块 + PKCS7。
 func feishuEncryptForTest(encKey, plain string) (string, error) {
 	key := []byte(encKey)
 	if len(key) > 32 {
@@ -85,7 +67,7 @@ func feishuEncryptForTest(encKey, plain string) (string, error) {
 	pt := []byte(plain)
 	pad := aes.BlockSize - len(pt)%aes.BlockSize
 	pt = append(pt, bytes.Repeat([]byte{byte(pad)}, pad)...)
-	iv := make([]byte, aes.BlockSize) // 测试用全零 IV（生产为随机）
+	iv := make([]byte, aes.BlockSize)
 	ct := make([]byte, aes.BlockSize+len(pt))
 	mode := cipher.NewCBCEncrypter(block, iv)
 	mode.CryptBlocks(ct[aes.BlockSize:], pt)
@@ -93,9 +75,6 @@ func feishuEncryptForTest(encKey, plain string) (string, error) {
 	return base64.StdEncoding.EncodeToString(ct), nil
 }
 
-// ---- A/B: 钉钉出站 ----
-
-// allowAnyDingtalkHostForTest 测试期间放开 sessionWebhook 域名白名单（允许 httptest 地址）。
 func allowAnyDingtalkHostForTest(t *testing.T) {
 	t.Helper()
 	orig := dingtalkWebhookHostAllowed
@@ -165,7 +144,7 @@ func TestSendOutbound_DingTalk_MsExpiryTimestampSends(t *testing.T) {
 	hub := &model.MessageHub{Platform: "dingtalk", ConversationID: "c-ms", SentAt: time.Now(),
 		Extra: model.JSONMap{
 			"session_webhook":            srv.URL,
-			"session_webhook_expired_at": time.Now().Add(time.Hour).UnixMilli(), // 毫秒口径
+			"session_webhook_expired_at": time.Now().Add(time.Hour).UnixMilli(),
 		}}
 	svc.sendOutbound(context.Background(), ChannelDingTalk, "7",
 		&ParsedPayload{EventID: "e-ms", Sender: "s", Content: "hi"}, "reply", hub, nil)
@@ -187,7 +166,7 @@ func TestSendOutbound_DingTalk_ForeignHostRejected(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	svc := &WebhookService{} // 不放开白名单 → 默认仅 *.dingtalk.com
+	svc := &WebhookService{}
 	hub := &model.MessageHub{Platform: "dingtalk", ConversationID: "c-ssrf",
 		Extra: model.JSONMap{"session_webhook": srv.URL}}
 	svc.sendOutbound(context.Background(), ChannelDingTalk, "7",
@@ -214,12 +193,10 @@ func TestSendOutbound_DingTalk_MissingOrExpiredWebhook_NoCall(t *testing.T) {
 
 	svc := &WebhookService{}
 
-	// 缺失 webhook
 	hub1 := &model.MessageHub{Platform: "dingtalk", ConversationID: "c1", SentAt: time.Now()}
 	svc.sendOutbound(context.Background(), ChannelDingTalk, "7",
 		&ParsedPayload{EventID: "e1", Sender: "s", Content: "hi"}, "reply", hub1, nil)
 
-	// 已过期 webhook
 	hub2 := &model.MessageHub{Platform: "dingtalk", ConversationID: "c2", SentAt: time.Now(),
 		Extra: model.JSONMap{
 			"session_webhook":            srv.URL,
@@ -235,13 +212,10 @@ func TestSendOutbound_DingTalk_MissingOrExpiredWebhook_NoCall(t *testing.T) {
 	}
 }
 
-// ---- C: 钉钉入站全链路 ----
-
 func TestDingTalkReceiveMessage_CapturesSessionWebhookAndTriggersAI(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.DingTalkAppAccount{}, &model.MessageHub{})
 
-	// 构造 AESKey（32 字节 → base64，43/44 字符）
-	rawKey := []byte("0123456789abcdef0123456789abcdef") // 32 bytes
+	rawKey := []byte("0123456789abcdef0123456789abcdef")
 	aesKey := base64.StdEncoding.EncodeToString(rawKey)
 
 	acc := &model.DingTalkAppAccount{
@@ -281,8 +255,6 @@ func TestDingTalkReceiveMessage_CapturesSessionWebhookAndTriggersAI(t *testing.T
 	}
 }
 
-// ---- D/E: 飞书验证与解密 ----
-
 func TestHandleFeishuURLVerification_PlainChallengeEcho(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.FeishuAccount{})
 	repo := repository.NewFeishuAccountRepository()
@@ -303,13 +275,11 @@ func TestHandleFeishuURLVerification_PlainChallengeEcho(t *testing.T) {
 		t.Errorf("challenge echo mismatch: %q", challenge)
 	}
 
-	// token 不匹配必须拒绝（防伪造绑定）
 	badBody, _ := json.Marshal(map[string]string{"challenge": "x", "token": "WRONG", "type": "url_verification"})
 	if _, _, err := svc.HandleFeishuURLVerification(context.Background(), "1", badBody); err == nil {
 		t.Fatal("token 错误时应拒绝")
 	}
 
-	// 非 url_verification 不拦截
 	normal := []byte(`{"header":{"event_type":"im.message.receive_v1"}}`)
 	if _, handled, _ := svc.HandleFeishuURLVerification(context.Background(), "1", normal); handled {
 		t.Fatal("普通事件不应被验证流程拦截")
@@ -326,7 +296,7 @@ func TestVerify_FeishuSignatureFallbackToEncryptKey(t *testing.T) {
 	if err := db.Create(acc).Error; err != nil {
 		t.Fatalf("create account: %v", err)
 	}
-	svc := &WebhookService{db: db, feishuRepo: repo} // 注意：不注入 integration_accounts 仓库 → 走回退路径
+	svc := &WebhookService{db: db, feishuRepo: repo}
 
 	body := []byte(`{"header":{"event_type":"im.message.receive_v1"}}`)
 	ts, nonce := "1700000000", "nonce-abc"
@@ -362,7 +332,7 @@ func TestDispatchFeishu_DecryptsEncryptedEvent(t *testing.T) {
 	}
 
 	inner := `{"header":{"event_type":"im.message.receive_v1","event_id":"fs-enc-1"},"event":{"sender":{"sender_id":{"open_id":"ou_9"}},"message":{"message_id":"om_1","chat_id":"oc_g1","chat_type":"group","message_type":"text","content":"{\"text\":\"加密消息测试\"}"}}}`
-	enc, err := feishuEncryptForTest(encKey, inner) // 飞书口径：key 原始字节零填充，密文 IV 前缀 + PKCS7
+	enc, err := feishuEncryptForTest(encKey, inner)
 	if err != nil {
 		t.Fatalf("encrypt: %v", err)
 	}
@@ -386,11 +356,9 @@ func TestDispatchFeishu_DecryptsEncryptedEvent(t *testing.T) {
 	}
 }
 
-// ---- G: 飞书 content 契约 ----
-
 func TestFeishuTextContentJSON_IsStringifiedJSON(t *testing.T) {
 	out := feishuTextContentJSON("第一行\n第二行")
-	// 官方要求 content 为字符串化 JSON：{"text":"..."}
+
 	if !strings.HasPrefix(out, "{\"text\":") {
 		t.Fatalf("content 必须是字符串化 JSON，got %q", out)
 	}
@@ -403,11 +371,9 @@ func TestFeishuTextContentJSON_IsStringifiedJSON(t *testing.T) {
 	}
 }
 
-// ---- H: 飞书官方加密协议（16B随机 + 4B大端长度前缀）----
-
 func TestDecryptFeishuEvent_OfficialPrefixFormat(t *testing.T) {
-	const encKey43 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" // 41 chars? 需 43 位 base64 → 解出 32B
-	// 构造标准 43 字符 key：32 字节 base64 无 padding 为 43 字符
+	const encKey43 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
 	raw := bytes.Repeat([]byte{0x37}, 32)
 	key43 := base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(raw)
 	if len(key43) != 43 {
@@ -417,10 +383,9 @@ func TestDecryptFeishuEvent_OfficialPrefixFormat(t *testing.T) {
 	payload := []byte(`{"challenge":"abc","type":"url_verification","token":"t"}`)
 
 	block, _ := aes.NewCipher(raw)
-	// 官方明文结构：[16B 随机][4B 大端 payload 长度][payload]，整体 PKCS7 填充后加密；
-	// IV 为独立 16 字节，置于密文之前（wire = base64(iv || cbc(padded))）。
+
 	frame := make([]byte, 0, 20+len(payload)+aes.BlockSize)
-	for i := 0; i < 16; i++ { // 明文内 16B 随机前缀（确定性伪随机即可）
+	for i := 0; i < 16; i++ {
 		frame = append(frame, byte(i*7+1))
 	}
 	frame = binary.BigEndian.AppendUint32(frame, uint32(len(payload)))

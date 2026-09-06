@@ -1,6 +1,6 @@
 <template>
   <div class="community-container">
-    <!-- 页面标题和操作按钮 -->
+    
     <div class="page-header">
       <h2>{{ $t('社群管理') }}</h2>
       <div class="action-buttons">
@@ -19,7 +19,7 @@
       </div>
     </div>
 
-    <!-- 搜索表单 -->
+    
     <div class="search-form">
       <el-form :inline="true" :model="searchForm" class="search-form-content">
         <el-form-item :label="$t('分组名称')">
@@ -44,7 +44,7 @@
       </el-form>
     </div>
 
-    <!-- 社群分组列表 -->
+    
     <el-table :data="groupList" border style="width: 100%" v-loading="loading">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="name" :label="$t('分组名称')" min-width="150" show-overflow-tooltip />
@@ -85,7 +85,7 @@
       </el-table-column>
     </el-table>
 
-    <!-- 分页 -->
+    
     <div class="pagination-container">
       <el-pagination
         v-model:current-page="pagination.page"
@@ -98,7 +98,7 @@
       />
     </div>
 
-    <!-- 新增/编辑分组对话框 -->
+    
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
@@ -134,7 +134,7 @@
       </template>
     </el-dialog>
 
-    <!-- 成员列表对话框 -->
+    
     <el-dialog
       v-model="membersDialogVisible"
       title="社群成员"
@@ -159,7 +159,7 @@
       </div>
     </el-dialog>
 
-    <!-- 消息列表对话框 -->
+    
     <el-dialog
       v-model="messagesDialogVisible"
       title="社群消息"
@@ -185,7 +185,7 @@
       </div>
     </el-dialog>
 
-    <!-- 统计对话框 -->
+    
     <el-dialog
       v-model="statsDialogVisible"
       title="社群统计"
@@ -234,8 +234,7 @@ import {
 } from '@element-plus/icons-vue'
 import { communityApi } from '@/api/community'
 
-// 响应式数据
-const loading = ref(false)
+const loading = ref(false);
 const submitting = ref(false)
 const membersLoading = ref(false)
 const messagesLoading = ref(false)
@@ -252,60 +251,51 @@ const memberList = ref([])
 const messageList = ref([])
 const currentStats = ref({})
 
-// 搜索表单
 const searchForm = reactive({
   name: '',
   status: ''
-})
+});
 
-// 分页
 const pagination = reactive({
   page: 1,
   pageSize: 10,
   total: 0
-})
+});
 
-// 成员分页
 const membersPagination = reactive({
   page: 1,
   pageSize: 10,
   total: 0
-})
+});
 
-// 消息分页
 const messagesPagination = reactive({
   page: 1,
   pageSize: 10,
   total: 0
-})
+});
 
-// 表单
 const form = reactive({
   id: null,
   name: '',
   description: '',
   status: 1
-})
+});
 
-// 表单验证规则
 const rules = {
   name: [
     { required: true, message: i18n.global.t('请输入分组名称'), trigger: 'blur' },
     { min: 2, max: 50, message: i18n.global.t('长度在 2 到 50 个字符'), trigger: 'blur' }
   ]
-}
+};
 
-// 计算属性
 const dialogTitle = computed(() => {
   return isEdit.value ? '编辑分组' : '新增分组'
-})
+});
 
-// 生命周期
 onMounted(() => {
   fetchGroupList()
-})
+});
 
-// 获取社群分组列表
 const fetchGroupList = async () => {
   loading.value = true
   try {
@@ -323,7 +313,7 @@ const fetchGroupList = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
 const handleSearch = () => {
   pagination.page = 1
@@ -382,7 +372,8 @@ const handleDelete = (row) => {
       console.error(error)
     }
   }).catch((e) => {
-    if (e !== 'cancel' && e !== 'close') throw e // R47
+    if (e !== 'cancel' && e !== 'close')
+      throw e;
   })
 }
 
@@ -425,13 +416,12 @@ const resetForm = () => {
   }
 }
 
-// 查看成员
 const handleViewMembers = (row) => {
   currentGroup.value = row
   membersDialogVisible.value = true
   membersPagination.page = 1
   fetchMembers()
-}
+};
 
 const fetchMembers = async () => {
   membersLoading.value = true
@@ -455,13 +445,12 @@ const handleMembersPageChange = (val) => {
   fetchMembers()
 }
 
-// 查看消息
 const handleViewMessages = (row) => {
   currentGroup.value = row
   messagesDialogVisible.value = true
   messagesPagination.page = 1
   fetchMessages()
-}
+};
 
 const fetchMessages = async () => {
   messagesLoading.value = true
@@ -485,7 +474,6 @@ const handleMessagesPageChange = (val) => {
   fetchMessages()
 }
 
-// 查看统计
 const handleViewStats = async (row) => {
   currentGroup.value = row
   statsDialogVisible.value = true
@@ -498,9 +486,8 @@ const handleViewStats = async (row) => {
   } finally {
     statsLoading.value = false
   }
-}
+};
 
-// 导入
 const handleImport = async () => {
   try {
     await communityApi.importData({})
@@ -510,9 +497,8 @@ const handleImport = async () => {
     ElMessage.error(i18n.global.t('导入失败'))
     console.error(error)
   }
-}
+};
 
-// 导出
 const handleExport = async () => {
   try {
     await communityApi.exportData({})
@@ -521,7 +507,7 @@ const handleExport = async () => {
     ElMessage.error(i18n.global.t('导出失败'))
     console.error(error)
   }
-}
+};
 </script>
 
 <style lang="scss" scoped>

@@ -133,12 +133,6 @@ func (c *SSOController) Callback(ctx *gin.Context) {
 	}, "登录成功")
 }
 
-// resolveRedirectTarget 解析回调成功后的前端跳转地址
-//
-// 优先级：
-//  1. 请求参数 redirect（仅允许相对路径，防止开放重定向）
-//  2. 配置的 PUBLIC_BASE_URL
-//  3. 空（返回 JSON）
 func (c *SSOController) resolveRedirectTarget(ctx *gin.Context) string {
 	if r := strings.TrimSpace(ctx.Query("redirect")); r != "" {
 		if strings.HasPrefix(r, "/") && !strings.HasPrefix(r, "//") {
@@ -149,7 +143,6 @@ func (c *SSOController) resolveRedirectTarget(ctx *gin.Context) string {
 	return strings.TrimRight(c.frontend, "/")
 }
 
-// callbackError 回调失败统一响应（语义化状态码）
 func (c *SSOController) callbackError(ctx *gin.Context, err error) {
 	switch {
 	case errors.Is(err, service.ErrSSONotEnabled):
@@ -169,15 +162,12 @@ func (c *SSOController) callbackError(ctx *gin.Context, err error) {
 	}
 }
 
-// setSSOCookie 设置 SSO 流程 cookie（HttpOnly + Secure，5 分钟）
 func setSSOCookie(ctx *gin.Context, name, value string) {
 	ctx.SetCookie(name, value, int(SSOCookieTTL.Seconds()), "/", "", true, true)
 }
 
-// clearSSOCookies 清理 SSO 流程 cookie
 func clearSSOCookies(ctx *gin.Context) {
 	ctx.SetCookie("sso_state", "", -1, "/", "", true, true)
 	ctx.SetCookie("sso_nonce", "", -1, "/", "", true, true)
 	ctx.SetCookie("sso_verifier", "", -1, "/", "", true, true)
 }
-

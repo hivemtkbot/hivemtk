@@ -130,7 +130,7 @@ func (s *AIAgentService) UpdateStatus(ctx context.Context, id uint, status int) 
 // Delete 删除智能体
 // 业务约束：若智能体被渠道绑定或客服挂载引用，应先解绑
 func (s *AIAgentService) Delete(ctx context.Context, id uint) error {
-	// 校验是否被引用（引用计数经 repository 查询）
+
 	bindings, _ := s.repo.CountChannelBindingsByAgent(ctx, id)
 	if bindings > 0 {
 		return fmt.Errorf("智能体被 %d 个渠道账号绑定，请先解绑", bindings)
@@ -211,7 +211,6 @@ func (s *AIAgentService) LoadContext(ctx context.Context, agentID uint) (*AgentC
 	return agentCtx, nil
 }
 
-// invalidateCache 失效缓存
 func (s *AIAgentService) invalidateCache(ctx context.Context, agentID uint) {
 	s.cacheMu.Lock()
 	delete(s.cache, agentID)

@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// fakeChecker 模拟健康检查器
 type fakeChecker struct {
 	mu      sync.Mutex
 	latency int64
@@ -35,12 +34,10 @@ func (f *fakeChecker) Ping(ctx context.Context, provider *ProviderConfig, config
 	return f.latency, f.err
 }
 
-// setupFailoverDB 构建测试 DB（仅 system_kv_config 表）
 func setupFailoverDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t)
 }
 
-// newTestFailover 构建测试用 ProviderFailover
 func newTestFailover(t *testing.T, dispatcher *Dispatcher, db *gorm.DB) *ProviderFailover {
 	f := NewProviderFailover(dispatcher, db)
 	return f

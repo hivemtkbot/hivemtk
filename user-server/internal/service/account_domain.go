@@ -76,7 +76,6 @@ func (s *AccountService) UpdateAccountDTO(ctx context.Context, req dto.UpdateAcc
 	return s.GetAccountDTO(ctx, req.ID)
 }
 
-// toAccountResponse 将 model.Account 转换为 dto.AccountResponse
 func toAccountResponse(a *model.Account) *dto.AccountResponse {
 	return &dto.AccountResponse{
 		ID:               a.ID,
@@ -135,14 +134,13 @@ func (s *ClueService) BatchImportCluesFromDTO(ctx context.Context, reqs []dto.Im
 	if err != nil {
 		return success, skipped, err
 	}
-	// 导入完成后异步触发评分
+
 	if success > 0 {
 		go s.scoreImportedClues(clues)
 	}
 	return success, skipped, nil
 }
 
-// scoreImportedClues 后台为已导入线索批量评分
 func (s *ClueService) scoreImportedClues(clues []*model.Clue) {
 	ctx := context.Background()
 	scoreSvc := NewClueScoreService()

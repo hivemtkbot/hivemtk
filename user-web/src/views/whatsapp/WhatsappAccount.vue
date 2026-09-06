@@ -30,7 +30,7 @@
       </el-table>
     </el-card>
 
-    <!-- AI 智能体绑定对话框 -->
+    
     <AgentBindingDialog
       v-model="bindingDialogVisible"
       channel-type="whatsapp"
@@ -84,18 +84,15 @@ function createAccount() {
 
 function startLogin(row) {
   api.startLogin(row.id).then(res => {
-    // 拦截器已解包，res 直接就是数据对象
-    qrCode.value = res.qr
+    qrCode.value = res.qr;
     qrDialog.value = true
   }).catch((e) => {
-    // R47: 503(无法连WhatsApp服务器)等失败走明确提示，不再抛未捕获异常
-    ElMessage.error(e?.message || '启动登录失败（检查网络后重试）')
+    ElMessage.error(e?.message || '启动登录失败（检查网络后重试）');
   })
 }
 
 function refreshStatus(row) {
   api.loginStatus(row.id).then(res => {
-    // 拦截器已解包，res 直接就是数据对象
     if (res.logged_in) {
       ElMessage.success(i18n.global.t('登录成功'))
       loadAccounts()
@@ -109,8 +106,7 @@ function refreshStatus(row) {
   })
 }
 
-// 绑定 AI 智能体
-const bindingDialogVisible = ref(false)
+const bindingDialogVisible = ref(false);
 const bindingAccountId = ref(0)
 const bindingAccountLabel = ref('')
 function openBindingDialog(row) {

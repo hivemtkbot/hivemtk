@@ -8,7 +8,6 @@ import (
 	"hivemtk-user/internal/cache"
 )
 
-// dmOutreachTestCleanup 清理全局缓存中的触达冷却 key（测试隔离）
 func dmOutreachTestCleanup(t *testing.T, accountID string, userID int64, groupID string) {
 	t.Helper()
 	ctx := context.Background()
@@ -51,7 +50,7 @@ func TestDMOutreachCooldown_FirstAllowed_SecondBlocked(t *testing.T) {
 // 第二次同 (账号,用户,群) 调用在冷却层被拦截
 func TestTriggerDMOutreach_DMKeySetOnFirstCall(t *testing.T) {
 	ctx := context.Background()
-	ws := &WebhookService{db: nil} // 无 tgIntegration 时发送阶段静默返回，但冷却 key 已落下
+	ws := &WebhookService{db: nil}
 	svc := NewTelegramDMOutreachService(ws)
 	const (
 		acc = "1"
@@ -61,7 +60,6 @@ func TestTriggerDMOutreach_DMKeySetOnFirstCall(t *testing.T) {
 	dmOutreachTestCleanup(t, acc, uid, gid)
 	defer dmOutreachTestCleanup(t, acc, uid, gid)
 
-	// 第一次触发（score=80 >= 阈值）：通过两层线索冷却 + 落下 DM 冷却 key
 	svc.TriggerDMOutreach(ctx, acc, uid, gid, "群", 80, true, "你好")
 
 	dmKey := fmt.Sprintf("mtk:tg:dm_outreach:%s:%d:%s", acc, uid, gid)
@@ -69,7 +67,6 @@ func TestTriggerDMOutreach_DMKeySetOnFirstCall(t *testing.T) {
 		t.Fatalf("首次触发后应存在 DM 冷却 key %s: %v", dmKey, err)
 	}
 
-	// 第二次触发：即使 score 更高也会在 dmOutreachCooldownAllowed 处被拦截
 	svc.TriggerDMOutreach(ctx, acc, uid, gid, "群", 95, true, "再来一条")
 
 	set, err := cache.GetGlobalCache().SetNX(ctx, dmKey, "1", tgDMOutreachCooldown)

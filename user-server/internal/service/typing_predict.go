@@ -14,12 +14,12 @@ import (
 
 // IntentPrediction 意图预测结果
 type IntentPrediction struct {
-	InputHash        string    `json:"input_hash"`         // 输入文字 hash（客户端去重用）
-	IntentType       string    `json:"intent_type"`        // 主意图
-	IntentSubtype    string    `json:"intent_subtype"`     // 子意图
-	Confidence       float64   `json:"confidence"`         // 置信度 0~1
-	SuggestedReplies []string  `json:"suggested_replies"`  // 建议回复（不自动发送）
-	Entities         []string  `json:"entities,omitempty"` // 抽取的实体
+	InputHash        string    `json:"input_hash"`
+	IntentType       string    `json:"intent_type"`
+	IntentSubtype    string    `json:"intent_subtype"`
+	Confidence       float64   `json:"confidence"`
+	SuggestedReplies []string  `json:"suggested_replies"`
+	Entities         []string  `json:"entities,omitempty"`
 	PredictedAt      time.Time `json:"predicted_at"`
 }
 
@@ -33,11 +33,10 @@ type IntentPrediction struct {
 //   - 预留接入点：接入已有的 intent_recognition service
 type TypingPredictService struct {
 	mu     sync.Mutex
-	cache  map[string]*IntentPrediction // inputHash → 最近结果（TTL 10s）
-	timers map[string]*time.Timer       // 清理计时器
+	cache  map[string]*IntentPrediction
+	timers map[string]*time.Timer
 }
 
-// 全局单例
 var (
 	globalTypingPredict *TypingPredictService
 	typingOnce          sync.Once
@@ -67,7 +66,6 @@ func (s *TypingPredictService) Predict(ctx context.Context, text, sessionID stri
 	}
 	h := inputHash(text)
 
-	// 防抖：500ms 内相同 hash 直接返回缓存
 	s.mu.Lock()
 	if cached, ok := s.cache[h]; ok {
 		s.mu.Unlock()
@@ -75,11 +73,8 @@ func (s *TypingPredictService) Predict(ctx context.Context, text, sessionID stri
 	}
 	s.mu.Unlock()
 
-	// --- 核心预测逻辑 ---
-	// 接入点：生产环境可替换为调用 intent_recognition service
 	pred := s.predictText(text)
 
-	// 缓存 10 秒
 	s.mu.Lock()
 	s.cache[h] = pred
 	if t, exists := s.timers[h]; exists {
@@ -98,15 +93,13 @@ func (s *TypingPredictService) Predict(ctx context.Context, text, sessionID stri
 	return pred, nil
 }
 
-// predictText 轻量启发式意图识别（占位实现）
-// 生产环境可替换为调用已有的 IntentRecognitionService
 func (s *TypingPredictService) predictText(text string) *IntentPrediction {
 	pred := &IntentPrediction{
 		InputHash:   inputHash(text),
 		PredictedAt: time.Now(),
 	}
 	lower := text
-	// 简单关键字匹配（快速通路，实际可替换为 LLM/embedding 调用）
+
 	switch {
 	case s.containsAny(lower, []string{"多少钱", "价格", "price", "贵不贵", "便宜"}):
 		pred.IntentType = "pricing"
@@ -159,7 +152,6 @@ func (s *TypingPredictService) predictText(text string) *IntentPrediction {
 	return pred
 }
 
-// containsAny 本地方法（避免与 package 级别已有的 containsAny 重名冲突）
 func (s *TypingPredictService) containsAny(text string, words []string) bool {
 	for _, w := range words {
 		if len(w) > 0 && len(text) >= len(w) && searchInString(text, w) {
@@ -180,7 +172,7 @@ func searchInString(s, sub string) bool {
 
 func inputHash(s string) string {
 	sum := sha256.Sum256([]byte(s))
-	return hex.EncodeToString(sum[:8]) // 只用前 8 字节做 hash，足够去重且短
+	return hex.EncodeToString(sum[:8])
 }
 
 // ToJSON 序列化为 JSON 字符串（用于 SSE data 字段）

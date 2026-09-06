@@ -16,10 +16,10 @@ import (
 // G15: 竞品标配功能 - 访客打字实时意图预测
 //
 // 工作模式：
-//   1) 前端打开 SSE 连接 GET /api/chat/typing-predict?session_id=xxx
-//   2) 前端每次用户输入（或 debounce 300ms 后）POST /api/chat/typing-predict/predict
-//      body: {"text": "用户正在输入的文字"}
-//   3) 后端计算意图预测 → 通过之前建立的 SSE 连接推送 "intent_prediction" 事件
+//  1. 前端打开 SSE 连接 GET /api/chat/typing-predict?session_id=xxx
+//  2. 前端每次用户输入（或 debounce 300ms 后）POST /api/chat/typing-predict/predict
+//     body: {"text": "用户正在输入的文字"}
+//  3. 后端计算意图预测 → 通过之前建立的 SSE 连接推送 "intent_prediction" 事件
 //
 // 这里实现为最简单的"每次 POST 后同步返回预测结果"模式，
 // 避免引入额外的 SSE hub / 连接管理复杂度（与既有 SSEHub 复用）。
@@ -79,11 +79,10 @@ func (c *TypingPredictController) SSEStream(ctx *gin.Context) {
 		return
 	}
 
-	// SSE 头
 	ctx.Header("Content-Type", "text/event-stream")
 	ctx.Header("Cache-Control", "no-cache")
 	ctx.Header("Connection", "keep-alive")
-	ctx.Header("X-Accel-Buffering", "no") // 禁用 反向代理层 缓冲
+	ctx.Header("X-Accel-Buffering", "no")
 
 	flusher, ok := ctx.Writer.(http.Flusher)
 	if !ok {
@@ -91,19 +90,17 @@ func (c *TypingPredictController) SSEStream(ctx *gin.Context) {
 		return
 	}
 
-	// 立即发送一次 connected 事件
 	fmt.Fprintf(ctx.Writer, "event: connected\ndata: {\"session_id\":\"%s\",\"timestamp\":%d}\n\n",
 		sessionID, time.Now().Unix())
 	flusher.Flush()
 
-	// 心跳循环（30s 间隔），同时监听客户端断开
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Request.Context().Done():
-			// 客户端断开
+
 			return
 		case <-ticker.C:
 			ping, _ := json.Marshal(map[string]any{

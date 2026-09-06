@@ -10,12 +10,7 @@
 </template>
 
 <script setup>
-/**
- * reachPipeline 可视化编辑器（USR-RC-06）
- * 共享 VueFlowCanvas 组件（USR-AI-01）
- * 节点：触发器 / 渠道 / 延时 / 分支 / A-B / AI 生成
- */
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import VueFlowCanvas from '@/components/VueFlowCanvas.vue'

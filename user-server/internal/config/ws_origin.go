@@ -1,6 +1,5 @@
 package config
 
-
 import (
 	"os"
 	"strings"
@@ -31,7 +30,6 @@ type WSCORSConfig struct {
 	AllowedOrigins []string `yaml:"allowed_ws_origins" json:"allowed_ws_origins"`
 }
 
-// allowedWSOriginsCache 缓存解析结果 (config 启动时加载一次, 不重复解析 yaml)
 var allowedWSOriginsCache []string
 var allowedWSOriginsLoaded bool
 
@@ -72,16 +70,13 @@ func GetAllowedWSOrigins() []string {
 	return append([]string{}, DefaultAllowedWSOrigins...)
 }
 
-// loadAllowedWSOriginsFromYAML 从 config.yaml 加载 WebSocket 白名单
-//
-// 失败策略: 任何错误都回退到 DefaultAllowedWSOrigins, 不影响启动。
 func loadAllowedWSOriginsFromYAML() []string {
 	data, err := os.ReadFile("config.yaml")
 	if err != nil {
 		return nil
 	}
 	expanded := os.ExpandEnv(string(data))
-	// 提取 platform.allowed_ws_origins 字段
+
 	var cfg struct {
 		Platform WSCORSConfig `yaml:"platform"`
 	}
@@ -100,4 +95,3 @@ func ReloadAllowedWSOrigins() {
 	allowedWSOriginsLoaded = false
 	allowedWSOriginsCache = nil
 }
-

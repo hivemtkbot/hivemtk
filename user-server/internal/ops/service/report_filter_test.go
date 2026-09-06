@@ -17,7 +17,7 @@ func TestBuildReportFilterSQL_Valid(t *testing.T) {
 }
 
 func TestBuildReportFilterSQL_SQLInjectionFieldRejected(t *testing.T) {
-	// 字段不在白名单 → 跳过（不拼进 SQL）
+
 	filters := `[{"field":"status; DROP TABLE users; --","operator":"eq","value":"x"}]`
 	conds, _ := BuildReportFilterSQL("sessions", filters)
 	if len(conds) != 0 {
@@ -68,7 +68,7 @@ func TestNormalizeFilterValue_Strings(t *testing.T) {
 	if v := normalizeFilterValue("abc"); v != "abc" {
 		t.Fatalf("alpha string must stay string, got %v", v)
 	}
-	// 负数/带小数/带空格不转数字
+
 	for _, s := range []string{"-5", "1.5", "1 2"} {
 		if v := normalizeFilterValue(s); v != s {
 			t.Fatalf("%q should stay string, got %v", s, v)

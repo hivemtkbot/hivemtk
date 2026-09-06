@@ -19,10 +19,10 @@ import (
 type RAGTier string
 
 const (
-	TierL1HotCache  RAGTier = "L1_hot_cache"  
-	TierL2WarmIndex RAGTier = "L2_warm_index" 
-	TierL3ColdIndex RAGTier = "L3_cold_index" 
-	TierL4Keyword   RAGTier = "L4_keyword"    
+	TierL1HotCache  RAGTier = "L1_hot_cache"
+	TierL2WarmIndex RAGTier = "L2_warm_index"
+	TierL3ColdIndex RAGTier = "L3_cold_index"
+	TierL4Keyword   RAGTier = "L4_keyword"
 )
 
 // RAGThreeTierService 三级 RAG 检索服务
@@ -58,10 +58,10 @@ type TierStats struct {
 // TierSearchResult 三级检索的统一结果
 type TierSearchResult struct {
 	Query     string         `json:"query"`
-	Answer    string         `json:"answer,omitempty"` 
-	Chunks    []Chunk        `json:"chunks"`           
-	Source    RAGTier        `json:"source"`           
-	Score     float64        `json:"score"`            
+	Answer    string         `json:"answer,omitempty"`
+	Chunks    []Chunk        `json:"chunks"`
+	Source    RAGTier        `json:"source"`
+	Score     float64        `json:"score"`
 	LatencyMs int64          `json:"latency_ms"`
 	Metadata  map[string]any `json:"metadata,omitempty"`
 	FromCache bool           `json:"from_cache"`
@@ -315,4 +315,3 @@ func (s *RAGThreeTierService) DecodeResult(b []byte) (*TierSearchResult, error) 
 	}
 	return &r, nil
 }
-

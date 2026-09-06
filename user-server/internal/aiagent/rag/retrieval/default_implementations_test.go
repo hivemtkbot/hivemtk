@@ -119,4 +119,3 @@ func TestNewProductionRagRetrievalService(t *testing.T) {
 	assert.NotNil(t, svc)
 	assert.Equal(t, 5, svc.config.DefaultTopK)
 }
-

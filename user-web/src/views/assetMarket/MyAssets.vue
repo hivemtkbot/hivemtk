@@ -135,8 +135,7 @@ import {
   reportUsage
 } from '@/api/assetMarket'
 import { ElMessage, ElMessageBox } from 'element-plus'
-// 统一枚举：系统级来源/启用状态
-import { getSourceLabel, getSourceTagType } from '@/constants/source'
+import { getSourceLabel, getSourceTagType } from '@/constants/source';
 import { getEnabledTagType } from '@/constants/enabled'
 import { INDUSTRY_VALUES } from '@/constants/industry'
 

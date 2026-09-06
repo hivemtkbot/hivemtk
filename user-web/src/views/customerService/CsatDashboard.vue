@@ -76,10 +76,7 @@
 </template>
 
 <script setup>
-/**
- * CSAT 看板（USR-WB-05）
- */
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue';
 import { getCSATStats, getCSATTrend, getNegativeCSAT } from '@/api/csat'
 import * as echarts from 'echarts'
 import { safeInit } from '@/utils/echarts'
@@ -138,8 +135,7 @@ function renderDist(data) {
 }
 
 function viewSession(row) {
-  // 跳到会话详情
-  window.open(`/customerSession/list?session_id=${row.sessionId}`, '_blank')
+  window.open(`/customerSession/list?session_id=${row.sessionId}`, '_blank');
 }
 
 onMounted(load)

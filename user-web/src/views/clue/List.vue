@@ -1,6 +1,6 @@
 <template>
   <div class="clue-list-page">
-    <!-- 页面标题与操作区 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="page-header">
         <div class="header-text">
@@ -20,7 +20,7 @@
       </div>
     </el-card>
 
-    <!-- 统计指标 -->
+    
     <el-row :gutter="16" class="stats-row">
       <el-col :xs="12" :sm="6">
         <el-card class="stat-card" shadow="never">
@@ -48,7 +48,7 @@
       </el-col>
     </el-row>
 
-    <!-- 筛选区 -->
+    
     <el-card class="filter-card" shadow="never">
       <el-form :inline="true" :model="filterForm" class="filter-form">
         <el-form-item label="关键字">
@@ -93,7 +93,7 @@
       </el-form>
     </el-card>
 
-    <!-- 表格 -->
+    
     <el-card class="table-card" shadow="never">
       <el-table
         :data="filteredList"
@@ -155,7 +155,7 @@
       </div>
     </el-card>
 
-    <!-- 导入对话框 -->
+    
     <el-dialog v-model="importDialogVisible" :title="$t('导入线索')" width="600px">
       <el-form ref="importFormRef" :model="importForm" label-width="80px">
         <el-form-item :label="$t('线索类型')" prop="type">
@@ -180,7 +180,7 @@
       </template>
     </el-dialog>
 
-    <!-- 详情对话框 -->
+    
     <el-dialog v-model="detailVisible" title="线索详情" width="640px">
       <el-descriptions v-if="current" :column="2" border>
         <el-descriptions-item label="ID">{{ current.id }}</el-descriptions-item>
@@ -206,11 +206,9 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, RefreshRight, Upload } from '@element-plus/icons-vue'
 import { clueApi } from '@/api/clue'
 import { getChannelLabel, getChannelTagType } from '@/constants/channel'
-// 线索类型：取自统一 cardPlatform 常量
-import { getClueTypeLabel, CLUE_TYPE_OPTIONS } from '@/constants/cardPlatform'
+import { getClueTypeLabel, CLUE_TYPE_OPTIONS } from '@/constants/cardPlatform';
 
-// 列表数据
-const cluelist = ref([])
+const cluelist = ref([]);
 const cluetotal = ref(0)
 const cluepage = ref(1)
 const cluelimit = ref(10)
@@ -218,15 +216,13 @@ const loading = ref(false)
 const clueTypeMap = ref(CLUE_TYPE_OPTIONS.slice())
 const stats = ref({ total: 0, verified: 0, unverified: 0, today: 0 })
 
-// 筛选
 const filterForm = reactive({
   keyword: '',
   type: '',
   verified: ''
-})
+});
 const dateRange = ref([])
 
-// 过滤后的本地列表（关键字/类型/验证/时间）
 const filteredList = computed(() => {
   let arr = cluelist.value.slice()
   const k = (filterForm.keyword || '').trim().toLowerCase()
@@ -253,7 +249,7 @@ const filteredList = computed(() => {
     })
   }
   return arr
-})
+});
 
 const getClueType = (type) => getClueTypeLabel(type)
 
@@ -341,12 +337,10 @@ const editClue = (row) => {
   ElMessage.info(i18n.global.t('编辑线索：') + (row.name || row.id))
 }
 
-// 详情对话框
-const detailVisible = ref(false)
+const detailVisible = ref(false);
 const current = ref(null)
 
-// 导入
-const importDialogVisible = ref(false)
+const importDialogVisible = ref(false);
 const importForm = ref({ type: '', content: '' })
 const importFormRef = ref()
 
@@ -404,7 +398,6 @@ const handleTypeChange = (value) => {
   importForm.value.type = String(value)
 }
 
-// 时间格式化
 const formatTime = (val) => {
   if (!val) return '-'
   try {
@@ -415,7 +408,7 @@ const formatTime = (val) => {
   } catch (e) {
     return val
   }
-}
+};
 
 onMounted(() => {
   fetchCluelist()

@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"time"
 
+	"hivemtk-user/internal/model"
 	opssvc "hivemtk-user/internal/ops/service"
 	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/utils/response"
-	"hivemtk-user/internal/model"
 	"hivemtk-user/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -57,8 +57,6 @@ func (c *MarketingFlowSyncController) SyncABResults(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"synced": true, "experiment_id": experiment.ID, "results": results}, "实验结果已回流")
 }
-
-// ---------- 批量事件上报（journeyTracker.js） ----------
 
 // CustomerEventBatchController 批量事件控制器
 type CustomerEventBatchController struct {
@@ -123,8 +121,6 @@ func eventTypeOf(name string) model.EventType {
 	return model.EventType(name)
 }
 
-// ---------- Web Vitals 上报（web-vitals.js sendBeacon） ----------
-
 // WebVitalsController 控制器
 type WebVitalsController struct {
 	svc *opssvc.WebVitalService
@@ -138,14 +134,14 @@ func NewWebVitalsController() *WebVitalsController {
 // Report POST /api/monitor/web-vitals
 func (c *WebVitalsController) Report(ctx *gin.Context) {
 	var req struct {
-		Name       string  `json:"name" binding:"required"`
-		Value      float64 `json:"value"`
-		Rating     string  `json:"rating"`
-		Page       string  `json:"page"`
-		ID         string  `json:"id"`
-		SessionID  string  `json:"session_id"`
-		TS         int64   `json:"ts"`
-		UA         string  `json:"ua"`
+		Name      string  `json:"name" binding:"required"`
+		Value     float64 `json:"value"`
+		Rating    string  `json:"rating"`
+		Page      string  `json:"page"`
+		ID        string  `json:"id"`
+		SessionID string  `json:"session_id"`
+		TS        int64   `json:"ts"`
+		UA        string  `json:"ua"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误："+err.Error())

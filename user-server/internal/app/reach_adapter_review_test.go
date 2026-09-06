@@ -83,7 +83,7 @@ func TestParseInt64(t *testing.T) {
 
 // TestIntegrationReachAdapter_SentinelErrors 验证 IntegrationReachAdapter 返回 sentinel error
 func TestIntegrationReachAdapter_SentinelErrors(t *testing.T) {
-	a := &IntegrationReachAdapter{} 
+	a := &IntegrationReachAdapter{}
 	_, err := a.SendTelegram(nil, "1", "123", "x")
 	if !errors.Is(err, ErrIntegrationServiceNotConfigured) {
 		t.Errorf("SendTelegram 应返回 ErrIntegrationServiceNotConfigured, got %v", err)
@@ -135,4 +135,3 @@ func TestNewIntegrationReachAdapterFromDB_NilDB(t *testing.T) {
 		t.Error("nil db 时所有 IntegrationService 应为 nil")
 	}
 }
-

@@ -1,6 +1,6 @@
 <template>
   <div class="domain-pool-container">
-    <!-- 页面标题和操作按钮 -->
+    
     <div class="page-header">
       <h2>{{ $t('域名池管理') }}</h2>
       <div class="action-buttons">
@@ -15,7 +15,7 @@
       </div>
     </div>
 
-    <!-- 搜索表单 -->
+    
     <div class="search-form">
       <el-form :inline="true" :model="searchForm" class="search-form-content">
         <el-form-item :label="$t('域名')">
@@ -40,7 +40,7 @@
       </el-form>
     </div>
 
-    <!-- 域名列表 -->
+    
     <el-table :data="domainList" border style="width: 100%" v-loading="loading">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="domain" :label="$t('域名')" min-width="200" />
@@ -70,7 +70,7 @@
       </el-table-column>
     </el-table>
 
-    <!-- 分页 -->
+    
     <div class="pagination-container">
       <el-pagination
         v-model:current-page="pagination.page"
@@ -83,7 +83,7 @@
       />
     </div>
 
-    <!-- 添加/编辑对话框 -->
+    
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
@@ -132,8 +132,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search, RefreshRight } from '@element-plus/icons-vue'
 import { domainPoolApi } from '@/api/domainPool'
 
-// 响应式数据
-const loading = ref(false)
+const loading = ref(false);
 const checkingAll = ref(false)
 const domainList = ref([])
 const dialogVisible = ref(false)
@@ -141,29 +140,25 @@ const submitting = ref(false)
 const isEdit = ref(false)
 const formRef = ref(null)
 
-// 搜索表单
 const searchForm = reactive({
   domain: '',
   status: ''
-})
+});
 
-// 分页
 const pagination = reactive({
   page: 1,
   pageSize: 10,
   total: 0
-})
+});
 
-// 表单
 const form = reactive({
   id: null,
   domain: '',
   port: 80,
   purpose: '',
   status: 1
-})
+});
 
-// 表单验证规则
 const rules = {
   domain: [
     { required: true, message: i18n.global.t('请输入域名'), trigger: 'blur' },
@@ -173,19 +168,16 @@ const rules = {
     { required: true, message: i18n.global.t('请输入端口'), trigger: 'blur' },
     { type: 'number', min: 1, max: 65535, message: i18n.global.t('端口范围1-65535'), trigger: 'blur' }
   ]
-}
+};
 
-// 计算属性
 const dialogTitle = computed(() => {
   return isEdit.value ? '编辑域名' : '添加域名'
-})
+});
 
-// 生命周期
 onMounted(() => {
   fetchDomainList()
-})
+});
 
-// 方法
 const fetchDomainList = async () => {
   loading.value = true
   try {
@@ -204,7 +196,7 @@ const fetchDomainList = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
 const handleSearch = () => {
   pagination.page = 1
@@ -264,18 +256,17 @@ const handleDelete = (row) => {
       console.error(error)
     }
   }).catch((e) => {
-    if (e !== 'cancel' && e !== 'close') throw e // R47
+    if (e !== 'cancel' && e !== 'close')
+      throw e;
   })
 }
 
 const handleCheck = async (row) => {
-  // 添加检查中状态
-  row.checking = true
+  row.checking = true;
   try {
     const res = await domainPoolApi.checkDomain(row.id)
     ElMessage.success(`检查完成：${res.msg || 'OK'}`)
-    // 刷新列表
-    fetchDomainList()
+    fetchDomainList();
   } catch (error) {
     ElMessage.error(i18n.global.t('检查失败'))
     console.error(error)
@@ -289,8 +280,7 @@ const handleCheckAll = async () => {
   try {
     await domainPoolApi.checkAllDomains()
     ElMessage.success(i18n.global.t('检查完成'))
-    // 刷新列表
-    fetchDomainList()
+    fetchDomainList();
   } catch (error) {
     ElMessage.error(i18n.global.t('检查失败'))
     console.error(error)

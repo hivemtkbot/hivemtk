@@ -271,8 +271,6 @@ func (s *FeatureFlagService) CodeReferences(ctx context.Context, flagKey string)
 	return out
 }
 
-// ---------- 内部 ----------
-
 func (s *FeatureFlagService) auditAsync(ctx context.Context, f *model.FeatureFlag, action string, actorID uint, detail string) {
 	a := &model.FeatureFlagAuditLog{
 		FlagID:  f.ID,
@@ -316,7 +314,6 @@ func (s *FeatureFlagService) logEvalAsync(key string, attributes map[string]any,
 	}()
 }
 
-// contextIDFromAttributes 评估上下文锚点：user_id > one_id > anonymous
 func contextIDFromAttributes(attributes map[string]any) string {
 	for _, k := range []string{"user_id", "userId", "one_id", "oneId"} {
 		if v, ok := attributes[k]; ok {
@@ -328,14 +325,12 @@ func contextIDFromAttributes(attributes map[string]any) string {
 	return "anonymous"
 }
 
-// flagBucketHash FNV-1a(key:contextID)（与 ScriptAB/AB 实验同款确定性哈希）
 func flagBucketHash(key, contextID string) uint32 {
 	h := fnv.New32a()
 	_, _ = h.Write([]byte(key + ":" + contextID))
 	return h.Sum32()
 }
 
-// jsonRawValue payload JSON 字符串 → any（解析失败回退原字符串）
 func jsonRawValue(payload string) any {
 	var parsed any
 	if err := json.Unmarshal([]byte(payload), &parsed); err == nil {
@@ -343,8 +338,6 @@ func jsonRawValue(payload string) any {
 	}
 	return payload
 }
-
-// ---------- R40: 代码引用登记（Code References） ----------
 
 // FlagCodeRef 代码引用条目
 type FlagCodeRef struct {

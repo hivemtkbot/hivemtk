@@ -60,7 +60,6 @@ var validOperators = map[string]bool{
 	"gt": true, "ge": true, "lt": true, "le": true, "eq": true, "ne": true,
 }
 
-// validate 校验规则
 func validateRule(req *AlertRuleRequest) error {
 	if strings.TrimSpace(req.Name) == "" {
 		return fmt.Errorf("%w: name 必填", ErrAlertRuleInvalid)

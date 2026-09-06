@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"fmt"
@@ -11,8 +10,8 @@ import (
 type HyDEGenerator struct {
 	chatClient   LLMChatClient
 	enabled      bool
-	maxDocTokens int 
-	minDocLength int 
+	maxDocTokens int
+	minDocLength int
 }
 
 // HyDEGeneratorConfig HyDE 配置
@@ -82,7 +81,7 @@ func (g *HyDEGenerator) Generate(ctx context.Context, query string) (string, err
 假设性答案文档:`, g.maxDocTokens, query)
 
 	resp, err := g.chatClient.Chat(ctx, prompt, LLMChatOptions{
-		Temperature: 0.3, 
+		Temperature: 0.3,
 		MaxTokens:   g.maxDocTokens * 2,
 	})
 	if err != nil {
@@ -94,4 +93,3 @@ func (g *HyDEGenerator) Generate(ctx context.Context, query string) (string, err
 	}
 	return hydeDoc, nil
 }
-

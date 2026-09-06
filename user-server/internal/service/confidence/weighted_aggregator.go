@@ -71,7 +71,6 @@ func (a *WeightedAggregator) Weights() SignalWeights {
 	return a.weights
 }
 
-// normalizeWeights 归一化权重
 func normalizeWeights(w *SignalWeights) {
 	sum := w.IntentConf + w.EntityComp + w.CtxRelev + w.RAGQual + w.LLMEntropy
 	if sum > 0 {

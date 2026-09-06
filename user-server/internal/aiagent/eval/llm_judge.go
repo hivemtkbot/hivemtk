@@ -8,7 +8,6 @@ import (
 	"strings"
 )
 
-
 // LLMJudge LLM 评分器接口。
 type LLMJudge interface {
 	Judge(ctx context.Context, req JudgeRequest) (*JudgeResult, error)
@@ -16,19 +15,19 @@ type LLMJudge interface {
 
 // JudgeRequest 评分请求。
 type JudgeRequest struct {
-	Query      string   
-	Reference  string   
-	Candidate  string   
-	TargetLang string   
-	Criteria   []string 
+	Query      string
+	Reference  string
+	Candidate  string
+	TargetLang string
+	Criteria   []string
 }
 
 // JudgeResult 评分结果。
 type JudgeResult struct {
-	OverallScore    float64            
-	DimensionScores map[string]float64 
-	Explanation     string             
-	Issues          []string           
+	OverallScore    float64
+	DimensionScores map[string]float64
+	Explanation     string
+	Issues          []string
 }
 
 // LLMServiceInterface LLM 服务接口。
@@ -93,10 +92,6 @@ func (j *DefaultLLMJudge) Judge(ctx context.Context, req JudgeRequest) (*JudgeRe
 	return j.parseJudgeResult(resp)
 }
 
-// buildJudgePrompt 构造评分 prompt。
-//
-// 要求 LLM 仅返回 JSON 对象（无 markdown / 无额外解释），
-// 便于后续 parseJudgeResult 解析。
 func (j *DefaultLLMJudge) buildJudgePrompt(req JudgeRequest) string {
 	reference := req.Reference
 	if reference == "" {
@@ -123,12 +118,6 @@ Return ONLY a JSON object (no markdown, no explanation outside JSON):
 }`, req.TargetLang, req.Query, reference, req.Candidate)
 }
 
-// parseJudgeResult 解析 LLM 返回的 JSON 评分结果。
-//
-// 容错策略：
-//   - LLM 可能返回带 markdown 代码块（```json ... ```）的内容，extractJSON 负责提取
-//   - overall_score 若 > 1（某些 LLM 用 0-100 打分）自动除以 100 归一化
-//   - 解析失败返回原始错误，不 panic
 func (j *DefaultLLMJudge) parseJudgeResult(resp string) (*JudgeResult, error) {
 	if strings.TrimSpace(resp) == "" {
 		return nil, errors.New("llm judge: empty response")
@@ -167,10 +156,6 @@ func (j *DefaultLLMJudge) parseJudgeResult(resp string) (*JudgeResult, error) {
 	}, nil
 }
 
-// extractJSON 从可能包含 markdown 代码块或额外文本的字符串中提取首个
-// 完整的 JSON 对象（{ ... }）。
-//
-// 处理嵌套大括号与字符串内的转义字符。未找到返回空串。
 func extractJSON(s string) string {
 	start := strings.Index(s, "{")
 	if start < 0 {
@@ -207,4 +192,3 @@ func extractJSON(s string) string {
 	}
 	return ""
 }
-

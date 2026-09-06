@@ -1,6 +1,5 @@
 import { http } from '@/utils/request';
 
-// 集成管理 - 匹配后端 /api/integrations/* 路径
 export function getIntegrationAccountList(params) {
   return http.get('/api/integrations', params)
 }
@@ -38,7 +37,6 @@ export function getExternalProducts() {
   return http.get('/api/integration/external-products')
 }
 
-// 兼容旧接口
 export function getIntegrations(params) {
   return getIntegrationAccountList(params)
 }

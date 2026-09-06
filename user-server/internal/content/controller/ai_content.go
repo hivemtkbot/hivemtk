@@ -329,7 +329,6 @@ func (c *AIContentController) GetTemplateTypes(ctx *gin.Context) {
 	response.Success(ctx, types, "获取成功")
 }
 
-// Helper function
 func convertToUint(v any) uint {
 	switch val := v.(type) {
 	case uint:
@@ -344,4 +343,3 @@ func convertToUint(v any) uint {
 		return 0
 	}
 }
-

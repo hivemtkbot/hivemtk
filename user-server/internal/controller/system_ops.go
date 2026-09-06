@@ -34,7 +34,6 @@ func NewSystemOpsController() *SystemOpsController {
 	}
 }
 
-// currentUserID 从 gin 上下文读取用户 ID，缺失时默认 0（兼容无鉴权中间件环境）
 func currentUserID(ctx *gin.Context) uint {
 	if v, ok := ctx.Get("user_id"); ok {
 		if uid, ok2 := v.(uint); ok2 {
@@ -84,7 +83,6 @@ func (c *SystemOpsController) GetSystemLogs(ctx *gin.Context) {
 	}, "获取成功")
 }
 
-// defaultLogPath 返回默认日志文件绝对路径
 func defaultLogPath() string {
 	abs, err := filepath.Abs(filepath.Join("logs", "app.log"))
 	if err != nil {
@@ -165,8 +163,6 @@ func (c *SystemOpsController) RestoreBackup(ctx *gin.Context) {
 	response.Success(ctx, record, "创建恢复任务成功")
 }
 
-// resolveLogPath 解析并校验日志路径，防止路径遍历攻击。
-// 仅允许：绝对路径位于白名单日志目录，或相对路径以 logs/ 开头。
 func resolveLogPath(p string) (string, error) {
 	if strings.TrimSpace(p) == "" {
 		return "", fmt.Errorf("路径为空")
@@ -198,4 +194,3 @@ func resolveLogPath(p string) (string, error) {
 	}
 	return abs, nil
 }
-

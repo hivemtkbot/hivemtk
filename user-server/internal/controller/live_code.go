@@ -279,7 +279,6 @@ func (c *LiveCodeController) RenderLiveCodePage(ctx *gin.Context) {
 func (c *LiveCodeController) RecordClick(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 
-	// 获取请求数据
 	var req struct {
 		UserAgent string `json:"user_agent"`
 		Referrer  string `json:"referrer"`
@@ -341,4 +340,3 @@ func (c *LiveCodeController) UpdateLiveCodeQR(ctx *gin.Context) {
 
 	response.Success(ctx, nil, "更新成功")
 }
-

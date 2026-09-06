@@ -47,9 +47,6 @@ type CreateAssetInput struct {
 	Data      json.RawMessage `json:"data"`
 }
 
-// platformNameIntoData 把平台 payload 顶层的 name 合并进 data 对象。
-// 平台侧约定 name 位于 payload 顶层、data 仅含类型内容；而本地校验与前端自建
-// 资产均要求 data 含 name。这里做一次归一化，避免购买/同步时校验失败。
 func platformNameIntoData(raw json.RawMessage, name string) json.RawMessage {
 	if name == "" {
 		return raw
@@ -300,7 +297,6 @@ func (s *LocalAssetService) LoadOne(ctx context.Context, assetID string) (*model
 	return la, lad.Data, nil
 }
 
-// reportingInFlight 防止并发重复上报同一资产（避免平台重复计数）。
 var reportingInFlight sync.Map
 
 // ReportUsage 将本地累计的使用次数回传平台（闭环：本地使用 → 平台统计）。
@@ -322,7 +318,6 @@ func (s *LocalAssetService) ReportUsage(ctx context.Context, assetID string) err
 	return s.assetRepo.SetReportedUseCount(ctx, la.ID, la.UseCount)
 }
 
-// reportUsageAsync 后台 best-effort 上报，避免阻塞运行时主流程。
 func (s *LocalAssetService) reportUsageAsync(assetID string) {
 	if _, loaded := reportingInFlight.LoadOrStore(assetID, true); loaded {
 		return

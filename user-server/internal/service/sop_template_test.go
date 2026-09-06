@@ -246,9 +246,6 @@ func TestSOPTemplate_filterWhitelistVars_DoesNotMutate(t *testing.T) {
 	}
 }
 
-// mockSOPRepoForTask16 专用于 Task 16 的 mock 实现
-//
-// 实现 sopRepoIface 接口, 用于 MatchByAgent / Create / WarmupCache 等测试。
 type mockSOPRepoForTask16 struct {
 	byAgent         map[uint][]model.SOPTemplate
 	listByAgentErr  error
@@ -293,7 +290,6 @@ func (m *mockSOPRepoForTask16) MatchByIntentStage(ctx context.Context, intent, s
 	return nil, nil
 }
 
-// MatchByAgent 严格 1:1: 仅返回 agent_id == agentID 的 tpls
 func (m *mockSOPRepoForTask16) MatchByAgent(ctx context.Context, agentID uint, intent, stage string) ([]model.SOPTemplate, error) {
 	m.matchCalls = append(m.matchCalls, struct {
 		AgentID uint
@@ -353,7 +349,6 @@ func (m *mockSOPRepoForTask16) Delete(ctx context.Context, id uint) error {
 	return nil
 }
 
-// mockSOPBindingRepoForTask16 专用于 Task 16 的 binding mock
 type mockSOPBindingRepoForTask16 struct{}
 
 func (m *mockSOPBindingRepoForTask16) ListByAgent(ctx context.Context, agentID uint, kbType string) ([]model.AgentKBBinding, error) {

@@ -16,11 +16,7 @@
 </template>
 
 <script setup>
-/**
- * Cohort + Path 分析（USR-AN-02）
- * 借鉴：Mixpanel Cohort / Path
- */
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue';
 import * as echarts from 'echarts'
 import { safeInit } from '@/utils/echarts'
 import { http } from '@/utils/request'

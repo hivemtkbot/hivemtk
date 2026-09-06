@@ -20,7 +20,6 @@ type LiveCodeRepository interface {
 	IncrementClicks(ctx context.Context, id string) error
 }
 
-// liveCodeRepository 活码仓储实现
 type liveCodeRepository struct {
 	db *gorm.DB
 }
@@ -30,22 +29,18 @@ func NewLiveCodeRepository(db *gorm.DB) LiveCodeRepository {
 	return &liveCodeRepository{db: db}
 }
 
-// Create 创建活码
 func (r *liveCodeRepository) Create(ctx context.Context, liveCode *model.LiveCode) error {
 	return r.db.Create(liveCode).Error
 }
 
-// Update 更新活码
 func (r *liveCodeRepository) Update(ctx context.Context, liveCode *model.LiveCode) error {
 	return r.db.Save(liveCode).Error
 }
 
-// Delete 删除活码
 func (r *liveCodeRepository) Delete(ctx context.Context, id string) error {
 	return r.db.Where("id = ?", id).Delete(&model.LiveCode{}).Error
 }
 
-// GetAvailableLiveCodes 获取可用的活码（用于轮询）
 func (r *liveCodeRepository) GetAvailableLiveCodes(ctx context.Context) ([]*model.LiveCode, error) {
 	var liveCodes []*model.LiveCode
 	now := time.Now()
@@ -55,8 +50,6 @@ func (r *liveCodeRepository) GetAvailableLiveCodes(ctx context.Context) ([]*mode
 	return liveCodes, err
 }
 
-// IncrementClicks 原子累加活码点击次数（total_clicks/daily_clicks 各 +1）。
-// 使用数据库侧的 UPDATE ... SET col = col + 1，避免「读-改-写」在并发扫码时丢计数（lost-update）。
 func (r *liveCodeRepository) IncrementClicks(ctx context.Context, id string) error {
 	return r.db.Model(&model.LiveCode{}).
 		Where("id = ?", id).
@@ -66,7 +59,6 @@ func (r *liveCodeRepository) IncrementClicks(ctx context.Context, id string) err
 		}).Error
 }
 
-// GetByID 根据ID获取活码
 func (r *liveCodeRepository) GetByID(ctx context.Context, id string) (*model.LiveCode, error) {
 	var liveCode model.LiveCode
 	err := r.db.Where("id = ?", id).First(&liveCode).Error
@@ -98,7 +90,6 @@ func (r *liveCodeRepository) GetByID(ctx context.Context, id string) (*model.Liv
 	return &liveCode, nil
 }
 
-// GetByShortLink 根据短链获取活码
 func (r *liveCodeRepository) GetByShortLink(ctx context.Context, shortLink string) (*model.LiveCode, error) {
 	var liveCode model.LiveCode
 	err := r.db.Where("short_link = ?", shortLink).First(&liveCode).Error
@@ -130,7 +121,6 @@ func (r *liveCodeRepository) GetByShortLink(ctx context.Context, shortLink strin
 	return &liveCode, nil
 }
 
-// GetList 获取活码列表
 func (r *liveCodeRepository) GetList(ctx context.Context, page, pageSize int, name, status string) ([]*model.LiveCode, int64, error) {
 	var liveCodes []*model.LiveCode
 	var total int64

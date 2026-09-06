@@ -8,8 +8,8 @@ import (
 
 	"hivemtk-user/internal/aiagent/knowledge/model"
 	"hivemtk-user/internal/aiagent/knowledge/service"
-	"hivemtk-user/internal/pkg/utils/response"
 	sysmodel "hivemtk-user/internal/model"
+	"hivemtk-user/internal/pkg/utils/response"
 
 	"github.com/gin-gonic/gin"
 )
@@ -303,7 +303,6 @@ func (ctrl *RagConfigController) QueryRAG(c *gin.Context) {
 	response.Success(c, queryResponse, "RAG query completed successfully")
 }
 
-// respondWithFallback 当真实 RAG 服务不可用时,使用产品系统提示词生成兜底回复
 func (ctrl *RagConfigController) respondWithFallback(c *gin.Context, product *model.RagProduct, req RAGQueryRequest) {
 	answer := product.SystemPrompt
 	if answer == "" {
@@ -325,4 +324,3 @@ func (ctrl *RagConfigController) respondWithFallback(c *gin.Context, product *mo
 	}
 	response.Success(c, queryResponse, "RAG query completed with fallback")
 }
-

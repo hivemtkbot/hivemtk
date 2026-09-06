@@ -39,7 +39,7 @@ const loading = ref(false)
 const load = async () => {
   loading.value = true
   try {
-    report.value = await getGeoDecisionReport() || {}
+    report.value = (await getGeoDecisionReport()) || {}
     tasks.value = toList(await getGeoGapTasks(50))
   } finally { loading.value = false }
 }

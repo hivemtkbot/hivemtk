@@ -12,7 +12,6 @@ import (
 	i18npkg "hivemtk-user/internal/pkg/i18n"
 )
 
-// mockChannelReader 可配置返回结果或错误。
 type mockChannelReader struct {
 	ch  *model.ChatChannel
 	err error
@@ -25,7 +24,6 @@ func (m *mockChannelReader) GetByChannelID(_ context.Context, _ string) (*model.
 	return m.ch, nil
 }
 
-// mockAgentReader 可配置返回结果或错误。
 type mockAgentReader struct {
 	ag  *model.AIAgent
 	err error
@@ -38,7 +36,6 @@ func (m *mockAgentReader) GetByID(_ context.Context, _ uint) (*model.AIAgent, er
 	return m.ag, nil
 }
 
-// errSentinel 测试用哨兵错误。
 var errSentinel = errors.New("mock repo error")
 
 // TestResolve_ChannelPriority 渠道优先级最高

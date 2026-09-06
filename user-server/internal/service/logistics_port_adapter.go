@@ -16,7 +16,6 @@ func NewLogisticsPortAdapter(order portcontract.OrderPort) *LogisticsPortAdapter
 	return &LogisticsPortAdapter{order: order}
 }
 
-// resolveCourier 按需从数据库读取物流集成配置，构造实时快递客户端（未启用/未配置返回 nil）。
 func (a *LogisticsPortAdapter) resolveCourier(ctx context.Context) *CourierClient {
 	cfg, err := LoadToolIntegrationConfig(ctx)
 	if err != nil || cfg == nil || !cfg.Logistics.Enabled || cfg.Logistics.BaseURL == "" {

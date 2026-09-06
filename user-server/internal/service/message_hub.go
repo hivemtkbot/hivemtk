@@ -38,7 +38,6 @@ var (
 	ErrMessageHubPartitionMismatch = errors.New("partition mismatch")
 )
 
-// 支持的平台白名单
 var messageHubPlatforms = map[string]bool{
 	"wecom":       true,
 	"personal_wx": true,
@@ -54,7 +53,6 @@ var messageHubPlatforms = map[string]bool{
 	"feishu":      true,
 }
 
-// 支持的消息类型
 var messageHubMsgTypes = map[string]bool{
 	"text":     true,
 	"image":    true,
@@ -66,7 +64,6 @@ var messageHubMsgTypes = map[string]bool{
 	"location": true,
 }
 
-// 支持的方向
 var messageHubDirections = map[string]bool{
 	"inbound":  true,
 	"outbound": true,
@@ -116,7 +113,6 @@ type MessageHubService struct {
 	subMu       sync.RWMutex
 }
 
-// hubStream 内存流（Redis 不可用时降级）
 type hubStream struct {
 	mu        sync.Mutex
 	cond      *sync.Cond
@@ -415,12 +411,10 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 	}, nil
 }
 
-// partitionKey 分区键
 func (s *MessageHubService) partitionKey(ctx context.Context, platform, accountID string) string {
 	return platform + ":" + accountID
 }
 
-// enqueue 入队（按 platform+account_id 分区保证顺序）
 func (s *MessageHubService) enqueue(ctx context.Context, msg *model.MessageHub) error {
 	key := s.partitionKey(ctx, msg.Platform, msg.AccountID)
 	s.mu.Lock()
@@ -477,7 +471,6 @@ func (s *MessageHubService) Consume(ctx context.Context, platform, accountID str
 	}
 }
 
-// consumeFromStream 从已存在的 stream 消费一条
 func (s *MessageHubService) consumeFromStream(ctx context.Context, stream *hubStream, wait time.Duration) (*model.MessageHub, error) {
 	stream.mu.Lock()
 	defer stream.mu.Unlock()
@@ -546,7 +539,6 @@ func (s *MessageHubService) Size(ctx context.Context, platform, accountID string
 	return len(stream.messages)
 }
 
-// notify 通知订阅者
 func (s *MessageHubService) notify(ctx context.Context, msg *model.MessageHub) {
 	s.subMu.RLock()
 	subs := make([]MessageSubscriber, len(s.subscribers))

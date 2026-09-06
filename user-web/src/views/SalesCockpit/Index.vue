@@ -2,7 +2,7 @@
   <div class="sales-cockpit">
     <PageHeader title="AI 销冠驾驶舱" subtitle="ReAct 智能体、SOP、RAG、触达四大核心能力全景" />
 
-    <!-- 顶部：4 大能力卡 -->
+    
     <el-row :gutter="20">
       <el-col :span="6">
         <el-card class="capability-card">
@@ -50,7 +50,7 @@
       </el-col>
     </el-row>
 
-    <!-- 二级：意图分布 + LLM 路由 -->
+    
     <el-row :gutter="20" class="mt-20">
       <el-col :span="12">
         <el-card header="意图分布（12 类）">
@@ -70,7 +70,7 @@
       </el-col>
     </el-row>
 
-    <!-- 三级：渠道健康度 + 工具使用 TOP10 -->
+    
     <el-row :gutter="20" class="mt-20">
       <el-col :span="12">
         <el-card header="9 触达渠道健康度">

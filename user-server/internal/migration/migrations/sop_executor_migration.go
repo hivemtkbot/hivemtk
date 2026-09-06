@@ -8,7 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 // SOPExecutorMigration SOP 执行器迁移
 type SOPExecutorMigration struct {
 	db *gorm.DB
@@ -114,6 +113,4 @@ func (m *SOPExecutorMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// 编译期接口断言
 var _ migration.Migration = (*SOPExecutorMigration)(nil)
-

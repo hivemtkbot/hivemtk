@@ -9,7 +9,6 @@ import (
 
 var _ = strings.Contains
 
-
 // TestPublishKnowledgeDocumentChange_AutoTraceID 验证空 traceID 自动生成
 func TestPublishKnowledgeDocumentChange_AutoTraceID(t *testing.T) {
 	traceID := PublishKnowledgeDocumentChange("1", 100, "create", "test content", 1, "")
@@ -75,4 +74,3 @@ func TestKnowledgeDocumentChangePayload(t *testing.T) {
 		t.Errorf("ChangeType = %s, want create", payload.ChangeType)
 	}
 }
-

@@ -6,11 +6,12 @@
 //   - EventSource 浏览器 API 自动重连、断线恢复
 //
 // 协议格式：
-//   data: <json>
-//   id: <event_id>
-//   event: <type>
-//   retry: <ms>
-//   <blank line>
+//
+//	data: <json>
+//	id: <event_id>
+//	event: <type>
+//	retry: <ms>
+//	<blank line>
 //
 // 设计要点：
 //   - 复用现有长轮询的「取 outbox」逻辑（同一数据源）
@@ -38,18 +39,20 @@ import (
 
 // SSE 配置（DB 驱动，以下为 fallback 默认值）
 // 实际运行时通过 service.GlobalConfigParam() 按 group=bridge 读取 DB 参数：
-//   bridge.sse_heartbeat_interval → SSEDefaultHeartbeatInterval (fallback)
-//   bridge.sse_max_stream_duration → SSEDefaultMaxStreamDuration (fallback)
+//
+//	bridge.sse_heartbeat_interval → SSEDefaultHeartbeatInterval (fallback)
+//	bridge.sse_max_stream_duration → SSEDefaultMaxStreamDuration (fallback)
 //
 // B-1 心跳约束（强制）：
-//   Chrome MV3 extension service worker 有硬性 30s 不活跃就被杀死的窗口限制。
-//   SSE 下行必须以 ≤20s 间隔发送心跳注释帧 ": ping\n\n"，为网络抖动/代理缓冲
-//   预留 10s 余量。15s 默认值符合该约束。
-//   - SSE 协议注释帧格式：以 ":" 开头，客户端 EventSource 完全忽略
-//   - 同时防止 反向代理层 /CDN proxy_read_timeout（通常 60s）切断长连接
+//
+//	Chrome MV3 extension service worker 有硬性 30s 不活跃就被杀死的窗口限制。
+//	SSE 下行必须以 ≤20s 间隔发送心跳注释帧 ": ping\n\n"，为网络抖动/代理缓冲
+//	预留 10s 余量。15s 默认值符合该约束。
+//	- SSE 协议注释帧格式：以 ":" 开头，客户端 EventSource 完全忽略
+//	- 同时防止 反向代理层 /CDN proxy_read_timeout（通常 60s）切断长连接
 const (
 	SSEDefaultHeartbeatInterval = 15 * time.Second
-	SSEDefaultMaxStreamDuration  = 5 * time.Minute
+	SSEDefaultMaxStreamDuration = 5 * time.Minute
 	SSEMaxBacklogEvents         = 1000
 	SSEBusBufferSize            = 100
 )
@@ -75,13 +78,13 @@ type SSEOutboxFetcher interface {
 //
 // Phase 1 扩展：增加会话路由字段，前端可按 conversation_id 精确路由
 type SSEEvent struct {
-	ID             string         `json:"id"`               // = message_hub.id (stringified)，用于 Last-Event-ID
-	Event          string         `json:"event"`            // "new_outbound" / "ai_reply" / "manual" / "system"
-	ConversationID string         `json:"conversation_id"`  // 会话 ID，前端路由用
-	MsgType        string         `json:"msg_type"`         // "text" / "image" / "voice" etc
-	ReceiverID     string         `json:"receiver_id"`      // 接收者 ID
-	Seq            int            `json:"seq"`              // 每会话递增序号，前端排序用
-	Data           map[string]any `json:"data"`             // 消息内容
+	ID             string         `json:"id"`
+	Event          string         `json:"event"`
+	ConversationID string         `json:"conversation_id"`
+	MsgType        string         `json:"msg_type"`
+	ReceiverID     string         `json:"receiver_id"`
+	Seq            int            `json:"seq"`
+	Data           map[string]any `json:"data"`
 	Timestamp      time.Time      `json:"timestamp"`
 }
 
@@ -93,7 +96,7 @@ type SSEEvent struct {
 //   - Subscribe 返回 cancel 函数，调用方负责释放
 type SSEBus struct {
 	mu     sync.RWMutex
-	subs   map[string][]chan SSEEvent // key = "channel:account_id" 或 "conversation_id"
+	subs   map[string][]chan SSEEvent
 	buffer int
 }
 
@@ -157,9 +160,9 @@ func (b *SSEBus) SubscribeByConversation(conversationID string) (chan SSEEvent, 
 // Publish 发布事件到 SSE 总线
 //
 // 投递策略：
-//   1. 优先按 conversation_id 精准投递（会话级订阅）
-//   2. 再按 channel:account_id 广播（账号级订阅）
-//   - 通道满时丢弃，避免阻塞发布者
+//  1. 优先按 conversation_id 精准投递（会话级订阅）
+//  2. 再按 channel:account_id 广播（账号级订阅）
+//     - 通道满时丢弃，避免阻塞发布者
 func (b *SSEBus) Publish(event SSEEvent) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -167,21 +170,19 @@ func (b *SSEBus) Publish(event SSEEvent) {
 	hasConvSubs := false
 	hasBroadSubs := false
 
-	// 1. conversation_id 精准投递
 	if event.ConversationID != "" {
 		if chs, ok := b.subs[event.ConversationID]; ok {
 			hasConvSubs = true
 			for _, ch := range chs {
 				select {
 				case ch <- event:
-				default: // subscriber buffer full, drop to avoid blocking
+				default:
 					logger.GetLogger().Warn().Str("conv_id", event.ConversationID).Msg("[SSEBus] channel buffer full, dropping event")
 				}
 			}
 		}
 	}
 
-	// 2. channel:account_id 广播（从 Data 中取 platform/account_id）
 	if platform, ok1 := event.Data["platform"].(string); ok1 {
 		if accountID, ok2 := event.Data["account_id"].(string); ok2 {
 			broadKey := platform + ":" + accountID
@@ -198,7 +199,6 @@ func (b *SSEBus) Publish(event SSEEvent) {
 		}
 	}
 
-	// 仅在有订阅者时记录 Debug 日志（减少无意义日志）
 	if hasConvSubs || hasBroadSubs {
 		logger.GetLogger().Debug().
 			Str("event_id", event.ID).
@@ -244,10 +244,10 @@ func (h *SSEHandler) SetMaxDuration(d time.Duration) {
 // HandleOutboxSSE GET /api/bridge/outbox/sse?channel=...&account_id=...
 //
 // 优化（2026-08-18）：
-//   1. 初始拉取 → SSEBus 订阅 → 订阅后补拉：消灭竞态窗口
-//   2. SSE retry: 指令：告诉客户端重连间隔，防止过于激进的重连
-//   3. 写入错误检测：区分网络断开和临时错误
-//   4. 动态 poll 间隔：SSEBus 正常时延迟 poll，事件丢失时快速 poll
+//  1. 初始拉取 → SSEBus 订阅 → 订阅后补拉：消灭竞态窗口
+//  2. SSE retry: 指令：告诉客户端重连间隔，防止过于激进的重连
+//  3. 写入错误检测：区分网络断开和临时错误
+//  4. 动态 poll 间隔：SSEBus 正常时延迟 poll，事件丢失时快速 poll
 func (h *SSEHandler) HandleOutboxSSE(c *gin.Context) {
 	channel := c.Query("channel")
 	accountID := c.Query("account_id")
@@ -278,7 +278,6 @@ func (h *SSEHandler) HandleOutboxSSE(c *gin.Context) {
 		return
 	}
 
-	// 发送 retry: 指令，告诉浏览器 EventSource 重连间隔
 	fmt.Fprintf(c.Writer, "retry: %d\n\n", heartbeatInterval.Milliseconds())
 	flusher.Flush()
 
@@ -293,7 +292,6 @@ func (h *SSEHandler) HandleOutboxSSE(c *gin.Context) {
 
 	newLastID := lastEventID
 
-	// ---- Phase 1: 初始拉取（DB 回填历史事件）----
 	if h.fetcher != nil {
 		events, newID, err := h.fetcher.FetchOutboxSince(ctx, channel, accountID, lastEventID)
 		if err != nil {
@@ -313,7 +311,6 @@ func (h *SSEHandler) HandleOutboxSSE(c *gin.Context) {
 		flusher.Flush()
 	}
 
-	// ---- Phase 1: SSEBus 事件驱动订阅 ----
 	busCh, busCancel := GlobalSSEBus.Subscribe(channel, accountID)
 	logger.Ctx(ctx).Info().
 		Str("channel", channel).
@@ -322,8 +319,6 @@ func (h *SSEHandler) HandleOutboxSSE(c *gin.Context) {
 		Msg("[SSE] subscribed to SSEBus")
 	defer busCancel()
 
-	// ---- 优化 1: 订阅后立即补拉，消灭竞态窗口 ----
-	// 初始拉取和订阅之间可能有消息被写入，此处立即再拉一次确保零丢失
 	if h.fetcher != nil {
 		events, newID, err := h.fetcher.FetchOutboxSince(ctx, channel, accountID, newLastID)
 		if err != nil {
@@ -346,11 +341,8 @@ func (h *SSEHandler) HandleOutboxSSE(c *gin.Context) {
 		flusher.Flush()
 	}
 
-	// ---- 优化 4: 动态 poll 间隔 ----
-	// 正常时用较长间隔（2x heartbeat），确保 SSEBus 优先
-	// poll 作为安全网，防止极端情况下的事件丢失
 	pollInterval := 2 * heartbeatInterval
-	idlePollInterval := 4 * heartbeatInterval // SSEBus 活跃时用更长间隔
+	idlePollInterval := 4 * heartbeatInterval
 
 	heartbeat := time.NewTicker(heartbeatInterval)
 	poll := time.NewTicker(pollInterval)
@@ -358,10 +350,10 @@ func (h *SSEHandler) HandleOutboxSSE(c *gin.Context) {
 	defer poll.Stop()
 
 	clientGone := c.Request.Context().Done()
-	lastBusEventAt := time.Now() // 最近一次收到 SSEBus 事件的时间
+	lastBusEventAt := time.Now()
 
 	for {
-		// 动态调整 poll 间隔：如果 SSEBus 最近活跃，放慢 poll
+
 		if time.Since(lastBusEventAt) < 30*time.Second {
 			poll.Reset(idlePollInterval)
 		} else {
@@ -380,7 +372,7 @@ func (h *SSEHandler) HandleOutboxSSE(c *gin.Context) {
 				return
 			}
 			flusher.Flush()
-		// 事件驱动推送（SSEBus）
+
 		case ev, ok := <-busCh:
 			if !ok {
 				continue
@@ -390,9 +382,9 @@ func (h *SSEHandler) HandleOutboxSSE(c *gin.Context) {
 				return
 			}
 			newLastID = ev.ID
-			lastBusEventAt = time.Now() // 标记 SSEBus 活跃
+			lastBusEventAt = time.Now()
 			flusher.Flush()
-		// 兜底轮询（双保险）
+
 		case <-poll.C:
 			if h.fetcher == nil {
 				continue
@@ -413,7 +405,7 @@ func (h *SSEHandler) HandleOutboxSSE(c *gin.Context) {
 			}
 			if len(events) > 0 {
 				logger.Ctx(ctx).Info().Int("count", len(events)).Msg("[SSE] poll catchup delivered events")
-				lastBusEventAt = time.Now() // poll 也视为活跃
+				lastBusEventAt = time.Now()
 			}
 			flusher.Flush()
 		}

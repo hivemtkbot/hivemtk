@@ -38,20 +38,7 @@
 </template>
 
 <script setup>
-/**
- * 通用 Vue Flow 画布（USR-AI-01 / USR-RC-06）
- * 借鉴 n8n 的 Vue Flow 集成（https://vueflow.dev）
- *
- * 用法：
- *   <VueFlowCanvas
- *     :title="编辑流"
- *     :initial-nodes="..."
- *     :initial-edges="..."
- *     :node-templates="[9 个节点模板]"
- *     @save="onSave"
- *   />
- */
-import { ref, shallowRef } from 'vue'
+import { ref, shallowRef } from 'vue';
 import { VueFlow, Position } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
@@ -65,7 +52,7 @@ const props = defineProps({
   title: { type: String, default: '画布' },
   initialNodes: { type: Array, default: () => [] },
   initialEdges: { type: Array, default: () => [] },
-  nodeTemplates: { type: Array, default: () => [] } // [{ type, label, icon, defaultData }]
+  nodeTemplates: { type: Array, default: () => [] }
 })
 
 const emit = defineEmits(['save', 'validate'])
@@ -75,12 +62,9 @@ const edges = ref(props.initialEdges)
 const nextNodeId = shallowRef(1)
 
 function onNodesChange(changes) {
-  // 节点位置/选中变化
   changes.forEach((c) => {
-    if (c.type === 'position' && c.dragging) {
-      // 实时更新（节流可选）
-    }
-  })
+    if (c.type === 'position' && c.dragging) {}
+  });
 }
 
 function onDragStart(event, template) {
@@ -114,8 +98,7 @@ function onDrop(event) {
 }
 
 function validateGraph() {
-  // 防环检测
-  const adj = new Map()
+  const adj = new Map();
   edges.value.forEach((e) => {
     if (!adj.has(e.source)) adj.set(e.source, [])
     adj.get(e.source).push(e.target)

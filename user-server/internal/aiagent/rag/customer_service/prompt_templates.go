@@ -43,7 +43,6 @@ const MultilingualSystemPromptTemplate = `You are a professional cross-border e-
 {{.FewShotBlock}}
 `
 
-// promptTemplateData 模板数据
 type promptTemplateData struct {
 	TargetLangName string
 	SourceLangName string
@@ -51,10 +50,6 @@ type promptTemplateData struct {
 	FewShotBlock   string
 }
 
-// renderMultilingualSystemPrompt 渲染多语言 system prompt
-//
-// internalLang / targetLang 为小写短码（如 "zh"/"en"/"ja"/"ar"）。
-// glossaryBlock / fewShotBlock 暂可留空，后续由 service/translation 层注入。
 func renderMultilingualSystemPrompt(internalLang, targetLang, glossaryBlock, fewShotBlock string) string {
 	data := promptTemplateData{
 		TargetLangName: i18n.LangName(targetLang),
@@ -69,4 +64,3 @@ func renderMultilingualSystemPrompt(internalLang, targetLang, glossaryBlock, few
 	out = strings.ReplaceAll(out, "{{.FewShotBlock}}", data.FewShotBlock)
 	return out
 }
-

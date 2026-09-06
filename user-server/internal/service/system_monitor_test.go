@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupSystemMonitorTestDB 设置系统监控服务测试数据库
 func setupSystemMonitorTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.SystemUser{},
@@ -202,7 +201,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_WithData(t *testing.T) {
 		database.Create(&user)
 	}
 
-	// H5 口径：total_merchants = admin 角色系统用户数
 	for i := 0; i < 2; i++ {
 		admin := model.SystemUser{
 			Username: "admin" + string(rune('0'+i)),
@@ -266,7 +264,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_WithData(t *testing.T) {
 	basicStats := stats["basic_stats"].(map[string]any)
 	businessStats := stats["business_stats"].(map[string]any)
 
-	// 5 个普通用户 + 2 个 admin（H5 口径验证用）= 7
 	if basicStats["total_users"] != int64(7) {
 		t.Errorf("Expected total_users 7, got %v", basicStats["total_users"])
 	}

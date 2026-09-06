@@ -19,7 +19,6 @@ type DouyinCardStatsService interface {
 	RecordActivity(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string) error
 }
 
-// douyinCardStatsService 抖音卡片统计服务实现
 type douyinCardStatsService struct {
 	repo repository.DouyinCardStatsRepository
 }
@@ -31,7 +30,6 @@ func NewDouyinCardStatsService(db *gorm.DB) DouyinCardStatsService {
 	}
 }
 
-// GetCardStats 获取单个卡片的统计数据
 func (s *douyinCardStatsService) GetCardStats(ctx context.Context, req *dto.DouyinCardStatsRequest) (*dto.DouyinCardStatsResponse, error) {
 	card, err := s.repo.GetCardByID(ctx, req.CardID)
 	if err != nil {
@@ -60,7 +58,6 @@ func (s *douyinCardStatsService) GetCardStats(ctx context.Context, req *dto.Douy
 	return response, nil
 }
 
-// convertDouyinTempStats 将仓库返回的临时统计结果转换为 DailyStat
 func convertDouyinTempStats(tempStats []repository.DouyinCardStatsTempStat) []dto.DailyStat {
 	dateMap := make(map[string]*dto.DailyStat)
 	for _, stat := range tempStats {
@@ -76,7 +73,6 @@ func convertDouyinTempStats(tempStats []repository.DouyinCardStatsTempStat) []dt
 		}
 	}
 
-	// 转换为切片
 	var dailyStats []dto.DailyStat
 	for _, stat := range dateMap {
 		dailyStats = append(dailyStats, *stat)
@@ -84,7 +80,6 @@ func convertDouyinTempStats(tempStats []repository.DouyinCardStatsTempStat) []dt
 	return dailyStats
 }
 
-// GetOverallStats 获取所有卡片的总体统计数据
 func (s *douyinCardStatsService) GetOverallStats(ctx context.Context, req *dto.DouyinCardOverallStatsRequest) (*dto.DouyinCardOverallStatsResponse, error) {
 	totalCards, err := s.repo.CountTotalCards(ctx)
 	if err != nil {
@@ -105,7 +100,6 @@ func (s *douyinCardStatsService) GetOverallStats(ctx context.Context, req *dto.D
 		return nil, err
 	}
 
-	// 转换热门卡片数据
 	var cards []dto.PopularCard
 	for _, card := range topCards {
 		cards = append(cards, dto.PopularCard{
@@ -127,7 +121,6 @@ func (s *douyinCardStatsService) GetOverallStats(ctx context.Context, req *dto.D
 		return nil, err
 	}
 
-	// 转换活动数据
 	var activities []dto.Activity
 	for _, activity := range recentActivities {
 		activities = append(activities, dto.Activity{
@@ -150,7 +143,6 @@ func (s *douyinCardStatsService) GetOverallStats(ctx context.Context, req *dto.D
 	}, nil
 }
 
-// RecordActivity 记录卡片活动
 func (s *douyinCardStatsService) RecordActivity(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string) error {
 	if action != "view" {
 		return nil

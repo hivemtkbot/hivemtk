@@ -9,12 +9,12 @@ import (
 type LeadMiningConfig struct {
 	ID             int64       `gorm:"column:id;primaryKey;autoIncrement:false" json:"id"`
 	Enabled        bool        `gorm:"column:enabled;default:false" json:"enabled"`
-	Keywords       JSONStrings `gorm:"column:keywords;type:text" json:"keywords"`       
-	Tags           JSONStrings `gorm:"column:tags;type:text" json:"tags"`               
-	Requirement    string      `gorm:"column:requirement;type:text" json:"requirement"` 
-	Channels       JSONStrings `gorm:"column:channels;type:text" json:"channels"`       
+	Keywords       JSONStrings `gorm:"column:keywords;type:text" json:"keywords"`
+	Tags           JSONStrings `gorm:"column:tags;type:text" json:"tags"`
+	Requirement    string      `gorm:"column:requirement;type:text" json:"requirement"`
+	Channels       JSONStrings `gorm:"column:channels;type:text" json:"channels"`
 	MinIntentScore int         `gorm:"column:min_intent_score;default:50" json:"min_intent_score"`
-	Model          string      `gorm:"column:model;type:varchar(64)" json:"model"` 
+	Model          string      `gorm:"column:model;type:varchar(64)" json:"model"`
 	CreatedAt      int64       `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt      int64       `gorm:"autoUpdateTime" json:"updated_at"`
 }
@@ -58,4 +58,3 @@ func (j *JSONStrings) Scan(v any) error {
 }
 
 var _ driver.Valuer = (JSONStrings)(nil)
-

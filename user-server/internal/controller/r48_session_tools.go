@@ -32,8 +32,8 @@ func (c *MacroController) List(ctx *gin.Context) {
 // Create POST /api/macros {name, actions:[{type,value}]}
 func (c *MacroController) Create(ctx *gin.Context) {
 	var req struct {
-		Name    string                 `json:"name" binding:"required"`
-		Actions []service.MacroAction  `json:"actions" binding:"required"`
+		Name    string                `json:"name" binding:"required"`
+		Actions []service.MacroAction `json:"actions" binding:"required"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误："+err.Error())

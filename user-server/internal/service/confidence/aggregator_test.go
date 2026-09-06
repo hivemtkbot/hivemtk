@@ -7,7 +7,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// makeTestAggregator 构造测试用聚合器（无 DB 依赖）
 func makeTestAggregator() *ConfidenceAggregator {
 	collector := NewSignalCollector(&mockEmbedder{
 		vectors: map[string][]float32{

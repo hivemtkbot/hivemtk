@@ -207,9 +207,6 @@ func (s *AgentStatusService) CheckStaleAgents(ctx context.Context, timeout time.
 	return offlined
 }
 
-// returnSessionsToAI 把坐席的在办会话转回 AI：
-// 释放人工接管锁（AI 恢复应答）→ handler_type=ai + status=ai_handling → 坐席活跃数递减。
-// 单会话失败不阻塞其余会话（best-effort）。
 func (s *AgentStatusService) returnSessionsToAI(ctx context.Context, agentID uint) int {
 	sessionRepo := repository.NewCustomerSessionRepository()
 	sessions, err := sessionRepo.GetAgentSessions(ctx, agentID)

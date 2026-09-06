@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupEmailSendServiceTestDB 设置邮件发送服务测试数据库
 func setupEmailSendServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.EmailSend{},
@@ -346,7 +345,6 @@ func TestEmailSendService_ProcessPendingEmails_NoPendingEmails(t *testing.T) {
 		t.Fatalf("ProcessPendingEmails failed: %v", err)
 	}
 
-	// 没有待处理邮件时应正常返回
 	var count int64
 	database.Model(&model.EmailSend{}).Where("status = ?", 0).Count(&count)
 	if count != 0 {
@@ -377,7 +375,7 @@ func TestEmailSendService_ProcessPendingEmails_WithPendingEmails(t *testing.T) {
 		Subject:  "待处理邮件 1",
 		Content:  "这是待处理邮件 1 的内容",
 		SmtpID:   smtp.ID,
-		Status:   0, 
+		Status:   0,
 		SendTime: &pastTime,
 	}
 	pendingEmail2 := &model.EmailSend{
@@ -385,7 +383,7 @@ func TestEmailSendService_ProcessPendingEmails_WithPendingEmails(t *testing.T) {
 		Subject:  "待处理邮件 2",
 		Content:  "这是待处理邮件 2 的内容",
 		SmtpID:   smtp.ID,
-		Status:   0, 
+		Status:   0,
 		SendTime: &pastTime,
 	}
 
@@ -402,7 +400,7 @@ func TestEmailSendService_ProcessPendingEmails_WithPendingEmails(t *testing.T) {
 		Subject:  "未来邮件",
 		Content:  "这是未来发送的邮件",
 		SmtpID:   smtp.ID,
-		Status:   0, 
+		Status:   0,
 		SendTime: &futureTime,
 	}
 	if err := database.Create(futureEmail).Error; err != nil {
@@ -416,14 +414,12 @@ func TestEmailSendService_ProcessPendingEmails_WithPendingEmails(t *testing.T) {
 		t.Fatalf("ProcessPendingEmails failed: %v", err)
 	}
 
-
 	var count int64
 	database.Model(&model.EmailSend{}).Where("status = ?", 0).Count(&count)
 	if count != 1 {
 		t.Errorf("Expected 1 pending email (future email), got %d", count)
 	}
 
-	// 验证过去时间的邮件已更新为失败状态（因为 SMTP 不可达）
 	var failedCount int64
 	database.Model(&model.EmailSend{}).Where("status = ?", 2).Count(&failedCount)
 	if failedCount != 2 {
@@ -469,9 +465,6 @@ func TestEmailSendService_ProcessPendingEmails_WithMixedStatusEmails(t *testing.
 		t.Fatalf("ProcessPendingEmails failed: %v", err)
 	}
 
-	// 验证各种状态的邮件数量
-	// ProcessPendingEmails 会尝试发送 pending 状态的邮件
-	// 由于 SMTP 不可达，邮件会标记为失败状态（2）
 	var sentCount, failedCount, pendingCount int64
 	database.Model(&model.EmailSend{}).Where("status = ?", 1).Count(&sentCount)
 	database.Model(&model.EmailSend{}).Where("status = ?", 2).Count(&failedCount)
@@ -636,7 +629,6 @@ func TestEmailSendService_ProcessPendingEmails_EmptyDatabase(t *testing.T) {
 		t.Fatalf("ProcessPendingEmails failed with empty database: %v", err)
 	}
 
-	// 验证数据库中没有任何邮件记录
 	var count int64
 	db.GetDB().Model(&model.EmailSend{}).Count(&count)
 	if count != 0 {
@@ -771,9 +763,9 @@ func TestEmailSendService_SendEmail_RequiredFieldsValidation(t *testing.T) {
 	service := NewEmailSendService()
 
 	req := dto.SendEmailRequest{
-		To:            "", 
-		Subject:       "", 
-		Content:       "", 
+		To:            "",
+		Subject:       "",
+		Content:       "",
 		SmtpId:        smtp.ID,
 		ImmediateSend: true,
 	}
@@ -791,4 +783,3 @@ func TestEmailSendService_SendEmail_RequiredFieldsValidation(t *testing.T) {
 		t.Error("Expected non-empty ID even with empty fields")
 	}
 }
-

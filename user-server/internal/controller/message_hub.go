@@ -45,8 +45,7 @@ func (c *MessageHubController) Push(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	// R53 A3/B + R54 修复: 访客消息 → 自动 reopen（仅 closed/resolved）+ 规则引擎 message_inbound 事件
-	// R54 修复: 此前仅 reopen 发生时才分发规则事件 → 进行中会话收消息永远不触发 message_inbound 规则（业务缺陷）
+
 	if msg != nil && msg.Direction == "inbound" {
 		go func(m *model.MessageHub) {
 			defer func() {
@@ -222,4 +221,3 @@ func (c *MessageHubController) PushFromChannel(ctx *gin.Context) {
 	}
 	response.Success(ctx, msg, "推送成功")
 }
-

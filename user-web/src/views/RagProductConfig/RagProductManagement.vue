@@ -82,7 +82,7 @@
       />
     </el-card>
     
-    <!-- 新增/编辑对话框 -->
+    
     <el-dialog 
       v-model="dialogVisible" 
       :title="dialogTitle" 
@@ -179,7 +179,7 @@
         
         <el-divider content-position="left">推理供应商配置（留空则使用服务器默认）</el-divider>
 
-        <!-- 大模型 LLM -->
+        
         <el-divider content-position="left">大模型 LLM</el-divider>
         <el-form-item label="API BaseURL">
           <el-input v-model="form.llm_provider_config.base_url" placeholder="如 https://api.openai.com/v1" />
@@ -191,7 +191,7 @@
           <el-input v-model="form.llm_provider_config.model" placeholder="如 gpt-4o / deepseek-chat" />
         </el-form-item>
 
-        <!-- 文本向量 text-embedding -->
+        
         <el-divider content-position="left">文本向量 text-embedding</el-divider>
         <el-form-item label="API BaseURL">
           <el-input v-model="form.embedding_provider_config.base_url" placeholder="如 https://xxx/v1" />
@@ -209,7 +209,7 @@
           <el-switch v-model="form.embedding_provider_config.enabled" />
         </el-form-item>
 
-        <!-- 重排 rerank -->
+        
         <el-divider content-position="left">重排 rerank</el-divider>
         <el-form-item label="API BaseURL">
           <el-input v-model="form.rerank_provider_config.base_url" placeholder="如 https://xxx/v1" />
@@ -325,7 +325,6 @@ onMounted(() => {
   loadProducts()
 })
 
-// 类别 label：常见类别映射中文标签；未命中时回退原始 category 字符串
 const CATEGORY_LABELS = {
   agent_persona: '智能体人设',
   sales_script: '销售脚本',
@@ -333,18 +332,18 @@ const CATEGORY_LABELS = {
   prompt: '提示词',
   workflow: '工作流',
   tool: '工具'
-}
+};
 const getCategoryLabel = (c) => CATEGORY_LABELS[c] || c || '-'
 const getCategoryTagType = (category) => {
-  // 基于分类名称的哈希值生成颜色类型，确保相同分类始终显示相同颜色
-  if (!category) return 'info'
+  if (!category)
+    return 'info';
 
   const types = ['primary', 'success', 'warning', 'danger', 'info']
   let hash = 0
   for (let i = 0; i < category.length; i++) {
     const char = category.charCodeAt(i)
     hash = ((hash << 5) - hash) + char
-    hash = hash & hash // 转换为32位整数
+    hash = hash & hash;
   }
   const index = Math.abs(hash) % types.length
   return types[index]
@@ -357,8 +356,7 @@ const loadProducts = async () => {
       page: pagination.page,
       page_size: pagination.pageSize
     })
-    // 拦截器已解包，response 直接就是数据对象
-    products.value = response.items || []
+    products.value = response.items || [];
     pagination.total = response.total || 0
   } catch (error) {
     ElMessage.error('加载RAG产品失败: ' + error.message)
@@ -374,8 +372,7 @@ const showCreateDialog = () => {
 
 const editProduct = (product) => {
   Object.assign(form, product)
-  // 确保数值类型的字段正确加载
-  form.temperature = product.temperature ?? 0.7
+  form.temperature = product.temperature ?? 0.7;
   form.max_tokens = product.max_tokens ?? 1000
   form.top_p = product.top_p ?? 0.9
   form.frequency_penalty = product.frequency_penalty ?? 0.5
@@ -455,12 +452,10 @@ const submitForm = async () => {
     await formRef.value.validate()
     
     if (form.id) {
-      // 更新
-      await ragProductConfigAPI.updateRagProduct(form.id, { ...form })
+      await ragProductConfigAPI.updateRagProduct(form.id, { ...form });
       ElMessage.success(i18n.global.t('更新成功'))
     } else {
-      // 创建
-      await ragProductConfigAPI.createRagProduct({ ...form })
+      await ragProductConfigAPI.createRagProduct({ ...form });
       ElMessage.success(i18n.global.t('创建成功'))
     }
     

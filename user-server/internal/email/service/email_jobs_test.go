@@ -15,7 +15,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupEmailJobsServiceTestDB 设置邮件任务服务测试数据库
 func setupEmailJobsServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.EmailJobs{},
@@ -24,7 +23,6 @@ func setupEmailJobsServiceTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// newTestEmailJobsRepository 创建测试仓库
 func newTestEmailJobsRepository(database *gorm.DB) repository.EmailJobsRepository {
 	return repository.NewEmailJobsRepository()
 }
@@ -73,7 +71,6 @@ func TestEmailJobsService_CreateEmailJobs(t *testing.T) {
 		t.Errorf("Expected SendTotal 0, got %d", createdJobs.SendTotal)
 	}
 
-	// 验证任务已保存到数据库
 	var count int64
 	database.Model(&model.EmailJobs{}).Where("subject = ?", "测试邮件任务").Count(&count)
 	if count != 1 {
@@ -184,7 +181,7 @@ func TestEmailJobsService_GetEmailJobsList(t *testing.T) {
 			ReadTotal:    0,
 		}
 		database.Create(jobs)
-		time.Sleep(10 * time.Millisecond) 
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	jobsLists, total, err := service.GetEmailJobsList(context.Background(), 1, 5)
@@ -289,7 +286,6 @@ func TestEmailJobsService_UpdateEmailJobs(t *testing.T) {
 		t.Fatalf("UpdateEmailJobs failed: %v", err)
 	}
 
-	// 验证更新
 	var updatedJobs model.EmailJobs
 	database.First(&updatedJobs, jobs.ID)
 	if updatedJobs.Subject != "新主题" {
@@ -351,14 +347,12 @@ func TestEmailJobsService_DeleteEmailJobs(t *testing.T) {
 		t.Fatalf("DeleteEmailJobs failed: %v", err)
 	}
 
-	// 验证软删除
 	var deletedAt *time.Time
 	database.Unscoped().Model(&model.EmailJobs{}).Where("id = ?", jobs.ID).Select("deleted_at").Scan(&deletedAt)
 	if deletedAt == nil {
 		t.Error("Expected jobs to be soft-deleted (deleted_at should be set)")
 	}
 
-	// 验证正常查询无法获取
 	var count int64
 	database.Model(&model.EmailJobs{}).Where("id = ?", jobs.ID).Count(&count)
 	if count != 0 {
@@ -401,7 +395,6 @@ func TestEmailJobsService_IncreaseSendTotal(t *testing.T) {
 		}
 	}
 
-	// 验证发送总数
 	var updatedJobs model.EmailJobs
 	database.First(&updatedJobs, jobs.ID)
 	if updatedJobs.SendTotal != 13 {
@@ -444,7 +437,6 @@ func TestEmailJobsService_IncreaseSuccessTotal(t *testing.T) {
 		}
 	}
 
-	// 验证成功总数
 	var updatedJobs model.EmailJobs
 	database.First(&updatedJobs, jobs.ID)
 	if updatedJobs.SuccessTotal != 45 {
@@ -487,7 +479,6 @@ func TestEmailJobsService_IncreaseFailTotal(t *testing.T) {
 		}
 	}
 
-	// 验证失败总数
 	var updatedJobs model.EmailJobs
 	database.First(&updatedJobs, jobs.ID)
 	if updatedJobs.FailTotal != 13 {
@@ -530,7 +521,6 @@ func TestEmailJobsService_IncreaseReadTotal(t *testing.T) {
 		}
 	}
 
-	// 验证阅读总数
 	var updatedJobs model.EmailJobs
 	database.First(&updatedJobs, jobs.ID)
 	if updatedJobs.ReadTotal != 30 {
@@ -858,4 +848,3 @@ func TestEmailJobsService_CountersConsistency(t *testing.T) {
 			finalJobs.SuccessTotal, finalJobs.FailTotal, finalJobs.SendTotal)
 	}
 }
-

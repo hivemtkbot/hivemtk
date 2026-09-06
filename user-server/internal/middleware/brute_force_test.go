@@ -19,7 +19,6 @@ func TestBruteForceGuard_NoLockOnRequestAlone(t *testing.T) {
 	r.Use(BruteForceGuard("test.endpoint"))
 	r.GET("/x", func(c *gin.Context) { c.Status(200) })
 
-	// 发送 10 个成功请求（远超 MaxFailures=5）
 	for i := 0; i < 10; i++ {
 		req := httptest.NewRequest("GET", "/x", nil)
 		req.RemoteAddr = "192.0.2.1:1234"
@@ -47,7 +46,7 @@ func TestBruteForceGuard_LocksAfterRecordFailures(t *testing.T) {
 	})
 
 	ip := "192.0.2.2:1234"
-	// 前 5 次应通过守卫并 401
+
 	for i := 0; i < 5; i++ {
 		req := httptest.NewRequest("GET", "/x", nil)
 		req.RemoteAddr = ip
@@ -57,7 +56,7 @@ func TestBruteForceGuard_LocksAfterRecordFailures(t *testing.T) {
 			t.Fatalf("attempt %d should reach handler, got %d", i, w.Code)
 		}
 	}
-	// 第 6 次应被守卫 429 阻断
+
 	req := httptest.NewRequest("GET", "/x", nil)
 	req.RemoteAddr = ip
 	w := httptest.NewRecorder()
@@ -85,7 +84,7 @@ func TestBruteForceGuard_ClearResetsLock(t *testing.T) {
 	})
 
 	ip := "192.0.2.3:1234"
-	// 连续 6 次成功（每次 ClearBruteForceFailure 清状态）— 不应被锁
+
 	for i := 0; i < 6; i++ {
 		req := httptest.NewRequest("GET", "/x", nil)
 		req.RemoteAddr = ip

@@ -15,7 +15,6 @@ const (
 	jwtBlacklistKey = "jwt:blacklist:"
 )
 
-// hashJWT 对 JWT 做哈希后存储，避免完整 token 落 Redis
 func hashJWT(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
@@ -28,7 +27,7 @@ func BlacklistJWT(token string) {
 	}
 	key := jwtBlacklistKey + hashJWT(token)
 	if err := cache.GetGlobalCache().Set(context.Background(), key, "1", jwtBlacklistTTL); err != nil {
-		// 登出时黑名单写入失败属于"软失败"，不阻塞用户
+
 		logger.Warnf("BlacklistJWT cache.Set failed (token may be replay-able for %v): %v", jwtBlacklistTTL, err)
 	}
 }
@@ -49,7 +48,7 @@ func IsJWTBlacklisted(token string) bool {
 	exists, err := cache.GetGlobalCache().Exists(context.Background(), key)
 	if err != nil {
 		logger.Errorf("IsJWTBlacklisted cache.Exists failed (fail-closed, rejecting token): %v", err)
-		return true // fail-closed
+		return true
 	}
 	return exists
 }

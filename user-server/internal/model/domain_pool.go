@@ -15,13 +15,13 @@ import (
 //   - 0      不可用（连续失败次数超阈值或被风控）
 type DomainPool struct {
 	ID        int       `json:"id" gorm:"primaryKey;autoIncrement"`
-	Domain    string    `json:"domain" gorm:"size:255;not null;uniqueIndex"` 
-	Port      int       `json:"port" gorm:"default:80"`                      
-	Purpose   string    `json:"purpose" gorm:"size:500"`                     
-	Status    int       `json:"status" gorm:"default:1"`                     
-	LastCheck time.Time `json:"last_check"`                                  
+	Domain    string    `json:"domain" gorm:"size:255;not null;uniqueIndex"`
+	Port      int       `json:"port" gorm:"default:80"`
+	Purpose   string    `json:"purpose" gorm:"size:500"`
+	Status    int       `json:"status" gorm:"default:1"`
+	LastCheck time.Time `json:"last_check"`
 
-	HealthScore int `json:"health_score" gorm:"default:100"` 
+	HealthScore int `json:"health_score" gorm:"default:100"`
 
 	ConsecutiveFailures int `json:"consecutive_failures" gorm:"default:0"`
 
@@ -29,16 +29,16 @@ type DomainPool struct {
 	DNSError    string `json:"dns_error" gorm:"size:500;default:''"`
 
 	LastHTTPStatus int `json:"last_http_status" gorm:"default:0"`
-	LastLatencyMs int `json:"last_latency_ms" gorm:"default:0"`
+	LastLatencyMs  int `json:"last_latency_ms" gorm:"default:0"`
 
-	OnBlacklist   bool      `json:"on_blacklist" gorm:"default:false;index"`   
-	BlacklistAt   time.Time `json:"blacklist_at"`                              
-	BlacklistNote string    `json:"blacklist_note" gorm:"size:500;default:''"` 
+	OnBlacklist   bool      `json:"on_blacklist" gorm:"default:false;index"`
+	BlacklistAt   time.Time `json:"blacklist_at"`
+	BlacklistNote string    `json:"blacklist_note" gorm:"size:500;default:''"`
 
-	AutoSwitchEnabled bool       `json:"auto_switch_enabled" gorm:"default:true"` 
-	SwitchedAt        *time.Time `json:"switched_at"`                             
-	SwitchedFromID    int        `json:"switched_from_id" gorm:"default:0"`       
-	IsActive          bool       `json:"is_active" gorm:"default:false;index"`    
+	AutoSwitchEnabled bool       `json:"auto_switch_enabled" gorm:"default:true"`
+	SwitchedAt        *time.Time `json:"switched_at"`
+	SwitchedFromID    int        `json:"switched_from_id" gorm:"default:0"`
+	IsActive          bool       `json:"is_active" gorm:"default:false;index"`
 
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
@@ -69,7 +69,7 @@ type DomainHealthLog struct {
 	BlacklistSrc string `json:"blacklist_source" gorm:"size:200;default:''"`
 
 	HealthScore int    `json:"health_score"`
-	ActionTaken string `json:"action_taken" gorm:"size:64;default:''"` 
+	ActionTaken string `json:"action_taken" gorm:"size:64;default:''"`
 
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 }
@@ -83,11 +83,11 @@ func (DomainHealthLog) TableName() string {
 // G 域 ：用于域名健康度探测时快速判定当前域名是否被微信/抖音/快手等封禁
 type DomainBlacklist struct {
 	ID        int        `json:"id" gorm:"primaryKey;autoIncrement"`
-	Domain    string     `json:"domain" gorm:"size:255;not null;uniqueIndex"` 
-	Platform  string     `json:"platform" gorm:"size:32;index;default:'all'"` 
-	Reason    string     `json:"reason" gorm:"size:500;default:''"`           
-	Source    string     `json:"source" gorm:"size:64;default:'manual'"`      
-	ExpiresAt *time.Time `json:"expires_at"`                                  
+	Domain    string     `json:"domain" gorm:"size:255;not null;uniqueIndex"`
+	Platform  string     `json:"platform" gorm:"size:32;index;default:'all'"`
+	Reason    string     `json:"reason" gorm:"size:500;default:''"`
+	Source    string     `json:"source" gorm:"size:64;default:'manual'"`
+	ExpiresAt *time.Time `json:"expires_at"`
 	Active    bool       `json:"active" gorm:"default:true;index"`
 	CreatedAt time.Time  `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
@@ -97,4 +97,3 @@ type DomainBlacklist struct {
 func (DomainBlacklist) TableName() string {
 	return "domain_blacklist"
 }
-

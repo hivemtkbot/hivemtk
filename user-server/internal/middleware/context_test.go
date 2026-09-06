@@ -64,4 +64,3 @@ func TestContextMiddleware_NoUserAgent(t *testing.T) {
 		t.Errorf("Expected empty User-Agent, got %s", userAgent)
 	}
 }
-

@@ -41,8 +41,6 @@ func (c *IntegrationController) CreateAccount(ctx *gin.Context) {
 	response.Success(ctx, account, "创建成功")
 }
 
-// GetAccountList 获取对接账号列表
-// maskCredential 对凭据做脱敏展示（保留首尾，中间掩码），避免明文凭据回传前端被窃取
 func maskCredential(s string) string {
 	if s == "" {
 		return ""
@@ -347,8 +345,6 @@ func (c *IntegrationController) ReceiveOrderWebhook(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"platform": platform, "order_id": orderID, "status": status}, "已接收并处理")
 }
 
-// ===== G8: 集成生态前端页 - 模板与分类 =====
-
 // GetTemplates 第三方对接模板列表（integration_templates 表）
 // GET /api/integrations/templates?platform=dingtalk&category=erp&page=1&page_size=20
 func (c *IntegrationController) GetTemplates(ctx *gin.Context) {
@@ -382,11 +378,11 @@ func (c *IntegrationController) GetCategories(ctx *gin.Context) {
 		response.ErrorFromDB(ctx, err, "获取分类失败")
 		return
 	}
-	// 用一次全量查询（内置模板数量有限）在内存里按 category 聚合
+
 	type catItem struct {
-		Category  string `json:"category"`
-		Label     string `json:"label"`
-		Count     int    `json:"count"`
+		Category  string   `json:"category"`
+		Label     string   `json:"label"`
+		Count     int      `json:"count"`
 		Platforms []string `json:"platforms"`
 	}
 	catMap := make(map[string]*catItem)
@@ -415,7 +411,6 @@ func (c *IntegrationController) GetCategories(ctx *gin.Context) {
 	response.Success(ctx, result, "获取成功")
 }
 
-// categoryLabel 分类常量到展示标签的映射
 func categoryLabel(cat string) string {
 	labels := map[string]string{
 		model.CategoryERP:     "ERP 企业资源计划",
@@ -452,4 +447,3 @@ func (c *IntegrationController) GetExternalProducts(ctx *gin.Context) {
 		"page_size": pageSize,
 	}, "获取成功")
 }
-

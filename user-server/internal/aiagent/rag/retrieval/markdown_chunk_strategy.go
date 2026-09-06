@@ -17,17 +17,16 @@ func (s *MarkdownChunkStrategy) CreateChunks(doc Document, config ChunkConfig) [
 	var chunks []Chunk
 	content := doc.Content
 
-	// 按 H1 (#) 和 H2 (##) 拆分（保留标题）
 	sections := splitMarkdownSections(content)
 
 	for _, section := range sections {
 		if len(section.Content) == 0 {
 			continue
 		}
-		// 进一步按 H3 拆分大 section
+
 		subsections := splitByHeader(section.Content, "###")
 		for _, sub := range subsections {
-			// 按 chunk_size 切分
+
 			subChunks := splitBySize(sub, config.ChunkSize, config.ChunkOverlap)
 			for _, sc := range subChunks {
 				chunks = append(chunks, Chunk{
@@ -61,7 +60,7 @@ func splitMarkdownSections(content string) []MarkdownSection {
 
 	for _, line := range lines {
 		if strings.HasPrefix(line, "# ") || strings.HasPrefix(line, "## ") {
-			// 结束上一个 section
+
 			if current.Header != "" || len(bodyLines) > 0 {
 				current.Content = strings.Join(bodyLines, "\n")
 				sections = append(sections, current)
@@ -99,7 +98,7 @@ func splitBySize(content string, size, overlap int) []string {
 		if end > len(content) {
 			end = len(content)
 		}
-		// 在句子边界切分
+
 		cutAt := end
 		for j := end; j > i+size/2 && j > 0; j-- {
 			if j < len(content) && (content[j] == '.' || content[j] == '!' || content[j] == '?' || content[j] == '\n') {
@@ -111,7 +110,7 @@ func splitBySize(content string, size, overlap int) []string {
 		if cutAt >= len(content) {
 			break
 		}
-		i = cutAt - size // 下一轮从 overlap 处开始
+		i = cutAt - size
 	}
 	return parts
 }
@@ -129,19 +128,19 @@ func extractMarkdownTitle(content string) string {
 
 func extractMarkdownMetadata(content string) map[string]any {
 	meta := make(map[string]any)
-	// 检测代码块
+
 	if strings.Contains(content, "```") {
 		meta["has_code"] = true
 	}
-	// 检测列表
+
 	if strings.Contains(content, "- ") || strings.Contains(content, "* ") || strings.Contains(content, "1. ") {
 		meta["has_list"] = true
 	}
-	// 检测链接
+
 	if strings.Contains(content, "](") {
 		meta["has_links"] = true
 	}
-	// 提取首段（abstract）
+
 	lines := strings.SplitN(content, "\n", 10)
 	for _, l := range lines {
 		l = strings.TrimSpace(l)

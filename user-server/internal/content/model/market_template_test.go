@@ -111,4 +111,3 @@ func TestMarketTemplateDownload_BasicFields(t *testing.T) {
 		t.Errorf("Expected TemplateType 'flow', got %s", download.TemplateType)
 	}
 }
-

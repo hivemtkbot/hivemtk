@@ -53,7 +53,7 @@ func (m *AlertRuleMigration) Up(ctx context.Context) error {
 
 // Down 执行降级（不删数据，仅 negocio 记录）
 func (m *AlertRuleMigration) Down(ctx context.Context) error {
-	// 不自动 drop：避免误删告警配置；如需清理请人工执行
+
 	return nil
 }
 
@@ -123,5 +123,4 @@ func (m *AlertRuleMigration) createAlertHistoriesTable(_ context.Context) error 
 	return nil
 }
 
-// 编译期校验：满足 migration.Migration 接口
 var _ migration.Migration = (*AlertRuleMigration)(nil)

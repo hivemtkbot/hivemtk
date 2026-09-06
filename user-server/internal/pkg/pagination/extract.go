@@ -5,8 +5,6 @@ import (
 	"time"
 )
 
-// extractCursorFromItem 从结果集中提取最后一条的 (created_at, id) 作为游标
-// 通过反射读取 CreatedAt / ID 字段（支持 CreatedAt + ID 命名约定）
 func extractCursorFromItem(item any) Cursor {
 	if item == nil {
 		return ""
@@ -19,7 +17,6 @@ func extractCursorFromItem(item any) Cursor {
 		return ""
 	}
 
-	// 查找 CreatedAt 字段
 	createdAtField := v.FieldByName("CreatedAt")
 	if !createdAtField.IsValid() {
 		createdAtField = v.FieldByName("created_at")
@@ -33,13 +30,12 @@ func extractCursorFromItem(item any) Cursor {
 		ts = createdAtField.Interface().(time.Time)
 	}
 
-	// 查找 ID 字段
 	idField := v.FieldByName("ID")
 	if !idField.IsValid() {
 		idField = v.FieldByName("Id")
 	}
 	if !idField.IsValid() || idField.Kind() != reflect.Uint64 {
-		// 尝试 uint
+
 		if idField.IsValid() && idField.Kind() == reflect.Uint {
 			return EncodeCursor(ts, uint64(idField.Uint()))
 		}

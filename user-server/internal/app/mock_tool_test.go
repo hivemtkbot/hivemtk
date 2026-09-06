@@ -6,9 +6,6 @@ import (
 	"hivemtk-user/internal/aiagent/agent/tooluse"
 )
 
-// mockTool 用于测试的轻量工具实现
-// （与 router/tool_debug_routes_test.go 中的同名类型各自独立：
-// Go 测试辅助无法跨包共享，P1-1 迁移后在 app 包内保留一份）
 type mockTool struct {
 	name        string
 	category    tooluse.ToolCategory
@@ -28,7 +25,6 @@ func (m *mockTool) Execute(ctx context.Context, args map[string]any) (tooluse.To
 	return tooluse.SuccessResult(m.name, map[string]any{"echo": args}), nil
 }
 
-// newMockEchoTool 构造一个简单的 echo 工具
 func newMockEchoTool(name string) *mockTool {
 	return &mockTool{
 		name:        name,
@@ -43,4 +39,3 @@ func newMockEchoTool(name string) *mockTool {
 		},
 	}
 }
-

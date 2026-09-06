@@ -45,19 +45,16 @@ type ChannelLeadAdapter interface {
 	TriggerOutreach(ctx context.Context, s *WebhookService, accountID, fromID, groupID, groupTitle string, score int, originalText string)
 }
 
-// unifiedMinerOpportunityThreshold 意向分达到该值即判定为「商机」
 const unifiedMinerOpportunityThreshold = 40
 
 var unifiedMeaningfulRe = regexp.MustCompile(`[\p{L}\p{N}]`)
 
-// 通用联系方式信号（出现即视为强购买/合作意向）
 var (
 	unifiedEmailRe = regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
 	unifiedPhoneRe = regexp.MustCompile(`\+?\d[\d\-\s]{6,}\d`)
 	unifiedLinkRe  = regexp.MustCompile(`(?i)(t\.me/|wa\.me/|https?://|whatsapp|wechat|微信|vx[:：]?|加我|私聊)`)
 )
 
-// 通用高意向关键词（每命中 +25）
 var unifiedHighIntentKeywords = []string{
 	"多少钱", "价格", "报价", "怎么买", "购买", "下单", "批发", "代理", "加盟",
 	"求购", "现货", "有货", "联系方式", "合作", "预算", "采购", "招商",
@@ -65,7 +62,6 @@ var unifiedHighIntentKeywords = []string{
 	"order", "wholesale", "budget", "procurement", "distributor", "reseller",
 }
 
-// 通用中意向关键词（每命中 +12）
 var unifiedMediumIntentKeywords = []string{
 	"咨询", "了解", "需要", "想要", "请问", "怎么卖", "优惠", "折扣", "试用",
 	"方案", "效果", "质量", "发货", "物流", "功能", "多少",
@@ -234,7 +230,6 @@ func MineUnifiedLead(ctx context.Context, s *WebhookService, hub *model.MessageH
 		}
 	}
 
-	// 已存在线索首次晋级为商机时也要触发私信
 	if existing != nil && existing.IsOpportunity == 0 && isOpp && score >= adapter.OutreachMinScore() && adapter.OutreachMinScore() > 0 {
 		logger.Infof("[UnifiedLeadMiner] 线索首次升级为商机，触发触达 channel=%s account=%s", adapter.Channel(), account)
 		newOpportunity = true
@@ -274,7 +269,6 @@ func MineUnifiedLead(ctx context.Context, s *WebhookService, hub *model.MessageH
 	return newOpportunity
 }
 
-// recordUnifiedLeadScore 记录一次互动事件并重算线索评分（best-effort）。
 func recordUnifiedLeadScore(ctx context.Context, s *WebhookService, clue *model.Clue, channel string, isOpp bool) {
 	if s == nil || s.db == nil || clue == nil || clue.ID == "" {
 		return

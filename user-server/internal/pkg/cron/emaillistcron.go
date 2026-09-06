@@ -67,4 +67,3 @@ func EmailListCron() {
 		}
 	}
 }
-

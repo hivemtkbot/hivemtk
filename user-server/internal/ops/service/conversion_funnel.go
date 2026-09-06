@@ -22,8 +22,8 @@ type FunnelStage struct {
 	Stage    string  `json:"stage"`
 	Name     string  `json:"name"`
 	Count    int64   `json:"count"`
-	Rate     float64 `json:"rate"`      
-	DropRate float64 `json:"drop_rate"` 
+	Rate     float64 `json:"rate"`
+	DropRate float64 `json:"drop_rate"`
 }
 
 // FunnelReport 漏斗报告
@@ -32,7 +32,7 @@ type FunnelReport struct {
 	EndTime     time.Time     `json:"end_time"`
 	Stages      []FunnelStage `json:"stages"`
 	Total       int64         `json:"total"`
-	Conversion  float64       `json:"conversion"` 
+	Conversion  float64       `json:"conversion"`
 	GeneratedAt time.Time     `json:"generated_at"`
 }
 
@@ -138,4 +138,3 @@ func (s *ConversionFunnelService) GetStageDetails(stage string, startTime, endTi
 
 	return det, nil
 }
-

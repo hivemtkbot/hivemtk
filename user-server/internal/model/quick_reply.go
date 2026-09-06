@@ -8,9 +8,9 @@ type QuickReply struct {
 	Category  string    `gorm:"type:varchar(50);index" json:"category"`
 	Title     string    `gorm:"type:varchar(100);not null" json:"title"`
 	Content   string    `gorm:"type:text;not null" json:"content"`
-	Channel   string    `gorm:"type:varchar(20)" json:"channel"` 
+	Channel   string    `gorm:"type:varchar(20)" json:"channel"`
 	SortOrder int       `gorm:"default:0" json:"sort_order"`
-	IsPublic  bool      `gorm:"default:true" json:"is_public"` 
+	IsPublic  bool      `gorm:"default:true" json:"is_public"`
 	CreatedBy uint      `json:"created_by"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
@@ -20,4 +20,3 @@ type QuickReply struct {
 func (QuickReply) TableName() string {
 	return "quick_replies"
 }
-

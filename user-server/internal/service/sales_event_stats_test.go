@@ -1,8 +1,5 @@
 package service
 
-// H2 回归验证：SalesEventStatsService（DB 权威）替代原 SalesDashboard（内存版）。
-// 覆盖：事件写入 → 草稿统计 / 销售业绩 / 排行榜 / AI 产能 / 漏斗迁移后的 journey.Funnel。
-
 import (
 	"context"
 	"testing"

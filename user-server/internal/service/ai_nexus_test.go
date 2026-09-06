@@ -11,7 +11,7 @@ import (
 // TestHumanizePolisher_RemoveAITraces 测试去除 AI 痕迹
 func TestHumanizePolisher_RemoveAITraces(t *testing.T) {
 	p := NewHumanizePolisher()
-	p.randFn = func() float64 { return 0.99 } // R40: 确定性随机
+	p.randFn = func() float64 { return 0.99 }
 	cases := []struct {
 		in   string
 		want string
@@ -32,7 +32,7 @@ func TestHumanizePolisher_RemoveAITraces(t *testing.T) {
 
 func TestHumanizePolisher_RemoveExtraSymbols(t *testing.T) {
 	p := NewHumanizePolisher()
-	p.randFn = func() float64 { return 0.99 } // R40: 确定性随机
+	p.randFn = func() float64 { return 0.99 }
 	cases := []struct {
 		in   string
 		want string
@@ -52,7 +52,7 @@ func TestHumanizePolisher_RemoveExtraSymbols(t *testing.T) {
 
 func TestHumanizePolisher_TruncateByLength(t *testing.T) {
 	p := NewHumanizePolisher()
-	p.randFn = func() float64 { return 0.99 } // R40: 确定性随机
+	p.randFn = func() float64 { return 0.99 }
 	p.maxLength = 10
 	got, _ := p.Polish(nil, "这是一段非常长的测试文本，包含很多很多字符", nil)
 	if len([]rune(got)) > 12 {
@@ -62,7 +62,7 @@ func TestHumanizePolisher_TruncateByLength(t *testing.T) {
 
 func TestHumanizePolisher_PlatformStyle(t *testing.T) {
 	p := NewHumanizePolisher()
-	p.randFn = func() float64 { return 0.99 } // R40: 确定性随机
+	p.randFn = func() float64 { return 0.99 }
 	got, _ := p.Polish(nil, "好的😊", &PolishContext{Platform: "wechat"})
 	if !strings.Contains(got, "😊") {
 		t.Errorf("wechat should keep emoji: %q", got)
@@ -75,7 +75,7 @@ func TestHumanizePolisher_PlatformStyle(t *testing.T) {
 
 func TestHumanizePolisher_NoParticleForComplaint(t *testing.T) {
 	p := NewHumanizePolisher()
-	p.randFn = func() float64 { return 0.99 } // R40: 确定性随机
+	p.randFn = func() float64 { return 0.99 }
 	original := "好的，我来帮您处理"
 	got, _ := p.Polish(nil, original, &PolishContext{Intent: IntentComplaint})
 	if got != original && !strings.HasPrefix(got, "好的") {
@@ -85,7 +85,7 @@ func TestHumanizePolisher_NoParticleForComplaint(t *testing.T) {
 
 func TestHumanizePolisher_EmptyInput(t *testing.T) {
 	p := NewHumanizePolisher()
-	p.randFn = func() float64 { return 0.99 } // R40: 确定性随机
+	p.randFn = func() float64 { return 0.99 }
 	got, _ := p.Polish(nil, "", nil)
 	if got != "" {
 		t.Errorf("empty input should return empty, got %q", got)

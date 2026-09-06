@@ -33,7 +33,7 @@ type ClueScoreListResponse struct {
 // ClueEngagementRequest 互动事件请求
 type ClueEngagementRequest struct {
 	ClueID    string `json:"clue_id" binding:"required"`
-	EventType string `json:"event_type" binding:"required"` 
+	EventType string `json:"event_type" binding:"required"`
 	Channel   string `json:"channel"`
 	Payload   any    `json:"payload"`
 }
@@ -54,4 +54,3 @@ type ClueGradeStats struct {
 	Grade string `json:"grade"`
 	Count int64  `json:"count"`
 }
-

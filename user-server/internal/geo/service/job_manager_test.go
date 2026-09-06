@@ -13,7 +13,6 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
-// fakeScheduler 收集注册的调度条目，模拟 cron.TaskManager
 type fakeScheduler struct {
 	specs  map[string]string
 	nextID cron.EntryID
@@ -34,7 +33,6 @@ func (f *fakeScheduler) AddTask(spec string, cmd func()) (cron.EntryID, error) {
 
 func (f *fakeScheduler) RemoveTask(id cron.EntryID) {}
 
-// newTestJobManager 构造带测试 DB 的 JobManager（绕过全局单例的默认仓储）
 func newTestJobManager(t *testing.T) (*JobManager, *fakeScheduler) {
 	t.Helper()
 	db := testutil.NewTestDB(t, &model.GeoJobRun{}, &model.GeoConfig{})
@@ -57,7 +55,7 @@ func newTestJobManager(t *testing.T) (*JobManager, *fakeScheduler) {
 func TestJobManager_RunRecordsHistory(t *testing.T) {
 	m, _ := newTestJobManager(t)
 
-	m.running[JobSOVRefresh].Store(true) // 模拟已在运行 → 触发应被跳过
+	m.running[JobSOVRefresh].Store(true)
 	started, err := m.StartJob(JobSOVRefresh, "manual")
 	if err != nil {
 		t.Fatalf("StartJob failed: %v", err)
@@ -72,7 +70,6 @@ func TestJobManager_RunRecordsHistory(t *testing.T) {
 		t.Fatalf("StartJob started=%v err=%v", started, err)
 	}
 
-	// 等待异步执行完成（测试任务体为空转，很快）
 	deadline := time.Now().Add(5 * time.Second)
 	for m.running[JobSOVRefresh].Load() && time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)
@@ -105,12 +102,10 @@ func TestJobManager_UnknownJob(t *testing.T) {
 func TestJobManager_UpdateSchedule(t *testing.T) {
 	m, sched := newTestJobManager(t)
 
-	// 未 Setup 时拒绝修改
 	if err := m.UpdateSchedule(JobSOVRefresh, "0 30 2 * * *"); err == nil {
 		t.Fatal("调度器未初始化时应报错")
 	}
 
-	// Setup 后正常更新
 	m.setup = true
 	m.sched = sched
 	if err := m.UpdateSchedule(JobSOVRefresh, "0 30 2 * * *"); err != nil {
@@ -119,7 +114,7 @@ func TestJobManager_UpdateSchedule(t *testing.T) {
 	if m.specs[JobSOVRefresh] != "0 30 2 * * *" {
 		t.Fatalf("spec 未生效: %s", m.specs[JobSOVRefresh])
 	}
-	// 持久化到 geo_config
+
 	cfg, err := m.cfgRepo.Get()
 	if err != nil {
 		t.Fatalf("读取配置失败: %v", err)
@@ -128,11 +123,10 @@ func TestJobManager_UpdateSchedule(t *testing.T) {
 		t.Fatalf("CronSpecs 未持久化: %q", cfg.CronSpecs)
 	}
 
-	// 非法表达式被拒绝
 	if err := m.UpdateSchedule(JobSOVRefresh, "invalid spec"); err == nil {
 		t.Fatal("非法 cron 表达式应报错")
 	}
-	// 未知任务被拒绝
+
 	if err := m.UpdateSchedule("not_exist", "0 30 2 * * *"); err == nil {
 		t.Fatal("未知任务应报错")
 	}

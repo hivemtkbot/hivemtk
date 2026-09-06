@@ -118,7 +118,7 @@
       </template>
     </el-dialog>
 
-    <!-- 事件详情弹窗 -->
+    
     <el-dialog v-model="detailDialogVisible" title="事件详情" width="650px" :close-on-click-modal="false">
       <template v-if="currentEvent">
         <el-descriptions :column="2" border>
@@ -189,7 +189,6 @@ const getEventTypeTag = (type) => {
   const map = { view: '', click: 'primary', register: 'success', purchase: 'warning', share: 'info' }
   return map[type]}
 
-// 后端无全局事件列表端点，按客户聚合各客户的事件流
 const mapEvent = (e) => {
   let data = {}
   try {
@@ -209,14 +208,12 @@ const mapEvent = (e) => {
     createdAt: (e.occurred_at || e.created_at || '').toString().replace('T', ' ').slice(0, 19),
     properties: data
   }
-}
+};
 
 const loadEvents = async () => {
   loading.value = true
   try {
-    // R41 修复: 改用后端全局分页事件流(一次请求)
-    // 原"全客户 N+1 逐个拉取"在生产规模会打爆后端, 且脏 conv-id(含 / %2F)触发 Gin 路由解码 404
-    const res = await getGlobalEvents({ page: pagination.value.page || 1, page_size: pagination.value.pageSize || 50 })
+    const res = await getGlobalEvents({ page: pagination.value.page || 1, page_size: pagination.value.pageSize || 50 });
     const raw = Array.isArray(res) ? res : (res?.list || [])
     events.value = raw.map(mapEvent)
     pagination.value.total = res?.total ?? raw.length

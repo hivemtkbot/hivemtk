@@ -18,11 +18,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// mockOIDCServer 启动一个 mock OIDC 服务（用 test server 模拟 IdP）
-//   返回值：httptest.Server + 用于签名 ID Token 的 RSA 私钥
-//
-// 设计：handler 闭包通过 atomic.Value 读取当前 issuer，保证 srv.URL
-// 在 srv := httptest.NewServer 返回后才被设置。
 func mockOIDCServer(t *testing.T) (*httptest.Server, *rsa.PrivateKey) {
 	t.Helper()
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -266,5 +261,3 @@ func TestUnsupportedCurve(t *testing.T) {
 func testContext() context.Context {
 	return context.Background()
 }
-
-

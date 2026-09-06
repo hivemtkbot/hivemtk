@@ -51,7 +51,7 @@ func (r *integrationTemplateRepo) Update(ctx context.Context, t *model.Integrati
 }
 
 func (r *integrationTemplateRepo) Delete(ctx context.Context, id uint64) error {
-	// 内置模板不允许删除（业务保护）
+
 	var t model.IntegrationTemplate
 	if err := r.db.First(&t, id).Error; err != nil {
 		return err

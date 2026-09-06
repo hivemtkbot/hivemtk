@@ -44,8 +44,8 @@ const resetting = ref(false)
 
 const loadStatus = async () => {
   try {
-    status.value = await getBridgeTokenStatus() || {}
-  } catch (e) { /* 静默 */ }
+    status.value = (await getBridgeTokenStatus()) || {}
+  } catch (e) {}
 }
 
 const onReset = async () => {

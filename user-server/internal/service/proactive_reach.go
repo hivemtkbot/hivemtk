@@ -69,10 +69,9 @@ type ProactiveReachService struct {
 	db            *gorm.DB
 	customerRepo  *customerRepo
 	accountLookup AccountLookup
-	// dnc 全局跨渠道退订标志位服务（发送前置检查，见 checkDoNotContact）
+
 	dnc *DoNotContactService
 
-	// 渠道发送器（函数式注入，避免循环依赖）
 	smsRegistry      func() (func(ctx context.Context, phone, content, templateID string, params map[string]string) (string, error), error)
 	emailRegistry    func(ctx context.Context, accountID uint, to, subject, content string, attachments []string) (string, error)
 	telegramRegistry func(ctx context.Context, accountID uint, chatID int64, content string) error
@@ -147,7 +146,6 @@ func (s *ProactiveReachService) SetDoNotContact(dnc *DoNotContactService) {
 	s.dnc = dnc
 }
 
-// dncService 获取全局退订标志位服务（懒加载兜底）
 func (s *ProactiveReachService) dncService() *DoNotContactService {
 	if s.dnc == nil {
 		s.dnc = NewDoNotContactService(nil)
@@ -155,12 +153,10 @@ func (s *ProactiveReachService) dncService() *DoNotContactService {
 	return s.dnc
 }
 
-// newCustomerRepo 创建接 db 的 customer repo
 func newCustomerRepo(db *gorm.DB) *customerRepo {
 	return &customerRepo{db: db}
 }
 
-// customerRepo 客户仓储（接 db）
 type customerRepo struct {
 	db *gorm.DB
 }
@@ -201,8 +197,6 @@ func (s *ProactiveReachService) ReachByCustomer(ctx context.Context, req *Proact
 		return nil, errors.New("content is required")
 	}
 
-	// 1. 显式指定手机号或邮箱 → 走 SMS/Email 直发
-	// R-3a：显式渠道同样受全局退订标志位约束（无法反查 one_id 时用归一键检查）
 	if req.Phone != "" {
 		if s.checkDoNotContact(ctx, "", "sms", req.Phone) {
 			return nil, fmt.Errorf("do-not-contact: phone %s has opted out globally, send skipped", req.Phone)
@@ -216,7 +210,6 @@ func (s *ProactiveReachService) ReachByCustomer(ctx context.Context, req *Proact
 		return s.sendEmail(ctx, req, req.Email)
 	}
 
-	// 2. 加载客户完整信息
 	customer, err := s.loadCustomer(ctx, req.CustomerID, req.OneID)
 	if err != nil {
 		return nil, fmt.Errorf("load customer: %w", err)
@@ -225,25 +218,21 @@ func (s *ProactiveReachService) ReachByCustomer(ctx context.Context, req *Proact
 		return nil, errors.New("customer not found: provide customer_id, one_id, phone, or email")
 	}
 
-	// 3. 列出客户有完整身份的所有渠道
 	available := CustomerAvailableChannels(customer, req.PreferredChannels)
 	if len(available) == 0 {
 		return nil, fmt.Errorf("customer %s has no channel identity on file, please bind at least one channel", customer.UnifiedID)
 	}
 
-	// 3.5 R-3a：全局跨渠道退订标志位检查——逐渠道过滤，命中即跳过该渠道并计数上报
 	available = s.filterDoNotContactChannels(ctx, customer.UnifiedID, available)
 	if len(available) == 0 {
 		return nil, fmt.Errorf("do-not-contact: customer %s has opted out on all available channels", customer.UnifiedID)
 	}
 
-	// 4. 从副表 CustomerChannels 加载客户偏好排序
 	preferred, _ := s.loadCustomerPreferredOrder(ctx, customer.UnifiedID, available)
 	if len(preferred) > 0 {
 		available = preferred
 	}
 
-	// 5. 试运行模式
 	if req.DryRun {
 		channel, recipient, accountID, err := s.pickChannelDryRun(available, customer)
 		if err != nil {
@@ -260,18 +249,15 @@ func (s *ProactiveReachService) ReachByCustomer(ctx context.Context, req *Proact
 		}, nil
 	}
 
-	// 6. 冷却检查
 	if !s.checkCooldown(ctx, customer.UnifiedID) {
 		return nil, fmt.Errorf("cooldown: customer %s recently received a message, please wait", customer.UnifiedID)
 	}
 
-	// 7. 智能选渠道（按 available 顺序找第一个有 active 账号的）
 	channel, recipient, accountID, err := s.pickChannel(ctx, available, customer)
 	if err != nil {
 		return nil, err
 	}
 
-	// 8. 按渠道分发
 	switch channel {
 	case "sms":
 		return s.sendSMS(ctx, req, recipient)
@@ -296,7 +282,6 @@ func (s *ProactiveReachService) ReachByCustomer(ctx context.Context, req *Proact
 	return nil, fmt.Errorf("unsupported channel: %s", channel)
 }
 
-// loadCustomer 按 ID 或 OneID 加载客户
 func (s *ProactiveReachService) loadCustomer(ctx context.Context, customerID, oneID string) (*model.Customer, error) {
 	if s.customerRepo == nil || s.db == nil {
 		return nil, nil
@@ -315,7 +300,6 @@ func (s *ProactiveReachService) LoadCustomer(ctx context.Context, customerID, on
 	return s.loadCustomer(ctx, customerID, oneID)
 }
 
-// loadCustomerPreferredOrder 从副表读取客户渠道偏好
 func (s *ProactiveReachService) loadCustomerPreferredOrder(ctx context.Context, oneID string, fallback []string) ([]string, error) {
 	if s.db == nil {
 		return nil, nil
@@ -342,7 +326,6 @@ func (s *ProactiveReachService) loadCustomerPreferredOrder(ctx context.Context, 
 	return ordered, nil
 }
 
-// pickChannelDryRun 试运行模式选渠道：跳过账号检查，直接选第一个有接收身份的渠道
 func (s *ProactiveReachService) pickChannelDryRun(candidates []string, customer *model.Customer) (channel, recipient, accountID string, err error) {
 	for _, ch := range candidates {
 		recipient = CustomerChannelIdentity(customer, ch)
@@ -357,11 +340,6 @@ func (s *ProactiveReachService) pickChannelDryRun(candidates []string, customer 
 	return "", "", "", fmt.Errorf("no channel identity for customer %s", customer.UnifiedID)
 }
 
-// pickChannel 从候选渠道中选第一个有 active 账号的
-//
-// 2026-08-17 修复：sms/email/dingtalk 三种渠道的发送器不依赖具体 accountID（全局单例/群机器人），
-// 不再走 FindActiveAccount，直接选中（recipient 必须存在）。避免被错误 "account lookup not
-// supported for channel" 跳过。
 func (s *ProactiveReachService) pickChannel(ctx context.Context, candidates []string, customer *model.Customer) (channel, recipient, accountID string, err error) {
 	var tried []string
 	for _, ch := range candidates {
@@ -370,11 +348,11 @@ func (s *ProactiveReachService) pickChannel(ctx context.Context, candidates []st
 		if recipient == "" {
 			continue
 		}
-		// 出站专用渠道（不依赖账号）：sms/email/dingtalk
+
 		if ch == "sms" || ch == "email" || ch == "dingtalk" {
 			return ch, recipient, "", nil
 		}
-		// 找 active 账号
+
 		acc, err := s.accountLookup.FindActiveAccount(ctx, ch)
 		if err != nil {
 			logger.Warnf("[ProactiveReach] 查找 %s 账号失败: %v", ch, err)
@@ -388,7 +366,6 @@ func (s *ProactiveReachService) pickChannel(ctx context.Context, candidates []st
 	return "", "", "", fmt.Errorf("no active account for customer %s, tried: %s", customer.UnifiedID, strings.Join(tried, ","))
 }
 
-// checkCooldown 60 分钟冷却
 func (s *ProactiveReachService) checkCooldown(ctx context.Context, oneID string) bool {
 	if oneID == "" {
 		return true
@@ -401,11 +378,6 @@ func (s *ProactiveReachService) checkCooldown(ctx context.Context, oneID string)
 	return set
 }
 
-// checkDoNotContact R-3a 全局退订标志位检查（显式 phone/email 直发路径）
-//
-// oneID 为空时使用 fallbackKey 归一键检查（"phone:"+phone / "email:"+email，
-// 与 DoNotContactService 无法反查 one_id 时的降级约定一致）。
-// 返回 true 表示被拦截（已全局退订），调用方必须跳过发送。
 func (s *ProactiveReachService) checkDoNotContact(ctx context.Context, oneID, channel, fallbackKey string) bool {
 	key := oneID
 	if key == "" {
@@ -413,16 +385,12 @@ func (s *ProactiveReachService) checkDoNotContact(ctx context.Context, oneID, ch
 	}
 	blocked := s.dncService().IsBlocked(ctx, key, channel)
 	if blocked {
-		// 计数上报：单客户路径以结构化日志留痕
+
 		logger.Warnf("[DNC] 跳过发送 one_id=%s channel=%s（命中全局退订标志位）", key, channel)
 	}
 	return blocked
 }
 
-// filterDoNotContactChannels R-3a：按全局退订标志位过滤候选渠道
-//
-// 命中标志位的渠道被跳过并计数上报；全部命中时返回空切片，
-// 由调用方终止本次触达。单客户路径以结构化日志留痕。
 func (s *ProactiveReachService) filterDoNotContactChannels(ctx context.Context, oneID string, candidates []string) []string {
 	dnc := s.dncService()
 	kept := make([]string, 0, len(candidates))
@@ -436,7 +404,6 @@ func (s *ProactiveReachService) filterDoNotContactChannels(ctx context.Context, 
 	return kept
 }
 
-// sendSMS 发送短信
 func (s *ProactiveReachService) sendSMS(ctx context.Context, req *ProactiveReachRequest, phone string) (*ProactiveReachResponse, error) {
 	registry := s.smsRegistry
 	if registry == nil {
@@ -460,7 +427,6 @@ func (s *ProactiveReachService) sendSMS(ctx context.Context, req *ProactiveReach
 	}, nil
 }
 
-// sendEmail 发送邮件
 func (s *ProactiveReachService) sendEmail(ctx context.Context, req *ProactiveReachRequest, to string) (*ProactiveReachResponse, error) {
 	sender := s.emailRegistry
 	if sender == nil {
@@ -484,7 +450,6 @@ func (s *ProactiveReachService) sendEmail(ctx context.Context, req *ProactiveRea
 	}, nil
 }
 
-// sendTelegram Telegram 私信
 func (s *ProactiveReachService) sendTelegram(ctx context.Context, req *ProactiveReachRequest, recipientID, accountID string) (*ProactiveReachResponse, error) {
 	sender := s.telegramRegistry
 	if sender == nil {
@@ -509,7 +474,6 @@ func (s *ProactiveReachService) sendTelegram(ctx context.Context, req *Proactive
 	}, nil
 }
 
-// sendWhatsApp WhatsApp 发送
 func (s *ProactiveReachService) sendWhatsApp(ctx context.Context, req *ProactiveReachRequest, recipientID, accountID string) (*ProactiveReachResponse, error) {
 	sender := s.whatsAppRegistry
 	if sender == nil {
@@ -530,7 +494,6 @@ func (s *ProactiveReachService) sendWhatsApp(ctx context.Context, req *Proactive
 	}, nil
 }
 
-// sendWeCom 企微
 func (s *ProactiveReachService) sendWeCom(ctx context.Context, req *ProactiveReachRequest, recipientID, accountID string) (*ProactiveReachResponse, error) {
 	sender := s.weComRegistry
 	if sender == nil {
@@ -552,11 +515,6 @@ func (s *ProactiveReachService) sendWeCom(ctx context.Context, req *ProactiveRea
 	}, nil
 }
 
-// sendWeChat 微信公众号（客服消息）
-//
-// 2026-08-17 严肃化：accountID=0 表示"自动选择第一个 active 公众号账号"，
-// 避免调用方必须事先查询 customer.wechat_account 字段。
-// 当 customer 强绑定了特定公众号时，可通过 ProactiveReachRequest.AccountID 显式传入。
 func (s *ProactiveReachService) sendWeChat(ctx context.Context, req *ProactiveReachRequest, recipientID string) (*ProactiveReachResponse, error) {
 	sender := s.wechatRegistry
 	if sender == nil {
@@ -578,7 +536,6 @@ func (s *ProactiveReachService) sendWeChat(ctx context.Context, req *ProactiveRe
 	}, nil
 }
 
-// sendFeishu 飞书
 func (s *ProactiveReachService) sendFeishu(ctx context.Context, req *ProactiveReachRequest, recipientID, accountID string) (*ProactiveReachResponse, error) {
 	sender := s.feishuRegistry
 	if sender == nil {
@@ -599,7 +556,6 @@ func (s *ProactiveReachService) sendFeishu(ctx context.Context, req *ProactiveRe
 	}, nil
 }
 
-// sendBridge 抖音/快手/小红书/TikTok/闲鱼（通过 Bridge）
 func (s *ProactiveReachService) sendBridge(ctx context.Context, channel string, req *ProactiveReachRequest, recipientID, accountID string) (*ProactiveReachResponse, error) {
 	if err := DeliverBridgeOutbound(ctx, channel, accountID, recipientID, "text", req.Content, ""); err != nil {
 		return nil, err
@@ -615,7 +571,6 @@ func (s *ProactiveReachService) sendBridge(ctx context.Context, channel string, 
 	}, nil
 }
 
-// sendDingTalk 钉钉
 func (s *ProactiveReachService) sendDingTalk(ctx context.Context, req *ProactiveReachRequest, chatID string) (*ProactiveReachResponse, error) {
 	sender := s.dingTalkRegistry
 	if sender == nil {
@@ -635,8 +590,6 @@ func (s *ProactiveReachService) sendDingTalk(ctx context.Context, req *Proactive
 	}, nil
 }
 
-// helpers
-
 func parseUint(s string) uint {
 	var n uint
 	fmt.Sscanf(s, "%d", &n)
@@ -649,12 +602,10 @@ func parseInt64(s string) int64 {
 	return n
 }
 
-// defaultAccountLookup 默认账号查询实现
 type defaultAccountLookup struct {
 	db *gorm.DB
 }
 
-// FindActiveAccount 默认从各渠道 account 表中找第一个 active 账号
 func (l *defaultAccountLookup) FindActiveAccount(ctx context.Context, channel string) (string, error) {
 	if l.db == nil {
 		return "", errors.New("db not available")
@@ -693,7 +644,7 @@ func (l *defaultAccountLookup) FindActiveAccount(ctx context.Context, channel st
 		}
 		return fmt.Sprintf("%d", acc.ID), nil
 	case "douyin", "tiktok", "kuaishou", "xiaohongshu", "xianyu":
-		// Bridge 渠道：账号 ID 由 extension 上报时自己提供
+
 		var acc struct {
 			AccountID string
 		}
@@ -704,7 +655,7 @@ func (l *defaultAccountLookup) FindActiveAccount(ctx context.Context, channel st
 		}
 		return acc.AccountID, nil
 	case "wechat":
-		// 微信公众号：智能选渠道兜底，找第一个 active 且凭据完整的账号
+
 		var acc struct {
 			ID uint
 		}
@@ -727,7 +678,6 @@ func BindProactiveReachSenders(svc *ProactiveReachService, db *gorm.DB) {
 		return
 	}
 
-	// SMS
 	svc.SetSMSRegistry(func() (func(ctx context.Context, phone, content, templateID string, params map[string]string) (string, error), error) {
 		smsSvc := NewSmsService(repository.NewSmsRepository())
 		return func(ctx context.Context, phone, content, templateID string, params map[string]string) (string, error) {
@@ -738,23 +688,19 @@ func BindProactiveReachSenders(svc *ProactiveReachService, db *gorm.DB) {
 		}, nil
 	})
 
-	// Email
 	svc.SetEmailRegistry(func(ctx context.Context, accountID uint, to, subject, content string, attachments []string) (string, error) {
 		emailSvc := NewEmailService(db)
 		return emailSvc.Send(ctx, accountID, to, subject, content, attachments)
 	})
 
-	// Telegram
 	svc.SetTelegramRegistry(func(ctx context.Context, accountID uint, chatID int64, content string) error {
 		return NewTelegramIntegrationService(db).SendMessage(ctx, accountID, chatID, content)
 	})
 
-	// WhatsApp
 	svc.SetWhatsAppRegistry(func(ctx context.Context, accountID uint, toPhone, content string) error {
 		return NewWhatsAppCloudIntegrationService(db).SendMessage(ctx, accountID, toPhone, content)
 	})
 
-	// WeCom
 	svc.SetWeComRegistry(func(ctx context.Context, accountID uint, externalUserID, msgType, content string, isAIReply bool, agent string) (string, error) {
 		_, err := NewWeComIntegrationService(db).SendMessage(ctx, &WeComSendRequest{
 			AccountID:      accountID,
@@ -770,17 +716,14 @@ func BindProactiveReachSenders(svc *ProactiveReachService, db *gorm.DB) {
 		return "wecom_out", nil
 	})
 
-	// Feishu
 	svc.SetFeishuRegistry(func(ctx context.Context, accountID uint, openID, content, receiveIDType string) error {
 		return NewFeishuIntegrationService(db).SendMessage(ctx, accountID, openID, content, receiveIDType, "")
 	})
 
-	// DingTalk
 	svc.SetDingTalkRegistry(func(ctx context.Context, webhookOrToken, secret, msgType, content string) (string, error) {
 		return NewDingTalkService().SendRobot(ctx, webhookOrToken, secret, msgType, content)
 	})
 
-	// WeChat (公众号)
 	svc.SetWechatRegistry(func(ctx context.Context, accountID uint, openID, msgType, content string) (string, error) {
 		return NewWechatService(db).SendCustomMessage(ctx, accountID, openID, msgType, content)
 	})

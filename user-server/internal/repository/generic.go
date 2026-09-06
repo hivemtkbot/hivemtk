@@ -10,9 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// 全局 DB 仅供 platform 适配器等"无法走 Repository 接口"的边界场景使用。
-// 五层架构内（Controller → Service → Repository）禁止调用此函数，
-// 应通过对应 Repository 操作数据库。
 var (
 	dbInst *gorm.DB
 )
@@ -36,7 +33,6 @@ func NewBaseRepository[T any](db *gorm.DB) *BaseRepository[T] {
 	return &BaseRepository[T]{db: db}
 }
 
-// withCtx 返回带 ctx 透传的 *gorm.DB（统一入口）
 func (r *BaseRepository[T]) withCtx(ctx context.Context) *gorm.DB {
 	if ctx == nil {
 		ctx = context.Background()

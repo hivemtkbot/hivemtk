@@ -27,7 +27,7 @@ type FAQAnswerCacheService struct {
 	store     Store
 	kbMeta    KBMetaReader
 	threshold float64
-	now       func() time.Time // 可注入时钟（测试用）
+	now       func() time.Time
 }
 
 // NewFAQAnswerCacheService 创建语义缓存服务
@@ -59,7 +59,6 @@ func (s *FAQAnswerCacheService) Lookup(ctx context.Context, req LookupRequest) (
 		return &LookupResult{Tier: TierMiss}, nil
 	}
 
-	// Tier1 精确键
 	if e, err := s.store.GetExact(ctx, req.KBID, req.PromptVersion, req.QueryVector); err != nil {
 		logger.Warnf("[ragcache] tier1 exact lookup failed: %v", err)
 		ragRecallTotal.WithLabel("tier1", "false").Inc()
@@ -70,7 +69,6 @@ func (s *FAQAnswerCacheService) Lookup(ctx context.Context, req LookupRequest) (
 		ragRecallTotal.WithLabel("tier1", "false").Inc()
 	}
 
-	// Tier2 语义层
 	e, err := s.store.GetSemantic(ctx, req.KBID, req.PromptVersion, req.QueryVector, s.threshold)
 	if err != nil {
 		logger.Warnf("[ragcache] tier2 semantic lookup failed: %v", err)
@@ -83,7 +81,7 @@ func (s *FAQAnswerCacheService) Lookup(ctx context.Context, req LookupRequest) (
 		ragRecallTotal.WithLabel("miss", "true").Inc()
 		return &LookupResult{Tier: TierMiss}, nil
 	}
-	// 双重校验：SQL 阈值之外在应用侧再验一次 cosine（阈值边界防线）
+
 	sim := CosineSimilarity(req.QueryVector, e.QueryVector)
 	if sim < float64(s.threshold) {
 		logger.Debugf("[ragcache] semantic hit below local threshold: sim=%.6f threshold=%.2f", sim, s.threshold)
@@ -101,7 +99,7 @@ type StoreRequest struct {
 	PromptVersion     string
 	QueryVector       []float32
 	Answer            string
-	FromKnowledgeBase bool // 必须为 true：答案确实由知识库检索内容生成
+	FromKnowledgeBase bool
 }
 
 // Store 写入缓存（过 CanCache 四道门 + 记录写入时的 kb 更新时间）。
@@ -116,7 +114,7 @@ func (s *FAQAnswerCacheService) Store(ctx context.Context, req StoreRequest) err
 	}
 	kbUpdatedAt, err := s.kbMeta.GetKBUpdatedAt(ctx, req.KBID)
 	if err != nil {
-		// 拿不到 kb 更新时间就无法做失效校验，宁可不缓存
+
 		logger.Warnf("[ragcache] read kb updated_at failed, skip caching: %v", err)
 		return nil
 	}
@@ -147,15 +145,13 @@ func (s *FAQAnswerCacheService) CanCache(answer string, fromKnowledgeBase bool) 
 	return true, ""
 }
 
-// fresh 命中前校验：kb 更新时间 > 缓存条目记录的 kb_updated_at 则过期，
-// 删除该条目并返回 false（回源）。
 func (s *FAQAnswerCacheService) fresh(ctx context.Context, e *Entry) bool {
 	if s.kbMeta == nil {
 		return true
 	}
 	cur, err := s.kbMeta.GetKBUpdatedAt(ctx, e.KBID)
 	if err != nil {
-		// 读不到元信息时保守放行旧值（可用性优先），仅告警
+
 		logger.Warnf("[ragcache] freshness check failed (kb_id=%s): %v", e.KBID, err)
 		return true
 	}
@@ -169,7 +165,6 @@ func (s *FAQAnswerCacheService) fresh(ctx context.Context, e *Entry) bool {
 	return true
 }
 
-// refusalKeywords refusal 兜底话术关键词（命中任一即不入缓存）
 var refusalKeywords = []string{
 	"知识不足",
 	"无法回答",
@@ -196,9 +191,6 @@ func IsRefusalAnswer(answer string) bool {
 	return false
 }
 
-// personalizationVarPattern 客户个性化变量占位符：
-//   - Go/text template: {{.name}} / {{name}}
-//   - 单花括号模板: {customer_name} / {order_id}
 var (
 	personalizationVarPattern1 = regexp.MustCompile(`\{\{\s*\.?[\w.-]+\s*\}\}`)
 	personalizationVarPattern2 = regexp.MustCompile(`\{[\w][\w.-]*\}`)

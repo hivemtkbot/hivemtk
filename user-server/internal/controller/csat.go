@@ -94,7 +94,6 @@ func (c *CSATController) SaveTemplate(ctx *gin.Context) {
 	response.Success(ctx, req, "模板已保存")
 }
 
-// queryInt 查询参数整数（默认值回退）
 func queryInt(ctx *gin.Context, key string, def int) int {
 	raw := ctx.Query(key)
 	if raw == "" {

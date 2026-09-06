@@ -33,17 +33,14 @@ func NewSmsUnsubscribeRepository(db *gorm.DB) SmsUnsubscribeRepository {
 	return &smsUnsubscribeRepo{db: db}
 }
 
-// Create 创建退订记录（phone 唯一，重复时返回错误）
 func (r *smsUnsubscribeRepo) Create(ctx context.Context, record *model.SmsUnsubscribe) error {
 	return r.db.Create(record).Error
 }
 
-// Update 更新退订记录
 func (r *smsUnsubscribeRepo) Update(ctx context.Context, record *model.SmsUnsubscribe) error {
 	return r.db.Save(record).Error
 }
 
-// GetByPhone 根据手机号查询退订记录
 func (r *smsUnsubscribeRepo) GetByPhone(ctx context.Context, phone string) (*model.SmsUnsubscribe, error) {
 	var record model.SmsUnsubscribe
 	err := r.db.Where("phone = ?", phone).First(&record).Error
@@ -56,7 +53,6 @@ func (r *smsUnsubscribeRepo) GetByPhone(ctx context.Context, phone string) (*mod
 	return &record, nil
 }
 
-// ExistsByPhone 判断手机号是否已退订
 func (r *smsUnsubscribeRepo) ExistsByPhone(ctx context.Context, phone string) (bool, error) {
 	var count int64
 	err := r.db.Model(&model.SmsUnsubscribe{}).Where("phone = ?", phone).Count(&count).Error
@@ -66,12 +62,10 @@ func (r *smsUnsubscribeRepo) ExistsByPhone(ctx context.Context, phone string) (b
 	return count > 0, nil
 }
 
-// DeleteByPhone 根据手机号删除退订记录（重新订阅）
 func (r *smsUnsubscribeRepo) DeleteByPhone(ctx context.Context, phone string) error {
 	return r.db.Where("phone = ?", phone).Delete(&model.SmsUnsubscribe{}).Error
 }
 
-// List 分页查询退订名单
 func (r *smsUnsubscribeRepo) List(ctx context.Context, page, limit int, keyword string) ([]*model.SmsUnsubscribe, int64, error) {
 	var records []*model.SmsUnsubscribe
 	var total int64
@@ -93,7 +87,6 @@ func (r *smsUnsubscribeRepo) List(ctx context.Context, page, limit int, keyword 
 	return records, total, nil
 }
 
-// ListAll 查询全部退订名单（导出使用）
 func (r *smsUnsubscribeRepo) ListAll(ctx context.Context) ([]*model.SmsUnsubscribe, error) {
 	var records []*model.SmsUnsubscribe
 	if err := r.db.Order("unsubscribed_at DESC").Find(&records).Error; err != nil {

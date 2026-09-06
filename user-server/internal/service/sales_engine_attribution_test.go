@@ -8,7 +8,6 @@ import (
 	"hivemtk-user/internal/dto"
 )
 
-// stubScriptLookup 返回固定话术的 ScriptLookup 替身
 type stubScriptLookup struct {
 	script *ScriptTemplate
 	err    error
@@ -86,5 +85,4 @@ func TestSalesEngine_ScriptIDAbsentWhenNoScript(t *testing.T) {
 	}
 }
 
-// 编译期确认 dto.SalesStepLog.Extra 通道存在（归因数据惯例通道）
 var _ = dto.SalesStepLog{}

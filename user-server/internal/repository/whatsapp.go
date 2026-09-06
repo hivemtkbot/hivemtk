@@ -45,7 +45,6 @@ func NewWhatsappRepository() WhatsappRepository {
 	return &whatsappRepo{db: _db.GetDB()}
 }
 
-// accounts
 func (r *whatsappRepo) CreateAccount(ctx context.Context, acc *model.WhatsappAccount) error {
 	return r.db.Create(acc).Error
 }
@@ -73,7 +72,6 @@ func (r *whatsappRepo) GetAccount(ctx context.Context, id uuid.UUID) (*model.Wha
 	return &acc, err
 }
 
-// session
 func (r *whatsappRepo) UpsertSession(ctx context.Context, sess *model.WhatsappSession) error {
 	var exist model.WhatsappSession
 	err := r.db.Where("account_id = ?", sess.AccountID).First(&exist).Error
@@ -96,7 +94,6 @@ func (r *whatsappRepo) GetSession(ctx context.Context, accountID uuid.UUID) (*mo
 	return &sess, err
 }
 
-// drafts
 func (r *whatsappRepo) CreateDraft(ctx context.Context, d *model.WhatsappDraft) error {
 	return r.db.Create(d).Error
 }
@@ -120,7 +117,6 @@ func (r *whatsappRepo) GetDraft(ctx context.Context, id uuid.UUID) (*model.Whats
 	return &d, err
 }
 
-// jobs
 func (r *whatsappRepo) CreateJob(ctx context.Context, j *model.WhatsappJob) error {
 	return r.db.Create(j).Error
 }
@@ -144,7 +140,6 @@ func (r *whatsappRepo) GetJob(ctx context.Context, id uuid.UUID) (*model.Whatsap
 	return &j, err
 }
 
-// job details
 func (r *whatsappRepo) CreateJobDetail(ctx context.Context, d *model.WhatsappJobDetail) error {
 	return r.db.Create(d).Error
 }

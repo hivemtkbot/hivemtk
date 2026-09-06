@@ -129,8 +129,7 @@ const updateTime = () => {
 
 const loadData = async () => {
   const res = await getDashboardData()
-  // 后端返回 { code, message, data: { kpis, trend, channels, ... } }
-  const data = res
+  const data = res;
   kpis.value = data.kpis || []
   initCharts(data)
 }
@@ -146,8 +145,7 @@ const pickColor = (t) => (activityMeta[t]?.color) || '#909399'
 
 const loadRealtime = async () => {
   const res = await getRealtimeActivities()
-  // 后端返回 { code, message, data: [{type,title,user_name,created_at}] }
-  const list = Array.isArray(res) ? res : []
+  const list = Array.isArray(res) ? res : [];
   realtimeActivities.value = list.map((a) => ({
     text: a.title || a.user_name || '',
     time: a.created_at ? new Date(a.created_at).toLocaleTimeString('zh-CN', { hour12: false }) : '',
@@ -157,7 +155,6 @@ const loadRealtime = async () => {
 }
 
 const initCharts = (data) => {
-  // 趋势图
   if (trendChartRef.value) {
     trendChart = safeInit(trendChartRef.value)
     trendChart.setOption({
@@ -174,7 +171,6 @@ const initCharts = (data) => {
     })
   }
 
-  // 渠道图
   if (channelChartRef.value) {
     channelChart = safeInit(channelChartRef.value)
     channelChart.setOption({
@@ -189,7 +185,6 @@ const initCharts = (data) => {
     })
   }
 
-  // 来源图
   if (sourceChartRef.value) {
     sourceChart = safeInit(sourceChartRef.value)
     sourceChart.setOption({
@@ -201,7 +196,6 @@ const initCharts = (data) => {
     })
   }
 
-  // 漏斗图
   if (funnelChartRef.value) {
     funnelChart = safeInit(funnelChartRef.value)
     funnelChart.setOption({
@@ -215,7 +209,6 @@ const initCharts = (data) => {
     })
   }
 
-  // 地区分布（echarts 6 不内置 china 地图 geoJSON，使用柱状图展示，避免 "Map china not exists" 报错）
   if (mapChartRef.value) {
     mapChart = safeInit(mapChartRef.value)
     const regions = Array.isArray(data.regions) ? data.regions : []
@@ -236,7 +229,6 @@ const initCharts = (data) => {
     })
   }
 
-  // 转化对比
   if (conversionChartRef.value) {
     conversionChart = safeInit(conversionChartRef.value)
     conversionChart.setOption({

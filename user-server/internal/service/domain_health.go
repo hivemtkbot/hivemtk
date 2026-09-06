@@ -62,7 +62,6 @@ const (
 	HealthLogRetentionDays     = 30
 )
 
-// domainHealthService 实现
 type domainHealthService struct {
 	repo        repository.DomainPoolRepository
 	logRepo     *repository.DomainHealthLogRepository
@@ -102,7 +101,6 @@ func NewDomainHealthServiceWithDeps(repo repository.DomainPoolRepository, logRep
 	}
 }
 
-// CheckOne 探测单个域名
 func (s *domainHealthService) CheckOne(ctx context.Context, domainID int) (*HealthCheckResult, error) {
 	dp, err := s.repo.GetByID(ctx, domainID)
 	if err != nil {
@@ -114,7 +112,6 @@ func (s *domainHealthService) CheckOne(ctx context.Context, domainID int) (*Heal
 	return s.checkAndPersist(ctx, dp), nil
 }
 
-// CheckAll 探测所有域名
 func (s *domainHealthService) CheckAll(ctx context.Context) ([]*HealthCheckResult, error) {
 	rows, _, err := s.repo.List(ctx, 1, 1000, "", 0)
 	if err != nil {
@@ -127,7 +124,6 @@ func (s *domainHealthService) CheckAll(ctx context.Context) ([]*HealthCheckResul
 	return results, nil
 }
 
-// checkAndPersist 实际执行探测并落库
 func (s *domainHealthService) checkAndPersist(ctx context.Context, dp *model.DomainPool) *HealthCheckResult {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -218,13 +214,6 @@ func (s *domainHealthService) checkAndPersist(ctx context.Context, dp *model.Dom
 	return probe
 }
 
-// calcHealthScore 综合评分
-//   - 起始 100
-//   - DNS 失败：-30
-//   - HTTP 非 2xx/3xx：-50
-//   - 黑名单：直接归零
-//   - 每次连续失败：-10，封顶 -50
-//   - 最终 clamp 在 [0, 100]
 func calcHealthScore(prevScore, prevFailures int, probe *HealthCheckResult, blacklisted bool) (int, int) {
 	if blacklisted {
 		return 0, prevFailures + 1
@@ -255,7 +244,6 @@ func calcHealthScore(prevScore, prevFailures int, probe *HealthCheckResult, blac
 	return score, failures
 }
 
-// ProbeOnce 不写库的纯探测（用于单点调试 / 单元测试）
 func (s *domainHealthService) ProbeOnce(ctx context.Context, domain string) (*HealthCheckResult, error) {
 	res := &HealthCheckResult{
 		Domain:    domain,
@@ -312,7 +300,6 @@ func (s *domainHealthService) doHTTPHead(ctx context.Context, url string) (bool,
 	return false, resp.StatusCode, latency, "HTTP " + strconv.Itoa(resp.StatusCode)
 }
 
-// SwitchActive 手动切换
 func (s *domainHealthService) SwitchActive(ctx context.Context, domainID int, reason string) error {
 	dp, err := s.repo.GetByID(ctx, domainID)
 	if err != nil {
@@ -334,7 +321,6 @@ func (s *domainHealthService) SwitchActive(ctx context.Context, domainID int, re
 	return s.repo.UpdateActive(ctx, dp.ID, true, &now, 0)
 }
 
-// SwitchToBest 自动切换到评分最高可用域名
 func (s *domainHealthService) SwitchToBest(ctx context.Context, reason string) (*model.DomainPool, error) {
 	candidates, err := s.repo.ListAvailable(ctx, HealthScoreHealthy)
 	if err != nil {
@@ -361,7 +347,6 @@ func (s *domainHealthService) SwitchToBest(ctx context.Context, reason string) (
 	return best, nil
 }
 
-// GetActiveDomain 获取当前活跃域名（无则返回 nil）
 func (s *domainHealthService) GetActiveDomain(ctx context.Context) (*model.DomainPool, error) {
 	actives, err := s.repo.ListActive(ctx)
 	if err != nil {
@@ -373,7 +358,6 @@ func (s *domainHealthService) GetActiveDomain(ctx context.Context) (*model.Domai
 	return actives[0], nil
 }
 
-// ListAvailable 列出可用域名
 func (s *domainHealthService) ListAvailable(ctx context.Context, minScore int) ([]*model.DomainPool, error) {
 	if minScore <= 0 {
 		minScore = HealthScoreHealthy
@@ -381,7 +365,6 @@ func (s *domainHealthService) ListAvailable(ctx context.Context, minScore int) (
 	return s.repo.ListAvailable(ctx, minScore)
 }
 
-// ListHealthLogs 查询日志
 func (s *domainHealthService) ListHealthLogs(ctx context.Context, domainID int, limit int) ([]*model.DomainHealthLog, error) {
 	return s.logRepo.ListByDomain(ctx, domainID, limit)
 }

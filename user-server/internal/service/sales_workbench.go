@@ -176,7 +176,6 @@ func (s *SalesWorkbenchService) GetOverview(ctx context.Context, salesID string)
 	return overview
 }
 
-// aggregateTodos 聚合待办（按优先级排序）
 func (s *SalesWorkbenchService) aggregateTodos(ctx context.Context, salesID string, followup *FollowUpService, draft *OrderDraftService) []*WorkbenchTodo {
 	todos := make([]*WorkbenchTodo, 0)
 	now := time.Now()
@@ -251,7 +250,6 @@ func (s *SalesWorkbenchService) aggregateTodos(ctx context.Context, salesID stri
 	return todos
 }
 
-// aggregateToday 聚合今日业绩（H2：改为销售事件 DB 统计）
 func (s *SalesWorkbenchService) aggregateToday(ctx context.Context, salesID string, stats *SalesEventStatsService, todayStart time.Time) *WorkbenchToday {
 	day := &WorkbenchToday{Date: todayStart}
 	if stats == nil {
@@ -275,7 +273,6 @@ func (s *SalesWorkbenchService) aggregateToday(ctx context.Context, salesID stri
 	return day
 }
 
-// aggregateMonth 聚合本月业绩（H2：改为销售事件 DB 统计）
 func (s *SalesWorkbenchService) aggregateMonth(ctx context.Context, salesID string, stats *SalesEventStatsService, monthStart time.Time) *WorkbenchMonth {
 	month := &WorkbenchMonth{
 		Month: monthStart.Format("2006-01"),
@@ -303,7 +300,6 @@ func (s *SalesWorkbenchService) aggregateMonth(ctx context.Context, salesID stri
 	return month
 }
 
-// aggregateMetrics 关键指标（H2：改为销售事件 DB 统计）
 func (s *SalesWorkbenchService) aggregateMetrics(ctx context.Context, salesID string, stats *SalesEventStatsService, journey *CustomerJourneyService, tagger *AITagger, since time.Time) *WorkbenchKeyMetrics {
 	metrics := &WorkbenchKeyMetrics{}
 	if stats == nil {
@@ -358,7 +354,6 @@ func (s *SalesWorkbenchService) aggregateMetrics(ctx context.Context, salesID st
 	return metrics
 }
 
-// findMyRank 查找我的排名
 func (s *SalesWorkbenchService) findMyRank(ctx context.Context, leaderboard []*SalesPerformance, salesID string) int {
 	for _, p := range leaderboard {
 		if p.SalesID == salesID {
@@ -368,7 +363,6 @@ func (s *SalesWorkbenchService) findMyRank(ctx context.Context, leaderboard []*S
 	return 0
 }
 
-// todayStart 今日开始时间（辅助函数）
 func todayStart(now time.Time) time.Time {
 	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 }

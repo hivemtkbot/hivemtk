@@ -72,7 +72,6 @@ func (r *geoAlertRepo) DeleteBefore(ctx context.Context, before time.Time) error
 	return r.db.WithContext(ctx).Where("created_at < ?", before).Delete(&model.GeoAlert{}).Error
 }
 
-// CountUnread 未确认（未通知）告警数，供前端角标
 func (r *geoAlertRepo) CountUnread(ctx context.Context) (int64, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Model(&model.GeoAlert{}).
@@ -81,7 +80,6 @@ func (r *geoAlertRepo) CountUnread(ctx context.Context) (int64, error) {
 	return n, err
 }
 
-// Delete 单条软删
 func (r *geoAlertRepo) Delete(ctx context.Context, id uint) error {
 	res := r.db.WithContext(ctx).Delete(&model.GeoAlert{}, id)
 	if res.Error != nil {

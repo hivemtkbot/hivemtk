@@ -125,7 +125,7 @@ func TestE2E_Feishu_IngestMessage(t *testing.T) {
 	if conv == nil {
 		t.Error("expected inbox conversation")
 	}
-	// 收件箱已创建
+
 	var cnt int64
 	db.Model(&model.InboxConversation{}).Where("platform = ?", "feishu").Count(&cnt)
 	if cnt != 1 {
@@ -168,9 +168,8 @@ func TestE2E_Feishu_DecryptEvent(t *testing.T) {
 	}
 }
 
-// encryptFeishuForTest 真正做 AES-256-CBC + PKCS#7 加密
 func encryptFeishuForTest(t *testing.T, key, plaintext string) string {
-	// key 32 字节
+
 	var k []byte
 	if len(key) >= 32 {
 		k = []byte(key)[:32]
@@ -476,7 +475,7 @@ func TestE2E_WebhookService_DispatchFeishu_Challenge(t *testing.T) {
 	if hub != nil {
 		t.Errorf("expected nil hub for challenge, got %+v", hub)
 	}
-	// 不应入库
+
 	var cnt int64
 	db.Model(&model.MessageHub{}).Where("platform = ?", "feishu").Count(&cnt)
 	if cnt != 0 {
@@ -540,8 +539,6 @@ type capturedHTTP struct {
 	Host   string
 }
 
-// outboundCaptureTransport 是真实 HTTP Transport：把出站请求转发到本地 httptest
-// 服务，同时把原始 URL/host 透传（X-Orig-* 头），供 handler 记录与按渠道判定响应。
 type outboundCaptureTransport struct {
 	target string
 }
@@ -564,8 +561,6 @@ func (t *outboundCaptureTransport) RoundTrip(req *http.Request) (*http.Response,
 	return http.DefaultTransport.RoundTrip(out)
 }
 
-// withCaptureHTTPClient 启动真实 httptest 服务并接管全局 httpclient.Client 的
-// Transport，返回捕获的请求列表、计数器与还原函数。全程真实 HTTP，无 mock。
 func withCaptureHTTPClient(t *testing.T) (*[]capturedHTTP, *int64, func()) {
 	t.Helper()
 	var (
@@ -655,13 +650,13 @@ func TestE2E_SendOutbound_Feishu_RealPath(t *testing.T) {
 	if *counter < 1 {
 		t.Fatalf("expected at least 1 outbound http call, got %d", *counter)
 	}
-	// 校验有出站消息落库（MessageHub outbound）
+
 	var outCnt int64
 	db.Model(&model.MessageHub{}).Where("platform = ? AND direction = ?", "feishu", "outbound").Count(&outCnt)
 	if outCnt < 1 {
 		t.Errorf("expected feishu outbound in message_hub, got %d", outCnt)
 	}
-	// 校验有 FeishuMessage 落库
+
 	var fsOut int64
 	db.Model(&model.FeishuMessage{}).Where("account_id = ?", acc.ID).Count(&fsOut)
 	if fsOut < 1 {

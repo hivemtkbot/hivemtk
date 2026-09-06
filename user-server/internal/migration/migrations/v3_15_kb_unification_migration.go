@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -195,7 +194,6 @@ func (m *KBUnificationMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// reportAgentDistribution 输出表的 agent_id 分布 (用于迁移日志)
 func (m *KBUnificationMigration) reportAgentDistribution(ctx context.Context, table string) error {
 	type result struct {
 		AgentID *int64 `gorm:"column:agent_id"`
@@ -222,6 +220,4 @@ func (m *KBUnificationMigration) reportAgentDistribution(ctx context.Context, ta
 	return nil
 }
 
-// Ensure KBUnificationMigration implements Migration interface
 var _ migration.Migration = (*KBUnificationMigration)(nil)
-

@@ -117,7 +117,6 @@ type ScheduleOptions struct {
 	Channel     string
 }
 
-// generateReminderID 生成提醒 ID
 var reminderCounter int64
 
 func generateReminderID() string {

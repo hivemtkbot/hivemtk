@@ -78,7 +78,6 @@ func ParseOS(userAgent string) string {
 	return "Unknown"
 }
 
-// isMobile 检测是否为移动设备
 func isMobile(userAgent string) bool {
 	mobilePatterns := []string{
 		"mobile",
@@ -99,7 +98,6 @@ func isMobile(userAgent string) bool {
 	return false
 }
 
-// isTablet 检测是否为平板设备
 func isTablet(userAgent string) bool {
 	tabletPatterns := []string{
 		"ipad",
@@ -148,8 +146,6 @@ func GenerateQRCode(url string) string {
 	return svgFallbackQR(url)
 }
 
-// svgFallbackQR 降级返回 SVG 格式二维码占位（含原始 URL 文本）
-// 用于 qrcode 库失败时的兜底，至少能在浏览器渲染为带 URL 的二维码卡片。
 func svgFallbackQR(content string) string {
 	if len(content) > 64 {
 		content = content[:64] + "..."
@@ -164,4 +160,3 @@ func svgFallbackQR(content string) string {
 	encoded := base64.StdEncoding.EncodeToString([]byte(svg))
 	return "data:image/svg+xml;base64," + encoded
 }
-

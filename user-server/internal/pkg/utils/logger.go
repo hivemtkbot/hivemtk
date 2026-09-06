@@ -9,7 +9,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-
 // LogLevel 日志级别（兼容旧调用方）。
 type LogLevel string
 
@@ -102,4 +101,3 @@ func LogRequest(method, path, ip string) {
 func LogResponse(status int, path string, cost time.Duration) {
 	logger.Infof("%s %d cost=%s", path, status, cost)
 }
-

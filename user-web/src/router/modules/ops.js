@@ -1,6 +1,4 @@
-// 路由：运维总览 + AI 销冠驾驶舱（OPT-UX-01/02）
-// 注意：路径拼写为 kebab-case，与 router/index.js 的 pathToModule 映射一致
-const Layout = () => import('@/layout/Layout.vue')
+const Layout = () => import('@/layout/Layout.vue');
 
 export default [
   {

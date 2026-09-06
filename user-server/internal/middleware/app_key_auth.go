@@ -72,9 +72,7 @@ func AppKeyResolve(resolver ChatChannelResolver) gin.HandlerFunc {
 
 		channel, err := resolver.ResolveByChannelID(c.Request.Context(), channelID)
 		if err != nil {
-			// v3 审计 P0-02 修复：渠道解析失败必须拒绝而非伪造放行
-			// 防止攻击者通过任意 X-Chat-Channel-Id 注入 channel 上下文
-			// 绕过按 channel 维度做的限流 / 风控 / 归属统计
+
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"code":    401,
 				"message": "渠道未配置或不可用: " + channelID,
@@ -141,8 +139,6 @@ func GetChatChannelID(c *gin.Context) string {
 	return DefaultChannelID
 }
 
-// extractBodyChannelID 从 JSON 请求体中提取 channel_id，用于兼容 web_embed 在 body 中携带渠道 ID 的标准契约。
-// 读取后会原样还原请求体（io.NopCloser），不影响后续 controller 对 body 的解析。
 func extractBodyChannelID(c *gin.Context) string {
 	if c.Request == nil || c.Request.Body == nil {
 		return ""
@@ -182,7 +178,7 @@ func IngressSecretAuth() gin.HandlerFunc {
 			return
 		}
 		if secret == "" {
-			// 开发环境：未配置密钥时默认放行，便于本地测试
+
 			c.Next()
 			return
 		}
@@ -198,4 +194,3 @@ func IngressSecretAuth() gin.HandlerFunc {
 		c.Next()
 	}
 }
-

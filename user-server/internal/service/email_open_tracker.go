@@ -126,7 +126,7 @@ func (s *EmailOpenTrackerService) RecordPostmarkEvent(ctx context.Context, evt *
 		if err := s.tracking.RecordBounceEvent(ctx, evt.Recipient, evt.MessageID, evt.IP, evt.UserAgent); err != nil {
 			return err
 		}
-		// R53 E1: 硬退/投诉 → 自动写入全局退订（合规链闭环；软退按 Postmark 口径 HardBounce 才写）
+
 		rt := strings.ToLower(evt.RecordType)
 		if rt == "bounce" || rt == "hardbounce" {
 			s.autoBlockOnBounce(ctx, evt.Recipient)
@@ -136,7 +136,7 @@ func (s *EmailOpenTrackerService) RecordPostmarkEvent(ctx context.Context, evt *
 		if err := s.tracking.RecordUnsubscribeEvent(ctx, evt.Recipient, evt.MessageID, evt.IP, evt.UserAgent); err != nil {
 			return err
 		}
-		// 投诉同样进入全局退订（最强合规信号）
+
 		s.autoBlockOnBounce(ctx, evt.Recipient)
 		return nil
 	default:
@@ -144,11 +144,6 @@ func (s *EmailOpenTrackerService) RecordPostmarkEvent(ctx context.Context, evt *
 	}
 }
 
-// recordOpenByEmail 按 email 记录打开事件（无 token 场景）
-//
-// 用于 Postmark / SendCloud 这类第三方 SMTP，他们不传我们自签 token，
-// 仅传 Recipient + MessageID。我们退化为"按 email 记录一次打开事件"，
-// 精度低于自签 token，但仍能给出有意义的打开率统计。
 func (s *EmailOpenTrackerService) recordOpenByEmail(ctx context.Context, email, messageID, ip, ua string) error {
 	email = normalizeEmail(email)
 	if email == "" {
@@ -209,7 +204,6 @@ func (s *EmailOpenTrackerService) RecordSendCloudEvent(ctx context.Context, evt 
 	}
 }
 
-// recordClickByEmail 按 email 记录 click 事件（无 token 场景）
 func (s *EmailOpenTrackerService) recordClickByEmail(ctx context.Context, email, messageID, targetURL, ip, ua string) error {
 	email = normalizeEmail(email)
 	if email == "" {
@@ -321,7 +315,6 @@ func PrettyPrintJSON(v any) (string, error) {
 	return string(b), nil
 }
 
-// autoBlockOnBounce 硬退/投诉 → 按收件人手机号/邮箱写入 DNC（R53 E1）
 func (s *EmailOpenTrackerService) autoBlockOnBounce(ctx context.Context, email string) {
 	email = normalizeEmail(email)
 	if email == "" || !strings.Contains(email, "@") {

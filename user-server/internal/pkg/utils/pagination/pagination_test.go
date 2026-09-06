@@ -183,4 +183,3 @@ func TestParseOffset_PageOne(t *testing.T) {
 		t.Errorf("limit = %d, want %d", limit, DefaultPageSize)
 	}
 }
-

@@ -1,8 +1,6 @@
 package tooluse
 
-
 import "hivemtk-user/internal/aiagent/agent/portcontract"
-
 
 // CustomerIdentity 客户身份投影。
 type CustomerIdentity = portcontract.CustomerIdentity
@@ -36,4 +34,3 @@ type ReachSendInput = portcontract.ReachSendInput
 
 // ReachPipelinePort 触达管线端口。
 type ReachPipelinePort = portcontract.ReachPipelinePort
-

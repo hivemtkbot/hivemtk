@@ -73,11 +73,6 @@ func (s *SessionAssignmentService) ProcessIncomingMessage(ctx context.Context, m
 	return s.executeDecision(ctx, session, decision)
 }
 
-// findActiveSession 查找活跃会话
-//
-// R55 T3 修复：此前 GetByMerchant("",1,10) 只取全局前 10 条再内存匹配，
-// 并发会话 >10 时必 ErrSessionNotFound → 重复建会话。
-// 现改为：先按 chatID 精确查（索引唯一），再按 userID 索引查该用户全部会话。
 func (s *SessionAssignmentService) findActiveSession(ctx context.Context, userID, chatID string) (*model.CustomerSession, error) {
 	if chatID != "" {
 		if session, err := s.sessionRepo.GetBySessionID(ctx, chatID); err == nil && session != nil && isActiveSession(session) {
@@ -100,7 +95,6 @@ func (s *SessionAssignmentService) findActiveSession(ctx context.Context, userID
 	return nil, ErrSessionNotFound
 }
 
-// isActiveSession 会话是否处于活跃态（可继续处理消息）
 func isActiveSession(session *model.CustomerSession) bool {
 	return session.Status == model.SessionStatusPending ||
 		session.Status == model.SessionStatusAIHandling ||
@@ -111,7 +105,6 @@ func isActiveSession(session *model.CustomerSession) bool {
 // ErrSessionNotFound 会话未找到错误
 var ErrSessionNotFound = errors.New("活跃会话未找到")
 
-// createSession 创建新会话
 func (s *SessionAssignmentService) createSession(ctx context.Context, msg *model.UnifiedMessage) (*model.CustomerSession, error) {
 	sessionID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), msg.MessageID[:8])
 
@@ -140,7 +133,6 @@ func (s *SessionAssignmentService) createSession(ctx context.Context, msg *model
 	return session, nil
 }
 
-// saveMessageToSession 保存消息到会话
 func (s *SessionAssignmentService) saveMessageToSession(ctx context.Context, session *model.CustomerSession, msg *model.UnifiedMessage) error {
 	message := &model.SessionMessage{
 		SessionID:    session.SessionID,
@@ -166,7 +158,6 @@ type HandlerDecision struct {
 	Priority       int
 }
 
-// decideHandler 决策如何处理会话
 func (s *SessionAssignmentService) decideHandler(ctx context.Context, session *model.CustomerSession, msg *model.UnifiedMessage) (*HandlerDecision, error) {
 	decision := &HandlerDecision{
 		HandlerType: model.HandlerTypeAI,
@@ -214,7 +205,6 @@ func (s *SessionAssignmentService) decideHandler(ctx context.Context, session *m
 	return decision, nil
 }
 
-// isUrgentOrComplaint 检查是否是紧急或投诉消息
 func (s *SessionAssignmentService) isUrgentOrComplaint(ctx context.Context, content string) bool {
 	urgentKeywords := []string{
 		"投诉", "举报", "曝光", "315", "消协", "工商局",
@@ -233,11 +223,6 @@ func (s *SessionAssignmentService) isUrgentOrComplaint(ctx context.Context, cont
 	return false
 }
 
-// generateLLMResponse 使用 LLM 生成回复
-//
-// R55 T8 修复：置信度此前按回复长度硬编码 0.6/0.7 伪值（与 confidence 包校准体系
-// 完全脱节，转人工决策被污染）。现接入全局 ConfidenceAggregator 5 维信号聚合，
-// 聚合器未就绪时降级为中性 0.5（fail-low 保守转人工，优于伪高置信）。
 func (s *SessionAssignmentService) generateLLMResponse(ctx context.Context, content string) (string, float64, error) {
 	prompt := fmt.Sprintf(`作为专业客服助手，请针对以下用户消息生成友好、专业的回复：
 
@@ -267,7 +252,6 @@ func (s *SessionAssignmentService) generateLLMResponse(ctx context.Context, cont
 	return output, s.calibratedConfidence(ctx, content), nil
 }
 
-// calibratedConfidence 经校准的置信度（5 维信号聚合；未就绪降级 0.5）
 func (s *SessionAssignmentService) calibratedConfidence(ctx context.Context, content string) float64 {
 	agg := GetConfidenceAggregator()
 	if agg == nil {
@@ -275,7 +259,7 @@ func (s *SessionAssignmentService) calibratedConfidence(ctx context.Context, con
 	}
 	dec, err := agg.Aggregate(ctx, &dto.SignalCollectionInput{
 		Text:          content,
-		RawIntentConf: 0.5, // 无意图识别输出时的中性先验
+		RawIntentConf: 0.5,
 	})
 	if err != nil || dec == nil {
 		return 0.5
@@ -283,7 +267,6 @@ func (s *SessionAssignmentService) calibratedConfidence(ctx context.Context, con
 	return dec.AggregatedConf
 }
 
-// executeDecision 执行决策
 func (s *SessionAssignmentService) executeDecision(ctx context.Context, session *model.CustomerSession, decision *HandlerDecision) error {
 	if decision.Priority > session.Priority {
 		session.Priority = decision.Priority
@@ -299,7 +282,6 @@ func (s *SessionAssignmentService) executeDecision(ctx context.Context, session 
 	}
 }
 
-// handleByAI AI 处理
 func (s *SessionAssignmentService) handleByAI(ctx context.Context, session *model.CustomerSession, response string) error {
 	err := s.sessionRepo.UpdateStatus(ctx, session.ID, model.SessionStatusAIHandling)
 	if err != nil {
@@ -343,7 +325,6 @@ func (s *SessionAssignmentService) handleByAI(ctx context.Context, session *mode
 	return s.sessionRepo.UpdateStatus(ctx, session.ID, model.SessionStatusWaiting)
 }
 
-// handleByHuman 人工处理
 func (s *SessionAssignmentService) handleByHuman(ctx context.Context, session *model.CustomerSession, reason string) error {
 	err := s.sessionRepo.UpdateStatus(ctx, session.ID, model.SessionStatusPending)
 	if err != nil {
@@ -360,15 +341,6 @@ func (s *SessionAssignmentService) handleByHuman(ctx context.Context, session *m
 	return nil
 }
 
-// autoAssignToAgent 自动分配给客服
-//
-// CS-P0-2: 修复 TOCTOU 竞态 — 原 "GetOnlineAgents 读 → findLeast 选 → AssignAgent +
-// Increment 写" 三步非原子，并发下多个请求可能同时选到同一个 agent 且都成功 Increment，
-// 导致负载统计失真甚至超容量分配。
-//
-// 修复：整个分配链路包在一个 DB 事务内，用 SELECT ... FOR UPDATE 锁住被选中的
-// agent_status 行，其他并发事务会等待直到当前提交，保证选 agent + 分配 + 负载更新
-// 三者严格原子。websocket 通知放在 Commit 之后（通知不参与回滚）。
 func (s *SessionAssignmentService) autoAssignToAgent(ctx context.Context, session *model.CustomerSession, reason string) error {
 	gdb := db.GetDB()
 	if gdb == nil {
@@ -386,7 +358,6 @@ func (s *SessionAssignmentService) autoAssignToAgent(ctx context.Context, sessio
 		}
 	}()
 
-	// SELECT ... FOR UPDATE 锁住最佳 agent，其他并发请求会等待
 	var bestAgent model.AgentStatus
 	cutoff := time.Now().Add(-5 * time.Minute)
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
@@ -402,14 +373,12 @@ func (s *SessionAssignmentService) autoAssignToAgent(ctx context.Context, sessio
 		return fmt.Errorf("pick agent: %w", err)
 	}
 
-	// 事务内 AssignAgent（用 tx 绑定的 repo 实例）
 	txSessionRepo := repository.NewCustomerSessionRepositoryWithDB(tx)
 	if err := txSessionRepo.AssignAgent(ctx, session.ID, bestAgent.AgentID, bestAgent.AgentName); err != nil {
 		tx.Rollback()
 		return fmt.Errorf("assign agent: %w", err)
 	}
 
-	// 事务内原子递增 active_sessions + today_sessions（等价于原 IncrementActiveSessions）
 	if err := tx.Model(&model.AgentStatus{}).Where("agent_id = ?", bestAgent.AgentID).
 		Updates(map[string]any{
 			"active_sessions": gorm.Expr("active_sessions + 1"),
@@ -423,7 +392,6 @@ func (s *SessionAssignmentService) autoAssignToAgent(ctx context.Context, sessio
 		return fmt.Errorf("commit assign: %w", err)
 	}
 
-	// Commit 成功后再做 websocket 通知（通知不参与事务，回滚场景不会多发通知）
 	websocket.NotifyNewSession(strconv.FormatUint(uint64(bestAgent.AgentID), 10), map[string]any{
 		"session_id":      session.SessionID,
 		"user_name":       session.UserName,

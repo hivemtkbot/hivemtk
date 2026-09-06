@@ -42,4 +42,3 @@ func (c *AIProductivityController) GetDailyTrend(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"trend": trend, "days": days}, "查询成功")
 }
-

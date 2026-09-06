@@ -278,4 +278,3 @@ func TestEmailSmtpController_NewEmailSmtpController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
-

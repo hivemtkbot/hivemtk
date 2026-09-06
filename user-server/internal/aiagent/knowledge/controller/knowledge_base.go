@@ -106,4 +106,3 @@ func (ctrl *KnowledgeBaseController) DeleteDocument(c *gin.Context) {
 
 	response.Success(c, nil, "删除成功")
 }
-

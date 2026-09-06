@@ -1,14 +1,5 @@
 package service
 
-// H2 技术债修复：本文件取代已删除的 sales_dashboard.go（Deprecated 纯内存实现）。
-//
-// 变化：
-//   - 事件存储由内存 slice 改为 sales_events 表（DB 权威，重启不丢、无 OOM 风险）
-//   - 打分口径不变：Record* 写入事件，Get*/统计方法按 owner/since 聚合
-//   - FunnelByJourney 迁移为 CustomerJourneyService.Funnel()（旅程漏斗本就只依赖旅程状态）
-//
-// 与 dashboard_sse_stats（实时驾驶舱）互补：本服务面向销售维度的业绩聚合。
-
 import (
 	"context"
 	"sort"
@@ -88,8 +79,6 @@ func NewSalesEventStatsService() *SalesEventStatsService {
 func NewSalesEventStatsServiceWithRepo(repo repository.SalesEventRepository) *SalesEventStatsService {
 	return &SalesEventStatsService{repo: repo}
 }
-
-// ---------- 事件写入 ----------
 
 // RegisterSales 注册销售档案
 func (s *SalesEventStatsService) RegisterSales(ctx context.Context, profile SalesProfile) {
@@ -178,8 +167,6 @@ func (s *SalesEventStatsService) RecordOrderDraft(ctx context.Context, ev OrderD
 	})
 }
 
-// ---------- 事件读取（typed 访问器，供工作台聚合复用） ----------
-
 // Orders 查询订单事件
 func (s *SalesEventStatsService) Orders(ctx context.Context, ownerID string, since time.Time) []OrderEvent {
 	raw, _ := s.repo.ListByType(ctx, model.SalesEventTypeOrder, ownerID, sinceUnix(since))
@@ -260,8 +247,6 @@ func sinceUnix(t time.Time) int64 {
 	}
 	return t.Unix()
 }
-
-// ---------- 统计聚合 ----------
 
 // JourneyFunnel 基于客户旅程的转化漏斗
 // 商业逻辑：每阶段的客户数 + 阶段间转化率 + 端到端转化率
@@ -344,7 +329,6 @@ type SalesPerformance struct {
 	GeneratedAt    time.Time `json:"generated_at"`
 }
 
-// getProfile 查询销售档案（取最新一条档案事件）
 func (s *SalesEventStatsService) getProfile(ctx context.Context, salesID string) *SalesProfile {
 	raw, err := s.repo.ListByType(ctx, model.SalesEventTypeSalesProfile, salesID, 0)
 	if err != nil || len(raw) == 0 {
@@ -394,7 +378,6 @@ func (s *SalesEventStatsService) GetSalesPerformance(ctx context.Context, salesI
 	return perf
 }
 
-// listSalesIDs 列出有档案或有业绩事件的全部销售 ID
 func (s *SalesEventStatsService) listSalesIDs(ctx context.Context, since time.Time) []string {
 	seen := make(map[string]bool)
 	ids := make([]string, 0)
@@ -416,7 +399,6 @@ func (s *SalesEventStatsService) listSalesIDs(ctx context.Context, since time.Ti
 	return ids
 }
 
-// allProfiles 查询全部销售档案（每人取最新一条）
 func (s *SalesEventStatsService) allProfiles(ctx context.Context) []*SalesProfile {
 	raw, err := s.repo.ListByType(ctx, model.SalesEventTypeSalesProfile, "", 0)
 	if err != nil {
@@ -428,7 +410,7 @@ func (s *SalesEventStatsService) allProfiles(ctx context.Context) []*SalesProfil
 		if _, ok := latest[e.OwnerID]; !ok {
 			order = append(order, e.OwnerID)
 		}
-		latest[e.OwnerID] = e // 列表按 occurred_at ASC，后写覆盖 → 最新
+		latest[e.OwnerID] = e
 	}
 	out := make([]*SalesProfile, 0, len(latest))
 	for _, id := range order {

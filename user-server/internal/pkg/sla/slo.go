@@ -33,10 +33,10 @@ import (
 type SLO struct {
 	Name        string
 	Service     string
-	SLITarget   float64       
-	Window      time.Duration 
+	SLITarget   float64
+	Window      time.Duration
 	Description string
-	Evaluator func(s SLOState) float64
+	Evaluator   func(s SLOState) float64
 }
 
 // SLOState 当前 SLO 状态
@@ -47,31 +47,30 @@ type SLOState struct {
 	FailureEvents  uint64
 	WindowStart    time.Time
 	WindowEnd      time.Time
-	Achievement    float64 
+	Achievement    float64
 	SLITarget      float64
-	AllowedFailure uint64  
-	Remaining      uint64  
-	BudgetUsed     float64 
+	AllowedFailure uint64
+	Remaining      uint64
+	BudgetUsed     float64
 }
 
 // SLOTracker SLO 跟踪器
 type SLOTracker struct {
-	mu        sync.RWMutex
-	defs      map[string]SLO
-	counters  map[string]*sloCounter
-	alertCB   func(SLO, SLOState)
+	mu       sync.RWMutex
+	defs     map[string]SLO
+	counters map[string]*sloCounter
+	alertCB  func(SLO, SLOState)
 }
 
-// sloCounter 滑动窗口计数器
 type sloCounter struct {
-	mu          sync.Mutex
-	window      time.Duration
-	buckets     []sloBucket 
-	bucketSize  time.Duration
-	currentIdx  int
-	lastRotate  time.Time
-	curTotal    atomic.Uint64
-	curSuccess  atomic.Uint64
+	mu         sync.Mutex
+	window     time.Duration
+	buckets    []sloBucket
+	bucketSize time.Duration
+	currentIdx int
+	lastRotate time.Time
+	curTotal   atomic.Uint64
+	curSuccess atomic.Uint64
 }
 
 type sloBucket struct {
@@ -165,7 +164,7 @@ func (t *SLOTracker) State(name string) SLOState {
 		state.Remaining = 0
 		state.BudgetUsed = 0
 	} else {
-		state.AllowedFailure = uint64(float64(state.TotalEvents) * (1.0 - s.SLITarget) + 0.5)
+		state.AllowedFailure = uint64(float64(state.TotalEvents)*(1.0-s.SLITarget) + 0.5)
 		if state.FailureEvents > state.AllowedFailure {
 			state.Remaining = 0
 			state.BudgetUsed = 1.0
@@ -194,7 +193,6 @@ func (t *SLOTracker) AllStates() []SLOState {
 	}
 	return out
 }
-
 
 type sloAggregate struct {
 	total       uint64
@@ -282,7 +280,6 @@ func (c *sloCounter) aggregate(now time.Time) sloAggregate {
 	}
 }
 
-
 func defaultEvaluator(s SLOState) float64 {
 	if s.TotalEvents == 0 {
 		return 1.0
@@ -296,7 +293,6 @@ func boolStr(b bool) string {
 	}
 	return "failure"
 }
-
 
 var initOnce sync.Once
 
@@ -313,5 +309,3 @@ func InitMetrics() {
 			[]string{"slo"})
 	})
 }
-
-

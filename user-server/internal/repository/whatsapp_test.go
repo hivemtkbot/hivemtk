@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupWhatsappTestDB 设置 WhatsApp 测试数据库
 func setupWhatsappTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.WhatsappAccount{},
@@ -25,7 +24,6 @@ func setupWhatsappTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupWhatsappRepository 创建测试用的 WhatsApp 仓库实例
 func setupWhatsappRepository(t *testing.T) WhatsappRepository {
 	setupWhatsappTestDB(t)
 	return NewWhatsappRepository()

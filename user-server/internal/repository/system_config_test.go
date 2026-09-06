@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupSystemConfigTestDB 设置系统配置测试数据库
 func setupSystemConfigTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.SystemConfig{},
@@ -20,7 +19,6 @@ func setupSystemConfigTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupSystemConfigRepository 创建测试用的系统配置仓库实例
 func setupSystemConfigRepository(t *testing.T) SystemConfigRepository {
 	setupSystemConfigTestDB(t)
 	return NewSystemConfigRepository()

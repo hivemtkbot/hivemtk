@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -105,6 +104,4 @@ CREATE INDEX IF NOT EXISTS idx_rag_alerts_created  ON rag_alerts (created_at);
 	return nil
 }
 
-// Ensure RagAlertsDropMigration implements Migration interface
 var _ migration.Migration = (*RagAlertsDropMigration)(nil)
-

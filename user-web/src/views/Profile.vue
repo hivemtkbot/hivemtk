@@ -1,6 +1,6 @@
 <template>
   <div class="profile-page">
-    <!-- 面包屑由 Layout 统一渲染 -->
+    
     <el-card class="header-card" shadow="never">
       <div class="header-content">
         <div>
@@ -147,7 +147,6 @@ import { http } from '@/utils/request'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
-// 引用图标以避免 IDE 误判（模板中使用）
 void Check; void Lock
 
 const loading = ref(false)
@@ -248,7 +247,6 @@ const pwdRules = {
   ]
 }
 
-// 加载个人资料
 const loadProfile = async () => {
   loading.value = true
   try {
@@ -265,21 +263,19 @@ const loadProfile = async () => {
       created_at: data.created_at || data.createdAt || '',
       last_login_at: data.last_login_at || data.lastLoginAt || ''
     })
-    // 同步更新 userStore
     userStore.setUserInfo({
       id: data.id,
       username: data.username,
       email: data.email,
       role: data.role
-    })
+    });
   } catch (err) {
     ElMessage.error('加载个人资料失败：' + (err?.message || err))
   } finally {
     loading.value = false
   }
-}
+};
 
-// 保存基础信息
 const onSave = async () => {
   if (!formRef.value) return
   try {
@@ -298,9 +294,8 @@ const onSave = async () => {
   } finally {
     saving.value = false
   }
-}
+};
 
-// 修改密码
 const onChangePassword = async () => {
   if (!pwdFormRef.value) return
   try {
@@ -312,7 +307,7 @@ const onChangePassword = async () => {
         { type: 'warning', confirmButtonText: '确认修改', cancelButtonText: '取消' }
       )
     } catch {
-      return // 用户取消
+      return;
     }
     pwdSaving.value = true
     await http.post('/api/auth/change-password', {
@@ -331,7 +326,7 @@ const onChangePassword = async () => {
   } finally {
     pwdSaving.value = false
   }
-}
+};
 
 onMounted(() => {
   loadProfile()

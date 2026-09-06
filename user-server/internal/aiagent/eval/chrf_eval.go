@@ -10,12 +10,11 @@ package eval
 
 import "strings"
 
-
 // ChrFEvaluator chrF++ 评估器。无状态、可并发调用。
 type ChrFEvaluator struct {
-	CharN int     
-	WordN int     
-	Beta  float64 
+	CharN int
+	WordN int
+	Beta  float64
 }
 
 // NewChrFEvaluator 创建带默认参数的 chrF++ 评估器。
@@ -83,7 +82,6 @@ func (e *ChrFEvaluator) ScoreBatch(candidates, references []string) float64 {
 	return sum / float64(n)
 }
 
-// effectiveParams 返回归一化后的参数（兜底默认值，避免 0/负数导致除零）。
 func (e *ChrFEvaluator) effectiveParams() (int, int, float64) {
 	charN := e.CharN
 	if charN < 1 {
@@ -100,10 +98,6 @@ func (e *ChrFEvaluator) effectiveParams() (int, int, float64) {
 	return charN, wordN, beta
 }
 
-// charNgrams 提取字符 n-gram（保留空白，前后补空格）。
-//
-// 返回 map[gram]count。长度不足 n 时返回 nil（与 sacrebleu 行为一致）。
-// 按 rune 切片，兼容多字节字符（中文/日文等）。
 func (e *ChrFEvaluator) charNgrams(text string, n int) map[string]int {
 	if text == "" {
 		return nil
@@ -122,9 +116,6 @@ func (e *ChrFEvaluator) charNgrams(text string, n int) map[string]int {
 	return out
 }
 
-// wordNgrams 提取词 n-gram（按空白分词）。
-//
-// 返回 map[gram]count。词数不足 n 时返回 nil。
 func (e *ChrFEvaluator) wordNgrams(text string, n int) map[string]int {
 	words := strings.Fields(text)
 	if len(words) < n {
@@ -138,13 +129,6 @@ func (e *ChrFEvaluator) wordNgrams(text string, n int) map[string]int {
 	return out
 }
 
-// ngramPrecision 计算候选与参考 n-gram 的 precision 与 recall。
-//
-// precision = overlap / candidate_total
-// recall    = overlap / reference_total
-// overlap   = sum(min(cand_count, ref_count)) over matched grams
-//
-// 任一为空返回 (0, 0)。
 func (e *ChrFEvaluator) ngramPrecision(cand, ref map[string]int) (float64, float64) {
 	if len(cand) == 0 || len(ref) == 0 {
 		return 0.0, 0.0
@@ -173,11 +157,6 @@ func (e *ChrFEvaluator) ngramPrecision(cand, ref map[string]int) (float64, float
 	return p, r
 }
 
-// fScore 计算 F-beta 分数：
-//
-//	F_beta = (1 + beta^2) * (p * r) / (beta^2 * p + r)
-//
-// 当 p + r == 0 时返回 0（避免除零）。
 func (e *ChrFEvaluator) fScore(p, r, beta float64) float64 {
 	if p+r == 0 {
 		return 0.0
@@ -185,4 +164,3 @@ func (e *ChrFEvaluator) fScore(p, r, beta float64) float64 {
 	beta2 := beta * beta
 	return (1 + beta2) * (p * r) / (beta2*p + r)
 }
-

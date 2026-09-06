@@ -1,7 +1,7 @@
 <template>
   <div class="app-container trace-monitor">
     <el-tabs v-model="activeTab" class="trace-tabs">
-      <!-- 消息链路明细 -->
+      
       <el-tab-pane label="消息链路明细" name="trace">
         <el-form :inline="true" class="trace-query" @submit.prevent>
           <el-form-item label="Trace ID">
@@ -45,7 +45,7 @@
 
         <div v-else class="trace-tree">
           <template v-for="(item, idx) in flattened" :key="idx">
-            <!-- 生命周期节点 -->
+            
             <el-card
               v-if="!item._turn && !item._tool"
               class="span-card"
@@ -77,7 +77,7 @@
               </div>
             </el-card>
 
-            <!-- Agent 轮 -->
+            
             <el-card v-else-if="item._turn" class="span-card turn-card" shadow="hover">
               <div class="span-head" @click="toggle(item.turn)">
                 <span class="caret">{{ expanded[item.turn.id] ? '▾' : '▸' }}</span>
@@ -103,7 +103,7 @@
               </div>
             </el-card>
 
-            <!-- 工具调用 -->
+            
             <el-card v-else class="span-card tool-card" shadow="never">
               <div class="span-head">
                 <span class="span-kind kind-tool">工具</span>
@@ -130,7 +130,7 @@
         </div>
       </el-tab-pane>
 
-      <!-- 业务健康概览 -->
+      
       <el-tab-pane label="业务健康概览" name="health">
         <div class="stat-grid">
           <el-card v-for="s in healthStats" :key="s.label" shadow="hover" class="stat-card">
@@ -148,7 +148,7 @@
         />
       </el-tab-pane>
 
-      <!-- 节点健康 -->
+      
       <el-tab-pane label="节点健康" name="node">
         <el-alert v-if="nodeWindow" type="info" :closable="false" :title="'统计窗口：' + nodeWindow" class="mb-12" />
         <el-table :data="nodeRows" border stripe size="small" empty-text="暂无数据">
@@ -170,7 +170,7 @@
         </el-table>
       </el-tab-pane>
 
-      <!-- 端到端时延 -->
+      
       <el-tab-pane label="端到端时延" name="latency">
         <el-table :data="latencyRows" border stripe size="small" empty-text="暂无数据">
           <el-table-column prop="channel" label="渠道" width="180" />
@@ -180,7 +180,7 @@
         </el-table>
       </el-tab-pane>
 
-      <!-- 会话链路节点 -->
+      
       <el-tab-pane label="会话链路" name="lifecycle">
         <el-form :inline="true" @submit.prevent>
           <el-form-item label="会话 ID">
@@ -211,7 +211,7 @@
         </el-table>
       </el-tab-pane>
 
-      <!-- 链路列表 -->
+      
       <el-tab-pane label="链路列表" name="traces">
         <el-table :data="traceRows" border stripe size="small" empty-text="暂无数据">
           <el-table-column prop="trace_id" label="Trace" width="180" />
@@ -233,7 +233,7 @@
         </el-table>
       </el-tab-pane>
 
-      <!-- 异常 -->
+      
       <el-tab-pane label="异常" name="anomalies">
         <el-collapse v-if="anomaly" v-model="anomalyActive">
           <el-collapse-item title="数据缺口（缺同步回执）" name="sync_gap">
@@ -276,7 +276,7 @@
         <el-empty v-else description="暂无异常" />
       </el-tab-pane>
 
-      <!-- 自学习 / 知识库权重 -->
+      
       <el-tab-pane label="自学习 / 知识库权重" name="learn">
         <div class="learn-toolbar">
           <el-form :inline="true" @submit.prevent>
@@ -374,8 +374,7 @@ const traceRows = ref([])
 const anomaly = ref(null)
 const anomalyActive = ref(['sync_gap'])
 
-// 自学习 / 知识库权重
-const evalLogs = ref([])
+const evalLogs = ref([]);
 const weights = ref([])
 const triggerLoading = ref(false)
 const triggerMsg = ref('')
@@ -422,7 +421,6 @@ function toggle(sp) {
   expanded[sp.id] = !expanded[sp.id]
 }
 
-// 把 tree.spans 扁平化为可渲染序列：生命周期节点 + （ai_dispatch 下挂的轮 → 工具）
 const flattened = computed(() => {
   const t = tree.value
   if (!t || !t.spans) return []
@@ -447,7 +445,7 @@ const flattened = computed(() => {
     }
   }
   return out
-})
+});
 
 const healthStats = computed(() => {
   const h = health.value
@@ -489,8 +487,7 @@ async function loadTree() {
     if (!tree.value || !tree.value.spans || !tree.value.spans.length) {
       treeError.value = '未找到链路数据'
     } else {
-      // 默认展开首个异常节点；其余折叠
-      const firstAbn = tree.value.spans.find(s => isAbnormal(s))
+      const firstAbn = tree.value.spans.find(s => isAbnormal(s));
       if (firstAbn) expanded[firstAbn.id] = true
     }
   } catch (e) {
@@ -528,26 +525,25 @@ function openTrace(row) {
 }
 
 async function loadHealth() {
-  try { health.value = await monitorApi.health() } catch (e) { /* 静默 */ }
+  try { health.value = await monitorApi.health() } catch (e) {}
 }
 async function loadNodeHealth() {
   try {
     const res = await monitorApi.nodeHealth()
     nodeRows.value = res.nodes || []
     nodeWindow.value = res.window || ''
-  } catch (e) { /* 静默 */ }
+  } catch (e) {}
 }
 async function loadLatency() {
-  try { latencyRows.value = await monitorApi.latency() } catch (e) { /* 静默 */ }
+  try { latencyRows.value = await monitorApi.latency() } catch (e) {}
 }
 async function loadTraces() {
-  try { traceRows.value = await monitorApi.traces({ limit: 50 }) } catch (e) { /* 静默 */ }
+  try { traceRows.value = await monitorApi.traces({ limit: 50 }) } catch (e) {}
 }
 async function loadAnomalies() {
-  try { anomaly.value = await monitorApi.anomalies() } catch (e) { /* 静默 */ }
+  try { anomaly.value = await monitorApi.anomalies() } catch (e) {}
 }
 
-// ---- 自学习 / 知识库权重 ----
 function parseJSON(v, fallback) {
   if (v === null || v === undefined || v === '') return fallback
   if (typeof v === 'object') return v
@@ -573,10 +569,10 @@ function scoreType(s) {
   return 'warning'
 }
 async function loadEvalLogs() {
-  try { evalLogs.value = await monitorApi.evalLogs({ limit: 50 }) } catch (e) { /* 静默 */ }
+  try { evalLogs.value = await monitorApi.evalLogs({ limit: 50 }) } catch (e) {}
 }
 async function loadWeights() {
-  try { weights.value = await monitorApi.knowledgeWeights({ limit: 50 }) } catch (e) { /* 静默 */ }
+  try { weights.value = await monitorApi.knowledgeWeights({ limit: 50 }) } catch (e) {}
 }
 async function refreshLearn() {
   await Promise.all([loadEvalLogs(), loadWeights()])
@@ -598,7 +594,6 @@ async function triggerEval() {
   }
 }
 
-// 切换到非 trace 页时按需加载数据
 watch(activeTab, (tab) => {
   if (tab === 'health' && !health.value) loadHealth()
   if (tab === 'node' && !nodeRows.value.length) loadNodeHealth()
@@ -609,7 +604,7 @@ watch(activeTab, (tab) => {
     learningLoaded.value = true
     refreshLearn()
   }
-})
+});
 </script>
 
 <style scoped>

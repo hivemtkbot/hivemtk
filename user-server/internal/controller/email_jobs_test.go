@@ -22,7 +22,7 @@ func setupEmailJobsController(t *testing.T) (*EmailJobsController, *gin.Engine) 
 	_db.SetTestDB(database)
 	ctrl := NewEmailJobsController()
 	router := gin.New()
-	router.Use(gin.Recovery()) 
+	router.Use(gin.Recovery())
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("user_id", uint(1))
@@ -390,4 +390,3 @@ func TestEmailJobsController_NewEmailJobsController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
-

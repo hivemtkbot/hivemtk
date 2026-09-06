@@ -460,9 +460,6 @@ type SendPipelineConfig struct {
 	QuietHoursClock func() time.Time
 }
 
-// GlobalQuietHoursQueue 全局进程内延迟队列（R-4 默认实现）。
-// 生产装配建议：main 中 q := service.NewMemoryQuietHoursQueue();
-// cfg.QuietHoursDeferrer = q; cfg.QuietHoursEnabled = true; q.Start(ctx, pipeline)。
 var globalQuietHoursOnce sync.Once
 
 func GetGlobalQuietHoursQueue() *MemoryQuietHoursQueue {
@@ -546,25 +543,15 @@ func NewSendPipeline(config SendPipelineConfig) SendPipeline {
 	return &defaultSendPipeline{config: config}
 }
 
-// ===== R-4 全渠道 quiet hours =====
-//
-// 决策依据 MASTER_COMPETITIVE_DECISIONS.md M17 R-4：
-// 夜间守卫覆盖全渠道（短信既有铁律保持不变，由 sms.go isSMSNightRestricted 拒绝式拦截）。
-// 命中时段的消息进入延迟队列（次日首发时间点），而非拒绝。
-
 var cstZone = time.FixedZone("CST", 8*3600)
 
-// quietHoursStartHour / quietHoursEndHour 全渠道主动触达静默窗口 22:00-8:00 (CST)
 const (
 	quietHoursStartHour = 22
 	quietHoursEndHour   = 8
 
-	// nextDayFirstSendHour 次日首发时间点：窗口结束时刻（08:00 CST）
 	nextDayFirstSendHour = quietHoursEndHour
 )
 
-// inQuietHoursWindow 判定 t 是否落在 [startHour, endHour) 跨午夜静默窗口内（CST）。
-// 例如 start=22,end=8：22:00:00~07:59:59 命中；21:59 与 08:00 不命中。
 func inQuietHoursWindow(t time.Time, startHour, endHour int) bool {
 	h := t.In(cstZone).Hour()
 	if startHour > endHour {
@@ -573,8 +560,6 @@ func inQuietHoursWindow(t time.Time, startHour, endHour int) bool {
 	return h >= startHour && h < endHour
 }
 
-// nextQuietHoursRelease 计算静默窗口结束后的首发时间点（endHour:00 CST）。
-// 窗口内 → 当日（跨午夜则为次日）endHour:00；窗口外返回 t 本身。
 func nextQuietHoursRelease(t time.Time, endHour int) time.Time {
 	local := t.In(cstZone)
 	release := time.Date(local.Year(), local.Month(), local.Day(), endHour, 0, 0, 0, cstZone)
@@ -634,7 +619,7 @@ func (q *MemoryQuietHoursQueue) Start(ctx context.Context, pipeline SendPipeline
 	if !q.started.CompareAndSwap(false, true) {
 		return
 	}
-	// 最高标准审计 P1-3 修复：静默时段到期重发循环（消息发送路径）改走 SafeGo
+
 	utils.SafeGo(ctx, "reach_send_pipeline.quiet_hours_queue", func(ctx context.Context) {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
@@ -664,11 +649,6 @@ func (q *MemoryQuietHoursQueue) Start(ctx context.Context, pipeline SendPipeline
 		}
 	})
 }
-
-// ===== R-8 AuditLogger 持久化 =====
-//
-// 决策依据 M17 R-8：合规日志必须落库。LogComplianceReminder 除原有 WARN 日志外，
-// 异步批量写 reach_compliance_log 表（缓冲满/定时刷盘），不阻塞发送主路径。
 
 const complianceReminderTag = "[COMPLIANCE]"
 
@@ -726,8 +706,6 @@ func InitComplianceAuditLogger(db *gorm.DB) *ComplianceAuditLogger {
 // GetComplianceAuditLogger 获取全局实例（未初始化返回 nil）
 func GetComplianceAuditLogger() *ComplianceAuditLogger { return complianceLogger }
 
-// record 追加一条到缓冲；缓冲满立即触发刷盘信号。
-// 无 db 时仅入缓冲（容量封顶），Flush 为 no-op——保证接口行为一致。
 func (l *ComplianceAuditLogger) record(channel, recipientID string) {
 	if l == nil {
 		return
@@ -761,7 +739,7 @@ func (l *ComplianceAuditLogger) Flush() error {
 		return nil
 	}
 	if err := l.db.CreateInBatches(batch, len(batch)).Error; err != nil {
-		// 失败回灌缓冲头部，避免丢失（容量上限截断防 OOM）
+
 		l.mu.Lock()
 		l.buf = append(batch, l.buf...)
 		if len(l.buf) > complianceFlushBatchSize*10 {
@@ -812,7 +790,7 @@ func LogComplianceReminder(channel, recipientID string) {
 		"严格控制发送频率，禁止发送垃圾营销、欺诈、骚扰或违法违规内容。"+
 		"因违规发送导致的账号封禁、平台处罚、行政处罚或法律后果由使用者自行承担。",
 		complianceReminderTag, channel, recipientID)
-	// R-8：异步持久化到 reach_compliance_log（未初始化时为 no-op）
+
 	complianceLogger.record(channel, recipientID)
 }
 
@@ -845,7 +823,7 @@ func (p *defaultSendPipeline) Send(ctx context.Context, req *ReachSendRequest) *
 		}
 		log := fn(ctx, req, resp)
 		resp.StepResults = append(resp.StepResults, log)
-		// R-4：命中 quiet hours 已入延迟队列，终止后续步骤（非失败语义）
+
 		if resp.Deferred {
 			resp.Success = true
 			resp.Error = ""
@@ -888,7 +866,7 @@ func (p *defaultSendPipeline) runPermission(ctx context.Context, req *ReachSendR
 		log.Success = false
 		log.Error = err.Error()
 	} else if p.config.DoNotContact != nil {
-		// R-3a：发送前置全局退订标志位检查——命中即拒绝发送（permission 步骤内）
+
 		oneID := req.CustomerID
 		if v, ok := req.Metadata["one_id"]; ok && v != "" {
 			oneID = v
@@ -924,10 +902,6 @@ func (p *defaultSendPipeline) runPermission(ctx context.Context, req *ReachSendR
 	return log
 }
 
-// checkQuietHours R-4：全渠道 quiet hours 守卫（22:00-8:00 CST）。
-//
-// 短信渠道豁免（既有铁律保持：sms.go isSMSNightRestricted 拒绝式拦截，避免双重处理）。
-// 命中时入延迟队列（次日 08:00 CST 首发），设置 resp.Deferred/DeferredAt 并返回 true。
 func (p *defaultSendPipeline) checkQuietHours(ctx context.Context, req *ReachSendRequest, resp *SendResponse) bool {
 	if !p.config.QuietHoursEnabled || req.Channel == "sms" {
 		return false
@@ -1135,7 +1109,6 @@ func (p *defaultSendPipeline) runAudit(ctx context.Context, req *ReachSendReques
 	return log
 }
 
-// 7. 计费
 func (p *defaultSendPipeline) runCost(ctx context.Context, req *ReachSendRequest, resp *SendResponse) SendStepLog {
 	start := time.Now()
 	log := SendStepLog{Step: SendStepCost, StartedAt: start}
@@ -1159,7 +1132,6 @@ func (p *defaultSendPipeline) runCost(ctx context.Context, req *ReachSendRequest
 	return log
 }
 
-// 8. 客户轨迹
 func (p *defaultSendPipeline) runJourney(ctx context.Context, req *ReachSendRequest, resp *SendResponse) SendStepLog {
 	start := time.Now()
 	log := SendStepLog{Step: SendStepJourney, StartedAt: start}
@@ -1181,9 +1153,6 @@ func (p *defaultSendPipeline) runJourney(ctx context.Context, req *ReachSendRequ
 	return log
 }
 
-// 9. 实际发送（状态确认）
-// 注意：实际发送已在 runRetry 中执行（因为重试需要包裹发送）
-// 此步骤仅用于确认发送状态；最终审计日志记录在 Send 方法末尾统一执行
 func (p *defaultSendPipeline) runSend(ctx context.Context, req *ReachSendRequest, resp *SendResponse) SendStepLog {
 	start := time.Now()
 	log := SendStepLog{Step: SendStepSend, StartedAt: start}
@@ -1217,7 +1186,6 @@ type SendPipelineStats struct {
 	TotalCost          float64
 }
 
-// countedSendPipeline 带统计的 Pipeline 包装器
 type countedSendPipeline struct {
 	inner SendPipeline
 	stats SendPipelineStats
@@ -1229,7 +1197,6 @@ func NewCountedSendPipeline(inner SendPipeline) SendPipeline {
 	return &countedSendPipeline{inner: inner}
 }
 
-// Send 执行并统计
 func (p *countedSendPipeline) Send(ctx context.Context, req *ReachSendRequest) *SendResponse {
 	resp := p.inner.Send(ctx, req)
 	p.mu.Lock()
@@ -1252,7 +1219,7 @@ func (p *countedSendPipeline) Send(ctx context.Context, req *ReachSendRequest) *
 			case SendStepRateLimit:
 				p.stats.RateLimited++
 			case SendStepPermission:
-				// R-3a：全局退订标志位命中的跳过计数上报
+
 				if step.Error == ErrSendDoNotContact.Error() {
 					p.stats.DoNotContactSkipped++
 				}
@@ -1263,7 +1230,6 @@ func (p *countedSendPipeline) Send(ctx context.Context, req *ReachSendRequest) *
 	return resp
 }
 
-// Stats 返回统计快照
 func (p *countedSendPipeline) Stats(ctx context.Context) SendPipelineStats {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

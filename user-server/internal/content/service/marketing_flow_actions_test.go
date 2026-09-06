@@ -16,8 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
-// setupMarketingFlowServiceTestDBWithCDP 在测试库中创建 CDP 相关表
 func setupMarketingFlowServiceTestDBWithCDP(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.MarketingFlow{},
@@ -31,7 +29,6 @@ func setupMarketingFlowServiceTestDBWithCDP(t *testing.T) *gorm.DB {
 	)
 	return database
 }
-
 
 // TestMarketingFlowService_sendActionRemoveTag 测试移除标签动作
 func TestMarketingFlowService_sendActionRemoveTag(t *testing.T) {
@@ -147,7 +144,6 @@ func TestMarketingFlowService_sendActionRemoveTag(t *testing.T) {
 	}
 }
 
-
 // TestMarketingFlowService_sendActionAssignAgent 测试分配客服动作
 func TestMarketingFlowService_sendActionAssignAgent(t *testing.T) {
 	database := setupMarketingFlowServiceTestDBWithCDP(t)
@@ -167,7 +163,7 @@ func TestMarketingFlowService_sendActionAssignAgent(t *testing.T) {
 		AgentName:      "客服B",
 		Status:         "online",
 		MaxSessions:    5,
-		ActiveSessions: 2, 
+		ActiveSessions: 2,
 		LastActiveAt:   &now,
 	}
 	if err := database.Create(agent1).Error; err != nil {
@@ -194,14 +190,14 @@ func TestMarketingFlowService_sendActionAssignAgent(t *testing.T) {
 		data        map[string]any
 		userID      string
 		wantErr     bool
-		wantAgentID uint 
+		wantAgentID uint
 	}{
 		{
-			name:    "auto select agent (lowest load)",
-			config:  map[string]any{},
-			data:    map[string]any{},
-			userID:  "user-assign-1",
-			wantErr: false,
+			name:        "auto select agent (lowest load)",
+			config:      map[string]any{},
+			data:        map[string]any{},
+			userID:      "user-assign-1",
+			wantErr:     false,
 			wantAgentID: 1001,
 		},
 		{
@@ -293,7 +289,6 @@ func TestMarketingFlowService_sendActionAssignAgent_NoAgents(t *testing.T) {
 	}
 }
 
-
 // TestMarketingFlowService_sendActionCreateTask 测试创建任务动作
 func TestMarketingFlowService_sendActionCreateTask(t *testing.T) {
 	database := setupMarketingFlowServiceTestDBWithCDP(t)
@@ -331,12 +326,12 @@ func TestMarketingFlowService_sendActionCreateTask(t *testing.T) {
 				"title":       "默认责任人任务",
 				"description": "未指定 assignee_id 时使用 user_id",
 			},
-			userID:         "300", 
+			userID:         "300",
 			data:           map[string]any{},
 			wantErr:        false,
 			wantTitle:      "默认责任人任务",
 			wantAssigneeID: 300,
-			wantModule:     "marketing_flow", 
+			wantModule:     "marketing_flow",
 		},
 		{
 			name: "missing title",
@@ -352,7 +347,7 @@ func TestMarketingFlowService_sendActionCreateTask(t *testing.T) {
 			config: map[string]any{
 				"title": "任务",
 			},
-			userID:  "not-a-number", 
+			userID:  "not-a-number",
 			data:    map[string]any{},
 			wantErr: true,
 		},
@@ -422,7 +417,6 @@ func TestMarketingFlowService_sendActionCreateTask(t *testing.T) {
 	}
 }
 
-
 // TestMarketingFlowService_sendActionSendSms 测试发送短信动作
 func TestMarketingFlowService_sendActionSendSms(t *testing.T) {
 	database := setupMarketingFlowServiceTestDBWithCDP(t)
@@ -442,7 +436,7 @@ func TestMarketingFlowService_sendActionSendSms(t *testing.T) {
 	})
 
 	t.Run("validation", func(t *testing.T) {
-		// 注入 mock 发送器（仅用于参数校验测试，不会真正发送）
+
 		var callCount int32
 		mockSender := func(phone, content string) error {
 			atomic.AddInt32(&callCount, 1)
@@ -451,7 +445,6 @@ func TestMarketingFlowService_sendActionSendSms(t *testing.T) {
 		origSender := smsSenderFunc
 		smsSenderFunc = mockSender
 		defer func() { smsSenderFunc = origSender }()
-
 
 		tests := []struct {
 			name    string
@@ -520,7 +513,6 @@ func TestMarketingFlowService_sendActionSendSms(t *testing.T) {
 		}
 	})
 }
-
 
 // TestMarketingFlowService_sendActionUpdateLead 测试更新线索动作
 func TestMarketingFlowService_sendActionUpdateLead(t *testing.T) {
@@ -712,7 +704,6 @@ func TestMarketingFlowService_sendActionUpdateLead(t *testing.T) {
 	}
 }
 
-
 // TestMarketingFlowService_sendActionCreateOrder 测试创建订单动作
 func TestMarketingFlowService_sendActionCreateOrder(t *testing.T) {
 	database := setupMarketingFlowServiceTestDBWithCDP(t)
@@ -742,7 +733,7 @@ func TestMarketingFlowService_sendActionCreateOrder(t *testing.T) {
 			wantPrice:   "99.50",
 			wantTgID:    1001,
 			wantAccount: "acc-1",
-			wantStatus:  0, 
+			wantStatus:  0,
 		},
 		{
 			name: "create order with float64 price",
@@ -878,13 +869,11 @@ func TestMarketingFlowService_sendActionCreateOrder(t *testing.T) {
 	}
 }
 
-
 // TestSetSmsSender 测试 SetSmsSender 函数注入机制
 func TestSetSmsSender(t *testing.T) {
 	origSender := smsSenderFunc
 	defer func() { smsSenderFunc = origSender }()
 
-	// 测试注入
 	var callCount int32
 	var mu sync.Mutex
 	calls := make([][2]string, 0)
@@ -949,6 +938,4 @@ func TestFirstNonEmpty(t *testing.T) {
 	}
 }
 
-// 兼容 time 包引用（避免 import 报错）
 var _ = time.Now
-

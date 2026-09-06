@@ -28,7 +28,7 @@ func NewRagEvalController() *RagEvalController {
 func (c *RagEvalController) Run(ctx *gin.Context) {
 	var cfg service.RagEvalConfig
 	if err := ctx.ShouldBindJSON(&cfg); err != nil {
-		// 允许空请求体（用默认值）
+
 		cfg = service.RagEvalConfig{}
 	}
 	run, err := c.svc.RunAutoEvaluation(ctx.Request.Context(), &cfg)

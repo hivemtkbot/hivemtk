@@ -16,7 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupSystemConfigTestDB 设置系统配置测试数据库
 func setupSystemConfigTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.SystemConfig{},
@@ -25,7 +24,6 @@ func setupSystemConfigTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupSystemConfigController 设置系统配置控制器测试环境
 func setupSystemConfigController(t *testing.T) (*SystemConfigController, *gin.Engine) {
 	setupSystemConfigTestDB(t)
 	ctrl := NewSystemConfigController()
@@ -33,7 +31,6 @@ func setupSystemConfigController(t *testing.T) (*SystemConfigController, *gin.En
 
 	return ctrl, router
 }
-
 
 // TestSystemConfigController_GetConfig_Success 测试获取系统配置成功
 func TestSystemConfigController_GetConfig_Success(t *testing.T) {
@@ -103,4 +100,3 @@ func TestSystemConfigController_NewSystemConfigController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
-

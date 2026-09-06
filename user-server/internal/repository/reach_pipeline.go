@@ -279,14 +279,14 @@ func (r *ReachPipelineRepository) GetScriptContent(ctx context.Context, template
 	if r == nil || r.db == nil {
 		return "", errors.New("reach pipeline repository not initialized")
 	}
-	// 优先 ScriptTemplate
+
 	var st struct {
 		Content string `gorm:"column:content"`
 	}
 	if err := r.db.WithContext(ctx).Table("script_templates").Select("content").Where("id = ?", templateID).Scan(&st).Error; err == nil && st.Content != "" {
 		return st.Content, nil
 	}
-	// 兜底 ScriptLibrary
+
 	var sl struct {
 		Content string `gorm:"column:content"`
 	}

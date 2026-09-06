@@ -8,22 +8,19 @@ import (
 
 	"hivemtk-user/internal/aiagent/embedding"
 	"hivemtk-user/internal/aiagent/llm"
-	feedbackloop "hivemtk-user/internal/service/feedback_loop"
 	"hivemtk-user/internal/pkg/utils/logger"
+	feedbackloop "hivemtk-user/internal/service/feedback_loop"
 )
 
-// 全局单例
 var (
 	feedbackCollectorOnce sync.Once
 	feedbackCollector     *feedbackloop.FeedbackCollector
 )
 
-// embeddingAdapter 把 embedding.LocalEmbedding 适配为 feedbackloop.Embedder 接口
 type embeddingAdapter struct {
 	embedder *embedding.LocalEmbedding
 }
 
-// Embed 单条文本向量化
 func (a *embeddingAdapter) Embed(text string) []float32 {
 	if a.embedder == nil {
 		return make([]float32, 1024)
@@ -31,7 +28,6 @@ func (a *embeddingAdapter) Embed(text string) []float32 {
 	return a.embedder.Embed(text)
 }
 
-// Dimension 返回向量维度
 func (a *embeddingAdapter) Dimension() int {
 	if a.embedder == nil {
 		return 1024
@@ -39,12 +35,10 @@ func (a *embeddingAdapter) Dimension() int {
 	return a.embedder.Dimension()
 }
 
-// llmAdapter 把 llm.Dispatcher 适配为 feedbackloop.LLMDispatcher 接口
 type feedbackLLMAdapter struct {
 	dispatcher *llm.Dispatcher
 }
 
-// Dispatch 适配 feedbackloop.LLMDispatcher
 func (a *feedbackLLMAdapter) Dispatch(ctx context.Context, scenario string, prompt, systemPrompt string, jsonMode bool, maxTokens int) (string, string, error) {
 	if a.dispatcher == nil {
 		return "", "", nil

@@ -11,7 +11,7 @@
         </div>
       </template>
 
-      <!-- 搜索和筛选 -->
+      
       <div class="search-bar">
         <el-form :inline="true" :model="searchForm">
           <el-form-item label="分类">
@@ -44,7 +44,7 @@
         </el-form>
       </div>
 
-      <!-- 素材列表 -->
+      
       <div class="material-grid" v-loading="loading">
         <div
           v-for="material in materialList"
@@ -83,7 +83,7 @@
         </div>
       </div>
 
-      <!-- 分页 -->
+      
       <div class="pagination">
         <el-pagination
           v-model:current-page="pagination.current"
@@ -97,7 +97,7 @@
       </div>
     </el-card>
 
-    <!-- 上传对话框 -->
+    
     <el-dialog
       title="上传素材"
       v-model="uploadDialogVisible"
@@ -146,7 +146,7 @@
       </template>
     </el-dialog>
 
-    <!-- 分类管理对话框 -->
+    
     <el-dialog
       title="分类管理"
       v-model="categoryDialogVisible"
@@ -210,13 +210,11 @@ const uploadFormRef = ref(null)
 
 const emit = defineEmits(['select'])
 
-// 401 由 request.js 拦截器统一处理（清 token + 跳转登录页）
-
 const searchForm = reactive({
   categoryId: '',
   type: '',
   keyword: ''
-})
+});
 
 const uploadForm = reactive({
   categoryId: ''
@@ -264,7 +262,6 @@ const loadMaterialList = async () => {
     materialList.value = (response && response.list) || []
     pagination.total = (response && response.total) || 0
   } catch (error) {
-    // 401 已由 request.js 拦截器统一处理（跳转登录页），此处仅处理其他错误
     if (error.response?.status !== 401) {
       ElMessage.error(i18n.global.t('获取素材列表失败'))
     }
@@ -278,7 +275,6 @@ const loadCategories = async () => {
     const response = await getMaterialCategories()
     categories.value = (response && response.list) || []
   } catch (error) {
-    // 401 已由 request.js 拦截器统一处理（跳转登录页），此处仅处理其他错误
     if (error.response?.status !== 401) {
       ElMessage.error(i18n.global.t('获取分类列表失败'))
     }
@@ -320,7 +316,7 @@ const handleFileChange = (file, files) => {
 }
 
 const beforeUpload = (file) => {
-  const maxSize = 10 * 1024 * 1024 // 10MB
+  const maxSize = 10 * 1024 * 1024;
   if (file.size > maxSize) {
     ElMessage.error(i18n.global.t('文件大小不能超过10MB'))
     return false
@@ -390,8 +386,7 @@ const handleImageError = (event) => {
 }
 
 const handleSelect = (material) => {
-  // 触发选择事件，供父组件使用
-  emit('select', material)
+  emit('select', material);
 }
 
 const handleEditCategory = (category) => {

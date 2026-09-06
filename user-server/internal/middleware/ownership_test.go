@@ -16,7 +16,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// fakeOwnershipChecker 测试用 OwnershipChecker，记录调用次数。
 type fakeOwnershipChecker struct {
 	ownerID uint
 	err     error
@@ -36,7 +35,7 @@ func (f *fakeOwnershipChecker) GetOwnerID(_ context.Context, table string, resou
 func newOwnershipTestRouter(checker OwnershipChecker, withCache bool) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	// 模拟鉴权中间件：注入 uid=42
+
 	r.Use(func(c *gin.Context) {
 		c.Set("user_id", uint(42))
 		c.Next()
@@ -142,7 +141,7 @@ func TestRequireOwner_WithCache_HitsOnce(t *testing.T) {
 // TestRequireOwner_WithCache_RecheckAfterTTL：缓存过期后重新查询
 func TestRequireOwner_WithCache_RecheckAfterTTL(t *testing.T) {
 	checker := &fakeOwnershipChecker{ownerID: 42}
-	// 使用独立路径避免受其他测试缓存污染
+
 	gin.SetMode(gin.TestMode)
 	r2 := gin.New()
 	r2.Use(func(c *gin.Context) { c.Set("user_id", uint(42)); c.Next() })
@@ -186,12 +185,12 @@ func TestRequireOwner_WithCache_ErrorCached(t *testing.T) {
 func TestInvalidateOwnershipCache(t *testing.T) {
 	checker := &fakeOwnershipChecker{ownerID: 42}
 	r := newOwnershipTestRouter(checker, true)
-	// 第一次：缓存
+
 	w1 := httptest.NewRecorder()
 	r.ServeHTTP(w1, httptest.NewRequest("GET", "/r/200", nil))
-	// 失效
+
 	InvalidateOwnershipCache("test_table", 200)
-	// 第二次：重新查询
+
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, httptest.NewRequest("GET", "/r/200", nil))
 	if got := checker.calls.Load(); got != 2 {
@@ -220,7 +219,7 @@ func TestOwnershipCache_Concurrent(t *testing.T) {
 
 // TestOwnershipCache_DefaultTTL：RequireOwnerWithCache 非正数 ttl → 默认 5s
 func TestOwnershipCache_DefaultTTL(t *testing.T) {
-	mw := RequireOwnerWithCache("id", "t", 0) // 触发默认 5s 分支
+	mw := RequireOwnerWithCache("id", "t", 0)
 	_ = mw
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -273,7 +272,7 @@ func TestRequireOwner_UIDZero(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
-		// 不注入 uid
+
 		c.Next()
 	})
 	checker := &fakeOwnershipChecker{ownerID: 42}

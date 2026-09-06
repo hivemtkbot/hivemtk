@@ -8,8 +8,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ---------- L-3 门面纯函数 ----------
-
 func TestMemoryFacadePickLatestValid(t *testing.T) {
 	asOf := time.Now()
 	old := MemoryFact{Key: "budget", Value: "5000", ValidFrom: asOf.Add(-48 * time.Hour), Confidence: 0.6}
@@ -23,19 +21,16 @@ func TestMemoryFacadePickLatestValid(t *testing.T) {
 		t.Errorf("双来源佐证置信度求和应封顶 1.0，got %v", best.Confidence)
 	}
 
-	// 单条不封顶
 	best, ok = pickLatestValid([]MemoryFact{old}, asOf)
 	if !ok || best.Value != "5000" || best.Confidence != 0.6 {
 		t.Errorf("单条应保留原置信度，got %+v ok=%v", best, ok)
 	}
 
-	// 全部失效 → false
 	stale := MemoryFact{Key: "k", Value: "v", ValidFrom: asOf.Add(-48 * time.Hour), InvalidAt: ptrTime(asOf.Add(-24 * time.Hour))}
 	if _, ok := pickLatestValid([]MemoryFact{stale}, asOf); ok {
 		t.Error("全部候选失效时应返回 false")
 	}
 
-	// 空候选 → false
 	if _, ok := pickLatestValid(nil, asOf); ok {
 		t.Error("空候选应返回 false")
 	}
@@ -71,8 +66,6 @@ func TestMemoryFacadeSplitFactKV(t *testing.T) {
 	}
 }
 
-// ---------- 门面 nil 防御与写路由（不连数据库） ----------
-
 func TestMemoryFacadeNilReceiver(t *testing.T) {
 	var f *MemoryFacade
 	if err := f.Write(context.Background(), MemoryWrite{Scope: MemoryScopeFact}); err != nil {
@@ -106,14 +99,12 @@ func TestMemoryFacadeWriteUnknownScope(t *testing.T) {
 }
 
 func TestMemoryFacadeWriteFactNilRepo(t *testing.T) {
-	// MemorySystem 无 repo 时 L2SaveFactAt 走 nil 防御返回 nil，验证门面分流到 fact 路径不 panic
+
 	f := NewMemoryFacade(nil, &MemorySystem{}, nil)
 	if err := f.Write(context.Background(), MemoryWrite{Scope: MemoryScopeFact, CustomerID: "c-1", Key: "budget", Value: "8000"}); err != nil {
 		t.Errorf("repo 为 nil 应静默，got %v", err)
 	}
 }
-
-// ---------- M-6 双时间轴纯函数与查询防御 ----------
 
 func TestValidFactsFilterTimeAxis(t *testing.T) {
 	now := time.Now()
@@ -156,13 +147,9 @@ func TestListValidFactsNilRepo(t *testing.T) {
 }
 
 func TestListValidFactsAsOfZeroOnNilRepo(t *testing.T) {
-	// asOf 零值兜底发生在 repo 调用前/后均不 panic（nil 防御优先）
+
 	m := &MemorySystem{}
 	if _, err := m.L2ListFactsAsOf(context.Background(), "c-1", time.Time{}, 0); err != nil {
 		t.Errorf("nil repo 零参数不应报错，got %v", err)
 	}
 }
-
-// ---------- 测试辅助 ----------
-
-// ptrTime 复用 message_hub_test.go 中同名包级辅助（同包共享）

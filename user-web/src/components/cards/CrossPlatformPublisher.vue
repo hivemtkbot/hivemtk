@@ -19,7 +19,7 @@
 
       <el-divider />
 
-      <!-- Step 1: 平台选择 -->
+      
       <div v-show="activeStep === 0" class="step-panel">
         <h3>① 选择目标平台（至少 1 个，最多 5 个）</h3>
         <el-checkbox-group v-model="selectedPlatforms" :max="5" class="platform-grid">
@@ -41,7 +41,7 @@
         <p class="hint">已选择 <b>{{ selectedPlatforms.length }}</b> / 5 个平台</p>
       </div>
 
-      <!-- Step 2: 内容编辑 -->
+      
       <div v-show="activeStep === 1" class="step-panel">
         <h3>② 编辑内容</h3>
         <el-form :model="content" label-position="top">
@@ -70,7 +70,7 @@
         </el-form>
       </div>
 
-      <!-- Step 3: 发布确认 -->
+      
       <div v-show="activeStep === 2" class="step-panel">
         <h3>③ 确认并发布</h3>
         <el-descriptions :column="2" border>
@@ -232,13 +232,9 @@ function buildPayload() {
     title: content.value.title,
     description: content.value.body,
     image_url: content.value.cover,
-    // R63: 后端五套卡片 DTO 契约字段为 redirect_url（dto/douyincard.go 等），
-    // 此前发 target_url 被静默丢弃，卡片跳转链接恒为空/默认值
     redirect_url: content.value.url,
-    // R63: 后端 Tags 为空格分隔字符串（DouyinCardCreateRequest.Tags string），
-    // 数组形态会 400: cannot unmarshal array into ... .tags of type string
     tags: tagList.join(' '),
-  }
+  };
 }
 
 async function publishOne(code, payload) {

@@ -53,7 +53,6 @@ func (s *DoNotContactService) SetPhoneResolver(fn PhoneToOneIDResolver) {
 	s.resolveOneID = fn
 }
 
-// defaultPhoneResolver 默认 phone→one_id 反查：读 customer 表按手机号取 unified_id
 func (s *DoNotContactService) defaultPhoneResolver() PhoneToOneIDResolver {
 	customerRepo := repository.NewCustomerRepository()
 	return func(ctx context.Context, phone string) string {
@@ -90,7 +89,7 @@ func (s *DoNotContactService) Block(ctx context.Context, oneID, channel, source 
 		logger.Errorf("[DNC] 写入全局退订标志位失败 one_id=%s channel=%q source=%s: %v", oneID, channel, source, err)
 		return err
 	}
-	// 审计日志：无论新增还是幂等跳过均留痕
+
 	if created {
 		logger.Infof("[DNC][审计] 全局退订标志位已写入 one_id=%s channel=%q source=%s", oneID, channel, source)
 	} else {
@@ -110,7 +109,7 @@ func (s *DoNotContactService) BlockFromPhone(ctx context.Context, phone, source 
 	}
 	oneID := s.resolvePhoneToOneID(ctx, phone)
 	if oneID == "" {
-		oneID = PhoneOneIDPrefix + phone // 无法反查时的归一键（注释见 PhoneOneIDPrefix）
+		oneID = PhoneOneIDPrefix + phone
 	}
 	return s.Block(ctx, oneID, model.DoNotContactChannelAll, source)
 }
@@ -171,7 +170,7 @@ func (s *DoNotContactService) BackfillFromSMSUnsubscribe(ctx context.Context) (i
 		}
 		created, berr := s.blockFromPhoneCounted(ctx, r.Phone, model.DNCSourceSMSKeyword)
 		if berr != nil {
-			// 单条失败不中断回填，记录后继续（幂等可重跑）
+
 			logger.Errorf("[DNC] 回填单条失败 phone=%s: %v", r.Phone, berr)
 			continue
 		}
@@ -183,7 +182,6 @@ func (s *DoNotContactService) BackfillFromSMSUnsubscribe(ctx context.Context) (i
 	return added, nil
 }
 
-// blockFromPhoneCounted 同 BlockFromPhone 但返回是否新写入（回填计数用）
 func (s *DoNotContactService) blockFromPhoneCounted(ctx context.Context, phone, source string) (bool, error) {
 	phone = NormalizePhone(phone)
 	if phone == "" {
@@ -191,7 +189,7 @@ func (s *DoNotContactService) blockFromPhoneCounted(ctx context.Context, phone, 
 	}
 	oneID := s.resolvePhoneToOneID(ctx, phone)
 	if oneID == "" {
-		oneID = PhoneOneIDPrefix + phone // 无法反查时的归一键（注释见 PhoneOneIDPrefix）
+		oneID = PhoneOneIDPrefix + phone
 	}
 	record := &model.CustomerDoNotContact{
 		OneID:   oneID,
@@ -208,7 +206,6 @@ func (s *DoNotContactService) blockFromPhoneCounted(ctx context.Context, phone, 
 	return created, nil
 }
 
-// resolvePhoneToOneID phone→one_id 反查（未注入自定义实现时走默认 customer 表反查）
 func (s *DoNotContactService) resolvePhoneToOneID(ctx context.Context, phone string) string {
 	if s.resolveOneID != nil {
 		return s.resolveOneID(ctx, phone)

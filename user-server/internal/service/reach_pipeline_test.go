@@ -17,7 +17,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupReachTestDB 创建测试数据库
 func setupReachTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.ReachPipeline{},
@@ -1619,13 +1618,11 @@ func TestAppendStepResult(t *testing.T) {
 	_ = db
 }
 
-// helper: 把 JSONArray 转换为 bytes
 func toBytes(v any) []byte {
 	b, _ := json.Marshal(v)
 	return b
 }
 
-// helper: 简易 json 反序列化
 func jsonUnmarshal(data []byte, v any) error {
 	return json.Unmarshal(data, v)
 }
@@ -1937,7 +1934,7 @@ func TestAggregateReport_UpdatesPipelineCounters(t *testing.T) {
 	if _, err := svc.aggregateReport(context.Background(), job); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// 验证 Pipeline 计数器被更新
+
 	var updated model.ReachPipeline
 	db.First(&updated, pipe.ID)
 	if updated.TotalSuccess != 1 {

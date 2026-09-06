@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupEmailSmtpTestDB 设置邮件 SMTP 测试数据库
 func setupEmailSmtpTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.EmailSmtp{},
@@ -20,7 +19,6 @@ func setupEmailSmtpTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupEmailSmtpRepository 创建测试用的邮件 SMTP 仓库实例
 func setupEmailSmtpRepository(t *testing.T) EmailSmtpRepository {
 	setupEmailSmtpTestDB(t)
 	return NewEmailSmtpRepository()

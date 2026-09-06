@@ -13,7 +13,7 @@ func TestParseDeviceType(t *testing.T) {
 		{"iPhone", "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) Mobile", "mobile"},
 		{"Android Phone", "Mozilla/5.0 (Linux; Android 10; SM-G981B) Mobile", "mobile"},
 		{"iPad", "Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X) Safari/604.1", "tablet"},
-		{"Android Tablet", "Mozilla/5.0 (Linux; Android 10; SM-T860) Tablet", "mobile"}, 
+		{"Android Tablet", "Mozilla/5.0 (Linux; Android 10; SM-T860) Tablet", "mobile"},
 		{"Windows Desktop", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "desktop"},
 		{"Mac Desktop", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", "desktop"},
 		{"Linux Desktop", "Mozilla/5.0 (X11; Linux x86_64)", "desktop"},
@@ -70,7 +70,7 @@ func TestParseOS(t *testing.T) {
 		{"Mac OS", "Mozilla/5.0 (Mac OS X 10_15_7)", "macOS"},
 		{"iPhone iOS", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)", "iOS"},
 		{"iPad iOS", "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)", "iOS"},
-		{"Android", "Mozilla/5.0 (Linux; Android 14)", "Android"}, 
+		{"Android", "Mozilla/5.0 (Linux; Android 14)", "Android"},
 		{"Linux", "Mozilla/5.0 (X11; Linux x86_64)", "Linux"},
 		{"Ubuntu", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64)", "Linux"},
 		{"Unknown", "Some random user agent", "Unknown"},
@@ -135,4 +135,3 @@ func findSubstring(s, substr string) bool {
 	}
 	return false
 }
-

@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupUpgradeTestDB 设置升级任务测试数据库
 func setupUpgradeTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.UpgradeTask{},
@@ -22,7 +21,6 @@ func setupUpgradeTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupUpgradeRepositories 创建测试用的升级任务仓库实例
 func setupUpgradeRepositories(t *testing.T) (*UpgradeTaskRepository, *MigrationRecordRepository, *MigrationCheckpointRepository) {
 	setupUpgradeTestDB(t)
 	return &UpgradeTaskRepository{db: db.GetDB()},

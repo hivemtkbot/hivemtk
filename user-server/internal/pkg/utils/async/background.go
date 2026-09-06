@@ -52,4 +52,3 @@ func SafeGo(fn func()) {
 		fn()
 	}()
 }
-

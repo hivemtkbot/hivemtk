@@ -20,7 +20,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupABExperimentTestDB 设置 A/B 实验测试数据库
 func setupABExperimentTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&sysmodel.SystemUser{},
@@ -35,7 +34,6 @@ func setupABExperimentTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupABExperimentController 设置 A/B 实验控制器测试环境
 func setupABExperimentController(t *testing.T) (*ABExperimentController, *gin.Engine) {
 	setupABExperimentTestDB(t)
 	ctrl := NewABExperimentController()
@@ -94,7 +92,7 @@ func TestABExperimentController_CreateExperiment_MissingRequiredFields(t *testin
 	router.POST("/experiments", ctrl.CreateExperiment)
 
 	createReq := service.CreateExperimentRequest{
-		Name: "", 
+		Name: "",
 	}
 	body, _ := json.Marshal(createReq)
 
@@ -584,4 +582,3 @@ func TestABExperimentController_GetExperimentList_WithPagination(t *testing.T) {
 		t.Errorf("Expected status OK, got %d", w.Code)
 	}
 }
-

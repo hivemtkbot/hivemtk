@@ -9,12 +9,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// ============================================================================
-// M5：assignment 策略显式化回归测试
-// round_robin 原先被静默忽略（走默认 least_busy），manual/非法策略名同样静默。
-// 修复后：round_robin 按 LastAssign 轮转；manual 返回明确错误；非法策略名报错。
-// ============================================================================
-
 func m5Session() *model.CustomerSession {
 	return &model.CustomerSession{Platform: "douyin", Priority: 1}
 }
@@ -48,7 +42,7 @@ func TestAssignWithStrategy_RoundRobinRotation(t *testing.T) {
 func TestAssignWithStrategy_RoundRobinSkipsFull(t *testing.T) {
 	svc := NewAssignmentService(nil)
 	candidates := []AgentInfo{
-		{AgentID: 1, Online: true, ActiveSess: 10, Capacity: 10, LastAssign: time.Time{}}, // 满载且最早
+		{AgentID: 1, Online: true, ActiveSess: 10, Capacity: 10, LastAssign: time.Time{}},
 		{AgentID: 2, Online: true, ActiveSess: 0, Capacity: 5, LastAssign: time.Now()},
 	}
 	d, err := svc.AssignWithStrategy(context.Background(), m5Session(), candidates, "round_robin")

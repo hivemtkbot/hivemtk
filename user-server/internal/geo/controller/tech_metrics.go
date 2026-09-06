@@ -9,7 +9,8 @@ import (
 
 // TechMetricsController GEO 技术配置生成 + 内容质量指标分析。
 // （原 ResourceController 的 resourceSvc 硬编码静态数据已删除，
-//  techconfig/metrics 两个真实子服务保留并独立成 controller）
+//
+//	techconfig/metrics 两个真实子服务保留并独立成 controller）
 type TechMetricsController struct {
 	techconfigSvc *service.TechConfigService
 	metricsSvc    *service.MetricsService
@@ -22,8 +23,6 @@ func NewTechMetricsController() *TechMetricsController {
 		metricsSvc:    service.NewMetricsService(),
 	}
 }
-
-// === 技术配置 ===
 
 // GenerateRobots 生成 robots.txt
 // POST /geo/techconfig/robots
@@ -54,8 +53,6 @@ func (c *TechMetricsController) GenerateSitemap(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"content": c.techconfigSvc.GenerateSitemap(&cfg)}, "生成成功")
 }
-
-// === 质量指标 ===
 
 // AnalyzeMetrics 分析内容质量指标
 // POST /geo/metrics/analyze

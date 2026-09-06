@@ -53,11 +53,9 @@ var DefaultSignalWeights = SignalWeightMap{
 	dto.FBSignalTransfer:     -0.5,
 	dto.FBSignalChampionMark: 1.5,
 	dto.FBSignalScriptAdopt:  0.6,
-	// R58 CRITICAL: 新增 tool_call / intent_match 默认权重
-	// FeedbackCollectorAdapter.RecordToolCall 提交 SignalKey="tool_call"
-	// 之前 lookupWeight 返回 0 → feedback_events.reward 恒 0 → feedback_signals 全 pending
-	dto.FBSignalToolCall:    0.3,  // 成功 tool_call → reward = 0.3 * 1.0 = 0.3（computeReward 里处理 bool→±）
-	dto.FBSignalIntentMatch: 0.5,  // 意图匹配 → reward = 0.5 * 1.0 = 0.5
+
+	dto.FBSignalToolCall:    0.3,
+	dto.FBSignalIntentMatch: 0.5,
 }
 
 // BanditConfig Bandit 分配器配置

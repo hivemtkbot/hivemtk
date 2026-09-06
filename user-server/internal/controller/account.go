@@ -27,13 +27,13 @@ func (c *AccountController) CreateAccount(ctx *gin.Context) {
 	}
 
 	account := model.Account{
-		TgBotToken:          req.TgBotToken,
-		Price:               req.Price,
-		GroupID:             req.GroupID,
-		ProxyEnableProxy:    req.ProxyEnableProxy,
-		ProxyProtoclo:       req.ProxyProtoclo,
-		ProxyHost:           req.ProxyHost,
-		ProxyPort:           req.ProxyPort,
+		TgBotToken:       req.TgBotToken,
+		Price:            req.Price,
+		GroupID:          req.GroupID,
+		ProxyEnableProxy: req.ProxyEnableProxy,
+		ProxyProtoclo:    req.ProxyProtoclo,
+		ProxyHost:        req.ProxyHost,
+		ProxyPort:        req.ProxyPort,
 	}
 
 	createdAccount, err := c.svc.CreateAccount(context.Background(), account)
@@ -43,16 +43,16 @@ func (c *AccountController) CreateAccount(ctx *gin.Context) {
 	}
 
 	resp := dto.AccountResponse{
-		ID:                  createdAccount.ID,
-		TgBotToken:          createdAccount.TgBotToken,
-		Price:               createdAccount.Price,
-		GroupID:             createdAccount.GroupID,
-		ProxyEnableProxy:    createdAccount.ProxyEnableProxy,
-		ProxyProtoclo:       createdAccount.ProxyProtoclo,
-		ProxyHost:           createdAccount.ProxyHost,
-		ProxyPort:           createdAccount.ProxyPort,
-		Status:              createdAccount.Status,
-		CreateTime:          createdAccount.CreateTime,
+		ID:               createdAccount.ID,
+		TgBotToken:       createdAccount.TgBotToken,
+		Price:            createdAccount.Price,
+		GroupID:          createdAccount.GroupID,
+		ProxyEnableProxy: createdAccount.ProxyEnableProxy,
+		ProxyProtoclo:    createdAccount.ProxyProtoclo,
+		ProxyHost:        createdAccount.ProxyHost,
+		ProxyPort:        createdAccount.ProxyPort,
+		Status:           createdAccount.Status,
+		CreateTime:       createdAccount.CreateTime,
 	}
 	response.Success(ctx, resp, "success")
 }
@@ -70,17 +70,17 @@ func (c *AccountController) GetAccounts(ctx *gin.Context) {
 	}
 	for _, account := range accounts {
 		resp.List = append(resp.List, &dto.AccountResponse{
-			ID:                  account.ID,
-			TgName:              account.TgName,
-			TgBotToken:          account.TgBotToken,
-			Price:               account.Price,
-			GroupID:             account.GroupID,
-			ProxyEnableProxy:    account.ProxyEnableProxy,
-			ProxyProtoclo:       account.ProxyProtoclo,
-			ProxyHost:           account.ProxyHost,
-			ProxyPort:           account.ProxyPort,
-			Status:              account.Status,
-			CreateTime:          account.CreateTime,
+			ID:               account.ID,
+			TgName:           account.TgName,
+			TgBotToken:       account.TgBotToken,
+			Price:            account.Price,
+			GroupID:          account.GroupID,
+			ProxyEnableProxy: account.ProxyEnableProxy,
+			ProxyProtoclo:    account.ProxyProtoclo,
+			ProxyHost:        account.ProxyHost,
+			ProxyPort:        account.ProxyPort,
+			Status:           account.Status,
+			CreateTime:       account.CreateTime,
 		})
 	}
 	response.Success(ctx, resp, "success")
@@ -104,19 +104,19 @@ func (c *AccountController) GetAccount(ctx *gin.Context) {
 	}
 
 	resp := dto.AccountResponse{
-		ID:                  account.ID,
-		TgName:              account.TgName,
-		TgBotToken:          account.TgBotToken,
-		Price:               account.Price,
-		GroupID:             account.GroupID,
-		ProxyEnableProxy:    account.ProxyEnableProxy,
-		ProxyProtoclo:       account.ProxyProtoclo,
-		ProxyHost:           account.ProxyHost,
-		ProxyPort:           account.ProxyPort,
-		Status:              account.Status,
-		CreateTime:          account.CreateTime,
-		Msg:                 account.Msg,
-		URL:                 account.URL,
+		ID:               account.ID,
+		TgName:           account.TgName,
+		TgBotToken:       account.TgBotToken,
+		Price:            account.Price,
+		GroupID:          account.GroupID,
+		ProxyEnableProxy: account.ProxyEnableProxy,
+		ProxyProtoclo:    account.ProxyProtoclo,
+		ProxyHost:        account.ProxyHost,
+		ProxyPort:        account.ProxyPort,
+		Status:           account.Status,
+		CreateTime:       account.CreateTime,
+		Msg:              account.Msg,
+		URL:              account.URL,
 	}
 	response.Success(ctx, resp, "success")
 }
@@ -139,15 +139,15 @@ func (c *AccountController) UpdateAccount(ctx *gin.Context) {
 	}
 
 	account := model.Account{
-		ID:                  accountIDStr,
-		TgName:              req.TgName,
-		TgBotToken:          req.TgBotToken,
-		Price:               req.Price,
-		GroupID:             req.GroupID,
-		ProxyEnableProxy:    req.ProxyEnableProxy,
-		ProxyProtoclo:       req.ProxyProtoclo,
-		ProxyHost:           req.ProxyHost,
-		ProxyPort:           req.ProxyPort,
+		ID:               accountIDStr,
+		TgName:           req.TgName,
+		TgBotToken:       req.TgBotToken,
+		Price:            req.Price,
+		GroupID:          req.GroupID,
+		ProxyEnableProxy: req.ProxyEnableProxy,
+		ProxyProtoclo:    req.ProxyProtoclo,
+		ProxyHost:        req.ProxyHost,
+		ProxyPort:        req.ProxyPort,
 	}
 	err := c.svc.UpdateAccount(context.Background(), account)
 	if err != nil {
@@ -170,4 +170,3 @@ func (c *AccountController) DeleteAccount(ctx *gin.Context) {
 	}
 	response.Success(ctx, nil, "success")
 }
-

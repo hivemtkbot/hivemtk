@@ -39,21 +39,19 @@ func NewGeoDecisionAnalyticsService(
 	}
 }
 
-// ---- A1+A2: Share of Voice 品牌声量份额 ----
-
 // SOVEntry 单品牌声量份额
 type SOVEntry struct {
-	Brand       string  `json:"brand"`
-	Mentions    int64   `json:"mentions"`
-	TotalMention int64  `json:"total_mentions_all_brands"`
-	SOV         float64 `json:"sov_percent"` // 0-100
-	AvgSentiment string `json:"avg_sentiment"`
+	Brand        string  `json:"brand"`
+	Mentions     int64   `json:"mentions"`
+	TotalMention int64   `json:"total_mentions_all_brands"`
+	SOV          float64 `json:"sov_percent"`
+	AvgSentiment string  `json:"avg_sentiment"`
 }
 
 // GetShareOfVoice 按意图分组计算各品牌声量占比（Peec 三子指标对齐：可见性/位置/情感）
 // 数据源：geo_probe_runs（真实云端探针引擎）+ geo_config（品牌/竞品列表）
 func (s *GeoDecisionAnalyticsService) GetShareOfVoice(ctx context.Context, intent string) ([]SOVEntry, error) {
-	// 1. 从 geo_config 读取品牌和竞品列表
+
 	brandList := []string{}
 	if s.configRepo != nil {
 		cfg, err := s.configRepo.Get()
@@ -71,12 +69,11 @@ func (s *GeoDecisionAnalyticsService) GetShareOfVoice(ctx context.Context, inten
 			}
 		}
 	}
-	// 至少包含主品牌
+
 	if len(brandList) == 0 {
 		brandList = append(brandList, "HiveMTK")
 	}
 
-	// 2. 从 geo_probe_runs 读取真实探针引擎数据
 	var probeRuns []*model.GeoProbeRun
 	if s.probeRepo != nil {
 		rows, err := s.probeRepo.ListRecent(ctx, 500)
@@ -86,7 +83,6 @@ func (s *GeoDecisionAnalyticsService) GetShareOfVoice(ctx context.Context, inten
 		probeRuns = rows
 	}
 
-	// 3. 从 query 和 response 中匹配品牌提及
 	type agg struct {
 		count    int64
 		positive int64
@@ -139,8 +135,6 @@ func safeDivF(a, b int64) float64 {
 	return float64(a) / float64(b)
 }
 
-// ---- A6: AI 爬虫访问监控 ----
-
 // RecordCrawlerVisit 记录 AI 引擎爬虫访问（关键词维度）
 func (s *GeoDecisionAnalyticsService) RecordCrawlerVisit(ctx context.Context, keyword, userAgent, path, engine string) error {
 	return s.crawler.Create(ctx, &model.GeoCrawlerVisit{
@@ -150,13 +144,13 @@ func (s *GeoDecisionAnalyticsService) RecordCrawlerVisit(ctx context.Context, ke
 
 // CrawlerStatsResponse 爬虫统计前端友好返回
 type CrawlerStatsResponse struct {
-	Summary       CrawlerStatsSummary          `json:"summary"`
-	KeywordStats  []repository.KeywordStatRow  `json:"keyword_stats"`
-	DomainStats   []repository.DomainStatRow   `json:"domain_stats"`
+	Summary      CrawlerStatsSummary         `json:"summary"`
+	KeywordStats []repository.KeywordStatRow `json:"keyword_stats"`
+	DomainStats  []repository.DomainStatRow  `json:"domain_stats"`
 	// 新增：HiveMTK vs 竞品 对比维度（业务核心）
 	KeywordCompare []KeywordCompareRow `json:"keyword_compare"`
 	DomainCompare  []DomainCompareRow  `json:"domain_compare"`
-	CoverageScore  float64             `json:"coverage_score"` // HiveMTK 总体覆盖度（0-100）
+	CoverageScore  float64             `json:"coverage_score"`
 }
 
 type CrawlerStatsSummary struct {
@@ -167,27 +161,27 @@ type CrawlerStatsSummary struct {
 	ALevelCount    int64   `json:"a_level_count"`
 	AvgSOV         float64 `json:"avg_sov"`
 	// 新增
-	HiveMTKVisits  int64   `json:"hivemtk_visits"`
-	CompetitorVisits int64  `json:"competitor_visits"`
+	HiveMTKVisits    int64 `json:"hivemtk_visits"`
+	CompetitorVisits int64 `json:"competitor_visits"`
 }
 
 // KeywordCompareRow 关键词维度 HiveMTK vs 竞品 对比
 type KeywordCompareRow struct {
-	Keyword           string           `json:"keyword"`
-	HiveMTKVisits     int64            `json:"hivemtk_visits"`
-	CompetitorVisits  map[string]int64 `json:"competitor_visits"` // domain → visits
-	HiveMTKEngines    int              `json:"hivemtk_engines"`   // 覆盖的引擎种类数
-	TotalEngines      int              `json:"total_engines"`
+	Keyword          string           `json:"keyword"`
+	HiveMTKVisits    int64            `json:"hivemtk_visits"`
+	CompetitorVisits map[string]int64 `json:"competitor_visits"`
+	HiveMTKEngines   int              `json:"hivemtk_engines"`
+	TotalEngines     int              `json:"total_engines"`
 }
 
 // DomainCompareRow 域名维度 HiveMTK vs 竞品 排名
 type DomainCompareRow struct {
-	Domain     string  `json:"domain"`
-	IsHiveMTK  bool    `json:"is_hivemtk"`
-	Visits     int64   `json:"visits"`
-	Engines    int     `json:"engines"`
-	SharePct   float64 `json:"share_pct"`  // 声量占比
-	SourceLevel string `json:"source_level"`
+	Domain      string  `json:"domain"`
+	IsHiveMTK   bool    `json:"is_hivemtk"`
+	Visits      int64   `json:"visits"`
+	Engines     int     `json:"engines"`
+	SharePct    float64 `json:"share_pct"`
+	SourceLevel string  `json:"source_level"`
 }
 
 const hivemtkDomain = "hive.xapptool.cn"
@@ -209,7 +203,6 @@ func (s *GeoDecisionAnalyticsService) GetCrawlerStats(ctx context.Context) (*Cra
 		}
 	}
 
-	// ---- 计算对比维度 ----
 	kwCompare := computeKeywordCompare(keywordRows)
 	domainCompare, hivemtkVisits, compVisits, coverage := computeDomainCompare(domainRows)
 
@@ -232,22 +225,18 @@ func (s *GeoDecisionAnalyticsService) GetCrawlerStats(ctx context.Context) (*Cra
 	}, nil
 }
 
-// computeKeywordCompare 按 keyword 聚合，区分 HiveMTK vs 竞品
-// 注意：keywordRows 本身不带 domain 信息（只有 keyword, engine, visit_count）
-// 我们需要另一个数据源：从 domainRows 里能拿到 domain，但 domainRows 也没 keyword
-// 所以这里只做 HiveMTK vs 竞品的整体对比，不再细分到 keyword×domain
 func computeKeywordCompare(keywordRows []repository.KeywordStatRow) []KeywordCompareRow {
-	// keyword → engine → visit_count
+
 	type key struct{ kw, engine string }
 	perEngine := map[key]int64{}
-	perKW := map[string]int{} // keyword → set of engines
+	perKW := map[string]int{}
 	for _, r := range keywordRows {
 		perEngine[key{r.Keyword, r.Engine}] += r.VisitCount
 		if perKW[r.Keyword] == 0 {
 			perKW[r.Keyword] = 1
 		}
 	}
-	// 简单输出：关键词 × 总访问 × 覆盖引擎数
+
 	out := make([]KeywordCompareRow, 0, len(perKW))
 	for kw := range perKW {
 		var total int64
@@ -259,17 +248,16 @@ func computeKeywordCompare(keywordRows []repository.KeywordStatRow) []KeywordCom
 			}
 		}
 		out = append(out, KeywordCompareRow{
-			Keyword:        kw,
-			HiveMTKVisits:  total, // 暂无法区分 HiveMTK vs 竞品（keywordRows 不带 domain）
-			HiveMTKEngines: len(engines),
-			TotalEngines:   8, // 固定 8 种 AI Bot UA
+			Keyword:          kw,
+			HiveMTKVisits:    total,
+			HiveMTKEngines:   len(engines),
+			TotalEngines:     8,
 			CompetitorVisits: map[string]int64{},
 		})
 	}
 	return out
 }
 
-// computeDomainCompare 按 domain 聚合，计算 HiveMTK vs 竞品 排名 + 覆盖度
 func computeDomainCompare(domainRows []repository.DomainStatRow) ([]DomainCompareRow, int64, int64, float64) {
 	type domAgg struct {
 		visits  int64
@@ -312,8 +300,6 @@ func computeDomainCompare(domainRows []repository.DomainStatRow) ([]DomainCompar
 		})
 	}
 
-	// 简单按 visits 降序
-	// Go 1.21+ 可以用 slices.SortFunc
 	for i := 0; i < len(out); i++ {
 		for j := i + 1; j < len(out); j++ {
 			if out[j].Visits > out[i].Visits {
@@ -322,7 +308,6 @@ func computeDomainCompare(domainRows []repository.DomainStatRow) ([]DomainCompar
 		}
 	}
 
-	// 覆盖度评分：HiveMTK 占总访问的比例 × 100，上限 100
 	var coverage float64
 	if hivemtkVisits+compVisits > 0 {
 		coverage = float64(hivemtkVisits) / float64(hivemtkVisits+compVisits) * 100
@@ -334,13 +319,11 @@ func computeDomainCompare(domainRows []repository.DomainStatRow) ([]DomainCompar
 	return out, hivemtkVisits, compVisits, coverage
 }
 
-// ---- A7: 不准确声明检测 ----
-
 // InaccurateClaim 不准确声明
 type InaccurateClaim struct {
 	Claim      string `json:"claim"`
 	Correction string `json:"correction,omitempty"`
-	Severity   string `json:"severity"` // high / medium / low
+	Severity   string `json:"severity"`
 }
 
 // DetectInaccurateClaims 对指定品牌的验证回答做不准确声明检测（Profound 独有能力对齐）。
@@ -388,7 +371,6 @@ func (s *GeoDecisionAnalyticsService) DetectInaccurateClaims(ctx context.Context
 	}
 	return claims, nil
 }
-
 
 func (s *GeoDecisionAnalyticsService) recordAPICall(ctx context.Context, resp *LLMResult, purpose string) {
 	if s.apiCallRepo == nil || resp == nil {

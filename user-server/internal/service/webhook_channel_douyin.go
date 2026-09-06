@@ -69,8 +69,7 @@ func (s *WebhookService) dispatchDouyin(ctx context.Context, accountID string, p
 	}
 
 	msgID := "dy_" + payload.Data.Message.MessageID
-	// M3（对齐 W-5）：MessageID 缺失时不再用 UnixNano 时间戳兜底——重推/并发场景
-	// 天然不去重；改用内容哈希生成稳定 ID（复用 webhook_dedup.go 既有实现）。
+
 	if payload.Data.Message.MessageID == "" {
 		msgID = "dy_" + ContentHashMsgID("douyin", "", p.Content)
 	}
@@ -130,8 +129,6 @@ func (s *WebhookService) dispatchDouyinGeneric(ctx context.Context, accountID st
 		content = "[douyin generic event]"
 	}
 
-	// W-5 MsgID 稳定化：generic 分支原用 UnixNano 时间戳，重推/并发场景天然不去重；
-	// 改用内容哈希生成稳定 ID（复用 webhook_dedup.go 既有实现）。
 	hub := &model.MessageHub{
 		Platform:       "douyin",
 		AccountID:      accountID,

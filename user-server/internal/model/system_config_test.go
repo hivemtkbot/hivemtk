@@ -46,4 +46,3 @@ func TestSystemConfig_WithEmptyName(t *testing.T) {
 		t.Errorf("Expected empty Name, got %s", config.Name)
 	}
 }
-

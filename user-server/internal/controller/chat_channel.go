@@ -135,4 +135,3 @@ func (ctrl *ChatChannelController) ResetAppSecret(c *gin.Context) {
 	}
 	response.Success(c, gin.H{"app_secret": newSecret}, "AppSecret 已重置（仅返回一次）")
 }
-

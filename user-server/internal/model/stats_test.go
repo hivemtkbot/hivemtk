@@ -82,7 +82,7 @@ func TestAPILog_WithHTTPMethods(t *testing.T) {
 func TestAPILog_WithDuration(t *testing.T) {
 	log := &APILog{
 		Endpoint: "/api/slow",
-		Duration: 5000, 
+		Duration: 5000,
 	}
 
 	if log.Duration != 5000 {
@@ -262,4 +262,3 @@ func TestSystemMetrics_WithHighUsage(t *testing.T) {
 		t.Errorf("Expected CPUUsage 95.5, got %f", metrics.CPUUsage)
 	}
 }
-

@@ -135,7 +135,6 @@ func PlatformToClueType(platform string) int64 {
 	}
 }
 
-// defaultClueTypes 默认线索类型列表
 var defaultClueTypes = []ClueType{
 	{Value: "1", Label: "QQ"},
 	{Value: "2", Label: "微信"},

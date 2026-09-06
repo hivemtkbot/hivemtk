@@ -12,7 +12,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// upsertInboxFromHub 写入收件箱会话
 func (s *WebhookService) upsertInboxFromHub(ctx context.Context, hub *model.MessageHub, customerName string) {
 	if s.inboxConvRepo == nil || hub == nil {
 		return

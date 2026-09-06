@@ -46,7 +46,7 @@ func TestBackup_BasicFields(t *testing.T) {
 		BackupType:   BackupTypeFull,
 		Status:       BackupStatusCompleted,
 		FilePath:     "/backups/2024-01-15/backup.sql",
-		FileSize:     1073741824, 
+		FileSize:     1073741824,
 		ErrorMessage: "",
 		StartedAt:    now,
 		CompletedAt:  &completed,
@@ -138,7 +138,7 @@ func TestBackup_WithNilCompletedAt(t *testing.T) {
 func TestBackup_WithLargeFileSize(t *testing.T) {
 	backup := &Backup{
 		BackupName: "Large Backup",
-		FileSize:   10737418240, 
+		FileSize:   10737418240,
 	}
 
 	if backup.FileSize != 10737418240 {
@@ -194,4 +194,3 @@ func TestRestoreRecord_WithStatusValues(t *testing.T) {
 		}
 	}
 }
-

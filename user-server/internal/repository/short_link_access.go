@@ -22,7 +22,6 @@ type ShortLinkAccessRepository interface {
 	DeleteByShortLinkID(ctx context.Context, shortLinkID uint) error
 }
 
-// shortLinkAccessRepository 短链访问统计仓储实现
 type shortLinkAccessRepository struct {
 	db *gorm.DB
 }
@@ -32,17 +31,14 @@ func NewShortLinkAccessRepository(db *gorm.DB) ShortLinkAccessRepository {
 	return &shortLinkAccessRepository{db: db}
 }
 
-// Create 创建短链访问记录
 func (r *shortLinkAccessRepository) Create(ctx context.Context, access *model.ShortLinkAccess) error {
 	return r.db.Create(access).Error
 }
 
-// DeleteByShortLinkID 删除指定短链的所有访问记录（删除短链前清理子表，避免外键 NO ACTION 阻止删除）
 func (r *shortLinkAccessRepository) DeleteByShortLinkID(ctx context.Context, shortLinkID uint) error {
 	return r.db.Where("short_link_id = ?", shortLinkID).Delete(&model.ShortLinkAccess{}).Error
 }
 
-// GetByID 根据ID获取短链访问记录
 func (r *shortLinkAccessRepository) GetByID(ctx context.Context, id uint) (*model.ShortLinkAccess, error) {
 	var access model.ShortLinkAccess
 	err := r.db.First(&access, id).Error
@@ -52,7 +48,6 @@ func (r *shortLinkAccessRepository) GetByID(ctx context.Context, id uint) (*mode
 	return &access, nil
 }
 
-// GetByShortLinkID 根据短链ID获取访问记录
 func (r *shortLinkAccessRepository) GetByShortLinkID(ctx context.Context, shortLinkID uint, page, pageSize int) ([]*model.ShortLinkAccess, int64, error) {
 	var accesses []*model.ShortLinkAccess
 	var total int64
@@ -73,7 +68,6 @@ func (r *shortLinkAccessRepository) GetByShortLinkID(ctx context.Context, shortL
 	return accesses, total, nil
 }
 
-// GetStatsByShortLinkID 根据短链ID获取统计信息
 func (r *shortLinkAccessRepository) GetStatsByShortLinkID(ctx context.Context, shortLinkID uint, startDate, endDate time.Time) (*model.ShortLinkAccess, error) {
 	var stats struct {
 		TotalCount int64 `json:"total_count"`
@@ -110,7 +104,6 @@ func (r *shortLinkAccessRepository) GetStatsByShortLinkID(ctx context.Context, s
 	}, nil
 }
 
-// GetDailyStatsByShortLinkID 根据短链ID获取每日访问统计
 func (r *shortLinkAccessRepository) GetDailyStatsByShortLinkID(ctx context.Context, shortLinkID uint, startDate, endDate time.Time) ([]map[string]any, error) {
 	query := r.db.Model(&model.ShortLinkAccess{}).
 		Select("DATE(access_time) as date, COUNT(*) as count").
@@ -129,7 +122,6 @@ func (r *shortLinkAccessRepository) GetDailyStatsByShortLinkID(ctx context.Conte
 	return results, err
 }
 
-// GetDeviceTypeStatsByShortLinkID 根据短链ID获取设备类型统计
 func (r *shortLinkAccessRepository) GetDeviceTypeStatsByShortLinkID(ctx context.Context, shortLinkID uint, startDate, endDate time.Time) ([]map[string]any, error) {
 	query := r.db.Model(&model.ShortLinkAccess{}).
 		Select("device_type, COUNT(*) as count").
@@ -148,7 +140,6 @@ func (r *shortLinkAccessRepository) GetDeviceTypeStatsByShortLinkID(ctx context.
 	return results, err
 }
 
-// GetAllDailyStats 获取所有短链的每日访问统计
 func (r *shortLinkAccessRepository) GetAllDailyStats(ctx context.Context, startDate, endDate time.Time) ([]map[string]any, error) {
 	query := r.db.Model(&model.ShortLinkAccess{}).
 		Select("DATE(access_time) as date, COUNT(*) as count")
@@ -166,7 +157,6 @@ func (r *shortLinkAccessRepository) GetAllDailyStats(ctx context.Context, startD
 	return results, err
 }
 
-// GetAllDeviceTypeStats 获取所有短链的设备类型统计
 func (r *shortLinkAccessRepository) GetAllDeviceTypeStats(ctx context.Context, startDate, endDate time.Time) ([]map[string]any, error) {
 	query := r.db.Model(&model.ShortLinkAccess{}).
 		Select("device_type, COUNT(*) as count")
@@ -184,7 +174,6 @@ func (r *shortLinkAccessRepository) GetAllDeviceTypeStats(ctx context.Context, s
 	return results, err
 }
 
-// GetAllShortLinksBasicStats 获取所有短链的基本统计
 func (r *shortLinkAccessRepository) GetAllShortLinksBasicStats(ctx context.Context, startDate, endDate time.Time) ([]map[string]any, error) {
 	query := r.db.Table("short_links sl").
 		Select("sl.id, sl.short_code, sl.original_url AS title, COUNT(sla.id) as access_count").

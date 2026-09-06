@@ -169,7 +169,6 @@ func (c *DomainPoolController) CheckAllDomains(ctx *gin.Context) {
 	response.Success(ctx, results, "检查完成")
 }
 
-
 // HealthCheck 单个域名健康度探测（含评分）
 // @Summary 健康度探测
 // @Description DNS + HTTP HEAD + 黑名单综合探测，写入评分与日志
@@ -317,7 +316,7 @@ type AddBlacklistRequest struct {
 	Platform string `json:"platform"`
 	Reason   string `json:"reason"`
 	Source   string `json:"source"`
-	TTLHours int    `json:"ttl_hours"` 
+	TTLHours int    `json:"ttl_hours"`
 }
 
 // AddBlacklist 添加平台黑名单
@@ -374,8 +373,6 @@ func (c *DomainPoolController) ListBlacklist(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"list": rows, "total": total, "page": page, "page_size": pageSize}, "")
 }
 
-
-// toDomainResponse model → dto
 func toDomainResponse(dp *model.DomainPool) dto.DomainPoolResponse {
 	return dto.DomainPoolResponse{
 		ID:                  dp.ID,
@@ -399,7 +396,6 @@ func toDomainResponse(dp *model.DomainPool) dto.DomainPoolResponse {
 	}
 }
 
-// getStatusStr 获取状态字符串
 func getStatusStr(status int) string {
 	switch status {
 	case 1:
@@ -415,7 +411,6 @@ func getStatusStr(status int) string {
 	}
 }
 
-// containsAny 简易字符串包含判断
 func containsAny(s string, subs ...string) bool {
 	for _, sub := range subs {
 		if len(sub) == 0 {
@@ -440,9 +435,6 @@ func indexOf(s, sub string) int {
 	}
 	return -1
 }
-
-
-// ---------- R39 前端对齐端点（domainPool.js） ----------
 
 // CheckBlacklist GET /api/domain-pool/:id/blacklist — 查询域名是否在黑名单（:id=域名字符串）
 func (c *DomainPoolController) CheckBlacklist(ctx *gin.Context) {

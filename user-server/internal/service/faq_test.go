@@ -11,7 +11,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// makeFAQMatchResult 构造测试用 FAQMatchResult
 func makeFAQMatchResult(q, a, intent string, score float64) dto.FAQMatchResult {
 	return dto.FAQMatchResult{
 		Entry: &dto.FAQEntry{
@@ -130,9 +129,6 @@ func TestFAQService_InvalidateCache_NilSafe(t *testing.T) {
 	svc.InvalidateCache(0)
 }
 
-// mockFAQRepoForDecay 专用于 WeekDecay 测试的 mock
-//
-// Task 15 扩展: 同样支持 MatchByAgent / ListByAgent 的 mock 数据
 type mockFAQRepoForDecay struct {
 	candidates []model.FAQEntry
 	cutoffSeen time.Time
@@ -153,7 +149,6 @@ func (m *mockFAQRepoForDecay) MatchByKeyword(ctx context.Context, msg string, to
 	return nil, nil
 }
 
-// MatchByAgent Task 15 mock: 默认按 agentID 过滤并返回预置 candidates
 func (m *mockFAQRepoForDecay) MatchByAgent(ctx context.Context, agentID uint, msg string, topK int) ([]model.FAQEntry, error) {
 	m.agentIDSeen = agentID
 	m.msgSeen = msg
@@ -192,7 +187,6 @@ func (m *mockFAQRepoForDecay) ScoreCandidates(ctx context.Context, entries []mod
 	return entries, nil
 }
 
-// ListByAgent Task 15 mock: 返回某 agent 的全部 entries
 func (m *mockFAQRepoForDecay) ListByAgent(ctx context.Context, agentID uint, limit int) ([]model.FAQEntry, error) {
 	if m.listByAgentErr != nil {
 		return nil, m.listByAgentErr
@@ -258,7 +252,6 @@ func (m *mockFAQRepoForDecay) Delete(ctx context.Context, id uint) error {
 	return nil
 }
 
-// fixedClock 固定时钟 (用于 WeekDecay 单测)
 type fixedClock struct{ T time.Time }
 
 func (f fixedClock) Now() time.Time { return f.T }
@@ -329,7 +322,6 @@ func TestFAQService_WeekDecay_ListErr(t *testing.T) {
 	}
 }
 
-// ptrTimeUniq 构造 *time.Time (helper, 避开 service.ptrTime 重定义)
 func ptrTimeUniq(t time.Time) *time.Time { return &t }
 
 // TestFAQService_MatchByAgent_AgentIDZero 验证 agentID=0 直接返回 nil (移除"空数组=全局"分支)
@@ -619,5 +611,4 @@ func TestFAQService_MatchByAgent_DefaultTopK(t *testing.T) {
 	}
 }
 
-// ptrBoolUniq 构造 *bool (helper, 避免与其他文件冲突)
 func ptrBoolUniq(b bool) *bool { return &b }

@@ -47,12 +47,11 @@ type HumanEscalationManager struct {
 
 	notifier Notifier
 
-	// lockTTL 人工锁 TTL（默认 HumanLockDefaultTTL，SetLockTTL 可覆盖）
 	lockTTL time.Duration
 
 	mu    sync.RWMutex
 	stats EscalationStats
-	// lockDeadlines 本实例经手的锁到期时间登记表（供后台过期检查使用）
+
 	lockDeadlines map[string]time.Time
 }
 
@@ -199,14 +198,13 @@ func (h *HumanEscalationManager) IsSessionLockedForHuman(ctx context.Context, se
 	case err == nil:
 		return val == "true"
 	case errors.Is(err, redis.Nil), errors.Is(err, cache.ErrCacheMiss):
-		// key 不存在（Redis 未命中 / 内存缓存未命中）：未锁定，放行 AI
+
 		return false
 	default:
 		return h.fallbackOnCacheFailure(sessionID, recentUserMsg...)
 	}
 }
 
-// fallbackOnCacheFailure Redis 故障时的降级判断
 func (h *HumanEscalationManager) fallbackOnCacheFailure(sessionID string, fetchers ...RecentUserMessageFetcher) bool {
 	for _, f := range fetchers {
 		if f == nil {
@@ -266,7 +264,6 @@ func (h *HumanEscalationManager) StartLockExpiryChecker(ctx context.Context, int
 	}()
 }
 
-// checkExpiredLocks 扫描登记表中已到期的锁：确认锁确实消失后推送商户通知并移除登记
 func (h *HumanEscalationManager) checkExpiredLocks(ctx context.Context) {
 	now := time.Now()
 	h.mu.RLock()
@@ -281,10 +278,10 @@ func (h *HumanEscalationManager) checkExpiredLocks(ctx context.Context) {
 	for _, sid := range expired {
 		exists, err := h.cache.Exists(ctx, HumanLockKey+sid)
 		if err != nil {
-			continue // 缓存异常，下轮重试
+			continue
 		}
 		if exists {
-			// 锁仍存在（可能被续期），顺延观察窗口继续盯
+
 			h.mu.RLock()
 			lockTTL := h.lockTTL
 			h.mu.RUnlock()
@@ -300,7 +297,6 @@ func (h *HumanEscalationManager) checkExpiredLocks(ctx context.Context) {
 	}
 }
 
-// notifyLockExpired 锁超时释放后推送商户通知（对齐 EscalationEvent 队列格式）
 func (h *HumanEscalationManager) notifyLockExpired(ctx context.Context, sessionID string) {
 	event := &EscalationEvent{
 		Event:     "HUMAN_LOCK_EXPIRED",
@@ -355,7 +351,6 @@ func (h *HumanEscalationManager) GetStats(ctx context.Context) *EscalationStats 
 	return &h.stats
 }
 
-// severityFromReason 从原因推断严重度
 func severityFromReason(reason string) string {
 	switch {
 	case len(reason) == 0:

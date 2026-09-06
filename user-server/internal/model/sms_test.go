@@ -285,4 +285,3 @@ func TestSmsJobDetail_BasicFields(t *testing.T) {
 		t.Errorf("Expected Status 'sent', got %s", detail.Status)
 	}
 }
-

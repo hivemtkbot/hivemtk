@@ -87,7 +87,6 @@ func (e *SalesEngine) matchSOP(ctx context.Context, intent *dto.RecognizeResult,
 	return &sops[0], stage, nil
 }
 
-// recallRAG RAG 召回
 func (e *SalesEngine) recallRAG(ctx context.Context, req *SalesRequest, intent *dto.RecognizeResult) ([]RAGChunk, error) {
 	if !req.Config.EnableRAG || e.ragSearcher == nil {
 		return nil, nil
@@ -95,7 +94,6 @@ func (e *SalesEngine) recallRAG(ctx context.Context, req *SalesRequest, intent *
 	return e.ragSearcher.Search(ctx, req.UserMessage, req.Config.RAGTopK)
 }
 
-// matchScript 话术库匹配
 func (e *SalesEngine) matchScript(ctx context.Context, intent *dto.RecognizeResult) (*ScriptTemplate, error) {
 	if e.scriptLookup == nil || intent == nil {
 		return nil, nil

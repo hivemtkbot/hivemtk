@@ -72,7 +72,6 @@ func (r *materialCategoryRepo) Delete(id string) error {
 		return err
 	}
 
-	// 检查是否有子分类
 	var childCount int64
 	err = r.db.Model(&model.MaterialCategory{}).Where("parent_id = ?", id).Count(&childCount).Error
 	if err != nil {
@@ -82,7 +81,6 @@ func (r *materialCategoryRepo) Delete(id string) error {
 		return gorm.ErrForeignKeyViolated
 	}
 
-	// 检查是否有素材
 	var materialCount int64
 	err = r.db.Model(&model.Material{}).Where("category_id = ?", id).Count(&materialCount).Error
 	if err != nil {
@@ -109,7 +107,6 @@ func (r *materialCategoryRepo) GetTree(licenseID string, materialType string) ([
 		return nil, err
 	}
 
-	// 过滤掉有父级的分类，只返回根级
 	var rootCategories []*model.MaterialCategory
 	for _, category := range categories {
 		if category.ParentID == nil {
@@ -129,4 +126,3 @@ func (r *materialCategoryRepo) UpdateMaterialCount(categoryID string) error {
 
 	return r.db.Model(&model.MaterialCategory{}).Where("id = ?", categoryID).Update("material_count", count).Error
 }
-

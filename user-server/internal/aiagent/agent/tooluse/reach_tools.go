@@ -35,11 +35,11 @@ type ReachAdapter interface {
 type AccountHealthInfo struct {
 	AccountID   string `json:"account_id"`
 	Channel     string `json:"channel"`
-	Status      string `json:"status"` 
+	Status      string `json:"status"`
 	DailyQuota  int    `json:"daily_quota"`
 	DailyUsed   int    `json:"daily_used"`
 	DailyRemain int    `json:"daily_remain"`
-	RiskLevel   string `json:"risk_level"` 
+	RiskLevel   string `json:"risk_level"`
 	LastCheckAt string `json:"last_check_at"`
 }
 
@@ -47,7 +47,7 @@ type AccountInfo struct {
 	AccountID string `json:"account_id"`
 	Channel   string `json:"channel"`
 	Nickname  string `json:"nickname"`
-	Status    string `json:"status"` 
+	Status    string `json:"status"`
 	IsHealthy bool   `json:"is_healthy"`
 }
 
@@ -71,9 +71,9 @@ func (NoOpReachAdapter) ListAccounts(ctx context.Context, channel string) ([]Acc
 
 type ReachToolDeps struct {
 	Adapter      ReachAdapter
-	Pipeline     ReachBatchPipelinePort 
-	DB           *gorm.DB               
-	SendPipeline ReachSendPipelinePort  
+	Pipeline     ReachBatchPipelinePort
+	DB           *gorm.DB
+	SendPipeline ReachSendPipelinePort
 }
 
 func NewReachToolDeps() ReachToolDeps {
@@ -952,7 +952,6 @@ func (t *ReachTemplateApplyTool) Execute(ctx context.Context, args map[string]an
 	}), nil
 }
 
-// findUnreplacedPlaceholders 查找未替换的 {{...}} 占位符
 func findUnreplacedPlaceholders(s string) []string {
 	var placeholders []string
 	i := 0
@@ -1183,4 +1182,3 @@ func (t *ReachWebSendTool) Execute(ctx context.Context, args map[string]any) (To
 		"fallback_used": resp.FallbackUsed,
 	}), nil
 }
-

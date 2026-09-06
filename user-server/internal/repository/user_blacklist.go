@@ -33,7 +33,7 @@ func (r *UserBlacklistRepository) Add(ctx context.Context, b *model.UserBlacklis
 	if b.UserID == "" {
 		return errors.New("user_id is required")
 	}
-	// 幂等：若已存在 active 记录则更新其 reason / expires_at
+
 	var existing model.UserBlacklist
 	err := r.db.Where("user_id = ? AND platform = ? AND active = ?", b.UserID, b.Platform, true).First(&existing).Error
 	if err == nil {
@@ -99,11 +99,6 @@ func (r *UserBlacklistRepository) ListActive(ctx context.Context, page, pageSize
 	return rows, total, nil
 }
 
-// isExpired 判断黑名单记录是否已过期
-// 业务规则：
-//   - ExpiresAt 为 nil：永久
-//   - ExpiresAt 非 nil 且晚于 now：未过期
-//   - ExpiresAt 非 nil 且早于或等于 now：已过期
 func isExpired(b *model.UserBlacklist) bool {
 	if b == nil {
 		return false

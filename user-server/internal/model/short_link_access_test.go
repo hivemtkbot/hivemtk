@@ -118,4 +118,3 @@ func TestShortLinkAccess_WithEmptyLocation(t *testing.T) {
 		t.Errorf("Expected empty Location, got %s", access.Location)
 	}
 }
-

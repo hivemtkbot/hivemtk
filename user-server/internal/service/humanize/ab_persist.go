@@ -19,7 +19,7 @@ func NewDBPersistHook(db *gorm.DB) ABPersistHook {
 		return nil
 	}
 	return func(testID, group, metricName, customerID string, value float64) {
-		// 业界实践：异步 + 短 ctx（5s 足够）
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*1e9)
 		defer cancel()
 

@@ -14,8 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupSubscriberTestDB 设置测试数据库
-// 通过 testutil.NewTestDB 连接项目 PostgreSQL 测试库 (默认 127.0.0.1:5434/user_db_test)
 func setupSubscriberTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.OperationLog{},
@@ -49,7 +47,6 @@ func TestOperationLogSubscriber_Handle(t *testing.T) {
 		t.Fatalf("Handle failed: %v", err)
 	}
 
-	// 验证写入
 	var log model.OperationLog
 	if err := database.First(&log, 1).Error; err != nil {
 		t.Fatalf("expected log entry in DB, got error: %v", err)
@@ -88,7 +85,7 @@ func TestOperationLogSubscriber_Handle_WrongPayloadType(t *testing.T) {
 
 	evt := event.Event{
 		Topic:   event.TopicOperationLog,
-		Payload: "wrong-type-payload", 
+		Payload: "wrong-type-payload",
 	}
 
 	err := subscriber.Handle(evt)
@@ -96,7 +93,6 @@ func TestOperationLogSubscriber_Handle_WrongPayloadType(t *testing.T) {
 		t.Errorf("expected nil error for wrong payload type, got %v", err)
 	}
 
-	// 验证未写入
 	var count int64
 	database.Model(&model.OperationLog{}).Count(&count)
 	if count != 0 {
@@ -173,8 +169,6 @@ func TestOperationLogSubscriber_EndToEnd(t *testing.T) {
 	}
 }
 
-
-// newTestLogRepo 创建测试用 OperationLogRepository
 func newTestLogRepo(database *gorm.DB) *testLogRepo {
 	return &testLogRepo{db: database}
 }
@@ -209,7 +203,6 @@ func (r *testLogRepo) DeleteByIDs(ctx context.Context, ids []uint) (int64, error
 	return 0, nil
 }
 
-// waitForLogCondition 轮询等待条件成立（自 event/bus_test.go 同名 helper 移植）
 func waitForLogCondition(t *testing.T, cond func() bool, timeout time.Duration) {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
@@ -220,4 +213,3 @@ func waitForLogCondition(t *testing.T, cond func() bool, timeout time.Duration) 
 		time.Sleep(time.Millisecond)
 	}
 }
-

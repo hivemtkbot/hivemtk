@@ -163,7 +163,6 @@ func (s *LLMFailoverService) ResolveRoute(scenario, canaryKey string) (*LLMRoute
 	return res, nil
 }
 
-// toLLMScenarioRoute mirror 转 llm.ScenarioRoute（含递归 canary route）
 func toLLMScenarioRoute(r LLMScenarioRoute) llm.ScenarioRoute {
 	out := llm.ScenarioRoute{
 		Scenario:    llm.DispatchScenario(r.Scenario),

@@ -18,8 +18,8 @@ import (
 // 目录结构：{baseDir}/{folder}/{yyyy}/{mm}/{uuid}.{ext}
 // 访问 URL：/files/{folder}/{yyyy}/{mm}/{uuid}.{ext}
 type LocalDriver struct {
-	baseDir  string // 本地文件根目录，默认 ./uploads
-	publicBaseURL string // 公开访问的前缀 URL，默认 /files
+	baseDir       string
+	publicBaseURL string
 }
 
 // NewLocalDriver 创建本地存储驱动
@@ -30,19 +30,17 @@ func NewLocalDriver(baseDir, publicBaseURL string) *LocalDriver {
 	if publicBaseURL == "" {
 		publicBaseURL = "/files"
 	}
-	// 规范化：去掉末尾 /
+
 	publicBaseURL = strings.TrimRight(publicBaseURL, "/")
-	// 规范化：确保 baseDir 用当前 OS 分隔符
+
 	baseDir = filepath.Clean(baseDir)
 	return &LocalDriver{baseDir: baseDir, publicBaseURL: publicBaseURL}
 }
 
-// ensureDir 确保目录存在
 func (d *LocalDriver) ensureDir(dir string) error {
 	return os.MkdirAll(dir, 0o750)
 }
 
-// generatePath 生成存储路径 {folder}/{yyyy}/{mm}/{uuid}.{ext}
 func (d *LocalDriver) generatePath(folder, originalFilename string) string {
 	ext := strings.ToLower(filepath.Ext(originalFilename))
 	if ext == "" {
@@ -72,12 +70,10 @@ func (d *LocalDriver) UploadReader(ctx context.Context, reader io.Reader, size i
 	storagePath := d.generatePath(folder, filename)
 	fullPath := filepath.Join(d.baseDir, storagePath)
 
-	// 确保目标目录存在
 	if err := d.ensureDir(filepath.Dir(fullPath)); err != nil {
 		return "", "", fmt.Errorf("create upload dir failed: %w", err)
 	}
 
-	// 原子写入：先写 .tmp 文件再 rename
 	tmpPath := fullPath + ".tmp"
 	tmpFile, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o640)
 	if err != nil {
@@ -123,7 +119,7 @@ func (d *LocalDriver) Delete(ctx context.Context, storagePath string) error {
 
 // PublicURL 生成公开访问 URL：/files/{folder}/{yyyy}/{mm}/{uuid}.{ext}
 func (d *LocalDriver) PublicURL(storagePath string) string {
-	// filepath.Join 在 Windows 上会用反斜杠，但 URL 必须是正斜杠
+
 	cleaned := filepath.ToSlash(storagePath)
 	return d.publicBaseURL + "/" + cleaned
 }

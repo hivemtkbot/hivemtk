@@ -21,7 +21,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupTestSmsDB 设置短信测试数据库
 func setupTestSmsDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.SmsConfig{},
@@ -37,13 +36,11 @@ func setupTestSmsDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupSmsController 设置短信控制器（使用实际的服务和仓库）
 func setupSmsController() *SmsController {
 	repo := repository.NewSmsRepository()
 	svc := service.NewSmsService(repo)
 	return NewSmsController(svc)
 }
-
 
 // TestSmsController_GetConfig_Success 测试获取配置成功
 func TestSmsController_GetConfig_Success(t *testing.T) {
@@ -183,7 +180,7 @@ func TestSmsController_SaveConfig_RateLimitOutOfRange(t *testing.T) {
 
 	saveReq := dto.SmsConfigRequest{
 		DefaultProvider: "aliyun",
-		RateLimit:       2000, 
+		RateLimit:       2000,
 	}
 	body, _ := json.Marshal(saveReq)
 
@@ -196,7 +193,6 @@ func TestSmsController_SaveConfig_RateLimitOutOfRange(t *testing.T) {
 		t.Errorf("Expected status Bad Request, got %d", w.Code)
 	}
 }
-
 
 // TestSmsController_GetSmsList_Success 测试获取短信列表成功
 func TestSmsController_GetSmsList_Success(t *testing.T) {
@@ -333,7 +329,7 @@ func TestSmsController_GetSmsDetail_InvalidID(t *testing.T) {
 
 // TestSmsController_GetSmsDetail_NotFound 测试短信不存在
 func TestSmsController_GetSmsDetail_NotFound(t *testing.T) {
-	t.Setenv("SMS_ALLOW_NIGHT_SEND", "true") // 铁律#22 夜间窗口会使测试随钟表 flaky
+	t.Setenv("SMS_ALLOW_NIGHT_SEND", "true")
 	setupTestSmsDB(t)
 	ctrl := setupSmsController()
 	router := setupGinEngine()
@@ -381,9 +377,6 @@ func TestSmsController_SendSms_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 真实 API 调用会因为测试凭据而失败,这是预期行为. 我们仅验证:
-	// 1. 控制器接受了请求并路由到 service
-	// 2. service 已创建了短信记录
 	var record model.SmsRecord
 	if err := db.GetDB().Where("phone = ?", "13800138000").First(&record).Error; err != nil {
 		t.Errorf("Expected sms record to be created, got error: %v", err)
@@ -444,7 +437,7 @@ func TestSmsController_SendSms_WrongPhoneLength(t *testing.T) {
 	router.POST("/sms/send", ctrl.SendSms)
 
 	sendReq := dto.SmsSendRequest{
-		Phone:   "1380013800", 
+		Phone:   "1380013800",
 		Content: "测试短信",
 	}
 	body, _ := json.Marshal(sendReq)
@@ -515,9 +508,6 @@ func TestSmsController_ResendSms_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 真实 API 调用会因为测试凭据而失败,这是预期行为. 我们仅验证:
-	// 1. 控制器接受了请求并路由到 service
-	// 2. service 已更新了短信记录状态
 	var updated model.SmsRecord
 	if err := db.GetDB().Where("phone = ?", "13800138000").First(&updated).Error; err != nil {
 		t.Errorf("Expected sms record to exist, got error: %v", err)
@@ -568,7 +558,6 @@ func TestSmsController_ResendSms_NotFailedStatus(t *testing.T) {
 		t.Errorf("Expected status Bad Request, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
-
 
 // TestSmsController_GetDraftList_Success 测试获取草稿列表成功
 func TestSmsController_GetDraftList_Success(t *testing.T) {
@@ -861,7 +850,6 @@ func TestSmsController_SendDraft_Form_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 验证: 控制器接受了请求并触发了 service 流程, 数据库中应有记录
 	var record model.SmsRecord
 	if err := db.GetDB().Where("phone = ?", "13800138000").First(&record).Error; err != nil {
 		t.Errorf("Expected sms record to be created, got error: %v, body: %s", err, w.Body.String())
@@ -905,7 +893,6 @@ func TestSmsController_SendDraft_JSON_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// 验证: 控制器接受了请求并触发了 service 流程, 数据库中应有记录
 	var record model.SmsRecord
 	if err := db.GetDB().Where("phone = ?", "13800138000").First(&record).Error; err != nil {
 		t.Errorf("Expected sms record to be created, got error: %v, body: %s", err, w.Body.String())
@@ -936,7 +923,6 @@ func TestSmsController_SendDraft_EmptyPhone(t *testing.T) {
 		t.Errorf("Expected status Bad Request, got %d", w.Code)
 	}
 }
-
 
 // TestSmsController_GetJobList_Success 测试获取任务列表成功
 func TestSmsController_GetJobList_Success(t *testing.T) {
@@ -1410,8 +1396,6 @@ func TestSmsController_GetJobRecords_NotFound(t *testing.T) {
 	}
 }
 
-
-// setupSMSTestDB_Merged 短信精简测试数据库(合并自 sms_extra_test.go)
 func setupSMSTestDB_Merged(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.SmsRecord{},
@@ -1456,4 +1440,3 @@ func TestSMSController_GetList_MergedSuccess(t *testing.T) {
 		t.Errorf("Expected 200, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
-

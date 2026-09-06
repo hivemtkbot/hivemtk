@@ -57,11 +57,7 @@
 </template>
 
 <script setup>
-/**
- * RFM 分群可视化（USR-CM-07）
- * 借鉴：Mixpanel Cohort
- */
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue';
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { safeInit } from '@/utils/echarts'
@@ -96,15 +92,13 @@ function renderMatrix(data) {
   })
 }
 
-// R46 修复: 以下按钮此前为假交互（只弹消息不落库/指向不存在路由）——全部改为真实行为
-const saving = ref(false)
+const saving = ref(false);
 
 async function saveSegment() {
   if (saving.value) return
   saving.value = true
   try {
-    // 真实落库: 保存当前 RFM 高价值客群快照为分群
-    const hv = (segments.value || []).filter((d) => d.recency >= 4 && d.frequency >= 4)
+    const hv = (segments.value || []).filter((d) => d.recency >= 4 && d.frequency >= 4);
     await http.post('/api/user-segments', {
       name: `RFM高价值客群 ${new Date().toLocaleDateString()}`,
       description: '由 RFM 矩阵保存：R>=4 且 F>=4 的客户桶',
@@ -120,18 +114,15 @@ async function saveSegment() {
 }
 
 function exportToReach() {
-  // 真实跳转: 触达 Pipeline 列表
-  window.open('/#/reachPipeline/list', '_blank')
+  window.open('/#/reachPipeline/list', '_blank');
 }
 
 function viewDetail(row) {
-  // 真实跳转: 客户 360（此前 /customerSegment/:id 路由不存在）
-  window.open('/#/customer360/list', '_blank')
+  window.open('/#/customer360/list', '_blank');
 }
 
 function reachSegment(row) {
-  // 真实跳转: 触达 Pipeline 列表（new 路由不存在）
-  window.open('/#/reachPipeline/list', '_blank')
+  window.open('/#/reachPipeline/list', '_blank');
 }
 
 onMounted(load)

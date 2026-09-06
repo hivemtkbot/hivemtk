@@ -12,10 +12,9 @@ import (
 	feedbackloop "hivemtk-user/internal/service/feedback_loop"
 )
 
-
 // FeedbackCollectorAdapter 适配器
 type FeedbackCollectorAdapter struct {
-	collector *feedbackloop.FeedbackCollector
+	collector    *feedbackloop.FeedbackCollector
 	successCount atomic.Int64
 	failedCount  atomic.Int64
 }
@@ -74,12 +73,12 @@ func (a *FeedbackCollectorAdapter) RecordToolCall(ctx context.Context, event too
 		SessionID:   event.SessionID,
 		CustomerID:  event.CustomerID,
 		EventType:   dto.FBEventTypeImplicit,
-		SignalKey:   dto.FBSignalToolCall, // R58: 用常量替换硬编码字符串，确保 DefaultSignalWeights 能匹配
+		SignalKey:   dto.FBSignalToolCall,
 		SignalValue: signalValue,
-		AIReply:     "", 
-		CustomerMsg: "", 
+		AIReply:     "",
+		CustomerMsg: "",
 		Metadata:    metadata,
-		CreatedBy:   0, 
+		CreatedBy:   0,
 	}
 
 	if err := a.collector.Collect(ctx, req); err != nil {
@@ -109,7 +108,6 @@ func (a *FeedbackCollectorAdapter) Stats() FeedbackSinkStats {
 	}
 }
 
-// marshalArgs 序列化参数为 JSON 字符串（限制大小避免 metadata 膨胀）
 func marshalArgs(args map[string]any) (string, error) {
 	if len(args) == 0 {
 		return "{}", nil
@@ -118,11 +116,10 @@ func marshalArgs(args map[string]any) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("marshal args: %w", err)
 	}
-	// 限制最大 4KB（防止超大参数撑爆 metadata 字段）
+
 	const maxArgsSize = 4 * 1024
 	if len(b) > maxArgsSize {
 		return string(b[:maxArgsSize]) + "...(truncated)", nil
 	}
 	return string(b), nil
 }
-

@@ -13,9 +13,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-
-
-
 func TestReachBatchTool_MissingPipelineDep(t *testing.T) {
 	tool := tooluse.NewReachBatchTool(tooluse.ReachToolDeps{Adapter: &e2eMockReachAdapter{}})
 	_, err := tool.Execute(context.Background(), map[string]any{
@@ -48,7 +45,6 @@ func TestReachBatchTool_EmptyItems(t *testing.T) {
 	}
 }
 
-// seedPipeline 在测试库创建一条真实 pipeline 并返回其 ID。
 func seedPipeline(t *testing.T, svc *service.ReachPipelineService) uint {
 	t.Helper()
 	p, err := svc.CreatePipeline(context.Background(), &service.CreatePipelineRequest{
@@ -73,7 +69,7 @@ func TestReachBatchTool_HappyPath(t *testing.T) {
 		"items": []any{
 			map[string]any{"customer_id": "c1", "payload": map[string]any{"content": "hi"}},
 			map[string]any{"customer_id": "c2", "payload": map[string]any{"content": "yo"}},
-			map[string]any{"account_id": "a1"}, 
+			map[string]any{"account_id": "a1"},
 		},
 	})
 	if err != nil {
@@ -93,7 +89,6 @@ func TestReachBatchTool_HappyPath(t *testing.T) {
 		t.Errorf("expected failed_count=1, got %v", data["failed_count"])
 	}
 }
-
 
 func TestReachScheduleTool_MissingPipelineDep(t *testing.T) {
 	tool := tooluse.NewReachScheduleTool(tooluse.ReachToolDeps{Adapter: &e2eMockReachAdapter{}})
@@ -154,7 +149,6 @@ func TestReachScheduleTool_HappyPath(t *testing.T) {
 	}
 }
 
-
 func TestReachRecallTool_HappyPath(t *testing.T) {
 	adapter := &e2eMockReachAdapter{}
 	tool := tooluse.NewReachRecallTool(tooluse.ReachToolDeps{Adapter: adapter})
@@ -184,14 +178,12 @@ func TestReachRecallTool_AdapterError(t *testing.T) {
 	}
 }
 
-// errRecallAdapter Recall 返回错误的 mock adapter（其余方法 NoOp）
 type errRecallAdapter struct {
 	e2eMockReachAdapter
 	err error
 }
 
 func (e *errRecallAdapter) Recall(_ context.Context, _, _ string) error { return e.err }
-
 
 func TestReachHealthTool_HappyPath(t *testing.T) {
 	adapter := &e2eMockReachAdapter{}
@@ -206,7 +198,6 @@ func TestReachHealthTool_HappyPath(t *testing.T) {
 		t.Fatal("expected health info, got nil")
 	}
 }
-
 
 func TestReachHistoryTool_MissingPipelineDep(t *testing.T) {
 	tool := tooluse.NewReachHistoryTool(tooluse.ReachToolDeps{Adapter: &e2eMockReachAdapter{}})
@@ -231,4 +222,3 @@ func TestReachHistoryTool_PageSizeCap(t *testing.T) {
 		t.Errorf("expected page_size capped to 200 by tool, got %v", data["page_size"])
 	}
 }
-

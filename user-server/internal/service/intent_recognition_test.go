@@ -25,10 +25,6 @@ func newIntentRecognizer(t *testing.T) (*IntentRecognizer, *gorm.DB) {
 	return NewIntentRecognizer(db, nil, nil), db
 }
 
-// waitForIntentCount 轮询等待意图记录落库。
-// saveRecord 为异步 fire-and-forget（生产侧有意为之的最佳努力持久化，非数据丢失），
-// 全包测试 DB 高负载下固定 time.Sleep 会导致未落库的记录被漏算。改为带超时的轮询，
-// 既尊重生产异步设计，又消除测试不确定性。
 func waitForIntentCount(t *testing.T, rec *IntentRecognizer, customerID string, want int, timeout time.Duration) []model.IntentRecord {
 	t.Helper()
 	deadline := time.Now().Add(timeout)

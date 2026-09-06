@@ -26,44 +26,42 @@ import (
 	"time"
 )
 
-
 // Sentiment 情绪标签
 //
 // 来源：方向6 情绪感知模块；本文件先定义枚举，便于测试
 type Sentiment string
 
 const (
-	SentimentCalm     Sentiment = "calm"     
-	SentimentAnxious  Sentiment = "anxious"  
-	SentimentAngry    Sentiment = "angry"    
-	SentimentAppreci  Sentiment = "appreci"  
-	SentimentConfused Sentiment = "confused" 
+	SentimentCalm     Sentiment = "calm"
+	SentimentAnxious  Sentiment = "anxious"
+	SentimentAngry    Sentiment = "angry"
+	SentimentAppreci  Sentiment = "appreci"
+	SentimentConfused Sentiment = "confused"
 	SentimentUnknown  Sentiment = "unknown"
 )
 
 // SentimentScore 情绪打分（0-1）
 type SentimentScore struct {
 	Label  Sentiment             `json:"label"`
-	Score  float64               `json:"score"`            
-	Detail map[Sentiment]float64 `json:"detail,omitempty"` 
+	Score  float64               `json:"score"`
+	Detail map[Sentiment]float64 `json:"detail,omitempty"`
 }
-
 
 // Intent 意图分类
 type Intent string
 
 const (
-	IntentChitchat       Intent = "chitchat"      
-	IntentInquiry        Intent = "inquiry"       
-	IntentOrderStatus    Intent = "order_status"  
-	IntentComplaint      Intent = "complaint"     
-	IntentRefund         Intent = "refund"        
-	IntentAfterSales     Intent = "after_sales"   
-	IntentSalesLead      Intent = "sales_lead"    
-	IntentGreeting       Intent = "greeting"      
-	IntentFarewell       Intent = "farewell"      
-	IntentHandoffToHuman Intent = "handoff_human" 
-	IntentFAQ            Intent = "faq"           
+	IntentChitchat       Intent = "chitchat"
+	IntentInquiry        Intent = "inquiry"
+	IntentOrderStatus    Intent = "order_status"
+	IntentComplaint      Intent = "complaint"
+	IntentRefund         Intent = "refund"
+	IntentAfterSales     Intent = "after_sales"
+	IntentSalesLead      Intent = "sales_lead"
+	IntentGreeting       Intent = "greeting"
+	IntentFarewell       Intent = "farewell"
+	IntentHandoffToHuman Intent = "handoff_human"
+	IntentFAQ            Intent = "faq"
 	IntentUnknown        Intent = "unknown"
 )
 
@@ -71,31 +69,30 @@ const (
 type IntentResult struct {
 	Primary   Intent            `json:"primary"`
 	Secondary []Intent          `json:"secondary,omitempty"`
-	Score     float64           `json:"score"`          
-	Tags      map[string]string `json:"tags,omitempty"` 
+	Score     float64           `json:"score"`
+	Tags      map[string]string `json:"tags,omitempty"`
 }
-
 
 // AlignmentDimension 拟人度维度
 type AlignmentDimension string
 
 const (
-	DimEmpathy    AlignmentDimension = "empathy"    
-	DimEnthusiasm AlignmentDimension = "enthusiasm" 
-	DimExpertise  AlignmentDimension = "expertise"  
-	DimPatience   AlignmentDimension = "patience"   
-	DimClarity    AlignmentDimension = "clarity"    
-	DimPoliteness AlignmentDimension = "politeness" 
+	DimEmpathy    AlignmentDimension = "empathy"
+	DimEnthusiasm AlignmentDimension = "enthusiasm"
+	DimExpertise  AlignmentDimension = "expertise"
+	DimPatience   AlignmentDimension = "patience"
+	DimClarity    AlignmentDimension = "clarity"
+	DimPoliteness AlignmentDimension = "politeness"
 )
 
 // AlignmentScore 6维拟人度评分（每个维度 1-5 分）
 type AlignmentScore struct {
-	Empathy    int `json:"empathy"`    
-	Enthusiasm int `json:"enthusiasm"` 
-	Expertise  int `json:"expertise"`  
-	Patience   int `json:"patience"`   
-	Clarity    int `json:"clarity"`    
-	Politeness int `json:"politeness"` 
+	Empathy    int `json:"empathy"`
+	Enthusiasm int `json:"enthusiasm"`
+	Expertise  int `json:"expertise"`
+	Patience   int `json:"patience"`
+	Clarity    int `json:"clarity"`
+	Politeness int `json:"politeness"`
 }
 
 // Total 综合分（加权平均）
@@ -130,21 +127,20 @@ func (a AlignmentScore) MaxDimension() AlignmentDimension {
 	return minDim
 }
 
-
 // CrisisLevel 危机感等级
 type CrisisLevel int
 
 const (
-	CrisisNone CrisisLevel = 0
-	CrisisLow CrisisLevel = 1
+	CrisisNone   CrisisLevel = 0
+	CrisisLow    CrisisLevel = 1
 	CrisisMedium CrisisLevel = 2
-	CrisisHigh CrisisLevel = 3
+	CrisisHigh   CrisisLevel = 3
 )
 
 // CrisisSignal 危机信号
 type CrisisSignal struct {
 	Level      CrisisLevel `json:"level"`
-	Triggers   []string    `json:"triggers"` 
+	Triggers   []string    `json:"triggers"`
 	Reason     string      `json:"reason"`
 	DetectedAt time.Time   `json:"detected_at"`
 }
@@ -154,15 +150,14 @@ func (c CrisisSignal) NeedsEscalation() bool {
 	return c.Level >= CrisisHigh
 }
 
-
 // ActionPlan 任务规划器输出
 type ActionPlan struct {
-	PlanType string `json:"plan_type"`
-	ToolCalls []PlannedToolCall `json:"tool_calls,omitempty"`
-	ReplyHint string `json:"reply_hint,omitempty"`
-	SkipLLM bool `json:"skip_llm"`
-	SkipReason string `json:"skip_reason,omitempty"`
-	Confidence float64 `json:"confidence"`
+	PlanType   string            `json:"plan_type"`
+	ToolCalls  []PlannedToolCall `json:"tool_calls,omitempty"`
+	ReplyHint  string            `json:"reply_hint,omitempty"`
+	SkipLLM    bool              `json:"skip_llm"`
+	SkipReason string            `json:"skip_reason,omitempty"`
+	Confidence float64           `json:"confidence"`
 }
 
 // PlannedToolCall 计划工具调用
@@ -171,7 +166,6 @@ type PlannedToolCall struct {
 	Args     map[string]any `json:"args"`
 	Priority int            `json:"priority"`
 }
-
 
 // StageDecision 阶段决策记录（用于可观测与可调试）
 type StageDecision struct {
@@ -182,7 +176,6 @@ type StageDecision struct {
 	Success  bool          `json:"success"`
 	Error    string        `json:"error,omitempty"`
 }
-
 
 // InferenceContext 推理上下文
 //
@@ -211,28 +204,27 @@ type InferenceContext struct {
 
 // InferenceDecision 最终决策
 type InferenceDecision struct {
-	HandoffToHuman bool `json:"handoff_to_human"`
-	HandoffReason string `json:"handoff_reason,omitempty"`
-	Plan *ActionPlan `json:"plan,omitempty"`
-	Reply string `json:"reply,omitempty"`
-	ReplyType string `json:"reply_type,omitempty"`
-	Confidence float64 `json:"confidence"`
-	StopReason string `json:"stop_reason,omitempty"`
-	TotalDuration time.Duration `json:"total_duration_ns"`
-	Crisis CrisisSignal `json:"crisis,omitempty"`
-	Sentiment SentimentScore `json:"sentiment,omitempty"`
-	Intent IntentResult `json:"intent,omitempty"`
-	Alignment AlignmentScore `json:"alignment,omitempty"`
-	Review *ReviewResult `json:"review,omitempty"`
+	HandoffToHuman bool           `json:"handoff_to_human"`
+	HandoffReason  string         `json:"handoff_reason,omitempty"`
+	Plan           *ActionPlan    `json:"plan,omitempty"`
+	Reply          string         `json:"reply,omitempty"`
+	ReplyType      string         `json:"reply_type,omitempty"`
+	Confidence     float64        `json:"confidence"`
+	StopReason     string         `json:"stop_reason,omitempty"`
+	TotalDuration  time.Duration  `json:"total_duration_ns"`
+	Crisis         CrisisSignal   `json:"crisis,omitempty"`
+	Sentiment      SentimentScore `json:"sentiment,omitempty"`
+	Intent         IntentResult   `json:"intent,omitempty"`
+	Alignment      AlignmentScore `json:"alignment,omitempty"`
+	Review         *ReviewResult  `json:"review,omitempty"`
 }
-
 
 // StageResult 阶段执行结果
 type StageResult struct {
-	Continue bool
+	Continue    bool
 	EarlyReturn bool
-	Decision *InferenceDecision
-	Error error
+	Decision    *InferenceDecision
+	Error       error
 }
 
 // ContinueResult 简单的"继续"结果
@@ -257,4 +249,3 @@ func FailResult(err error) StageResult {
 		Error:       err,
 	}
 }
-

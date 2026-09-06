@@ -91,7 +91,6 @@ func (s *MigrationService) WaitForTask(ctx context.Context, taskID uint, timeout
 	}
 }
 
-// executeUpgradeAsync 异步执行升级
 func (s *MigrationService) executeUpgradeAsync(parentCtx context.Context, taskID uint, fromVersion, toVersion string) {
 	bgCtx := context.Background()
 
@@ -215,4 +214,3 @@ func (s *MigrationService) Rollback(ctx context.Context, targetVersion string) e
 
 	return nil
 }
-

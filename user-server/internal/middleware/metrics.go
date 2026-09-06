@@ -6,8 +6,9 @@
 //   - 默认排除 /metrics 自身（避免自抓取递归）
 //
 // 用法：
-//   r.Use(middleware.MetricsMiddleware())
-//   r.GET("/metrics", gin.WrapH(metrics.Handler()))
+//
+//	r.Use(middleware.MetricsMiddleware())
+//	r.GET("/metrics", gin.WrapH(metrics.Handler()))
 package middleware
 
 import (
@@ -21,8 +22,8 @@ import (
 
 // MetricsConfig 指标中间件配置
 type MetricsConfig struct {
-	ExcludePaths []string
-	Namespace string
+	ExcludePaths     []string
+	Namespace        string
 	BucketsHistogram []float64
 }
 
@@ -69,9 +70,6 @@ func initHTTPMetrics(buckets []float64) {
 	)
 }
 
-// normalizePath 路径归一化（避免高基数标签）
-//
-// 将 :id 这种动态段替换为 :param，避免每个 ID 创建一个时间序列
 func normalizePath(c *gin.Context) string {
 	path := c.FullPath()
 	if path == "" {
@@ -122,5 +120,3 @@ func MetricsMiddleware(cfg ...MetricsConfig) gin.HandlerFunc {
 		httpRequestLatency.WithLabel(method, path).Observe(float64(elapsed.Milliseconds()))
 	}
 }
-
-

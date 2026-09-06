@@ -1,5 +1,5 @@
 <template>
-  <!-- 有子菜单的菜单项 -->
+  
   <el-sub-menu
     v-if="menu.children && menu.children.length > 0"
     :index="menu.key || menu.path"
@@ -10,13 +10,13 @@
       <span>{{ t('menu.' + menu.key) }}</span>
     </template>
 
-    <!-- 递归渲染子菜单 -->
+    
     <template v-for="item in menu.children" :key="item.path || item.key">
       <sub-menu-item :menu="item" :icon-components="iconComponents" />
     </template>
   </el-sub-menu>
 
-  <!-- 没有子菜单的菜单项 -->
+  
   <el-menu-item v-else :index="menu.path" @click="handleMenuClick(menu)">
     <el-icon><component :is="resolveRouteIcon(menu.icon || 'Document')" /></el-icon>
     <span>{{ t('menu.' + menu.key) }}</span>
@@ -32,8 +32,7 @@ const t = i18n.global.t
 
 const router = useRouter()
 
-// 保留 iconComponents 作为 props 兼容入口,内部统一使用 routeIconMap(: 已下沉到 utils/iconMap.js)
-const iconComponents = routeIconMap
+const iconComponents = routeIconMap;
 
 const handleMenuClick = (menu) => {
   if (menu.path) {

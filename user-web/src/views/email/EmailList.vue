@@ -59,7 +59,7 @@
       </div>
     </div>
 
-    <!-- 发送邮件 -->
+    
     <el-dialog v-model="sendVisible" :title="$t('发送邮件')" width="640px">
       <el-form :model="sendForm" label-width="80px">
         <el-form-item :label="$t('主题')">
@@ -78,7 +78,7 @@
       </template>
     </el-dialog>
 
-    <!-- 追踪 -->
+    
     <el-dialog v-model="traceVisible" :title="$t('追踪信息')" width="640px">
       <div v-loading="traceLoading">
         <div v-if="traceData && traceData.length">
@@ -105,34 +105,31 @@ const emailList = ref([])
 const emailTotal = ref(0)
 const emailPage = ref(1)
 const emailLimit = ref(10)
-const loading = ref(false) // 添加加载状态
+const loading = ref(false);
 
-// 发送邮件
-const sendVisible = ref(false)
+const sendVisible = ref(false);
 const submitting = ref(false)
 const sendForm = reactive({ subject: '', content: '' })
 const attachmentsText = ref('')
 
-// 追踪
-const traceVisible = ref(false)
+const traceVisible = ref(false);
 const traceLoading = ref(false)
 const traceData = ref([])
 
 const handlePageChange = (number) => {
-  // 防止重复点击同一页码
-  if (emailPage.value === number) return
+  if (emailPage.value === number)
+    return;
   emailPage.value = number
   fetchEmailList()
 }
 
 const fetchEmailList = async () => {
-  // 防止并发请求
-  if (loading.value) return
+  if (loading.value)
+    return;
   loading.value = true
   try {
     const response = await emailApi.getEmailList(emailPage.value, emailLimit.value)
-    // 根据实际API返回结构获取数据
-    emailList.value = response.list || []
+    emailList.value = response.list || [];
     emailTotal.value = response.total || 0
   } catch (error) {
     console.error('获取邮件列表失败:', error)
@@ -141,10 +138,9 @@ const fetchEmailList = async () => {
     loading.value = false
   }
 }
-// 组件挂载时获取素材列表
 onMounted(() => {
   fetchEmailList()
-})
+});
 
 const openSend = () => {
   sendForm.subject = ''

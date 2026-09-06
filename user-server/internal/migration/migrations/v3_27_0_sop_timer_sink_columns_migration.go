@@ -43,18 +43,18 @@ func (m *SOPTimerSinkColumnsMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 	stmts := []string{
-		// 1. 补列（幂等）
+
 		`ALTER TABLE sop_timers ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ`,
 		`ALTER TABLE sop_timers ADD COLUMN IF NOT EXISTS max_wait_at TIMESTAMPTZ`,
 		`ALTER TABLE sop_timers ADD COLUMN IF NOT EXISTS claim_count INTEGER NOT NULL DEFAULT 0`,
-		// 2. 历史数据回填：仅回填列值为 NULL 的行（payload 字段非法时保持 NULL，扫描时回退 payload）
+
 		`UPDATE sop_timers SET expires_at = (payload->>'expires_at')::timestamptz
 		 WHERE expires_at IS NULL AND payload->>'expires_at' ~ '^\d{4}-\d{2}-\d{2}T'`,
 		`UPDATE sop_timers SET max_wait_at = (payload->>'max_wait_at')::timestamptz
 		 WHERE max_wait_at IS NULL AND payload->>'max_wait_at' ~ '^\d{4}-\d{2}-\d{2}T'`,
 		`UPDATE sop_timers SET claim_count = (payload->>'claim_count')::int
 		 WHERE claim_count = 0 AND payload->>'claim_count' ~ '^\d+$'`,
-		// 3. 部分索引：只索引 pending 行（M4 目标——过期/死信扫描可走索引）
+
 		`CREATE INDEX IF NOT EXISTS idx_sop_timers_pending_wait_until ON sop_timers(wait_until) WHERE status = 'pending'`,
 		`CREATE INDEX IF NOT EXISTS idx_sop_timers_pending_max_wait_at ON sop_timers(max_wait_at) WHERE status = 'pending' AND max_wait_at IS NOT NULL`,
 		`CREATE INDEX IF NOT EXISTS idx_sop_timers_pending_claim_count ON sop_timers(claim_count) WHERE status = 'pending' AND claim_count >= 1`,
@@ -85,5 +85,4 @@ func (m *SOPTimerSinkColumnsMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// compile-time 接口断言
 var _ migration.Migration = (*SOPTimerSinkColumnsMigration)(nil)

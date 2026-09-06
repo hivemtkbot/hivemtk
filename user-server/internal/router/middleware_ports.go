@@ -9,8 +9,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-
-// operationLogSink 审计日志落库适配器：middleware.AuditEntry → model.OperationLog → repository
 type operationLogSink struct{}
 
 func (operationLogSink) Save(ctx context.Context, entry *middleware.AuditEntry) error {
@@ -27,7 +25,6 @@ func (operationLogSink) Save(ctx context.Context, entry *middleware.AuditEntry) 
 	})
 }
 
-// chatChannelResolver 渠道解析适配器：service.ChatChannelService → middleware.ChatChannelResolver
 type chatChannelResolver struct {
 	svc *service.ChatChannelService
 }
@@ -48,7 +45,6 @@ func (r chatChannelResolver) ResolveByChannelID(ctx context.Context, channelID s
 	return toChatChannelView(channel), nil
 }
 
-// toChatChannelView model.ChatChannel → middleware.ChatChannelView
 func toChatChannelView(c *model.ChatChannel) *middleware.ChatChannelView {
 	return &middleware.ChatChannelView{
 		ChannelID:      c.ChannelID,
@@ -59,9 +55,7 @@ func toChatChannelView(c *model.ChatChannel) *middleware.ChatChannelView {
 	}
 }
 
-// injectMiddlewarePorts 注入 middleware 窄接口实现（须在路由注册前调用）
 func injectMiddlewarePorts() {
 	middleware.SetPermChecker(service.NewPermissionService())
 	middleware.SetAuditSink(operationLogSink{})
 }
-

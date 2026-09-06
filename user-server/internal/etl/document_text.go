@@ -41,7 +41,6 @@ func ExtractText(filename string, data []byte) (string, error) {
 	}
 }
 
-// extractHTMLText 去除 HTML 标签，保留基本换行结构。
 func extractHTMLText(data []byte) string {
 	doc, err := html.Parse(bytes.NewReader(data))
 	if err != nil {
@@ -70,8 +69,6 @@ func extractHTMLText(data []byte) string {
 	return collapseSpaces(buf.String())
 }
 
-// extractDocx 解析 Office Open XML(.docx)。docx 本质是一个 zip 包，
-// 正文文本位于 word/document.xml 的 <w:t> 节点中，<w:p> 表示段落。
 func extractDocx(data []byte) (string, error) {
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
@@ -94,8 +91,6 @@ func extractDocx(data []byte) (string, error) {
 	return "", fmt.Errorf("docx 中未找到 word/document.xml")
 }
 
-// extractDocxBody 流式解析 document.xml，按文档顺序收集 <w:t> 文本，
-// 遇到段落(<w:p>)时插入换行，尽量保留可读结构。
 func extractDocxBody(raw []byte) (string, error) {
 	decoder := xml.NewDecoder(bytes.NewReader(raw))
 	decoder.Strict = false
@@ -134,7 +129,6 @@ func extractDocxBody(raw []byte) (string, error) {
 	return collapseSpaces(sb.String()), nil
 }
 
-// extractPDF 逐页提取 PDF 文本。
 func extractPDF(data []byte) (string, error) {
 	reader, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
@@ -160,7 +154,6 @@ func extractPDF(data []byte) (string, error) {
 	return collapseSpaces(sb.String()), nil
 }
 
-// collapseSpaces 折叠多余空白，保留段落换行。
 func collapseSpaces(s string) string {
 	lines := strings.Split(s, "\n")
 	for i, line := range lines {
@@ -168,4 +161,3 @@ func collapseSpaces(s string) string {
 	}
 	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
-

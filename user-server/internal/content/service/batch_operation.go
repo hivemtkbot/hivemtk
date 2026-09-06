@@ -72,7 +72,7 @@ func (s *BatchOperationService) ImportFromCSV(ctx context.Context, importType Im
 	}
 
 	reader := csv.NewReader(file)
-	reader.FieldsPerRecord = -1 
+	reader.FieldsPerRecord = -1
 	reader.LazyQuotes = true
 
 	rows, err := reader.ReadAll()
@@ -100,7 +100,6 @@ func (s *BatchOperationService) ImportFromCSV(ctx context.Context, importType Im
 	return result, nil
 }
 
-// importClues 导入线索
 func (s *BatchOperationService) importClues(ctx context.Context, rows [][]string, header []string, result *ImportResult) {
 	colMap := make(map[string]int)
 	for i, h := range header {
@@ -205,7 +204,6 @@ func (s *BatchOperationService) importClues(ctx context.Context, rows [][]string
 	}
 }
 
-// importUsers 导入用户
 func (s *BatchOperationService) importUsers(ctx context.Context, rows [][]string, header []string, result *ImportResult) {
 	colMap := make(map[string]int)
 	for i, h := range header {
@@ -264,7 +262,6 @@ func (s *BatchOperationService) importUsers(ctx context.Context, rows [][]string
 			RealName: realName,
 		}
 
-		// v7 审计修复：保留调用方 ctx（trace/超时传递），不再用 Background 覆盖
 		if err := s.userRepo.Create(ctx, user); err != nil {
 			result.Failed++
 			result.Errors = append(result.Errors, ImportError{
@@ -303,94 +300,113 @@ func (s *BatchOperationService) GenerateCSV(ctx context.Context, exportType Expo
 
 // GenerateJSONL 生成 JSONL 格式（每行一个 JSON 对象）
 func (s *BatchOperationService) GenerateJSONL(ctx context.Context, exportType ExportType, ids []string) (*bytes.Buffer, error) {
-    var buf bytes.Buffer
-    switch exportType {
-    case ExportTypeClue:
-        clues, _, err := s.clueRepo.GetClueList(ctx, 1, 10000)
-        if err != nil {
-            return nil, fmt.Errorf("查询线索失败: %w", err)
-        }
-        idSet := make(map[string]bool)
-        for _, id := range ids { idSet[strings.TrimSpace(id)] = true }
-        hasFilter := len(ids) > 0
-        enc := json.NewEncoder(&buf)
-        for _, clue := range clues {
-            if hasFilter && !idSet[clue.ID] { continue }
-            _ = enc.Encode(map[string]any{
-                "id": clue.ID, "name": clue.Name, "account": clue.Account,
-                "type": clue.Type, "city": clue.City, "address": clue.Address,
-                "desc": clue.Desc, "source_id": clue.SourceID,
-                "is_verify": clue.IsVerify,
-                "created_at": time.Unix(clue.CreateTime, 0).Format("2006-01-02T15:04:05Z07:00"),
-            })
-        }
-    case ExportTypeUser:
-        users, _, err := s.userRepo.GetUserList(context.Background(), 1, 10000)
-        if err != nil {
-            return nil, fmt.Errorf("查询用户失败: %w", err)
-        }
-        idSet := make(map[string]bool)
-        for _, id := range ids { idSet[strings.TrimSpace(id)] = true }
-        hasFilter := len(ids) > 0
-        enc := json.NewEncoder(&buf)
-        for _, u := range users {
-            if hasFilter && !idSet[u.ID] { continue }
-            _ = enc.Encode(map[string]any{
-                "id": u.ID, "username": u.Username, "email": u.Email,
-                "phone": u.Phone, "real_name": u.RealName, "status": int64(u.Status),
+	var buf bytes.Buffer
+	switch exportType {
+	case ExportTypeClue:
+		clues, _, err := s.clueRepo.GetClueList(ctx, 1, 10000)
+		if err != nil {
+			return nil, fmt.Errorf("查询线索失败: %w", err)
+		}
+		idSet := make(map[string]bool)
+		for _, id := range ids {
+			idSet[strings.TrimSpace(id)] = true
+		}
+		hasFilter := len(ids) > 0
+		enc := json.NewEncoder(&buf)
+		for _, clue := range clues {
+			if hasFilter && !idSet[clue.ID] {
+				continue
+			}
+			_ = enc.Encode(map[string]any{
+				"id": clue.ID, "name": clue.Name, "account": clue.Account,
+				"type": clue.Type, "city": clue.City, "address": clue.Address,
+				"desc": clue.Desc, "source_id": clue.SourceID,
+				"is_verify":  clue.IsVerify,
+				"created_at": time.Unix(clue.CreateTime, 0).Format("2006-01-02T15:04:05Z07:00"),
+			})
+		}
+	case ExportTypeUser:
+		users, _, err := s.userRepo.GetUserList(context.Background(), 1, 10000)
+		if err != nil {
+			return nil, fmt.Errorf("查询用户失败: %w", err)
+		}
+		idSet := make(map[string]bool)
+		for _, id := range ids {
+			idSet[strings.TrimSpace(id)] = true
+		}
+		hasFilter := len(ids) > 0
+		enc := json.NewEncoder(&buf)
+		for _, u := range users {
+			if hasFilter && !idSet[u.ID] {
+				continue
+			}
+			_ = enc.Encode(map[string]any{
+				"id": u.ID, "username": u.Username, "email": u.Email,
+				"phone": u.Phone, "real_name": u.RealName, "status": int64(u.Status),
 				"created_at": time.Unix(u.CreateTime, 0).Format("2006-01-02T15:04:05Z07:00"),
-            })
-        }
-    default:
-        return nil, errors.New("不支持的导出类型")
-    }
-    return &buf, nil
+			})
+		}
+	default:
+		return nil, errors.New("不支持的导出类型")
+	}
+	return &buf, nil
 }
 
 // GenerateMarkdown 生成 Markdown 表格格式
 func (s *BatchOperationService) GenerateMarkdown(ctx context.Context, exportType ExportType, ids []string) (*bytes.Buffer, error) {
-    var buf bytes.Buffer
-    var headers []string
-    var rows [][]string
-    switch exportType {
-    case ExportTypeClue:
-        headers = []string{"ID", "姓名", "账户", "类型", "城市", "来源", "是否验证", "创建时间"}
-        clues, _, err := s.clueRepo.GetClueList(ctx, 1, 10000)
-        if err != nil { return nil, err }
-        idSet := make(map[string]bool)
-        for _, id := range ids { idSet[strings.TrimSpace(id)] = true }
-        hasFilter := len(ids) > 0
-        for _, clue := range clues {
-            if hasFilter && !idSet[clue.ID] { continue }
-            rows = append(rows, []string{
-                clue.ID, clue.Name, clue.Account, strconv.FormatInt(clue.Type, 10),
-                clue.City, clue.SourceID, strconv.FormatInt(clue.IsVerify, 10),
-                time.Unix(clue.CreateTime, 0).Format("2006-01-02 15:04:05"),
-            })
-        }
-    case ExportTypeUser:
-        headers = []string{"ID", "用户名", "邮箱", "手机号", "真实姓名", "状态", "创建时间"}
-        users, _, err := s.userRepo.GetUserList(context.Background(), 1, 10000)
-        if err != nil { return nil, err }
-        idSet := make(map[string]bool)
-        for _, id := range ids { idSet[strings.TrimSpace(id)] = true }
-        hasFilter := len(ids) > 0
-        for _, u := range users {
-            if hasFilter && !idSet[u.ID] { continue }
-            rows = append(rows, []string{u.ID, u.Username, u.Email, u.Phone, u.RealName, strconv.FormatInt(int64(u.Status), 10), time.Unix(u.CreateTime, 0).Format("2006-01-02 15:04:05")})
-        }
-    default:
-        return nil, errors.New("不支持的导出类型")
-    }
-    // 写 Markdown 表格
-    fmt.Fprintf(&buf, "| %s |\n", strings.Join(headers, " | "))
-    fmt.Fprintf(&buf, "|%s|\n", strings.Repeat("---|", len(headers)))
-    for _, row := range rows {
-        fmt.Fprintf(&buf, "| %s |\n", strings.Join(row, " | "))
-    }
-    return &buf, nil
-}
+	var buf bytes.Buffer
+	var headers []string
+	var rows [][]string
+	switch exportType {
+	case ExportTypeClue:
+		headers = []string{"ID", "姓名", "账户", "类型", "城市", "来源", "是否验证", "创建时间"}
+		clues, _, err := s.clueRepo.GetClueList(ctx, 1, 10000)
+		if err != nil {
+			return nil, err
+		}
+		idSet := make(map[string]bool)
+		for _, id := range ids {
+			idSet[strings.TrimSpace(id)] = true
+		}
+		hasFilter := len(ids) > 0
+		for _, clue := range clues {
+			if hasFilter && !idSet[clue.ID] {
+				continue
+			}
+			rows = append(rows, []string{
+				clue.ID, clue.Name, clue.Account, strconv.FormatInt(clue.Type, 10),
+				clue.City, clue.SourceID, strconv.FormatInt(clue.IsVerify, 10),
+				time.Unix(clue.CreateTime, 0).Format("2006-01-02 15:04:05"),
+			})
+		}
+	case ExportTypeUser:
+		headers = []string{"ID", "用户名", "邮箱", "手机号", "真实姓名", "状态", "创建时间"}
+		users, _, err := s.userRepo.GetUserList(context.Background(), 1, 10000)
+		if err != nil {
+			return nil, err
+		}
+		idSet := make(map[string]bool)
+		for _, id := range ids {
+			idSet[strings.TrimSpace(id)] = true
+		}
+		hasFilter := len(ids) > 0
+		for _, u := range users {
+			if hasFilter && !idSet[u.ID] {
+				continue
+			}
+			rows = append(rows, []string{u.ID, u.Username, u.Email, u.Phone, u.RealName, strconv.FormatInt(int64(u.Status), 10), time.Unix(u.CreateTime, 0).Format("2006-01-02 15:04:05")})
+		}
+	default:
+		return nil, errors.New("不支持的导出类型")
+	}
 
+	fmt.Fprintf(&buf, "| %s |\n", strings.Join(headers, " | "))
+	fmt.Fprintf(&buf, "|%s|\n", strings.Repeat("---|", len(headers)))
+	for _, row := range rows {
+		fmt.Fprintf(&buf, "| %s |\n", strings.Join(row, " | "))
+	}
+	return &buf, nil
+}
 
 func (s *BatchOperationService) exportClues(ctx context.Context, writer *csv.Writer, buf *bytes.Buffer, ids []string) (*bytes.Buffer, error) {
 	headers := []string{"ID", "姓名", "账户", "类型", "城市", "地址", "描述", "来源ID", "是否验证", "创建时间"}
@@ -632,4 +648,3 @@ func (s *BatchOperationService) GetHistoryByID(id uint) (*model.BatchOperationHi
 func (s *BatchOperationService) CancelHistory(id uint) error {
 	return s.batchOpRepo.CancelHistory(context.Background(), id)
 }
-

@@ -19,12 +19,8 @@ import { resolveRouteIcon } from '@/utils/iconMap'
 const route = useRoute()
 const router = useRouter()
 
-// 复用 utils/iconMap.js 中的 resolveRouteIcon 解析图标字符串,
-// 不再使用 `import * as ElementPlusIconsVue` 全量命名空间导入。
-const resolveIcon = resolveRouteIcon
+const resolveIcon = resolveRouteIcon;
 
-// 从 Layout topMenus 反查路径对应的菜单链
-// 一级菜单配置（与 Layout.vue 保持一致）
 const topMenusMap = {
   workspace: { title: i18n.global.t('工作台'), icon: 'Monitor' },
   customer: { title: i18n.global.t('客户中心'), icon: 'UserFilled' },
@@ -33,9 +29,8 @@ const topMenusMap = {
   knowledge: { title: i18n.global.t('知识中心'), icon: 'Collection' },
   analytics: { title: i18n.global.t('数据分析'), icon: 'DataAnalysis' },
   system: { title: i18n.global.t('系统设置'), icon: 'Setting' }
-}
+};
 
-// 二级菜单映射（path 前缀 → group/二级名）
 const subMenusMap = {
   messageHub: { parent: 'workspace', title: i18n.global.t('消息中台 MQ') },
   wecomAccount: { parent: 'workspace', title: i18n.global.t('多账号聚合') },
@@ -97,18 +92,16 @@ const subMenusMap = {
   operationLog: { parent: 'system', title: i18n.global.t('操作日志') },
   backup: { parent: 'system', title: i18n.global.t('备份恢复') },
   securityAudit: { parent: 'system', title: i18n.global.t('安全审计') }
-}
+};
 
 const items = computed(() => {
   const path = route.path
   const result = []
 
-  // 首页（R1-D1: 原默认落地页 /unifiedInbox/list 已废弃,改指统一消息中心）
   if (path === '/' || path === '/messageHub/list') {
     return [{ title: i18n.global.t('首页'), to: '/', icon: 'HomeFilled' }]
   }
 
-  // 个人资料
   if (path === '/profile') {
     return [
       { title: i18n.global.t('首页'), to: '/', icon: 'HomeFilled' },
@@ -116,7 +109,6 @@ const items = computed(() => {
     ]
   }
 
-  // 通知中心
   if (path === '/notifications') {
     return [
       { title: i18n.global.t('首页'), to: '/', icon: 'HomeFilled' },
@@ -124,8 +116,7 @@ const items = computed(() => {
     ]
   }
 
-  // 提取路径第一段作为模块
-  const seg = path.split('/').filter(Boolean)[0] || ''
+  const seg = path.split('/').filter(Boolean)[0] || '';
   const subMenu = subMenusMap[seg]
   if (subMenu) {
     const topMenu = topMenusMap[subMenu.parent]
@@ -133,12 +124,10 @@ const items = computed(() => {
       result.push({ title: i18n.global.t('首页'), to: '/', icon: 'HomeFilled' })
       result.push({ title: topMenu.title, to: '/' })
     }
-    // 当前页
-    const pageTitle = route.meta?.title || subMenu.title
+    const pageTitle = route.meta?.title || subMenu.title;
     result.push({ title: pageTitle })
   } else {
-    // 兜底：用 route.meta.title
-    const title = route.meta?.title || seg
+    const title = route.meta?.title || seg;
     result.push({ title: i18n.global.t('首页'), to: '/', icon: 'HomeFilled' })
     result.push({ title })
   }

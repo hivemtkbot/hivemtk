@@ -42,7 +42,7 @@ func TestConformalCalibrator_AddScore(t *testing.T) {
 
 // TestConformalCalibrator_SlidingWindow 验证滑动窗口
 func TestConformalCalibrator_SlidingWindow(t *testing.T) {
-	cc := NewConformalCalibrator(5, 0) // 窗口 5
+	cc := NewConformalCalibrator(5, 0)
 	for i := 0; i < 10; i++ {
 		cc.AddScore(float64(i) / 10.0)
 	}
@@ -55,7 +55,7 @@ func TestConformalCalibrator_SlidingWindow(t *testing.T) {
 // TestConformalCalibrator_Recalculate 验证重算
 func TestConformalCalibrator_Recalculate(t *testing.T) {
 	cc := NewConformalCalibrator(100, 0)
-	// 加 100 条递增 → 触发 Recalibrate
+
 	for i := 0; i < 100; i++ {
 		cc.AddScore(float64(i) / 100.0)
 	}
@@ -63,7 +63,7 @@ func TestConformalCalibrator_Recalculate(t *testing.T) {
 	if snap.SampleSize != 100 {
 		t.Errorf("expected 100 samples, got %d", snap.SampleSize)
 	}
-	// quantile 应在 0.9 附近（90 分位）
+
 	if snap.Quantile < 0.85 || snap.Quantile > 0.95 {
 		t.Errorf("quantile should be near 0.9, got %v", snap.Quantile)
 	}
@@ -107,7 +107,7 @@ func TestConformalCalibrator_NaNInf(t *testing.T) {
 	cc.AddScore(math.NaN())
 	cc.AddScore(math.Inf(1))
 	cc.AddScore(math.Inf(-1))
-	cc.AddScore(0.5) // 唯一有效
+	cc.AddScore(0.5)
 	snap := cc.Snapshot()
 	if snap.SampleSize != 1 {
 		t.Errorf("only 0.5 should be accepted, got %d samples", snap.SampleSize)
@@ -138,8 +138,8 @@ func TestConformalCalibrator_PredictorImmutability(t *testing.T) {
 	cc.AddScore(0.5)
 	cc.AddScore(0.7)
 	p1 := cc.Predictor()
-	cc.AddScore(0.9) // 不应触发 Recalibrate（只 1 条）
-	cc.Recalibrate() // 显式重算
+	cc.AddScore(0.9)
+	cc.Recalibrate()
 	p2 := cc.Predictor()
 	if p1 == p2 {
 		t.Error("after Recalibrate, Predictor should return new instance")

@@ -10,13 +10,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// newIntentRecognizerNoDB 无 DB 构造（embedding 层不依赖 DB）
 func newIntentRecognizerNoDB(t *testing.T) (*IntentRecognizer, *gorm.DB) {
 	t.Helper()
 	return NewIntentRecognizer(nil, nil, nil), nil
 }
 
-// awaitAnchors 等待后台锚点预计算完成（SetEmbeddingService 为异步）
 func awaitAnchors(rec *IntentRecognizer) <-chan struct{} {
 	ch := make(chan struct{})
 	go func() {
@@ -36,10 +34,9 @@ func awaitAnchors(rec *IntentRecognizer) <-chan struct{} {
 	return ch
 }
 
-// stubEmbedder 可控向量桩：按文本精确返回预设向量，全流程无外部依赖
 type stubEmbedder struct {
 	vecs  map[string][]float32
-	failN int // 前 failN 次 EmbedOne 返回错误（模拟 TEI 不可用）
+	failN int
 	calls int
 	dim   int
 }
@@ -83,7 +80,7 @@ func unitVec(dim int, hotIdx []int) []float32 {
 
 func newAnchorStub(t *testing.T) (*IntentRecognizer, *stubEmbedder) {
 	t.Helper()
-	rec, _ := newIntentRecognizerNoDB(t) // 锚点：price_inquiry 用维度 0-1，objection_price 用维度 2-3（相互正交）
+	rec, _ := newIntentRecognizerNoDB(t)
 	stub := &stubEmbedder{
 		dim: 8,
 		vecs: map[string][]float32{
@@ -125,9 +122,7 @@ func TestRecognizeEmbedding_HighConfidenceHit(t *testing.T) {
 
 func TestRecognizeEmbedding_AmbiguityGapFallsThrough(t *testing.T) {
 	rec, _ := newIntentRecognizerNoDB(t)
-	// B2论证修正：锚点必须在 SetEmbeddingService 预计算【前】就位。
-	// 15°/19° 双近邻：q=e0，top1=cos15°≈0.966、top2=cos19°≈0.945
-	// → 均≥采信阈0.75 且 gap≈0.021 < intentEmbeddingGap(0.05) → clarify
+
 	v15 := []float32{0.966, 0.259, 0, 0, 0, 0, 0, 0}
 	v19 := []float32{0.9455, 0.3256, 0, 0, 0, 0, 0, 0}
 	stub := &stubEmbedder{
@@ -163,7 +158,7 @@ func TestRecognizeEmbedding_LowSimilarityReturnsNil(t *testing.T) {
 
 func TestRecognizeEmbedding_CircuitBreakerAfterConsecutiveFailures(t *testing.T) {
 	rec, _ := newIntentRecognizerNoDB(t)
-	stub := &stubEmbedder{dim: 4, failN: 1000} // 全部失败=TEI 完全不可用
+	stub := &stubEmbedder{dim: 4, failN: 1000}
 	rec.SetEmbeddingService(stub)
 	<-awaitAnchors(rec)
 	rec.anchorMu.RLock()
@@ -182,8 +177,7 @@ func TestRecognizeEmbedding_FailOpenThenRecover(t *testing.T) {
 	rec, _ := newIntentRecognizerNoDB(t)
 	stub := &stubEmbedder{
 		dim: 8,
-		// 前 2 次失败（未达熔断线 3），第三次起恢复——price_inquiry 前两条示例锚点丢失，
-		// 但第三条"能不能便宜点？"成功入库，查询仍可命中
+
 		failN: 2,
 		vecs: map[string][]float32{
 			"这个多少钱？":   unitVec(8, []int{0, 1}),
@@ -200,8 +194,7 @@ func TestRecognizeEmbedding_FailOpenThenRecover(t *testing.T) {
 }
 
 func TestLLMContract_LowConfidenceDowngradedToUnknown(t *testing.T) {
-	// 直接验证契约逻辑常量与降级语义：conf<0.7 的非 unknown 结果必须被改写为 unknown。
-	// recognizeByLLM 依赖 dispatcher 网络栈，此处对解析后处理段做等价断言防回归漂移。
+
 	parsed := struct {
 		IntentType string  `json:"intent_type"`
 		Confidence float64 `json:"confidence"`
@@ -238,28 +231,26 @@ func TestRecognizeEmbedding_LazyRetryAfterCooldown(t *testing.T) {
 			"能不能便宜点？":  unitVec(8, []int{0, 1}),
 		},
 	}
-	// 第一次：全部失败（模拟 TEI 未就绪）
+
 	stub.failN = 1000
 	rec.SetEmbeddingService(stub)
 	<-awaitAnchors(rec)
 	callsAfterFirstPrecompute := stub.calls
 
-	// 冷却期内不重试
 	if r := rec.recognizeByEmbedding(context.Background(), "任意"); r != nil || stub.calls != callsAfterFirstPrecompute {
 		t.Fatalf("冷却期内不应重试")
 	}
 
-	// 人为推进时间到冷却期外 + TEI 恢复（stub.failN 清零）→ 触发后台重试
 	rec.anchorMu.Lock()
 	rec.embLastPrecompute = time.Now().Add(-embRetryCooldown - time.Second)
 	rec.embFailCount = 0
 	rec.anchorMu.Unlock()
 	stub.failN = 0
-	// V2 复审后：重试为后台异步，本请求返回 nil 下沉 LLM
+
 	if r := rec.recognizeByEmbedding(context.Background(), "这个多少钱？"); r != nil {
 		t.Fatalf("后台重试模式下本请求应返回 nil，实际 %+v", r)
 	}
-	// 等待后台预计算完成后，下一请求应命中
+
 	waitOk := false
 	for i := 0; i < 100; i++ {
 		time.Sleep(10 * time.Millisecond)

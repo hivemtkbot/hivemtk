@@ -168,7 +168,6 @@ func ErrorMessage(code string, loc Locale) string {
 	return code
 }
 
-// replaceAll 兼容标准库 strings.ReplaceAll 的本地实现（避免额外导入别名混淆）。
 func replaceAll(s, old, new string) string {
 	if old == "" {
 		return s
@@ -196,4 +195,3 @@ func indexOf(s, sub string) int {
 	}
 	return -1
 }
-

@@ -20,17 +20,17 @@ func NewSystemStatsService() *SystemStatsService {
 
 // SystemInfo 系统信息
 type SystemInfo struct {
-	CPUUsage     float64 `json:"cpu_usage"`     
-	MemoryUsage  float64 `json:"memory_usage"`  
-	DiskUsage    float64 `json:"disk_usage"`    
-	Uptime       int64   `json:"uptime"`        
-	ServerTime   string  `json:"server_time"`   
-	Hostname     string  `json:"hostname"`      
-	GoVersion    string  `json:"go_version"`    
-	NumCPU       int     `json:"num_cpu"`       
-	NumGoroutine int     `json:"num_goroutine"` 
-	AllocMemory  uint64  `json:"alloc_memory"`  
-	SysMemory    uint64  `json:"sys_memory"`    
+	CPUUsage     float64 `json:"cpu_usage"`
+	MemoryUsage  float64 `json:"memory_usage"`
+	DiskUsage    float64 `json:"disk_usage"`
+	Uptime       int64   `json:"uptime"`
+	ServerTime   string  `json:"server_time"`
+	Hostname     string  `json:"hostname"`
+	GoVersion    string  `json:"go_version"`
+	NumCPU       int     `json:"num_cpu"`
+	NumGoroutine int     `json:"num_goroutine"`
+	AllocMemory  uint64  `json:"alloc_memory"`
+	SysMemory    uint64  `json:"sys_memory"`
 }
 
 // GetSystemInfo 获取系统信息
@@ -79,4 +79,3 @@ func (s *SystemStatsService) GetSystemInfo() (*SystemInfo, error) {
 		SysMemory:    m.Sys,
 	}, nil
 }
-

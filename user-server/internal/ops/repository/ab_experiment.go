@@ -215,4 +215,3 @@ func (r *ABExperimentResultRepository) UpdateWinner(experimentID uint, winnerVar
 	return r.db.Model(&model.ABExperimentResult{}).Where("experiment_id = ? AND variant_id = ?", experimentID, winnerVariantID).
 		Update("is_winner", true).Error
 }
-

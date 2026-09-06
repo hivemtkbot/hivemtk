@@ -45,7 +45,6 @@ type KuaishouCardStatsRepository interface {
 	IncrementViewCount(ctx context.Context, id uint) error
 }
 
-// kuaishouCardStatsRepository 快手卡片统计仓库实现
 type kuaishouCardStatsRepository struct {
 	db *gorm.DB
 }
@@ -55,7 +54,6 @@ func NewKuaishouCardStatsRepository(db *gorm.DB) KuaishouCardStatsRepository {
 	return &kuaishouCardStatsRepository{db: db}
 }
 
-// GetCardByID 按 ID 获取卡片
 func (r *kuaishouCardStatsRepository) GetCardByID(ctx context.Context, cardID uint) (*model.KuaishouCard, error) {
 	var card model.KuaishouCard
 	if err := r.db.WithContext(ctx).First(&card, cardID).Error; err != nil {
@@ -64,7 +62,6 @@ func (r *kuaishouCardStatsRepository) GetCardByID(ctx context.Context, cardID ui
 	return &card, nil
 }
 
-// CountCardViews 统计卡片浏览量
 func (r *kuaishouCardStatsRepository) CountCardViews(ctx context.Context, cardID uint) (int64, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Model(&model.KuaishouCardActivity{}).
@@ -73,7 +70,6 @@ func (r *kuaishouCardStatsRepository) CountCardViews(ctx context.Context, cardID
 	return n, err
 }
 
-// GetCardDailyStats 按日期分组获取卡片统计
 func (r *kuaishouCardStatsRepository) GetCardDailyStats(ctx context.Context, cardID uint, startDate, endDate time.Time) ([]KuaishouCardStatsDailyResult, error) {
 	var results []KuaishouCardStatsDailyResult
 	err := r.db.WithContext(ctx).Table("kuaishou_card_activities").
@@ -84,21 +80,18 @@ func (r *kuaishouCardStatsRepository) GetCardDailyStats(ctx context.Context, car
 	return results, err
 }
 
-// CountTotalCards 统计卡片总数
 func (r *kuaishouCardStatsRepository) CountTotalCards(ctx context.Context) (int64, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Model(&model.KuaishouCard{}).Count(&n).Error
 	return n, err
 }
 
-// CountActiveCards 统计激活卡片数
 func (r *kuaishouCardStatsRepository) CountActiveCards(ctx context.Context) (int64, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Model(&model.KuaishouCard{}).Where("is_active = ?", true).Count(&n).Error
 	return n, err
 }
 
-// CountTotalViews 统计时间范围内总浏览量
 func (r *kuaishouCardStatsRepository) CountTotalViews(ctx context.Context, startDate, endDate time.Time) (int64, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Model(&model.KuaishouCardActivity{}).
@@ -107,7 +100,6 @@ func (r *kuaishouCardStatsRepository) CountTotalViews(ctx context.Context, start
 	return n, err
 }
 
-// GetPopularCards 获取热门卡片
 func (r *kuaishouCardStatsRepository) GetPopularCards(ctx context.Context, limit int) ([]model.KuaishouCard, error) {
 	var cards []model.KuaishouCard
 	err := r.db.WithContext(ctx).Where("is_active = ?", true).
@@ -115,7 +107,6 @@ func (r *kuaishouCardStatsRepository) GetPopularCards(ctx context.Context, limit
 	return cards, err
 }
 
-// GetOverallDailyStats 获取全部卡片的按日期分组统计
 func (r *kuaishouCardStatsRepository) GetOverallDailyStats(ctx context.Context, startDate, endDate time.Time) ([]KuaishouCardStatsDailyResult, error) {
 	var results []KuaishouCardStatsDailyResult
 	err := r.db.WithContext(ctx).Table("kuaishou_card_activities").
@@ -126,7 +117,6 @@ func (r *kuaishouCardStatsRepository) GetOverallDailyStats(ctx context.Context, 
 	return results, err
 }
 
-// GetRecentActivitiesWithJoin 获取最近活动（JOIN 卡片表获取标题）
 func (r *kuaishouCardStatsRepository) GetRecentActivitiesWithJoin(ctx context.Context, limit int) ([]KuaishouRecentActivity, error) {
 	var results []KuaishouRecentActivity
 	err := r.db.WithContext(ctx).Table("kuaishou_card_activities").
@@ -139,7 +129,6 @@ func (r *kuaishouCardStatsRepository) GetRecentActivitiesWithJoin(ctx context.Co
 	return results, err
 }
 
-// CreateActivity 创建活动记录
 func (r *kuaishouCardStatsRepository) CreateActivity(ctx context.Context, activity *model.KuaishouCardActivity) error {
 	if err := r.db.WithContext(ctx).Create(activity).Error; err != nil {
 		return fmt.Errorf("记录活动失败: %w", err)
@@ -147,12 +136,10 @@ func (r *kuaishouCardStatsRepository) CreateActivity(ctx context.Context, activi
 	return nil
 }
 
-// SaveCard 保存卡片
 func (r *kuaishouCardStatsRepository) SaveCard(ctx context.Context, card *model.KuaishouCard) error {
 	return r.db.WithContext(ctx).Save(card).Error
 }
 
-// IncrementViewCount 原子自增浏览数（DB 层 view_count + 1），消除并发 read-modify-write 丢失更新
 func (r *kuaishouCardStatsRepository) IncrementViewCount(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Model(&model.KuaishouCard{}).
 		Where("id = ?", id).

@@ -5,11 +5,6 @@ import (
 	"testing"
 )
 
-// ============================================================================
-// M11：fallback_tree 场景差异化兜底模板回归测试
-// 原先所有场景共用单一兜底文案；修复后按场景匹配差异化文案池，同场景轮换。
-// ============================================================================
-
 func TestTemplateReplyFor_ScenarioDifferentiation(t *testing.T) {
 	sop := TemplateReplyFor(ScenarioSOPReply)
 	objection := TemplateReplyFor(ScenarioObjection)
@@ -19,7 +14,7 @@ func TestTemplateReplyFor_ScenarioDifferentiation(t *testing.T) {
 	if sop == objection || sop == chat || objection == chat {
 		t.Errorf("不同场景应命中差异化文案池: sop=%q objection=%q chat=%q", sop, objection, chat)
 	}
-	// 意图识别兜底必须是合法 unknown 契约 JSON（fail-closed）
+
 	if !strings.Contains(intent, `"major":"unknown"`) {
 		t.Errorf("intent_recognize 兜底应为 unknown 意图 JSON, got %q", intent)
 	}
@@ -56,7 +51,7 @@ func TestResolveDegradedTemplate_ConfiguredOverrides(t *testing.T) {
 	if got := ResolveDegradedTemplate(ScenarioSOPReply, custom); got != custom {
 		t.Errorf("显式定制文案应优先, got %q", got)
 	}
-	// 出厂默认不视为定制——保留场景轮换
+
 	factoryDefault := "抱歉，当前服务暂时繁忙，请稍后再试或联系人工客服。"
 	got := ResolveDegradedTemplate(ScenarioSOPReply, factoryDefault)
 	foundInPool := false

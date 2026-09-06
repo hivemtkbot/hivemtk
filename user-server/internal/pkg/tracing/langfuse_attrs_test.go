@@ -19,7 +19,6 @@ func newRecordedSpan(t *testing.T) (trace.Span, *tracetest.SpanRecorder) {
 	return span, rec
 }
 
-// findAttr 在 span 属性切片中按键名线性查找
 func findAttr(kvs []attribute.KeyValue, key string) (attribute.Value, bool) {
 	for _, kv := range kvs {
 		if string(kv.Key) == key {

@@ -49,7 +49,6 @@ func (e *ThresholdPolicyEngine) LoadPolicies(ctx context.Context) error {
 	return nil
 }
 
-// loadDefaults 加载默认策略（无 DB 或 DB 错误时）
 func (e *ThresholdPolicyEngine) loadDefaults() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -68,12 +67,10 @@ func (e *ThresholdPolicyEngine) loadDefaults() {
 	}
 }
 
-// defaultPolicy 默认策略
 func defaultPolicy() *model.ThresholdPolicy {
 	return policyFor("default", 0.70)
 }
 
-// policyFor 构造指定意图的策略
 func policyFor(intentType string, base float64) *model.ThresholdPolicy {
 	return &model.ThresholdPolicy{
 		PolicyID:                "policy_" + intentType,

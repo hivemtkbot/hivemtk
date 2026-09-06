@@ -9,7 +9,7 @@ type BridgeAccountUpsert struct {
 	AccountID   string
 	AgentID     uint
 	AccountName string
-	Status      string 
+	Status      string
 }
 
 // BridgeAccountView 账号视图（含来自 hub 的实时在线状态）
@@ -42,4 +42,3 @@ var GlobalBridgeAccountRepo BridgeAccountRepo
 func RegisterBridgeAccountRepo(r BridgeAccountRepo) {
 	GlobalBridgeAccountRepo = r
 }
-

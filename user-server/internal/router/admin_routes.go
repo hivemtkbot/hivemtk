@@ -11,16 +11,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupPlatformRoutes 平台端管理路由（需要平台权限）
-//
-// OTA 版本管理与 License 授权管理路由未启用。
-// 仅保留统计/安装/心跳信息相关的只读能力。
 func setupPlatformRoutes(platform *gin.RouterGroup, platformCtrl *controller.PlatformController) {
 	platform.GET("/dashboard", platformCtrl.GetDashboard)
 
 	platform.GET("/merchant/list", platformCtrl.GetMerchantList)
 	platform.GET("/merchant/:id/stats", platformCtrl.GetMerchantStats)
-
 
 	platform.GET("/message/list", platformCtrl.GetMessageList)
 	platform.GET("/message/latest", platformCtrl.GetLatestMessage)
@@ -36,18 +31,14 @@ func setupPlatformRoutes(platform *gin.RouterGroup, platformCtrl *controller.Pla
 	platform.GET("/stats/merchant", platformCtrl.GetPlatformMerchantStats)
 }
 
-// setupPublicRoutes 公开路由（不需要认证）
 func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.LiveCodeController, platformCtrl *controller.PlatformController, db *gorm.DB) {
-	// P0: 禁止内联 handler + 禁止非统一响应格式
-	// /api/health 是 api 前缀下的健康探针，与根级 /health（全维度探测）区分
+
 	systemInfoCtrl := controller.NewSystemInfoController()
 	public.GET("/health", systemInfoCtrl.Health)
 	public.GET("/system/info", systemInfoCtrl.GetSystemInfo)
 
 	public.POST("/auth/login", middleware.BruteForceGuard("auth.login"), controller.NewAuthController().Login)
 
-	// MFA 二次验证：TOTP 仅 6 位数字且 ±1 窗口有 3 个有效码，
-	// 必须与登录同级防爆破，否则可在 temp_token 5 分钟有效期内穷举（v3 审计 P0-2）
 	public.POST("/auth/mfa/verify", middleware.BruteForceGuard("auth.mfa"), controller.NewAuthController().VerifyMFALogin)
 
 	systemInitCtrl := controller.NewSystemInitController()
@@ -91,16 +82,10 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 
 	deps.emailOpenTrackerCtrl.RegisterRoutes(public, nil)
 
-	// 安全：强制校验 X-Ingress-Secret，防匿名消息注入 AI 管道
 	ingressGrp := public.Group("/chat/ingress", middleware.IngressSecretAuth())
 	ingressGrp.POST("", deps.inboxIngressCtrl.Ingress)
 }
 
-// publicDeps 聚合 setupPublicRoutes 所需的仓储/服务/控制器依赖。
-//
-// 审计 M7（路由层直接构造 service/repository）：原本这些 new 散落在路由注册处，
-// 既不便测试也加深路由层与具体实现的耦合。此处集中构造，路由层只负责“消费依赖 + 注册路由”，
-// 后续可平滑替换为 wire/fx 等 DI 容器（当前规模下显式 wiring 已足够清晰且低风险）。
 type publicDeps struct {
 	knowledgeMerchantCtrl  *knowledgectrl.KnowledgeMerchantController
 	emailUnsubscribeCtrl   *controller.EmailUnsubscribeController
@@ -122,4 +107,3 @@ func wirePublicDependencies(db *gorm.DB) publicDeps {
 		inboxIngressCtrl:       controller.NewInboxIngressController(service.NewInboxIngressService()),
 	}
 }
-

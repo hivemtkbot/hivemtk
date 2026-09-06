@@ -9,7 +9,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// bridgeTokenKVKey / bridgeTokenPrevKVKey 桥接凭证 KV 键（controller 与 guard 中间件共用语义）
 const (
 	bridgeTokenKVKey     = "bridge_ingest_token"
 	bridgeTokenPrevKVKey = "bridge_ingest_token_prev"
@@ -30,7 +29,6 @@ func NewBridgeTokenService() *BridgeTokenService {
 	return &BridgeTokenService{kv: repository.NewSystemConfigKVRepository()}
 }
 
-// generateBridgeTokenValue 32 字节随机 → base64url（43 字符，无填充）
 func generateBridgeTokenValue() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -65,7 +63,7 @@ func (s *BridgeTokenService) Reset(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// 当前值 → PREV（双值灰度窗口）
+
 	if cur, gerr := s.kv.Get(ctx, bridgeTokenKVKey); gerr == nil && cur != "" {
 		_, _ = s.kv.Upsert(ctx, bridgeTokenPrevKVKey, cur)
 	}

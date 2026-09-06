@@ -120,7 +120,7 @@ func TestInMemoryIndexManager_AddToIndex(t *testing.T) {
 			kbID:        "test_kb",
 			chunk:       Chunk{ID: "chunk1", Content: "test", Embedding: []float32{0.1, 0.2, 0.3}},
 			setupKB:     false,
-			expectError: false, 
+			expectError: false,
 		},
 		{
 			name:        "add_to_existing_kb",
@@ -224,7 +224,7 @@ func TestInMemoryIndexManager_RemoveFromIndex(t *testing.T) {
 				assert.NoError(t, err)
 				stats, err := manager.GetIndexStats(ctx, tt.kbID)
 				assert.NoError(t, err)
-				assert.Equal(t, 2, stats.VectorCount) 
+				assert.Equal(t, 2, stats.VectorCount)
 			}
 		})
 	}
@@ -288,9 +288,9 @@ func TestInMemoryIndexManager_SearchIndex(t *testing.T) {
 			name:        "search_with_default_topK",
 			kbID:        "test_kb",
 			queryVec:    []float32{0.1, 0.2, 0.3},
-			topK:        0, 
+			topK:        0,
 			expectError: false,
-			expectedLen: 3, 
+			expectedLen: 3,
 		},
 		{
 			name:        "search_with_negative_topK",
@@ -298,7 +298,7 @@ func TestInMemoryIndexManager_SearchIndex(t *testing.T) {
 			queryVec:    []float32{0.1, 0.2, 0.3},
 			topK:        -1,
 			expectError: false,
-			expectedLen: 3, 
+			expectedLen: 3,
 		},
 	}
 
@@ -349,7 +349,7 @@ func TestInMemoryIndexManager_DropIndex(t *testing.T) {
 		{
 			name:        "drop_nonexistent_kb",
 			kbID:        "nonexistent_kb",
-			expectError: false, 
+			expectError: false,
 		},
 	}
 
@@ -581,7 +581,7 @@ func TestNormalizeVector(t *testing.T) {
 			if tt.expectZero || len(tt.vec) == 0 {
 				assert.Equal(t, len(tt.vec), len(normalized))
 			} else if len(tt.vec) > 0 && !isZeroVector(tt.vec) {
-				// Verify normalized vector has unit length
+
 				var sum float64
 				for _, v := range normalized {
 					sum += float64(v) * float64(v)
@@ -600,4 +600,3 @@ func isZeroVector(vec []float32) bool {
 	}
 	return true
 }
-

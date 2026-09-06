@@ -22,8 +22,8 @@ type ClueScore struct {
 	Account string `gorm:"type:varchar(255);default:'';index" json:"account"`
 
 	TotalScore int    `gorm:"type:int;not null;default:0" json:"total_score"`
-	Grade      string `gorm:"type:varchar(8);not null;default:'D'" json:"grade"` 
-	Confidence int    `gorm:"type:int;not null;default:0" json:"confidence"`     
+	Grade      string `gorm:"type:varchar(8);not null;default:'D'" json:"grade"`
+	Confidence int    `gorm:"type:int;not null;default:0" json:"confidence"`
 
 	ChannelScore    int `gorm:"type:int;not null;default:0" json:"channel_score"`
 	VerifyScore     int `gorm:"type:int;not null;default:0" json:"verify_score"`
@@ -47,7 +47,7 @@ func (ClueScore) TableName() string { return "clue_scores" }
 type ClueEngagementEvent struct {
 	ID        uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
 	ClueID    string    `gorm:"type:varchar(36);not null;index" json:"clue_id"`
-	EventType string    `gorm:"type:varchar(32);not null" json:"event_type"` 
+	EventType string    `gorm:"type:varchar(32);not null" json:"event_type"`
 	Channel   string    `gorm:"type:varchar(32);not null;default:''" json:"channel"`
 	Payload   string    `gorm:"type:text;default:'{}'" json:"payload"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
@@ -58,11 +58,11 @@ func (ClueEngagementEvent) TableName() string { return "clue_engagement_events" 
 
 // Grade 总分到等级的映射阈值
 const (
-	ClueGradeS = "S" 
-	ClueGradeA = "A" 
-	ClueGradeB = "B" 
-	ClueGradeC = "C" 
-	ClueGradeD = "D" 
+	ClueGradeS = "S"
+	ClueGradeA = "A"
+	ClueGradeB = "B"
+	ClueGradeC = "C"
+	ClueGradeD = "D"
 )
 
 // CalcGradeFromScore 根据总分计算等级
@@ -80,4 +80,3 @@ func CalcGradeFromScore(score int) string {
 		return ClueGradeD
 	}
 }
-

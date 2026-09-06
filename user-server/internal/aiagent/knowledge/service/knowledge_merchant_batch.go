@@ -16,21 +16,20 @@ import (
 	"github.com/google/uuid"
 )
 
-
 // BatchImportItem 批量导入的单条记录
 type BatchImportItem struct {
 	Title    string   `json:"title"`
 	Content  string   `json:"content"`
 	Category string   `json:"category"`
 	Tags     []string `json:"tags"`
-	Source   string   `json:"source"` 
+	Source   string   `json:"source"`
 }
 
 // BatchImportRequest 批量导入请求
 type BatchImportRequest struct {
 	ProductID string                `json:"product_id"`
 	Operator  string                `json:"operator"`
-	Format    string                `json:"format"` 
+	Format    string                `json:"format"`
 	Items     []BatchImportItem     `json:"items,omitempty"`
 	File      multipart.File        `json:"-"`
 	FileHead  *multipart.FileHeader `json:"-"`
@@ -105,12 +104,11 @@ func (s *KnowledgeMerchantService) BatchImport(ctx context.Context, req *BatchIm
 		}
 		result.Accepted++
 		result.DocumentIDs = append(result.DocumentIDs, imp.DocumentID)
-		_ = productNumericID 
+		_ = productNumericID
 	}
 	return result, nil
 }
 
-// parseBatchFile 解析批量导入文件（CSV/JSON）
 func (s *KnowledgeMerchantService) parseBatchFile(ctx context.Context, file multipart.File, header *multipart.FileHeader, format string) ([]BatchImportItem, error) {
 	if file == nil {
 		return nil, errors.New("文件不能为空")
@@ -146,7 +144,7 @@ func (s *KnowledgeMerchantService) parseBatchFile(ctx context.Context, file mult
 
 func parseCSV(data []byte) ([]BatchImportItem, error) {
 	r := csv.NewReader(strings.NewReader(string(data)))
-	r.FieldsPerRecord = -1 
+	r.FieldsPerRecord = -1
 	rows, err := r.ReadAll()
 	if err != nil {
 		return nil, fmt.Errorf("CSV 解析失败: %w", err)
@@ -207,7 +205,7 @@ func ParseCSV(data []byte) ([]BatchImportItem, error) {
 }
 
 func parseJSON(data []byte) ([]BatchImportItem, error) {
-	// 兼容两种结构：[items] 或 {items: [...]} 或 {data: [...]}
+
 	var arr []BatchImportItem
 	if err := json.Unmarshal(data, &arr); err == nil {
 		return arr, nil
@@ -240,4 +238,3 @@ func parseJSON(data []byte) ([]BatchImportItem, error) {
 func ParseJSON(data []byte) ([]BatchImportItem, error) {
 	return parseJSON(data)
 }
-

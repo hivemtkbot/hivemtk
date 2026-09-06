@@ -1,10 +1,10 @@
 // Package integration 知识库中间表 CRUD 集成测试 (Task 36)
 //
 // 目标: 验证 knowledge_bases + agent_kb_bindings 中间表的全生命周期:
-//   1. 知识库 CRUD (Create/Get/Update/Delete/List/Count)
-//   2. 中间表 CRUD (Bind/Unbind/ListByAgent/ListByKB/BatchBind)
-//   3. 业务规则: kb_code 唯一 / (agent, kb) 唯一 / 重复 bind 覆盖 / 删除级联
-//   4. UpdateKB 业务校验: type/owner_type 合法性
+//  1. 知识库 CRUD (Create/Get/Update/Delete/List/Count)
+//  2. 中间表 CRUD (Bind/Unbind/ListByAgent/ListByKB/BatchBind)
+//  3. 业务规则: kb_code 唯一 / (agent, kb) 唯一 / 重复 bind 覆盖 / 删除级联
+//  4. UpdateKB 业务校验: type/owner_type 合法性
 //
 // 依赖: 真实 PostgreSQL (testutil.NewTestDB), 跨包依赖 service + repository + model.
 package integration
@@ -18,7 +18,6 @@ import (
 	"hivemtk-user/internal/repository"
 	"hivemtk-user/internal/service"
 )
-
 
 // TestKBCRUD_FullLifecycle 测试知识库完整生命周期
 func TestKBCRUD_FullLifecycle(t *testing.T) {
@@ -112,7 +111,7 @@ func TestKBCRUD_DuplicateCode(t *testing.T) {
 
 	agent2 := uint(2)
 	kb2 := &model.KnowledgeBase{
-		KBCode:       "KB-UNIQUE-001", 
+		KBCode:       "KB-UNIQUE-001",
 		Type:         model.KnowledgeBaseTypeRAG,
 		Name:         "second",
 		OwnerType:    model.KnowledgeBaseOwnerPrivate,
@@ -140,7 +139,7 @@ func TestKBCRUD_PrivateRequiresOwner(t *testing.T) {
 		Type:      model.KnowledgeBaseTypeFAQ,
 		Name:      "no owner",
 		OwnerType: model.KnowledgeBaseOwnerPrivate,
-		Enabled: boolPtr(true),
+		Enabled:   boolPtr(true),
 	}
 	err := kbSvc.CreateKB(ctx, kb1)
 	if err == nil {
@@ -174,7 +173,7 @@ func TestKBCRUD_SharedRequiresNoOwner(t *testing.T) {
 		Type:         model.KnowledgeBaseTypeFAQ,
 		Name:         "shared with owner",
 		OwnerType:    model.KnowledgeBaseOwnerShared,
-		OwnerAgentID: &agent1, 
+		OwnerAgentID: &agent1,
 		Enabled:      boolPtr(true),
 	}
 	err := kbSvc.CreateKB(ctx, kb)
@@ -218,7 +217,7 @@ func TestKBCRUD_InvalidOwnerType(t *testing.T) {
 		KBCode:       "KB-INVALID-OWNER",
 		Type:         model.KnowledgeBaseTypeFAQ,
 		Name:         "invalid owner",
-		OwnerType:    "PUBLIC", 
+		OwnerType:    "PUBLIC",
 		OwnerAgentID: &agent1,
 		Enabled:      boolPtr(true),
 	}
@@ -323,7 +322,6 @@ func TestKBCRUD_CountByAgent(t *testing.T) {
 	}
 }
 
-
 // TestBindingCRUD_BindUnbind 验证 Bind/Unbind 生命周期
 func TestBindingCRUD_BindUnbind(t *testing.T) {
 	db := setupIsolationDB(t)
@@ -410,7 +408,7 @@ func TestBindingCRUD_BatchBind(t *testing.T) {
 
 	itemsBad := []service.BatchBindItem{
 		{AgentID: 300, KBID: kbIDs[0], Priority: 1},
-		{AgentID: 300, KBID: 99999, Priority: 1}, 
+		{AgentID: 300, KBID: 99999, Priority: 1},
 	}
 	err := bindSvc.BatchBind(ctx, itemsBad)
 	if err == nil {
@@ -450,11 +448,11 @@ func TestBindingCRUD_DuplicateBinding(t *testing.T) {
 		t.Errorf("service-level repeat bind should not error, got: %v", err)
 	}
 	err := bindRepo.Create(ctx, &model.AgentKBBinding{
-		AgentID:  agent1,
-		KBID:     kb.ID,
-		KBType:   model.KnowledgeBaseTypeFAQ,
-		Role:     model.AgentKBBindingRolePrimary,
-		Enabled:  boolPtr(true),
+		AgentID: agent1,
+		KBID:    kb.ID,
+		KBType:  model.KnowledgeBaseTypeFAQ,
+		Role:    model.AgentKBBindingRolePrimary,
+		Enabled: boolPtr(true),
 	})
 	if err == nil {
 		t.Error("expected unique violation at repository layer")
@@ -643,7 +641,7 @@ func TestKBCRUD_UpdateKB_OwnerTypeChangeToShared(t *testing.T) {
 		Name:         "promoted",
 		Type:         model.KnowledgeBaseTypeFAQ,
 		OwnerType:    model.KnowledgeBaseOwnerShared,
-		OwnerAgentID: nil, 
+		OwnerAgentID: nil,
 		Enabled:      boolPtr(true),
 	}
 	if err := kbSvc.UpdateKB(ctx, kb.ID, update); err != nil {
@@ -683,7 +681,7 @@ func TestKBCRUD_UpdateKB_SharedToPrivateWithOwner(t *testing.T) {
 
 	agent1 := uint(99)
 	update := &model.KnowledgeBase{
-		KBCode:       kb.KBCode, 
+		KBCode:       kb.KBCode,
 		Name:         "demoted",
 		Type:         model.KnowledgeBaseTypeFAQ,
 		OwnerType:    model.KnowledgeBaseOwnerPrivate,
@@ -726,7 +724,7 @@ func TestKBCRUD_ListByType_All(t *testing.T) {
 			Name:         t1,
 			OwnerType:    model.KnowledgeBaseOwnerShared,
 			Enabled:      boolPtr(true),
-			OwnerAgentID: nil, 
+			OwnerAgentID: nil,
 		}
 		_ = agent1
 		if err := kbSvc.CreateKB(ctx, kb); err != nil {
@@ -833,4 +831,3 @@ func TestBindingCRUD_ListByKB(t *testing.T) {
 		t.Errorf("expected top priority=4, got %d", got[0].Priority)
 	}
 }
-

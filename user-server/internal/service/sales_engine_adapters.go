@@ -9,8 +9,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// scriptLookupAdapter 话术库查询适配器
-// 实现 SalesEngine.ScriptLookup 接口
 type scriptLookupAdapter struct {
 	scriptSvc *contentservice.ScriptTemplateService
 }
@@ -23,12 +21,6 @@ func NewScriptLookupAdapter(scriptSvc *contentservice.ScriptTemplateService) Scr
 	return &scriptLookupAdapter{scriptSvc: scriptSvc}
 }
 
-// MatchScript 按意图 + 场景匹配话术
-// SalesEngine 第 4 步调用：根据意图识别结果，匹配最合适的话术模板
-// 策略：
-//  1. 优先按 scenario（场景）过滤
-//  2. 再按 intent 关键词匹配 content/title
-//  3. 取评分最高的一个
 func (a *scriptLookupAdapter) MatchScript(ctx context.Context, intent string, scenario string) (*ScriptTemplate, error) {
 	if a == nil || a.scriptSvc == nil {
 		return nil, nil
@@ -89,7 +81,6 @@ func (a *scriptLookupAdapter) MatchScript(ctx context.Context, intent string, sc
 	}, nil
 }
 
-// uintToString uint 转 string（避免在适配器里引入 strconv 造成阅读负担）
 func uintToString(n uint) string {
 	if n == 0 {
 		return "0"
@@ -104,8 +95,6 @@ func uintToString(n uint) string {
 	return string(buf[i:])
 }
 
-// customerLookupAdapter 客户信息查询适配器
-// 实现 SalesEngine.CustomerLookup 接口
 type customerLookupAdapter struct {
 	customerRepo repository.CustomerRepository
 }
@@ -118,8 +107,6 @@ func NewCustomerLookupAdapter(repo repository.CustomerRepository) CustomerLookup
 	return &customerLookupAdapter{customerRepo: repo}
 }
 
-// GetByOneID 按 OneID（UnifiedID）查询客户
-// SalesEngine 第 1 步调用：消息解析后，用 OneID 识别客户身份
 func (a *customerLookupAdapter) GetByOneID(ctx context.Context, oneID string) (*model.Customer, error) {
 	if a == nil || a.customerRepo == nil || oneID == "" {
 		return nil, nil
@@ -127,7 +114,6 @@ func (a *customerLookupAdapter) GetByOneID(ctx context.Context, oneID string) (*
 	return a.customerRepo.GetByUnifiedID(ctx, oneID)
 }
 
-// GetByID 按主键 ID 查询客户
 func (a *customerLookupAdapter) GetByID(ctx context.Context, id string) (*model.Customer, error) {
 	if a == nil || a.customerRepo == nil || id == "" {
 		return nil, nil

@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupEmailUnsubscribeTestDB 设置邮件退订测试数据库
 func setupEmailUnsubscribeTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.EmailUnsubscribe{},
@@ -23,7 +22,6 @@ func setupEmailUnsubscribeTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// newEmailUnsubscribeService 创建测试用邮件退订服务
 func newEmailUnsubscribeService(database *gorm.DB) *EmailUnsubscribeService {
 	return NewEmailUnsubscribeService(repository.NewEmailUnsubscribeRepository(database))
 }
@@ -47,7 +45,6 @@ func TestEmailUnsubscribe_UnsubscribeEmail_NewRecord(t *testing.T) {
 		t.Fatalf("UnsubscribeEmail failed: %v", err)
 	}
 
-	// 验证记录已创建且 email 被规范化为小写
 	var record model.EmailUnsubscribe
 	if err := database.Where("email = ?", "user@example.com").First(&record).Error; err != nil {
 		t.Fatalf("查询退订记录失败: %v", err)
@@ -79,7 +76,6 @@ func TestEmailUnsubscribe_UnsubscribeEmail_Idempotent(t *testing.T) {
 		t.Fatalf("二次退订失败: %v", err)
 	}
 
-	// 仅一条记录
 	var count int64
 	database.Model(&model.EmailUnsubscribe{}).Where("email = ?", "a@b.com").Count(&count)
 	if count != 1 {
@@ -186,7 +182,7 @@ func TestEmailUnsubscribe_ResubscribeEmail_EmptyEmail(t *testing.T) {
 
 // TestEmailUnsubscribe_GenerateUnsubscribeLink_Format 测试链接格式
 func TestEmailUnsubscribe_GenerateUnsubscribeLink_Format(t *testing.T) {
-	t.Setenv("EMAIL_UNSUBSCRIBE_SECRET", "test-unsubscribe-secret") // v3 fail-closed 守卫
+	t.Setenv("EMAIL_UNSUBSCRIBE_SECRET", "test-unsubscribe-secret")
 	database := setupEmailUnsubscribeTestDB(t)
 	svc := newEmailUnsubscribeService(database)
 
@@ -216,7 +212,7 @@ func TestEmailUnsubscribe_GenerateUnsubscribeLink_EmptyEmail(t *testing.T) {
 
 // TestEmailUnsubscribe_VerifyToken_Valid 测试有效 token 验证
 func TestEmailUnsubscribe_VerifyToken_Valid(t *testing.T) {
-	t.Setenv("EMAIL_UNSUBSCRIBE_SECRET", "test-unsubscribe-secret") // v3 fail-closed 守卫
+	t.Setenv("EMAIL_UNSUBSCRIBE_SECRET", "test-unsubscribe-secret")
 	database := setupEmailUnsubscribeTestDB(t)
 	svc := newEmailUnsubscribeService(database)
 
@@ -248,7 +244,7 @@ func TestEmailUnsubscribe_VerifyToken_Valid(t *testing.T) {
 
 // TestEmailUnsubscribe_VerifyToken_InvalidSignature 测试签名篡改
 func TestEmailUnsubscribe_VerifyToken_InvalidSignature(t *testing.T) {
-	t.Setenv("EMAIL_UNSUBSCRIBE_SECRET", "test-unsubscribe-secret") // v3 fail-closed 守卫
+	t.Setenv("EMAIL_UNSUBSCRIBE_SECRET", "test-unsubscribe-secret")
 	database := setupEmailUnsubscribeTestDB(t)
 	svc := newEmailUnsubscribeService(database)
 

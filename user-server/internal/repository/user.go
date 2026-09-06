@@ -108,7 +108,6 @@ func (r *userRepo) EmailExists(ctx context.Context, email string, excludeID stri
 	return count > 0, err
 }
 
-// GetByTgID 根据 TgID 获取用户
 func (r *userRepo) GetByTgID(ctx context.Context, tgID int64) (*model.User, error) {
 	var user model.User
 	err := r.db.Where("tg_id = ?", tgID).First(&user).Error

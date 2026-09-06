@@ -25,9 +25,7 @@ func (s *KnowledgeService) Reindex(ctx context.Context, productID string, docID 
 	}
 	logger.Infof("[knowledge][Reindex] called doc=%d chunks=%d", doc.ID, len(chunks))
 	if len(chunks) == 0 {
-		// R43 修复：0 分片说明上次分片阶段失败（如短文本被 MinChunkSize 全量过滤，
-		// 或 embedding 不可达中断），绝非"无可索引内容"。此前直接伪造 indexed/100
-		// 状态（假成功），文档永远无法被检索。改为：读回源内容重走完整分片+向量化管线。
+
 		content := ""
 		logger.Infof("[knowledge][Reindex] zero-chunk re-pipeline doc=%d file=%s", doc.ID, doc.FilePath)
 		if doc.FilePath != "" {
@@ -60,7 +58,7 @@ func (s *KnowledgeService) Reindex(ctx context.Context, productID string, docID 
 		_ = s.docRepo.UpdateStatus(ctx, doc.ID, model.EmbedStatusFailed, 0, err.Error())
 		return err
 	}
-	// N-4 维度守卫：preset 不符条目剔除（log+跳过），不中断批量写入
+
 	chunks, embeddings = filterValidEmbeddings(embService, embCfg, chunks, embeddings)
 	if err := s.chunkRepo.UpdateEmbeddingsBatch(ctx, chunks, embeddings); err != nil {
 		return err
@@ -86,4 +84,3 @@ func (s *KnowledgeService) RebuildIndex(ctx context.Context, productID string) e
 	}
 	return firstErr
 }
-

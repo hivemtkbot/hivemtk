@@ -4,21 +4,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// R55 T1：SOP 变体图变异（业务逻辑，五层归属 Service）
-//
-// CloneSOPAndCreateABTest 此前原样复制 → variant B ≡ variant A，AB 实验无意义。
-// 现由 Service 提供按实验标签的图变异器，Repository 在事务内执行（保持原子性）。
-//
-// 支持的变异（与 OptimizationSuggestion.SuggestionType 对齐）：
-//   - branch_prune:  删除首个可剪的 action/message 中段节点（至少保留 3 个节点）
-//   - add_objection: 在首个非 start 节点后插入异议处理分支节点
-//   - timing_adjust: 首个 wait 节点 wait_seconds 减半（下限 60s，加快跟进节奏）
-//   - add_empathy:   首个 llm/message 节点 prompt 追加共情指令
-//   - node_merge:    合并相邻两个 message 节点
-//
-// 图结构兼容 {"nodes":[...]} / {"steps":[...]} / {"node_list":[...]} 三种 key。
-// 返回 nil 表示无法安全变异（图未知/标签不支持/无可操作节点），调用方降级为原样克隆。
-
 // SOPGraphMutatorForExperiment 返回实验标签对应的图变异器（纯函数，不可变入参）
 func SOPGraphMutatorForExperiment(experimentTag string) func(graph model.JSONMap) model.JSONMap {
 	return func(graph model.JSONMap) model.JSONMap {
@@ -61,7 +46,7 @@ func mutateSOPGraph(graph model.JSONMap, experimentTag string) model.JSONMap {
 		return s
 	}
 	rewireNext := func(fromID string, toIdx int) {
-		// 按 ID 找 from 节点（索引在增删后会漂移，ID 稳定）
+
 		if toIdx < 0 || toIdx >= len(nodes) {
 			return
 		}
@@ -119,9 +104,9 @@ func mutateSOPGraph(graph model.JSONMap, experimentTag string) model.JSONMap {
 			return nil
 		}
 		prunedID, _ := nodeMap(worstIdx)["id"].(string)
-		prevID, _ := nodeMap(worstIdx-1)["id"].(string)
+		prevID, _ := nodeMap(worstIdx - 1)["id"].(string)
 		rewireNext(prevID, worstIdx+1)
-		// 删除被剪节点后，剩余节点中指向它的 next 一并清除
+
 		nodes = append(nodes[:worstIdx], nodes[worstIdx+1:]...)
 		removeNextRef(nodes, prunedID)
 		structChanged = true
@@ -206,8 +191,8 @@ func mutateSOPGraph(graph model.JSONMap, experimentTag string) model.JSONMap {
 			if nodeType(nodeMap(i)) != "message" || nodeType(nodeMap(i+1)) != "message" {
 				continue
 			}
-			mergedID, _ := nodeMap(i+1)["id"].(string)
-			// 合并语义：保留首个节点，next 继承末位节点的 next；next 引用已由 rewireNext 前移
+			mergedID, _ := nodeMap(i + 1)["id"].(string)
+
 			nextOfSecond := nodeMap(i + 1)["next"]
 			nodeMap(i)["next"] = nextOfSecond
 			nodes = append(nodes[:i+1], nodes[i+2:]...)
@@ -314,7 +299,6 @@ func SOPGraphMutatorForNodePrompt(nodeID, newPrompt string) func(graph model.JSO
 	}
 }
 
-// removeNextRef 清除 nodes 中所有 next 列表里指向 targetID 的引用（节点删除后清理悬挂引用）
 func removeNextRef(nodes []any, targetID string) {
 	if targetID == "" {
 		return

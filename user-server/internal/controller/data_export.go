@@ -40,7 +40,7 @@ func (c *DataExportController) Export(ctx *gin.Context) {
 	data, err := c.svc.ExportJSON(ctx.Request.Context(), customerID)
 	if err != nil {
 		msg := err.Error()
-		// 错误码映射: DSAR_001=参数错误, DSAR_002=客户不存在, 其余=内部错误
+
 		switch {
 		case strings.Contains(msg, "DSAR_001"):
 			ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": msg})
@@ -57,6 +57,5 @@ func (c *DataExportController) Export(ctx *gin.Context) {
 		fmt.Sprintf(`attachment; filename="dsar_export_%s.json"`, customerID))
 	ctx.Data(http.StatusOK, "application/json; charset=utf-8", data)
 
-	// 防止 json 未使用警告
 	_ = json.Marshal
 }

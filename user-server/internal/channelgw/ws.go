@@ -16,22 +16,14 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-
-// WS 传输默认参数（DB 驱动，以下为 fallback 默认值）。
-// 运行时通过 service.GlobalConfigParam() 按 group=channelgw 读取 DB 参数：
-//   channelgw.ws_register_timeout → wsRegisterTimeout (fallback)
-//   channelgw.ws_read_idle_timeout → wsReadIdleTimeout (fallback)
-//   channelgw.ws_write_timeout → wsWriteTimeout (fallback)
-//   channelgw.ws_push_interval_default → wsPushIntervalDefault (fallback)
-//   channelgw.ws_pipeline_timeout → wsPipelineTimeout (fallback)
 const (
-	wsRegisterTimeout = 15 * time.Second
-	wsReadIdleTimeout = 90 * time.Second
-	wsWriteTimeout = 10 * time.Second
+	wsRegisterTimeout     = 15 * time.Second
+	wsReadIdleTimeout     = 90 * time.Second
+	wsWriteTimeout        = 10 * time.Second
 	wsPushIntervalDefault = 2 * time.Second
-	wsPushBatchDefault = 20
-	wsMaxFrameSize = 1 << 20
-	wsPipelineTimeout = 30 * time.Second
+	wsPushBatchDefault    = 20
+	wsMaxFrameSize        = 1 << 20
+	wsPipelineTimeout     = 30 * time.Second
 )
 
 func runtimeWSRegisterTimeout(ctx context.Context) time.Duration {
@@ -57,7 +49,7 @@ type WSTransport struct {
 	upgrader     websocket.Upgrader
 	pushInterval time.Duration
 	pushBatch    int
-	OnRegister func(ctx context.Context, channel, accountID string)
+	OnRegister   func(ctx context.Context, channel, accountID string)
 }
 
 // NewWSTransport 构造 WS 传输。registry 为 nil 时使用 Default。
@@ -71,7 +63,7 @@ func NewWSTransport(pipeline IngressPipeline, registry *Registry) *WSTransport {
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  4096,
 			WriteBufferSize: 4096,
-			CheckOrigin: func(r *http.Request) bool { return true },
+			CheckOrigin:     func(r *http.Request) bool { return true },
 		},
 		pushInterval: runtimeWSPushIntervalDefault(context.Background()),
 		pushBatch:    wsPushBatchDefault,
@@ -116,7 +108,7 @@ func (t *WSTransport) HandleWS(c *gin.Context) {
 	logger.Infof("[ChannelGW WS] 渠道连接已注册: channel=%s account=%s", channel, accountID)
 
 	if t.OnRegister != nil {
-		// 最高标准审计 P1-3 修复：OnRegister 回调改走 SafeGo（原裸 recover 吞 panic 无日志）
+
 		utils.SafeGo(context.Background(), "channelgw.ws.on_register", func(ctx context.Context) {
 			cbCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
@@ -130,8 +122,6 @@ func (t *WSTransport) HandleWS(c *gin.Context) {
 	logger.Infof("[ChannelGW WS] 渠道连接已断开: channel=%s account=%s", channel, accountID)
 }
 
-// validateRegister 校验 register 帧，返回归一化的 (channel, accountID, 拒绝原因)。
-// channel/account_id 帧级与消息级均可携带，帧级优先。
 func (t *WSTransport) validateRegister(f *Frame) (string, string, string) {
 	if f == nil || f.Type != FrameRegister {
 		return "", "", "first frame must be register"
@@ -151,19 +141,17 @@ func (t *WSTransport) validateRegister(f *Frame) (string, string, string) {
 	return channel, accountID, ""
 }
 
-// wsConn 单条渠道 WS 连接的运行态。
 type wsConn struct {
 	t         *WSTransport
 	conn      *websocket.Conn
 	channel   string
 	accountID string
 
-	sendMu    sync.Mutex    
-	done      chan struct{} 
+	sendMu    sync.Mutex
+	done      chan struct{}
 	closeOnce sync.Once
 }
 
-// close 幂等关闭：广播 done + 关闭底层连接。
 func (c *wsConn) close() {
 	c.closeOnce.Do(func() {
 		close(c.done)
@@ -171,7 +159,6 @@ func (c *wsConn) close() {
 	})
 }
 
-// send 线程安全写帧；写失败即关闭连接并返回 false。
 func (c *wsConn) send(f *Frame) bool {
 	select {
 	case <-c.done:
@@ -190,7 +177,6 @@ func (c *wsConn) send(f *Frame) bool {
 	return true
 }
 
-// readPump 上行帧循环：ping/ack/inbound_message/history。读错误即结束连接。
 func (c *wsConn) readPump() {
 	defer c.close()
 	c.conn.SetReadLimit(wsMaxFrameSize)
@@ -204,7 +190,6 @@ func (c *wsConn) readPump() {
 	}
 }
 
-// handleFrame 分派单条上行帧。
 func (c *wsConn) handleFrame(f *Frame) {
 	switch f.Type {
 	case FramePing:
@@ -229,7 +214,6 @@ func (c *wsConn) handleFrame(f *Frame) {
 	}
 }
 
-// collectFrameMessages 合并帧内 Message 与 Messages（过滤 nil，回填渠道/账号）。
 func collectFrameMessages(f *Frame, channel, accountID string) []*IngestMessage {
 	msgs := make([]*IngestMessage, 0, len(f.Messages)+1)
 	if f.Message != nil {
@@ -250,8 +234,6 @@ func collectFrameMessages(f *Frame, channel, accountID string) []*IngestMessage 
 	return msgs
 }
 
-// handleInbound 实时入站帧：历史项先落库，实时消息批量进管道，回 ack(results)。
-// 语义与 HTTP 传输 HandleHTTPIngest 严格同源（含「实时消息不得作为 history 回填」修复）。
 func (c *wsConn) handleInbound(f *Frame) {
 	msgs := collectFrameMessages(f, c.channel, c.accountID)
 	if len(msgs) == 0 {
@@ -317,7 +299,6 @@ func (c *wsConn) handleInbound(f *Frame) {
 	})
 }
 
-// handleHistory 历史/回填帧：仅落库，不触发 AI。
 func (c *wsConn) handleHistory(f *Frame) {
 	msgs := collectFrameMessages(f, c.channel, c.accountID)
 	if len(msgs) == 0 {
@@ -340,8 +321,6 @@ func (c *wsConn) handleHistory(f *Frame) {
 	}
 }
 
-// pushPump 出站推帧泵：周期性认领下发队列（pending→inflight）并推送 outbound_reply 帧。
-// 客户端经 ack 帧回写 delivered；断线未 ack 的行由既有惰性回收重回 pending。
 func (c *wsConn) pushPump() {
 	ticker := time.NewTicker(c.t.pushInterval)
 	defer ticker.Stop()
@@ -355,7 +334,6 @@ func (c *wsConn) pushPump() {
 	}
 }
 
-// pushOnce 单轮推帧：认领 → 逐条推帧（写失败即停止，剩余由回收机制重生）。
 func (c *wsConn) pushOnce() {
 	ctx, cancel := context.WithTimeout(context.Background(), runtimeWSPipelineTimeout(context.Background()))
 	hubs, err := c.t.pipeline.ClaimOutbound(ctx, c.channel, c.accountID, c.t.pushBatch)
@@ -383,8 +361,7 @@ func (c *wsConn) pushOnce() {
 			},
 		}
 		if !c.send(f) {
-			return 
+			return
 		}
 	}
 }
-

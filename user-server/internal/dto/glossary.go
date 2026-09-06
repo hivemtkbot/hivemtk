@@ -4,15 +4,14 @@ import (
 	"time"
 )
 
-
 // GlossaryRequest 术语表创建/更新请求
 type GlossaryRequest struct {
 	TermID       string            `json:"term_id" binding:"required"`
-	Category     string            `json:"category" binding:"required"` 
+	Category     string            `json:"category" binding:"required"`
 	Preserve     bool              `json:"preserve"`
-	Translations map[string]string `json:"translations" binding:"required"` 
+	Translations map[string]string `json:"translations" binding:"required"`
 	Pattern      string            `json:"pattern"`
-	Status       string            `json:"status"` 
+	Status       string            `json:"status"`
 }
 
 // GlossaryUpdateRequest 术语更新请求（term_id 来自 URL 路径，body 无需重复提供）
@@ -49,13 +48,13 @@ type GlossaryListRequest struct {
 // GlossaryValidateRequest 术语校验预览请求
 type GlossaryValidateRequest struct {
 	Text   string `json:"text" binding:"required"`
-	Lang   string `json:"lang"`    
-	TermID string `json:"term_id"` 
+	Lang   string `json:"lang"`
+	TermID string `json:"term_id"`
 }
 
 // GlossaryValidateIssue 校验记录
 type GlossaryValidateIssue struct {
-	Type     string `json:"type"` 
+	Type     string `json:"type"`
 	Term     string `json:"term"`
 	Expected string `json:"expected"`
 	Actual   string `json:"actual"`
@@ -67,5 +66,3 @@ type GlossaryValidateResponse struct {
 	CorrectedText string                  `json:"corrected_text"`
 	Issues        []GlossaryValidateIssue `json:"issues"`
 }
-
-

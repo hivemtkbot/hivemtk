@@ -1,6 +1,5 @@
 package bridge
 
-
 import (
 	"context"
 	"encoding/json"
@@ -56,7 +55,7 @@ func TestAckOutboundDeliveredDetailed_FailedStatus_P0_3(t *testing.T) {
 	if len(res.Items) != 1 || res.Items[0].Status != "failed" {
 		t.Errorf("期望 items[0].status=failed，实际 %+v", res.Items)
 	}
-	// DB 验证：status 应为 failed
+
 	var got model.MessageHub
 	if err := db.Where("msg_id = ?", "mh:fail_1").First(&got).Error; err != nil {
 		t.Fatalf("查询失败: %v", err)
@@ -103,7 +102,7 @@ func TestAckOutboundDeliveredDetailed_ConversationIDFilter_P0_1(t *testing.T) {
 	if res.AffectedCount != 1 {
 		t.Errorf("期望 affected=1（仅 conv_A），实际 %d", res.AffectedCount)
 	}
-	// DB 验证：conv_A 已 delivered，conv_B 仍 pending
+
 	var a, b model.MessageHub
 	if err := db.Where("conversation_id = ?", "conv_A").First(&a).Error; err != nil {
 		t.Fatalf("查 conv_A: %v", err)
@@ -130,11 +129,11 @@ func TestAckOutboundDeliveredDetailed_NotInScope_P0_8(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		channel     = "douyin_web"
-		accountA    = "acc_A"
-		accountB    = "acc_B"
-		msgInOther  = "mh:other_account_msg"
-		msgMissing  = "mh:truly_missing"
+		channel    = "douyin_web"
+		accountA   = "acc_A"
+		accountB   = "acc_B"
+		msgInOther = "mh:other_account_msg"
+		msgMissing = "mh:truly_missing"
 	)
 	h := &model.MessageHub{
 		Platform:       channel,
@@ -327,7 +326,7 @@ func TestAckBridgeOutbox_FailedStatus_P0_3(t *testing.T) {
 	if !strings.Contains(rr.Body.String(), `"failed_items_count":1`) {
 		t.Errorf("响应缺 failed_items_count=1: %s", rr.Body.String())
 	}
-	// 验证 DB
+
 	var got model.MessageHub
 	if err := db.Where("msg_id = ?", "mh:h_failed").First(&got).Error; err != nil {
 		t.Fatalf("查询失败: %v", err)
@@ -412,7 +411,6 @@ func TestAckOutboundDeliveredDetailed_CrossAccountProbe_NotInScope_P0_6(t *testi
 		t.Errorf("期望 items[0].status=not_in_scope，实际 %+v", res.Items)
 	}
 
-	// DB 状态：B 的 outbound 行不应被 A 探测翻转
 	var b model.MessageHub
 	if err := db.Where("msg_id = ?", "m_probe").First(&b).Error; err != nil {
 		t.Fatalf("查询 B 失败: %v", err)
@@ -495,7 +493,6 @@ func TestAckBridgeOutbox_CrossAccountProbe_NotInScope_P0_6(t *testing.T) {
 		t.Errorf("响应不应泄露目标归属账号（B 的 account_id 不应出现在 A 的响应中）")
 	}
 
-	// DB：B 的行不应被 A 操作影响
 	var b model.MessageHub
 	if err := db.Where("msg_id = ?", "m_probe_http").First(&b).Error; err != nil {
 		t.Fatalf("查询 B 失败: %v", err)
@@ -504,4 +501,3 @@ func TestAckBridgeOutbox_CrossAccountProbe_NotInScope_P0_6(t *testing.T) {
 		t.Errorf("B 的行不应被 A 操作影响，期望 pending，实际 %s", b.Status)
 	}
 }
-

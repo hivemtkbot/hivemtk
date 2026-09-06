@@ -11,7 +11,7 @@
       </template>
     </el-alert>
 
-    <!-- 筛选 -->
+    
     <el-card class="filter-card">
       <div class="filter-bar">
         <el-select v-model="filter.product_id" placeholder="选择产品" clearable filterable style="width: 200px" @change="loadFeedbacks">
@@ -28,7 +28,7 @@
       </div>
     </el-card>
 
-    <!-- 统计 -->
+    
     <el-row :gutter="16" class="metric-row">
       <el-col :span="6">
         <el-card class="metric-card">
@@ -56,7 +56,7 @@
       </el-col>
     </el-row>
 
-    <!-- 反馈列表 -->
+    
     <el-card>
       <el-table :data="feedbacks" v-loading="loading" stripe>
         <el-table-column prop="id" label="ID" width="80" />
@@ -109,11 +109,9 @@ import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import { knowledgeMerchantAPI } from '@/api/knowledgeMerchant'
 import { ragProductConfigAPI } from '@/api/ragProductConfig'
-// 统一枚举：评分/反馈
-import { getRatingLabel, getRatingTagType } from '@/constants/rating'
+import { getRatingLabel, getRatingTagType } from '@/constants/rating';
 
-// 兼容保留 class 钩子（业务侧可能基于 class 做样式）
-const getRatingClass = (r) => `rating-${r}`
+const getRatingClass = (r) => `rating-${r}`;
 
 const loading = ref(false)
 const feedbacks = ref([])
@@ -150,8 +148,7 @@ const loadFeedbacks = async () => {
     })
     feedbacks.value = res?.items || []
     pagination.total = res?.total || 0
-    // 计算统计
-    computeStats()
+    computeStats();
   } catch (e) {
     ElMessage.error('加载反馈失败: ' + (e.message || ''))
   } finally {

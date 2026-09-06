@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-// constantVectorizer 返回固定单位向量的测试向量化器
-// 用于搜索等需要保证查询与文档相似度的测试,避免因哈希降级向量随机性导致结果为空。
 type constantVectorizer struct {
 	dimension int
 }
@@ -129,7 +127,6 @@ func (m *MockIndexManager) SearchIndex(ctx context.Context, kbID string, queryVe
 	return result, nil
 }
 
-// cosineSimilarity 计算余弦相似度
 func cosineSimilarity(a, b []float32) float64 {
 	if len(a) != len(b) {
 		return 0
@@ -848,4 +845,3 @@ func TestKnowledgeBaseInfo(t *testing.T) {
 		t.Error("Expected IsPublic to be true")
 	}
 }
-

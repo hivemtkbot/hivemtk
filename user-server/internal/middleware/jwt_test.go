@@ -15,7 +15,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// testResponseWriter is a mock implementation of gin.ResponseWriter
 type testResponseWriter struct {
 	*httptest.ResponseRecorder
 	size int
@@ -270,7 +269,7 @@ func TestParseJWTToken(t *testing.T) {
 			"user_id":  float64(123),
 			"username": "testuser",
 			"role":     "user",
-			"exp":      time.Now().Add(-time.Hour).Unix(), 
+			"exp":      time.Now().Add(-time.Hour).Unix(),
 		}
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 		tokenString, err := token.SignedString([]byte("test-secret-key"))
@@ -700,4 +699,3 @@ func TestDataChangeMiddleware(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", w.Code)
 	}
 }
-

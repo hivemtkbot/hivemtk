@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupIntegrationTestDB 设置集成测试数据库
 func setupIntegrationTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.IntegrationAccount{},
@@ -26,7 +25,6 @@ func setupIntegrationTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupIntegrationRepositories 创建测试用的仓库实例
 func setupIntegrationRepositories(t *testing.T) (
 	*IntegrationAccountRepository,
 	*SyncLogRepository,

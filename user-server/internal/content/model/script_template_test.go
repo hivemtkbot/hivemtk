@@ -145,4 +145,3 @@ func TestScriptRecommend_DefaultValues(t *testing.T) {
 		t.Logf("Confidence is %f (expected 0 before save)", recommend.Confidence)
 	}
 }
-

@@ -42,7 +42,6 @@ func (s *CustomerIdentityService) IdentifyOrCreate(ctx context.Context, identifi
 		return nil, ErrIdentityNotFound
 	}
 
-	// 按优先级查找现有客户
 	var customer *model.Customer
 	var err error
 
@@ -145,9 +144,7 @@ func (s *CustomerIdentityService) LinkIdentity(ctx context.Context, customerID, 
 	}
 
 	if phone != "" {
-		// v3 审计 P2-21 修复：DB 错误必须可见
-		// 原：existing, _ := s.repo.GetByPhone(...) 静默吞错
-		// 新：捕获 + log，DB 故障时拒绝操作（防写入重复 phone）
+
 		existing, err := s.repo.GetByPhone(ctx, phone)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Errorf("[OneID LinkIdentity] 查 phone=%s 失败: %v", phone, err)
@@ -168,9 +165,7 @@ func (s *CustomerIdentityService) LinkIdentity(ctx context.Context, customerID, 
 	}
 
 	if wechatOpenID != "" {
-		// v3 审计 P2-22 修复：DB 错误必须可见
-		// 原：existing, _ := s.repo.GetByWechatOpenID(...) 静默吞错
-		// 新：捕获 + log
+
 		existing, err := s.repo.GetByWechatOpenID(ctx, wechatOpenID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Errorf("[OneID LinkIdentity] 查 wechat=%s 失败: %v", wechatOpenID, err)
@@ -239,9 +234,7 @@ func (s *CustomerIdentityService) MergeByIdentity(ctx context.Context, identifie
 	}
 
 	primary := matchedCustomers[0]
-	// v3 审计 P0-03 修复：外层加事务包整个 merge 循环
-	// 原：每个 MergeCustomers 独立事务，并发下两个请求互为 primary 导致"主-次-主"循环
-	// 新：在一个事务里串行 merge，失败回滚
+
 	if err := s.repo.WithTransaction(ctx, func(txCtx context.Context) error {
 		for i := 1; i < len(matchedCustomers); i++ {
 			secondary := matchedCustomers[i]
@@ -257,8 +250,7 @@ func (s *CustomerIdentityService) MergeByIdentity(ctx context.Context, identifie
 	}
 
 	updatedPrimary, err := s.repo.GetByID(ctx, primary.ID)
-	// v3 审计 P0-04 修复：nil 解引用 panic
-	// 原：updatedPrimary, _ := s.repo.GetByID(...) 错误吞掉
+
 	if err != nil {
 		return nil, fmt.Errorf("get primary after merge: %w", err)
 	}
@@ -269,7 +261,6 @@ func (s *CustomerIdentityService) MergeByIdentity(ctx context.Context, identifie
 	return updatedPrimary, s.repo.Update(ctx, updatedPrimary)
 }
 
-// updateCustomerIdentifiers 更新客户身份标识（填充空值）
 func (s *CustomerIdentityService) updateCustomerIdentifiers(ctx context.Context, customer *model.Customer, identifiers identity.Identifiers) {
 	if customer.Phone == "" && identifiers.Phone != "" {
 		customer.Phone = identifiers.Phone
@@ -339,13 +330,8 @@ func (s *CustomerIdentityService) ResolveIdentity(ctx context.Context, identifie
 	return customers, nil
 }
 
-// findExistingWithRetry 在唯一索引冲突后回查已存在的客户。
-// 背景：PG 默认 READ COMMITTED，并发方 Create 提交前本事务可能读到 miss。
-// 优先按冲突的 unified_id 直接回查（精准、必命中已提交记录），
-// 失败再退化为 FindByIdentity（OR 匹配所有标识），有限重试覆盖提交窗口。
 func (s *CustomerIdentityService) findExistingWithRetry(ctx context.Context, identifiers identity.Identifiers) (*model.Customer, error) {
-	// 提升重试上限与退避窗口以覆盖更高并发建档场景：
-	// 退避 10→20→40→80→160→320→640ms（共 ~1.27s），给并发方提交留出充裕时间。
+
 	const maxAttempts = 8
 	var lastErr error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
@@ -371,11 +357,10 @@ func (s *CustomerIdentityService) findExistingWithRetry(ctx context.Context, ide
 	return nil, lastErr
 }
 
-// unifiedIDFromIdentifiers 根据标识优先级生成 unified_id（与 model.GenerateCustomerUnifiedID 一致）。
 func unifiedIDFromIdentifiers(id identity.Identifiers) string {
 	switch {
 	case id.Phone != "":
-		return identity.UnifiedIDFromPhone(id.Phone) // 与 model 派生保持一致(盐化哈希)
+		return identity.UnifiedIDFromPhone(id.Phone)
 	case id.Email != "":
 		return "email:" + id.Email
 	case id.WechatOpenID != "":

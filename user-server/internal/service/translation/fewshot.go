@@ -35,13 +35,10 @@ type FewShotAssetReader interface {
 	GetActiveAssetBundle(ctx context.Context, assetType string) (*model.AssetBundle, error)
 }
 
-// fewShotCacheTTL 缓存默认 TTL（1 小时，与 GlossaryService 对齐）。
 const fewShotCacheTTL = time.Hour
 
-// fewShotCacheKeyPrefix 缓存 key 前缀。
 const fewShotCacheKeyPrefix = "fewshot:lang:"
 
-// fewShotDefaultAssetType 默认资产包类型标识。
 const fewShotDefaultAssetType = "fewshot"
 
 // FewShotService few-shot 示例库服务。
@@ -148,7 +145,6 @@ func (s *FewShotService) InvalidateCacheLang(ctx context.Context, lang string) {
 	s.invalidateCache(ctx, lang)
 }
 
-// invalidateCache 内部实现。
 func (s *FewShotService) invalidateCache(ctx context.Context, lang string) {
 	lang = i18npkg.NormalizeLang(lang)
 	if lang == "" || lang == "*" {
@@ -163,7 +159,6 @@ func (s *FewShotService) invalidateCache(ctx context.Context, lang string) {
 	}
 }
 
-// loadFromCache 从缓存读取示例列表；未命中或反序列化失败时返回 (nil, false)。
 func (s *FewShotService) loadFromCache(ctx context.Context, lang string) ([]FewShotExample, bool) {
 	key := fewShotCacheKeyPrefix + lang
 	var examples []FewShotExample
@@ -174,7 +169,6 @@ func (s *FewShotService) loadFromCache(ctx context.Context, lang string) ([]FewS
 	return examples, true
 }
 
-// saveToCache 写缓存（best-effort，失败仅日志）。
 func (s *FewShotService) saveToCache(ctx context.Context, lang string, examples []FewShotExample) {
 	key := fewShotCacheKeyPrefix + lang
 	if err := s.cache.SetJSON(ctx, key, examples, fewShotCacheTTL); err != nil {
@@ -182,10 +176,6 @@ func (s *FewShotService) saveToCache(ctx context.Context, lang string, examples 
 	}
 }
 
-// parseExamples 把 model.JSONArray（[]any）解析为 FewShotExample 切片。
-//
-// JSONB 反序列化后每个元素为 map[string]any，通过类型断言提取字段。
-// 非法元素静默跳过（best-effort），不阻断整体解析。
 func parseExamples(raw model.JSONArray) []FewShotExample {
 	if len(raw) == 0 {
 		return nil
@@ -210,10 +200,6 @@ func parseExamples(raw model.JSONArray) []FewShotExample {
 	return out
 }
 
-// filterByLang 按语言过滤示例。
-//
-// lang 为空时返回全部（兜底）。未指定 Lang 字段的示例（空串）也会被包含，
-// 视为"通用示例"。
 func filterByLang(examples []FewShotExample, lang string) []FewShotExample {
 	if lang == "" {
 		return examples

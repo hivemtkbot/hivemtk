@@ -31,14 +31,9 @@ func NewContentService(ar repository.GeoArticleRepository, or repository.GeoOpti
 	}
 }
 
-// GenerateContent 生成内容
-
-// extractTitleAndContent 从 LLM 生成的 Markdown 中抽取第一个标题行作为 Title，
-// 并从正文剥离该行（避免详情页重复渲染大标题）。
-// 支持 # / ## / ### / #### 等各级 Markdown 标题。
 func extractTitleAndContent(raw string) (title, content string) {
 	content = strings.TrimSpace(raw)
-	// 逐行扫描，找第一个 Markdown 标题（# 到 ######）
+
 	lines := strings.Split(content, "\n")
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
@@ -46,7 +41,7 @@ func extractTitleAndContent(raw string) (title, content string) {
 			prefix := strings.Repeat("#", h) + " "
 			if strings.HasPrefix(trimmed, prefix) {
 				title = strings.TrimSpace(strings.TrimPrefix(trimmed, prefix))
-				// 去掉标题行后重新拼接正文
+
 				content = strings.TrimSpace(strings.Join(lines[i+1:], "\n"))
 				return
 			}
@@ -71,7 +66,7 @@ func (s *ContentService) GenerateContent(ctx context.Context, lang, keyword, bra
 		lang = "zh"
 	}
 	advantagesStr := AdvantagesToString(advantages)
-	// 兜底钳制：DTO 校验之外再防一层（服务也可能被其他调用方使用），避免超大字数烧 LLM 成本
+
 	if wordCount > 20000 {
 		wordCount = 20000
 	}
@@ -103,16 +98,15 @@ func (s *ContentService) GenerateContent(ctx context.Context, lang, keyword, bra
 		return nil, fmt.Errorf("保存文章失败: %w", err)
 	}
 
-	// 联动：生成内容自动写入 GEO 知识库
 	if s.kbRepo != nil {
 		if err := s.kbRepo.Create(&model.GeoKnowledgeDocument{
 			Title:       article.Title,
 			Content:     article.Content,
 			DocType:     "generated",
-			SourceLevel: "D", // 自生成内容默认 D 级，后续人工审核可升级
+			SourceLevel: "D",
 			SourceURL:   "",
 		}); err != nil {
-			// KB 写入失败不阻断主流程，只记日志
+
 			logger.Error(err, "[GEO Content] 知识库联动写入失败")
 		} else {
 			logger.Info(fmt.Sprintf("[GEO Content] 已写入知识库 title=%s", article.Title))
@@ -165,7 +159,6 @@ func (s *ContentService) ScoreContent(ctx context.Context, articleID, content, b
 
 	result := parseScoreResult(resp.Content)
 
-	// 持久化评分结果到文章
 	if articleID != "" && s.articleRepo != nil {
 		article, gErr := s.articleRepo.GetByID(articleID)
 		if gErr == nil && article != nil {
@@ -186,7 +179,6 @@ func (s *ContentService) ScoreContent(ctx context.Context, articleID, content, b
 	return result, nil
 }
 
-// scoreResult 评分结果结构（与 ContentScorePrompt 输出契约一致）
 type scoreResult struct {
 	Scores struct {
 		Structure    float64 `json:"structure"`
@@ -200,7 +192,6 @@ type scoreResult struct {
 	Strengths    []string          `json:"strengths"`
 }
 
-// parseScoreResult 解析评分结果
 func parseScoreResult(content string) map[string]any {
 	fallback := map[string]any{
 		"scores":       map[string]float64{"total": 0},
@@ -244,7 +235,6 @@ func (s *ContentService) EnhanceEEAT(ctx context.Context, articleID, content, br
 		"model":    resp.Model,
 	}
 
-	// 持久化增强后内容到文章
 	if articleID != "" && s.articleRepo != nil {
 		article, gErr := s.articleRepo.GetByID(articleID)
 		if gErr == nil && article != nil {
@@ -287,7 +277,6 @@ func (s *ContentService) GenerateSchema(ctx context.Context, articleID, brandNam
 	schema["provider"] = resp.Provider
 	schema["model"] = resp.Model
 
-	// 持久化 Schema 到文章
 	if articleID != "" && s.articleRepo != nil {
 		article, gErr := s.articleRepo.GetByID(articleID)
 		if gErr == nil && article != nil {
@@ -307,7 +296,7 @@ func (s *ContentService) GenerateSchema(ctx context.Context, articleID, brandNam
 // 分析内容是否为陈词滥调、模板化、或与常见 GEO 内容高度雷同
 // LLM 不可达时 fallback 到启发式套话检测（正则匹配常见 GEO 行业模板）
 func (s *ContentService) CheckUniqueness(ctx context.Context, content string) (map[string]any, error) {
-	// 先尝试 LLM 检测
+
 	prompt := fmt.Sprintf(`你是 GEO 内容原创性评审专家。请对以下内容进行原创性检测，输出 JSON：
 {
   "originality_score": 0-100（分数越高越原创）,
@@ -329,7 +318,7 @@ func (s *ContentService) CheckUniqueness(ctx context.Context, content string) (m
 	resp, err := s.llm.GenerateJSON(ctx, "", prompt, 1500)
 	if err == nil {
 		s.recordAPICall(ctx, resp, "uniqueness_check")
-		// 解析 LLM 返回
+
 		jsonStr := extractJSONObject(resp.Content)
 		result := map[string]any{
 			"originality_score":  0,
@@ -353,12 +342,9 @@ func (s *ContentService) CheckUniqueness(ctx context.Context, content string) (m
 		return result, nil
 	}
 
-	// LLM 不可达：fallback 到启发式检测（常见 GEO 行业套话 + 模板化句子）
 	return heuristicUniquenessCheck(content), nil
 }
 
-// heuristicUniquenessCheck LLM 不可达时的启发式原创性检测
-// 通过正则匹配 GEO/SEO 行业常见套话模板，给出启发式评分
 func heuristicUniquenessCheck(content string) map[string]any {
 	cliches := []string{
 		"在当今数字化时代", "随着互联网的发展", "在这个信息爆炸的时代",
@@ -379,7 +365,6 @@ func heuristicUniquenessCheck(content string) map[string]any {
 		}
 	}
 
-	// 简单评分：基础分 100，每命中一个套话扣 15
 	score := 100 - len(patterns)*15
 	if score < 0 {
 		score = 0
@@ -420,7 +405,6 @@ func (s *ContentService) GetArticleByID(ctx context.Context, id string) (*model.
 	return s.articleRepo.GetByID(id)
 }
 
-// recordAPICall 记录 API 调用
 func (s *ContentService) recordAPICall(ctx context.Context, resp *LLMResult, operation string) {
 	if s.apiCallRepo == nil || resp == nil {
 		return

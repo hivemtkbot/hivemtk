@@ -1,19 +1,7 @@
-/**
- * Feature Flag Composable（USR-AI-05）
- * 借鉴：https://docs.growthbook.io/lib/vue
- *
- * 用法：
- *   const { isOn, value, loading, error } = useFeatureFlag('new_dashboard')
- *   if (isOn.value) { ... }
- *
- *   <script setup>
- *   const { isOn: showBanner } = useFeatureFlag('show-banner')
- *   </script>
- */
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue';
 import { evaluateFlag } from '@/api/featureFlag'
 
-const _cache = new Map() // key -> { value, attributesHash, expiresAt }
+const _cache = new Map();
 const CACHE_TTL_MS = 30 * 1000
 
 function hashAttributes(attrs) {
@@ -50,7 +38,7 @@ export function useFeatureFlag(key, options = {}) {
       _cache.set(key, { value: value.value, attributesHash: attrsHash, expiresAt: Date.now() + CACHE_TTL_MS })
     } catch (e) {
       error.value = e
-      value.value = defaultValue // 降级到默认值
+      value.value = defaultValue;
     } finally {
       loading.value = false
     }
@@ -62,13 +50,11 @@ export function useFeatureFlag(key, options = {}) {
   }
 
   onMounted(fetch)
-  // 监听 attributes 变化重新拉取
-  watch(attributes, fetch, { deep: true })
+  watch(attributes, fetch, { deep: true });
 
   return { isOn, value, loading, error, refresh }
 }
 
-// 全局清理（用于登出 / 测试）
 export function clearFeatureFlagCache() {
   _cache.clear()
 }

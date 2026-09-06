@@ -206,9 +206,6 @@ func (s *SOPService) UpdateABTestConfig(ctx context.Context, sopID uint, cfg SOP
 	return agent, nil
 }
 
-// resolveABTestVariant 在 Execute 时解析 variant
-// 返回 variant name 和对应的 SOP 图 ID（0 表示用主图）
-// 未启用 A/B 测试时返回 ("", 0)
 func (s *SOPService) resolveABTestVariant(ctx context.Context, agent *model.SOPAgent, customerID string) (variantName string, sopGraphID uint, err error) {
 	cfg := ParseSOPABTestConfig(agent.ABTestConfig)
 	if !cfg.Enabled {
@@ -221,8 +218,6 @@ func (s *SOPService) resolveABTestVariant(ctx context.Context, agent *model.SOPA
 	return variant.Name, variant.SOPGraphID, nil
 }
 
-// loadSOPGraphByID 根据 SOP ID 加载 SOPGraph（用于 A/B 测试 variant 切换图）
-// graphID == 0 表示用 agent.SOPGraph 主图
 func (s *SOPService) loadSOPGraph(ctx context.Context, agent *model.SOPAgent, graphID uint) (SOPGraph, error) {
 	if graphID == 0 {
 		var graph SOPGraph
@@ -243,5 +238,4 @@ func (s *SOPService) loadSOPGraph(ctx context.Context, agent *model.SOPAgent, gr
 	return graph, nil
 }
 
-// 用 gorm.Expr 占位避免 unused 警告（保留扩展点）
 var _ = gorm.Expr

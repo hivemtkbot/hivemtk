@@ -15,7 +15,6 @@ const (
 
 	TopicKnowledgeDocumentChanged = "knowledge.document.changed"
 
-
 	TopicDialogueStarted = "dialogue.started"
 
 	TopicDialogueEnded = "dialogue.ended"
@@ -33,12 +32,12 @@ const (
 type OperationLogPayload struct {
 	UserID     uint   `json:"user_id"`
 	Username   string `json:"username"`
-	Action     string `json:"action"`   
-	Module     string `json:"module"`   
-	Resource   string `json:"resource"` 
+	Action     string `json:"action"`
+	Module     string `json:"module"`
+	Resource   string `json:"resource"`
 	ResourceID string `json:"resource_id"`
-	OldValue   any    `json:"old_value"` 
-	NewValue   any    `json:"new_value"` 
+	OldValue   any    `json:"old_value"`
+	NewValue   any    `json:"new_value"`
 	IP         string `json:"ip"`
 }
 
@@ -49,14 +48,14 @@ type OperationLogPayload struct {
 //
 // 关联主题:TopicCustomerMessageReceived
 type CustomerMessagePayload struct {
-	ChannelType string         `json:"channel_type"` 
-	AccountID   string         `json:"account_id"`   
-	CustomerID  string         `json:"customer_id"`  
-	SessionID   string         `json:"session_id"`   
-	Content     string         `json:"content"`      
-	MessageType string         `json:"message_type"` 
-	Timestamp   time.Time      `json:"timestamp"`    
-	TraceID     string         `json:"trace_id"`     
+	ChannelType string         `json:"channel_type"`
+	AccountID   string         `json:"account_id"`
+	CustomerID  string         `json:"customer_id"`
+	SessionID   string         `json:"session_id"`
+	Content     string         `json:"content"`
+	MessageType string         `json:"message_type"`
+	Timestamp   time.Time      `json:"timestamp"`
+	TraceID     string         `json:"trace_id"`
 	Raw         map[string]any `json:"raw,omitempty"`
 }
 
@@ -65,14 +64,13 @@ type CustomerMessagePayload struct {
 // 关联主题:TopicKnowledgeDocumentChanged
 // 触发时机:KnowledgeDocumentService.Create/Update/Delete 后 publish
 type KnowledgeDocumentChangePayload struct {
-	WorkspaceID string `json:"workspace_id"` 
-	DocumentID  uint   `json:"document_id"`  
-	ChangeType  string `json:"change_type"`  
-	ContentHash string `json:"content_hash"` 
-	OperatorID  uint   `json:"operator_id"`  
+	WorkspaceID string `json:"workspace_id"`
+	DocumentID  uint   `json:"document_id"`
+	ChangeType  string `json:"change_type"`
+	ContentHash string `json:"content_hash"`
+	OperatorID  uint   `json:"operator_id"`
 	TraceID     string `json:"trace_id"`
 }
-
 
 // DialogueStartedPayload 对话开始事件载荷
 //
@@ -108,7 +106,7 @@ type DialogueEndedPayload struct {
 	VisitorID        string         `json:"visitor_id"`
 	CustomerID       string         `json:"customer_id"`
 	DurationSec      int64          `json:"duration_sec"`
-	Outcome          string         `json:"outcome"` 
+	Outcome          string         `json:"outcome"`
 	AggregatedReward float64        `json:"aggregated_reward"`
 	SignalBreakdown  map[string]any `json:"signal_breakdown,omitempty"`
 	UsedCorpusIDs    []string       `json:"used_corpus_ids,omitempty"`
@@ -127,7 +125,7 @@ type DialogueEndedPayload struct {
 type AssetDegradedPayload struct {
 	AssetID      string    `json:"asset_id"`
 	AssetTitle   string    `json:"asset_title"`
-	Reason       string    `json:"reason"` 
+	Reason       string    `json:"reason"`
 	LastUseCount int64     `json:"last_use_count"`
 	LastRating   float64   `json:"last_rating"`
 	Scenario     string    `json:"scenario"`
@@ -157,11 +155,10 @@ type AssetDegradeWarningPayload struct {
 // 触发时机:RAGSelfCorrector 销冠补录 / 低质归档 / 降权
 // 订阅者:RAG 缓存失效订阅
 type RagCorpusUpdatedPayload struct {
-	CorpusID        string    `json:"corpus_id"` 
-	Action          string    `json:"action"`    
+	CorpusID        string    `json:"corpus_id"`
+	Action          string    `json:"action"`
 	SourceSessionID string    `json:"source_session_id,omitempty"`
 	NewQualityLabel string    `json:"new_quality_label,omitempty"`
 	TraceID         string    `json:"trace_id"`
 	UpdatedAt       time.Time `json:"updated_at"`
 }
-

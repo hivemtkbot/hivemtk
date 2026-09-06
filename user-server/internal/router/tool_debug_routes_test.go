@@ -16,9 +16,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
-
-// mockTool 用于测试的轻量工具实现
 type mockTool struct {
 	name        string
 	category    tooluse.ToolCategory
@@ -38,7 +35,6 @@ func (m *mockTool) Execute(ctx context.Context, args map[string]any) (tooluse.To
 	return tooluse.SuccessResult(m.name, map[string]any{"echo": args}), nil
 }
 
-// newMockEchoTool 构造一个简单的 echo 工具
 func newMockEchoTool(name string) *mockTool {
 	return &mockTool{
 		name:        name,
@@ -54,7 +50,6 @@ func newMockEchoTool(name string) *mockTool {
 	}
 }
 
-// newMockFailingTool 构造一个始终失败的工具（用于熔断测试）
 func newMockFailingTool(name string) *mockTool {
 	return &mockTool{
 		name:        name,
@@ -70,11 +65,8 @@ func newMockFailingTool(name string) *mockTool {
 	}
 }
 
-// errMockToolFailure Mock 工具失败错误
 var errMockToolFailure = &simpleError{"mock tool intentional failure"}
 
-
-// newTestExecutor 构造测试用 ToolExecutor（带真实装饰器链）
 func newTestExecutor(t *testing.T) (*tooluse.ToolRegistry, *tooluse.ToolExecutor, *tooluse.MemoryAuditLogger, *tooluse.MemoryCostTracker) {
 	t.Helper()
 	registry := tooluse.NewToolRegistry()
@@ -90,7 +82,6 @@ func newTestExecutor(t *testing.T) (*tooluse.ToolRegistry, *tooluse.ToolExecutor
 	})
 	return registry, exec, auditLogger, costTracker
 }
-
 
 func TestToolRegistry_RegisterAndGet(t *testing.T) {
 	registry := tooluse.NewToolRegistry()
@@ -142,7 +133,6 @@ func TestToolRegistry_ListByCategory(t *testing.T) {
 	}
 }
 
-
 func TestToolRegistry_ToLLMFunctions(t *testing.T) {
 	registry := tooluse.NewToolRegistry()
 	_ = registry.Register(newMockEchoTool("test.echo"))
@@ -161,7 +151,6 @@ func TestToolRegistry_ToLLMFunctions(t *testing.T) {
 		t.Errorf("Properties len = %d, want 1", len(fns[0].Parameters.Properties))
 	}
 }
-
 
 func TestToolExecutor_Success(t *testing.T) {
 	registry, exec, auditLogger, costTracker := newTestExecutor(t)
@@ -196,7 +185,7 @@ func TestToolExecutor_NotFound(t *testing.T) {
 }
 
 func TestToolExecutor_Disabled(t *testing.T) {
-	registry := tooluse.GetGlobalRegistry() 
+	registry := tooluse.GetGlobalRegistry()
 	if registry.Count() == 0 {
 		t.Skip("global registry is empty, skip disabled test")
 	}
@@ -265,7 +254,6 @@ func TestToolExecutor_AuditAndCostRecorded(t *testing.T) {
 	}
 }
 
-
 func TestToolExecutor_DispatchByLLMToolCall(t *testing.T) {
 	registry, exec, _, _ := newTestExecutor(t)
 	_ = registry.Register(newMockEchoTool("test.echo"))
@@ -312,7 +300,6 @@ func TestToolExecutor_DispatchInvalidArguments(t *testing.T) {
 	}
 }
 
-
 func TestParamValidator_MissingRequired(t *testing.T) {
 	registry, exec, _, _ := newTestExecutor(t)
 	_ = registry.Register(newMockEchoTool("test.echo"))
@@ -322,7 +309,6 @@ func TestParamValidator_MissingRequired(t *testing.T) {
 		t.Logf("execute without required arg returned: success=%v (mock tool doesn't validate)", r.Success)
 	}
 }
-
 
 func TestToolExecutor_ConcurrentSafe(t *testing.T) {
 	registry, exec, _, _ := newTestExecutor(t)
@@ -353,7 +339,6 @@ func TestToolExecutor_ConcurrentSafe(t *testing.T) {
 	}
 }
 
-
 func TestToolRouter_RouteAndStats(t *testing.T) {
 	_, exec, _, _ := newTestExecutor(t)
 	registry := tooluse.NewToolRegistry()
@@ -371,7 +356,7 @@ func TestToolRouter_RouteAndStats(t *testing.T) {
 			DefaultToolCost:  0.01,
 		},
 	)
-	_ = exec 
+	_ = exec
 
 	result := router.Route(context.Background(), "test.echo", map[string]any{"message": "hi"}, nil)
 	if result.Err != nil {
@@ -423,7 +408,6 @@ func TestToolRouter_CircuitBreaker(t *testing.T) {
 	}
 }
 
-
 // TestSetup_ToolDebugRoutesRegistered 验证 /api/agent/tools/* 路由全部注册
 //
 // 这是关键测试：验证原本死代码（setupToolPermissionRoutes / setupInferenceRoutes）
@@ -455,7 +439,6 @@ func TestSetup_ToolDebugRoutesRegistered(t *testing.T) {
 	}
 }
 
-
 func TestHandleToolList_HTTP(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
@@ -471,7 +454,7 @@ func TestHandleToolList_HTTP(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("response body not JSON: %v; body=%s", err, w.Body.String())
 	}
-	// 现行响应契约: {"code":0,"message":"ok","data":{...}}（success 字段为旧契约已废弃）
+
 	if code, ok := resp["code"].(float64); !ok || code != 0 {
 		t.Errorf("response code != 0; body=%s", w.Body.String())
 	}
@@ -489,7 +472,6 @@ func TestHandleToolList_WithCategoryFilter(t *testing.T) {
 		t.Errorf("status = %d", w.Code)
 	}
 }
-
 
 func TestHandleToolGet_HTTP(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -516,7 +498,6 @@ func TestHandleToolGet_MissingName(t *testing.T) {
 		t.Errorf("status = %d, want 400", w.Code)
 	}
 }
-
 
 func TestHandleToolExecute_HTTP(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -558,7 +539,6 @@ func TestHandleToolExecute_InvalidJSON(t *testing.T) {
 	}
 }
 
-
 func TestHandleToolStats_HTTP(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
@@ -574,12 +554,11 @@ func TestHandleToolStats_HTTP(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("body not JSON: %v; body=%s", err, w.Body.String())
 	}
-	// 现行响应契约: {"code":0,...}（success 字段为旧契约已废弃）
+
 	if code, ok := resp["code"].(float64); !ok || code != 0 {
 		t.Errorf("response code != 0; body=%s", w.Body.String())
 	}
 }
-
 
 func TestHandleToolAudit_HTTP(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -607,7 +586,6 @@ func TestHandleToolCost_HTTP(t *testing.T) {
 	}
 }
 
-
 func TestHandleToolCircuitReset_HTTP(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -628,7 +606,6 @@ func TestHandleToolCircuitReset_HTTP(t *testing.T) {
 	}
 }
 
-
 func TestAtoiSafe(t *testing.T) {
 	cases := []struct {
 		input string
@@ -640,7 +617,7 @@ func TestAtoiSafe(t *testing.T) {
 		{"", 0, false},
 		{"abc", 0, false},
 		{"12abc", 0, false},
-		{"-5", 0, false}, 
+		{"-5", 0, false},
 	}
 	for _, c := range cases {
 		got, err := atoiSafe(c.input)
@@ -657,4 +634,3 @@ func TestAtoiSafe(t *testing.T) {
 		}
 	}
 }
-

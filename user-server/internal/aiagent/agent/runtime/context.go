@@ -10,22 +10,21 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 // ToolResult 工具执行结果（本地定义，避免循环依赖）
 type ToolResult struct {
-	Success    bool       `json:"success"`               
-	Data       any        `json:"data,omitempty"`        
-	Error      string     `json:"error,omitempty"`       
-	Timing     ToolTiming `json:"timing"`                
-	ToolName   string     `json:"tool_name"`             
-	ExecutedAt time.Time  `json:"executed_at"`           
-	AuditTrace string     `json:"audit_trace,omitempty"` 
+	Success    bool       `json:"success"`
+	Data       any        `json:"data,omitempty"`
+	Error      string     `json:"error,omitempty"`
+	Timing     ToolTiming `json:"timing"`
+	ToolName   string     `json:"tool_name"`
+	ExecutedAt time.Time  `json:"executed_at"`
+	AuditTrace string     `json:"audit_trace,omitempty"`
 }
 
 // ToolTiming 执行耗时统计
 type ToolTiming struct {
-	DurationMs int64 `json:"duration_ms"` 
-	RetryCount int   `json:"retry_count"` 
+	DurationMs int64 `json:"duration_ms"`
+	RetryCount int   `json:"retry_count"`
 }
 
 // ToJSON 将 ToolResult 序列化为 JSON 字符串
@@ -36,10 +35,10 @@ func (r ToolResult) ToJSON() string {
 
 // Message 消息类型
 type Message struct {
-	Role       string      `json:"role"`                  
-	Content    string      `json:"content"`               
-	ToolCalls  []ToolCall  `json:"tool_calls,omitempty"`  
-	ToolResult *ToolResult `json:"tool_result,omitempty"` 
+	Role       string      `json:"role"`
+	Content    string      `json:"content"`
+	ToolCalls  []ToolCall  `json:"tool_calls,omitempty"`
+	ToolResult *ToolResult `json:"tool_result,omitempty"`
 	Timestamp  time.Time   `json:"timestamp"`
 }
 
@@ -56,7 +55,6 @@ type ContextCompressor interface {
 	ShouldCompress(messages []Message, maxTokens int) bool
 	EstimateTokens(messages []Message) int
 }
-
 
 // TokenEstimator Token估算器
 type TokenEstimator interface {
@@ -98,7 +96,6 @@ func (e *SimpleTokenEstimator) Estimate(text string) int {
 	return runeCount*2 + int(float64(wordCount)*1.3)
 }
 
-
 // LLMClient LLM客户端接口
 type LLMClient interface {
 	Generate(ctx context.Context, prompt string) (string, error)
@@ -108,7 +105,7 @@ type LLMClient interface {
 type SummarizationCompressor struct {
 	llmClient LLMClient
 	estimator TokenEstimator
-	threshold float64 
+	threshold float64
 }
 
 // NewSummarizationCompressor 创建摘要压缩器
@@ -183,7 +180,6 @@ func (c *SummarizationCompressor) Compress(messages []Message, maxTokens int) ([
 	return compressed, nil
 }
 
-// generateSummary 生成摘要
 func (c *SummarizationCompressor) generateSummary(ctx context.Context, messages []Message) (string, error) {
 	if c.llmClient == nil {
 		return "", fmt.Errorf("llm client is nil")
@@ -207,7 +203,6 @@ func (c *SummarizationCompressor) generateSummary(ctx context.Context, messages 
 	return summary, nil
 }
 
-// truncateCompress 截断压缩
 func (c *SummarizationCompressor) truncateCompress(messages []Message, maxTokens int) []Message {
 	if len(messages) == 0 {
 		return messages
@@ -223,7 +218,6 @@ func (c *SummarizationCompressor) truncateCompress(messages []Message, maxTokens
 
 	return messages[len(messages)-keepCount:]
 }
-
 
 // ToolCallRecord 工具调用记录
 type ToolCallRecord struct {
@@ -350,7 +344,6 @@ func (h *ToolCallHistory) Count() int {
 	return len(h.Calls)
 }
 
-
 // EnhancedInferenceContext 增强的推理上下文
 type EnhancedInferenceContext struct {
 	*InferenceContext
@@ -384,4 +377,3 @@ func (c *EnhancedInferenceContext) GetCompressedHistory() ([]Message, error) {
 
 	return messages, nil
 }
-

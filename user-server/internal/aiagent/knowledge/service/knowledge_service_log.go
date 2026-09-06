@@ -10,14 +10,6 @@ import (
 	"hivemtk-user/internal/aiagent/knowledge/model"
 )
 
-// logImport 记录导入日志
-//
-// 写入 knowledge_import_logs 表，承载：
-//   - product_id（numeric 哈希）
-//   - document_id（成功时非空，失败时为 nil）
-//   - source_type/batch_no/operator/ip/user_agent
-//   - status: "success" | "failed"
-//   - duration_ms/error_detail
 func (s *KnowledgeService) logImport(ctx context.Context, req *ImportRequest, docID uint64, status string, durationMs int, errMsg string) error {
 	var docIDPtr *uint64
 	if docID > 0 {
@@ -38,4 +30,3 @@ func (s *KnowledgeService) logImport(ctx context.Context, req *ImportRequest, do
 	}
 	return s.importLogRepo.Create(ctx, log)
 }
-

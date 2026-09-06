@@ -133,14 +133,12 @@ func (c *EmailListController) DeleteEmailList(ctx *gin.Context) {
 func (c *EmailListController) TraceEmail(ctx *gin.Context) {
 	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
 
-	// 编码为PNG
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
 		ctx.AbortWithStatus(500)
 		return
 	}
 
-	// 返回PNG响应
 	var req struct {
 		TraceID string `uri:"trace_id" binding:"required"`
 	}
@@ -196,4 +194,3 @@ func (c *EmailListController) GetTracking(ctx *gin.Context) {
 		"total": total,
 	}, "success")
 }
-

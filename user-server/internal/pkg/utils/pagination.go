@@ -29,10 +29,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// 分页参数默认值
 const (
 	defaultDefaultPageSize = 20
-	defaultMaxPageSize     = 200 // 全局硬上限（用户端）
+	defaultMaxPageSize     = 200
 	defaultMinPageSize     = 1
 )
 
@@ -49,7 +48,6 @@ const (
 // 通过函数式选项组合可在不破坏调用方的前提下扩展行为（vs. 加参数列）。
 type PageOption func(*pageConfig)
 
-// pageConfig 内部配置；通过 PageOption 函数修改。
 type pageConfig struct {
 	defaultSize   int
 	maxSize       int
@@ -115,10 +113,6 @@ func WithAllowOverMax(b bool) PageOption {
 	}
 }
 
-// withPageAlias 与 withPageSizeAlias 允许在解析时支持多种 query 字段名。
-// 当前实现优先读取 page / page_size，未命中时回退到 pageSize / limit。
-//
-// 暴露这两个 Option 是为了未来在不破坏现有调用方的前提下扩展（例如支持 cursor）。
 func withPageAlias(name string) PageOption {
 	return func(c *pageConfig) {
 		if name != "" {
@@ -135,9 +129,6 @@ func withPageSizeAlias(name string) PageOption {
 	}
 }
 
-// ErrInvalidPageSize 表示 page_size 参数非法（解析失败 / 超出允许范围且未开启 clamp）。
-//
-// 错误信息中包含实际 maxSize，方便调用方直接透传给前端展示。
 type errInvalidPageSize struct {
 	maxSize int
 }
@@ -168,8 +159,8 @@ func IsInvalidPageSize(err error) bool {
 //   - pageSize 非整数   → defaultSize（不报错，宽容前端）
 //   - pageSize < minSize → minSize（钳制，不报错）
 //   - pageSize > maxSize：
-//       - allowOverMax=false → 返回 *errInvalidPageSize（响应 400）
-//       - allowOverMax=true  → clamp 到 maxSize（不报错）
+//   - allowOverMax=false → 返回 *errInvalidPageSize（响应 400）
+//   - allowOverMax=true  → clamp 到 maxSize（不报错）
 //
 // 兼容以下 query 字段：
 //   - page: pageAlias（默认 "page"）
@@ -184,7 +175,6 @@ func ParsePagination(c *gin.Context, opts ...PageOption) (page, pageSize int, er
 		}
 	}
 
-	// 防御：maxSize 必须 >= defaultSize >= minSize
 	if cfg.maxSize < cfg.minSize {
 		cfg.maxSize = cfg.minSize
 	}
@@ -195,13 +185,11 @@ func ParsePagination(c *gin.Context, opts ...PageOption) (page, pageSize int, er
 		cfg.defaultSize = cfg.maxSize
 	}
 
-	// 解析 page：宽容策略
 	page = parsePage(c.Query(cfg.pageAlias))
 	if page < 1 {
 		page = 1
 	}
 
-	// 解析 pageSize：兼容 page_size / pageSize / limit
 	raw := c.Query(cfg.pageSizeAlias)
 	if raw == "" {
 		raw = c.Query("pageSize")
@@ -211,15 +199,14 @@ func ParsePagination(c *gin.Context, opts ...PageOption) (page, pageSize int, er
 	}
 	pageSize, ok := parsePageSizeStrict(raw)
 	if !ok {
-		// 字符串非整数 / 空 → fallback 到 defaultSize（宽容策略）
+
 		pageSize = cfg.defaultSize
 	}
-	// 注意：parsePageSizeStrict 永远返回 >= 1，所以"pageSize < minSize"的钳制
-	// 只在 minSize > 1 时生效（管理端显式调高最小值）。
+
 	if pageSize < cfg.minSize {
 		pageSize = cfg.minSize
 	}
-	// 钳制/拒绝上限
+
 	if pageSize > cfg.maxSize {
 		if cfg.allowOverMax {
 			pageSize = cfg.maxSize
@@ -231,7 +218,6 @@ func ParsePagination(c *gin.Context, opts ...PageOption) (page, pageSize int, er
 	return page, pageSize, nil
 }
 
-// parsePage 解析 page 字符串。非整数 / 空 / 负数 / 0 全部视为 1。
 func parsePage(s string) int {
 	if s == "" {
 		return 1
@@ -246,11 +232,6 @@ func parsePage(s string) int {
 	return v
 }
 
-// parsePageSizeStrict 严格解析 pageSize 字符串。
-//
-// 返回值：
-//   - (n, true)：n >= 1（任何正整数）
-//   - (0, false)：字符串为空 / 非整数 / <= 0 —— 调用方应按 fallback 处理
 func parsePageSizeStrict(s string) (int, bool) {
 	if s == "" {
 		return 0, false

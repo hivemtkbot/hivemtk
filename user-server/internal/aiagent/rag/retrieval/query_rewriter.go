@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"encoding/json"
@@ -17,19 +16,19 @@ import (
 type QueryRewriteStrategy string
 
 const (
-	StrategyNone       QueryRewriteStrategy = "none"            
-	StrategyHyDE       QueryRewriteStrategy = "hyde"            
-	StrategyMultiQuery QueryRewriteStrategy = "multiquery"      
-	StrategyHyDEMulti  QueryRewriteStrategy = "hyde_multiquery" 
+	StrategyNone       QueryRewriteStrategy = "none"
+	StrategyHyDE       QueryRewriteStrategy = "hyde"
+	StrategyMultiQuery QueryRewriteStrategy = "multiquery"
+	StrategyHyDEMulti  QueryRewriteStrategy = "hyde_multiquery"
 )
 
 // RewrittenQuery 改写结果
 type RewrittenQuery struct {
-	Original     string               `json:"original"`      
-	Rewritten    string               `json:"rewritten"`     
-	MultiQueries []string             `json:"multi_queries"` 
-	UsedStrategy QueryRewriteStrategy `json:"used_strategy"` 
-	CacheHit     bool                 `json:"cache_hit"`     
+	Original     string               `json:"original"`
+	Rewritten    string               `json:"rewritten"`
+	MultiQueries []string             `json:"multi_queries"`
+	UsedStrategy QueryRewriteStrategy `json:"used_strategy"`
+	CacheHit     bool                 `json:"cache_hit"`
 }
 
 // QueryRewriter 查询改写器
@@ -38,7 +37,7 @@ type QueryRewriter struct {
 	multiGen    *MultiQueryGenerator
 	redisClient RedisClient
 	db          *gorm.DB
-	redisTTL    time.Duration 
+	redisTTL    time.Duration
 }
 
 // QueryRewriterConfig 查询改写配置
@@ -128,7 +127,6 @@ func (q *QueryRewriter) Rewrite(ctx context.Context, query string) (*RewrittenQu
 		}
 	}
 
-	// 3) 并行生成 HyDE + Multi-Query
 	var (
 		hydeDoc      string
 		multiQueries []string
@@ -182,15 +180,8 @@ func (q *QueryRewriter) Rewrite(ctx context.Context, query string) (*RewrittenQu
 	return rw, nil
 }
 
-// queryDB 查 DB query_rewrite_cache 表
-//
-// SQL: SELECT hyde_doc, multi_queries, rewrite_type FROM query_rewrite_cache
-//
-//	WHERE query_hash = $1 AND expires_at > NOW()
-//
-// 表不存在时返回 (nil, nil)，不阻断主流程
 func (q *QueryRewriter) queryDB(ctx context.Context, hash string) (*RewrittenQuery, error) {
-	// 检查表是否存在（迁移未执行时跳过）
+
 	var tableExists bool
 	if err := q.db.WithContext(ctx).Raw(
 		`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'query_rewrite_cache')`,
@@ -229,14 +220,11 @@ func (q *QueryRewriter) queryDB(ctx context.Context, hash string) (*RewrittenQue
 	return rw, nil
 }
 
-// persistToDB 异步写入 DB query_rewrite_cache 表
-//
-// best-effort: 失败仅记录日志，不影响主流程
 func (q *QueryRewriter) persistToDB(ctx context.Context, hash, query string, rw *RewrittenQuery) {
 	if q.db == nil {
 		return
 	}
-	// 检查表是否存在
+
 	var tableExists bool
 	if err := q.db.WithContext(ctx).Raw(
 		`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'query_rewrite_cache')`,
@@ -260,7 +248,6 @@ func (q *QueryRewriter) persistToDB(ctx context.Context, hash, query string, rw 
 	}
 }
 
-// updateCacheStats 异步更新 hit_count
 func (q *QueryRewriter) updateCacheStats(ctx context.Context, hash string) {
 	if q.db == nil {
 		return
@@ -276,4 +263,3 @@ func (q *QueryRewriter) updateCacheStats(ctx context.Context, hash string) {
 		hash,
 	).Error
 }
-

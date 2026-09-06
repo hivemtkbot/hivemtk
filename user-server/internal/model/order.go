@@ -25,4 +25,3 @@ func (o *Order) BeforeCreate(tx *gorm.DB) error {
 	o.ID = uuid.New().String()
 	return nil
 }
-

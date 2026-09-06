@@ -119,7 +119,6 @@ func (s *AuthService) Login(ctx context.Context, req *LoginRequest) (*LoginRespo
 	return s.loginWithUser(ctx, user)
 }
 
-// loginWithUser 使用用户对象完成登录流程
 func (s *AuthService) loginWithUser(ctx context.Context, user *model.SystemUser) (*LoginResponse, error) {
 	mfaSvc := NewMFAService()
 	mfaEnabled, err := mfaSvc.IsMFAEnabled(ctx, user.ID)
@@ -234,7 +233,6 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID uint, req *Chan
 	return nil
 }
 
-// toUserResponse 转换为用户响应
 func (s *AuthService) toUserResponse(ctx context.Context, user *model.SystemUser) *SystemUserResponse {
 	return &SystemUserResponse{
 		ID:          user.ID,
@@ -306,7 +304,6 @@ func (s *AuthService) Register(ctx context.Context, req *RegisterRequest) (*Logi
 		return nil, errors.New("注册失败: " + err.Error())
 	}
 
-	// 修复 A5：注册成功后发欢迎邮件（不阻塞主流程）
 	if user.Email != "" {
 		emailSvc := NewEmailServiceAuto()
 		welcomeBody := "欢迎加入 HiveMTK！您的账号已成功创建。"

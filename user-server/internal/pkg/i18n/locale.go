@@ -14,10 +14,10 @@ import (
 type Locale string
 
 const (
-	ZH Locale = "zh" 
-	EN Locale = "en" 
-	JA Locale = "ja" 
-	AR Locale = "ar" 
+	ZH Locale = "zh"
+	EN Locale = "en"
+	JA Locale = "ja"
+	AR Locale = "ar"
 )
 
 // String 返回短码
@@ -81,19 +81,18 @@ func DetectText(text string) Locale {
 	}
 	for _, r := range text {
 		if (r >= 0x0600 && r <= 0x06FF) || (r >= 0x0750 && r <= 0x077F) || (r >= 0x08A0 && r <= 0x08FF) {
-			return AR 
+			return AR
 		}
 	}
 	for _, r := range text {
 		if (r >= 0x3040 && r <= 0x30FF) || (r >= 0x31F0 && r <= 0x31FF) || (r >= 0xFF65 && r <= 0xFF9F) {
-			return JA 
+			return JA
 		}
 	}
 	for _, r := range text {
 		if r >= 0x4E00 && r <= 0x9FFF {
-			return ZH 
+			return ZH
 		}
 	}
 	return EN
 }
-

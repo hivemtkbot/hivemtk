@@ -5,10 +5,9 @@ import (
 	"net/http"
 	"strconv"
 
-
 	"hivemtk-user/internal/dto"
-	"hivemtk-user/internal/pkg/utils/pagination"
 	"hivemtk-user/internal/pkg/utils"
+	"hivemtk-user/internal/pkg/utils/pagination"
 	"hivemtk-user/internal/pkg/utils/response"
 	"hivemtk-user/internal/service"
 
@@ -90,8 +89,6 @@ func (c *WorkflowOrchestratorController) GetVersion(ctx *gin.Context) {
 func (c *WorkflowOrchestratorController) ListVersions(ctx *gin.Context) {
 	workflowID := ctx.Query("workflow_id")
 
-	// 服务端分页模式：未传 workflow_id 时按 status + page + page_size 分页列表，
-	// 用于工作流列表页 List.vue；保持 workflow_id 非空时走原不分页路径以兼容 Editor.vue。
 	if workflowID == "" {
 		status := ctx.Query("status")
 		page, pageSize, err := pagination.Parse(ctx)
@@ -356,8 +353,7 @@ func (c *WorkflowOrchestratorController) StopExecution(ctx *gin.Context) {
 			response.Error(ctx, http.StatusNotFound, "执行不存在")
 			return
 		}
-		// Round32 复测修复：非 running 状态属于业务状态冲突（幂等重复停止等），
-		// 按错误码规范返回 409 Conflict，而非 500 INTERNAL_ERROR
+
 		if errors.Is(err, service.ErrExecutionNotRunning) {
 			response.Error(ctx, http.StatusConflict, err.Error())
 			return

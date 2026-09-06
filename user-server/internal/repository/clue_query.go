@@ -37,7 +37,6 @@ type ClueTrendAgg struct {
 	Verified int64  `gorm:"column:verified"`
 }
 
-// applyClueQuery 把查询条件翻译为 WHERE 子句
 func applyClueQuery(db *gorm.DB, q ClueQuery) *gorm.DB {
 	tx := db
 	if kw := strings.TrimSpace(q.Keyword); kw != "" {
@@ -82,7 +81,6 @@ func applyClueQuery(db *gorm.DB, q ClueQuery) *gorm.DB {
 	return tx
 }
 
-// ListWithQuery 按条件分页查询线索，按创建时间倒序
 func (r *clueRepo) ListWithQuery(ctx context.Context, q ClueQuery, page, limit int) ([]*model.Clue, int64, error) {
 	if page <= 0 {
 		page = 1
@@ -104,7 +102,6 @@ func (r *clueRepo) ListWithQuery(ctx context.Context, q ClueQuery, page, limit i
 	return clues, total, nil
 }
 
-// CountWithQuery 按条件统计线索数量
 func (r *clueRepo) CountWithQuery(ctx context.Context, q ClueQuery) (int64, error) {
 	var total int64
 	tx := applyClueQuery(r.db.WithContext(ctx).Model(&model.Clue{}), q)
@@ -112,7 +109,6 @@ func (r *clueRepo) CountWithQuery(ctx context.Context, q ClueQuery) (int64, erro
 	return total, err
 }
 
-// TypeDistribution 按线索类型聚合（真实来源分布）
 func (r *clueRepo) TypeDistribution(ctx context.Context, q ClueQuery) ([]ClueTypeAgg, error) {
 	var rows []ClueTypeAgg
 	tx := applyClueQuery(r.db.WithContext(ctx).Model(&model.Clue{}), q)
@@ -124,12 +120,10 @@ func (r *clueRepo) TypeDistribution(ctx context.Context, q ClueQuery) ([]ClueTyp
 	return rows, nil
 }
 
-// TrendByDay 按天聚合线索新增趋势（create_time 为秒级 unix，转本地日期分组）
 func (r *clueRepo) TrendByDay(ctx context.Context, q ClueQuery) ([]ClueTrendAgg, error) {
 	var rows []ClueTrendAgg
 	tx := applyClueQuery(r.db.WithContext(ctx).Model(&model.Clue{}), q)
-	// 注意：GORM 的 Group("1") 会被引号包裹成 GROUP BY "1"（PG 报 column "1" does not exist），
-	// 因此必须传完整表达式让 GORM 按原样输出。
+
 	const dayExpr = "to_char(to_timestamp(create_time), 'YYYY-MM-DD')"
 	err := tx.Select(
 		dayExpr + " AS date, " +

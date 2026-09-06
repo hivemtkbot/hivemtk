@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupCustomerIdentityServiceTestDB 设置测试数据库
 func setupCustomerIdentityServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.Customer{},
@@ -21,7 +20,6 @@ func setupCustomerIdentityServiceTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupCustomerIdentityService 设置测试服务
 func setupCustomerIdentityService(t *testing.T) *CustomerIdentityService {
 	setupCustomerIdentityServiceTestDB(t)
 	return NewCustomerIdentityService()

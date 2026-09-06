@@ -216,7 +216,7 @@ func (b *BanditAllocator) CheckConvergence(ctx context.Context, experimentID str
 			winCounts[bestKey]++
 		}
 	}
-	// 找到胜出概率最高的臂
+
 	var winnerKey string
 	winnerProb := 0.0
 	for k, v := range winCounts {
@@ -251,7 +251,6 @@ func (b *BanditAllocator) InvalidateCache(experimentID string) {
 	delete(b.cache, experimentID)
 }
 
-// loadArms 加载臂（带缓存）
 func (b *BanditAllocator) loadArms(ctx context.Context, experimentID string) ([]*model.BanditArm, error) {
 	b.mu.RLock()
 	if arms, ok := b.cache[experimentID]; ok {
@@ -270,10 +269,6 @@ func (b *BanditAllocator) loadArms(ctx context.Context, experimentID string) ([]
 	return arms, nil
 }
 
-// enforceTrafficCeiling 流量上限保护
-//
-// 若当前 bestKey 臂的流量比例已超过 TrafficCeiling，强制选择流量比例最低的非 bestKey 臂
-// 返回：(forcedKey, needExplore)
 func (b *BanditAllocator) enforceTrafficCeiling(arms []*model.BanditArm, bestKey string, totalTrials int64) (string, bool) {
 	if totalTrials == 0 {
 		return bestKey, false
@@ -289,7 +284,6 @@ func (b *BanditAllocator) enforceTrafficCeiling(arms []*model.BanditArm, bestKey
 	return bestKey, false
 }
 
-// pickLowestTrafficArm 选择流量比例最低的非 excludeKey 臂
 func pickLowestTrafficArm(arms []*model.BanditArm, excludeKey string) string {
 	sort.Slice(arms, func(i, j int) bool {
 		return arms[i].TotalTrials < arms[j].TotalTrials
@@ -302,17 +296,12 @@ func pickLowestTrafficArm(arms []*model.BanditArm, excludeKey string) string {
 	return excludeKey
 }
 
-// markSampledAsync 异步标记采样时间（不阻塞主链路）
 func (b *BanditAllocator) markSampledAsync(experimentID, armKey string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = b.banditRepo.UpdateBanditArmLastSampled(ctx, experimentID, armKey, time.Now())
 }
 
-// betaSample Beta(α, β) 采样
-//
-// 公式：beta(α,β) = gamma(α,1) / (gamma(α,1) + gamma(β,1))
-// 边界保护：α ≤ 0 或 β ≤ 0 返回 0.5（中性）
 func (b *BanditAllocator) betaSample(alpha, beta float64) float64 {
 	if alpha <= 0 || beta <= 0 {
 		return 0.5
@@ -328,13 +317,6 @@ func (b *BanditAllocator) betaSample(alpha, beta float64) float64 {
 	return x / sum
 }
 
-// gammaSample Gamma(α, θ) 采样（Marsaglia-Tsang 方法）
-//
-// 参考：Marsaglia, G. & Tsang, W. W. (2000) "A simple method for generating gamma variables"
-// 当 α < 1 时使用增强公式：Gamma(α) = Gamma(α+1) * U^(1/α)
-// 当 α ≥ 1 时使用标准 Marsaglia-Tsang 接受-拒绝采样
-//
-// 注意：rng 的并发安全由调用方（betaSample）通过 b.mu 保护
 func gammaSample(alpha, theta float64, rng *rand.Rand) float64 {
 	if alpha < 1 {
 		u := rng.Float64()
@@ -363,7 +345,6 @@ func gammaSample(alpha, theta float64, rng *rand.Rand) float64 {
 	return alpha * theta
 }
 
-// sqrtF32 float32 平方根（保留供 ChampionDialogueAnalyzer 使用）
 func sqrtF32(f float32) float32 {
 	return float32(math.Sqrt(float64(f)))
 }

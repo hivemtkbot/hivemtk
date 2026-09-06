@@ -26,16 +26,15 @@ import (
 	"time"
 )
 
-
 // AgentContext 智能体运行时上下文
 //
 // 从 ai_agents 表加载的完整智能体配置 + 渠道绑定关系 + 缓存
 // 这是 agent_runtime 包的"领域模型"，与 model.AIAgent(数据库模型)解耦
 type AgentContext struct {
-	AgentID   uint   
-	AgentCode string 
+	AgentID   uint
+	AgentCode string
 	Name      string
-	AgentType string 
+	AgentType string
 
 	Persona      string
 	SystemPrompt string
@@ -70,10 +69,9 @@ type AgentContext struct {
 
 	Version   int
 	LoadedAt  time.Time
-	Channel   string 
-	AccountID string 
+	Channel   string
+	AccountID string
 }
-
 
 // AgentRuntime 智能体运行时统一入口
 //
@@ -89,7 +87,6 @@ type AgentRuntime interface {
 	Stop(ctx context.Context) error
 }
 
-
 // CustomerMessagePayload 客户消息事件载荷
 //
 // 由 Channel Adapter 在 webhook 处理完成后 publish 到 event bus
@@ -97,23 +94,22 @@ type AgentRuntime interface {
 //
 // 关联主题：event.TopicCustomerMessageReceived = "customer.message.received"
 type CustomerMessagePayload struct {
-	ChannelType string    
-	AccountID   string    
-	CustomerID  string    
-	SessionID   string    
-	Content     string    
-	MessageType string    
-	Timestamp   time.Time 
-	TraceID     string    
+	ChannelType string
+	AccountID   string
+	CustomerID  string
+	SessionID   string
+	Content     string
+	MessageType string
+	Timestamp   time.Time
+	TraceID     string
 
 	Raw map[string]any `json:"raw,omitempty"`
 }
 
-
 // SalesResponse 销售智能体响应
 type SalesResponse struct {
 	ReplyContent string
-	ReplyType    string 
+	ReplyType    string
 	Confidence   float64
 
 	AgentID    uint
@@ -131,7 +127,6 @@ type SalesResponse struct {
 
 	Duration time.Duration
 }
-
 
 // EventSubscriber 事件订阅者
 //
@@ -152,23 +147,15 @@ type Event struct {
 	Source    string
 }
 
-
-// cacheKey 缓存键
 type cacheKey struct {
 	Channel   string
 	AccountID string
 }
 
-// String 序列化
 func (k cacheKey) String() string {
 	return k.Channel + ":" + k.AccountID
 }
 
-
-// defaultAgentRuntime 默认运行时实现
-//
-// 骨架阶段：仅实现 AgentContext 缓存 + 接口签名
-// 完整实现在后续任务中补充
 type defaultAgentRuntime struct {
 	mu         sync.RWMutex
 	cache      map[cacheKey]*cachedContext
@@ -196,7 +183,6 @@ func NewAgentRuntime(loader AgentContextLoader, sales SalesEngineBridge, cs Smar
 	return rt
 }
 
-
 // AgentContextLoader 智能体上下文加载器
 //
 // 负责从 ai_agents + channel_agent_bindings 表加载配置
@@ -206,7 +192,6 @@ type AgentContextLoader interface {
 
 	Invalidate(ctx context.Context, agentID uint) error
 }
-
 
 // SalesEngineBridge 销售引擎桥接器
 //
@@ -218,21 +203,18 @@ type SalesEngineBridge interface {
 
 // SalesRequest 销售请求（agent_runtime → SalesEngine 桥接）
 type SalesRequest struct {
-	Channel    string         
-	AccountID  string         
-	CustomerID string         
-	Content    string         
-	TraceID    string         
-	Raw        map[string]any 
+	Channel    string
+	AccountID  string
+	CustomerID string
+	Content    string
+	TraceID    string
+	Raw        map[string]any
 }
-
 
 // ErrBridgeNotInitialized 桥接器未初始化
 var ErrBridgeNotInitialized = &RuntimeError{Code: "bridge_nil", Message: "engine bridge not initialized"}
-
 
 // SmartCSBridge 智能体桥接器
 type SmartCSBridge interface {
 	HandleIncomingWithAgent(ctx context.Context, agentCtx *AgentContext, req *SalesRequest) (*SalesResponse, error)
 }
-

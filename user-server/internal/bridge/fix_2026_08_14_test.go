@@ -1,9 +1,10 @@
 // 2026-08-14 架构收敛修复点单元测试
 //
 // 覆盖：
-//   P1-1: account_id 为空 → 400 拒绝（ingest / outbox / ack 三个端点）
-//   P0-2: OutboxMessage.Extra 字段序列化（前端主动私信路由能拿到 extra）
-//   P1-5: HandleIngressBatch mergedEvent.EventID 保留首条 event_id（用纯函数 factCheck）
+//
+//	P1-1: account_id 为空 → 400 拒绝（ingest / outbox / ack 三个端点）
+//	P0-2: OutboxMessage.Extra 字段序列化（前端主动私信路由能拿到 extra）
+//	P1-5: HandleIngressBatch mergedEvent.EventID 保留首条 event_id（用纯函数 factCheck）
 package bridge
 
 import (
@@ -81,9 +82,9 @@ func TestBridgeOutboxMessage_ExtraField(t *testing.T) {
 			ReceiverID:     "user_1",
 			IsAIReply:      true,
 			Extra: map[string]any{
-				"dm_target":  "member",
+				"dm_target":    "member",
 				"is_proactive": true,
-				"priority":   5,
+				"priority":     5,
 			},
 		}
 		data, err := json.Marshal(msg)
@@ -189,5 +190,3 @@ func TestAckBridgeOutbox_AccountIDRequired(t *testing.T) {
 		t.Errorf("响应体应说明 account_id required：%s", body)
 	}
 }
-
-

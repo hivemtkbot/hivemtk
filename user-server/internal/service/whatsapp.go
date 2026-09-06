@@ -154,11 +154,10 @@ func (s *WhatsappService) SendTextMessage(ctx context.Context, accountID uuid.UU
 	if acc == nil {
 		return "", errors.New("whatsapp account not found")
 	}
-	if err := enforceWhatsAppTierPacing(toJID, "", time.Now()); err != nil { // R-7 分层限速，超限走既有失败路径
+	if err := enforceWhatsAppTierPacing(toJID, "", time.Now()); err != nil {
 		return "", err
 	}
 
-	// Cloud API 账号：使用 Meta Graph API 发送（24h 客服窗口内免费）
 	if acc.Type == "cloud" && acc.PhoneID != "" && acc.Token != "" {
 		phone := toJID
 		if strings.Contains(phone, "@") {
@@ -171,7 +170,6 @@ func (s *WhatsappService) SendTextMessage(ctx context.Context, accountID uuid.UU
 		return cli.SendText(ctx, phone, text)
 	}
 
-	// 个人版账号：使用 go-whatsapp 库
 	wac, err := s.ensureConn(ctx, accountID, 30*time.Second)
 	if err != nil {
 		return "", err
@@ -196,7 +194,7 @@ func (s *WhatsappService) SendTemplateMessage(ctx context.Context, accountID uui
 	if acc.PhoneID == "" || acc.Token == "" {
 		return "", errors.New("cloud api credentials missing")
 	}
-	if err := enforceWhatsAppTierPacing(to, templateName, time.Now()); err != nil { // R-7 分层限速（模板类别参与分层）
+	if err := enforceWhatsAppTierPacing(to, templateName, time.Now()); err != nil {
 		return "", err
 	}
 	phone := to
@@ -244,9 +242,6 @@ func (s *WhatsappService) GetDraft(ctx context.Context, id uuid.UUID) (*model.Wh
 	return s.repo.GetDraft(ctx, id)
 }
 
-// Bulk send
-// Note: ClueTypeWhatsapp is defined in clue.go (value=5). Legacy type=7 is also queried for backward compat.
-
 func (s *WhatsappService) CreateBulkJob(ctx context.Context, draftID uuid.UUID) (*model.WhatsappJob, error) {
 	draft, err := s.repo.GetDraft(ctx, draftID)
 	if err != nil {
@@ -260,7 +255,6 @@ func (s *WhatsappService) CreateBulkJob(ctx context.Context, draftID uuid.UUID) 
 		return nil, err
 	}
 
-	// 查询 WhatsApp 线索，兼容历史 type=7 和标准 type=5
 	clues, total, err := s.clueRepo.GetWhatsappClues(ctx)
 	if err != nil {
 		return nil, err

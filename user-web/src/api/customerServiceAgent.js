@@ -1,42 +1,29 @@
 import { http } from '@/utils/request';
 
-// ============================================================================
-// 客服座席挂载智能体 API
-// ----------------------------------------------------------------------------
-// 对应后端 /api/customer-service-agents 路由
-// ============================================================================
-
-// 按座席查询挂载列表
 export function listMounts(params) {
   return http.get('/api/customer-service-agents', params)
 }
 
-// 反查智能体被哪些客服使用
 export function listMountsByAIAgent(aiAgentId) {
   return http.get(`/api/customer-service-agents/by-ai-agent/${aiAgentId}`)
 }
 
-// 创建挂载
 export function createMount(data) {
   return http.post('/api/customer-service-agents', data)
 }
 
-// 更新挂载
 export function updateMount(id, data) {
   return http.put(`/api/customer-service-agents/${id}`, data)
 }
 
-// 删除挂载
 export function deleteMount(id) {
   return http.delete(`/api/customer-service-agents/${id}`)
 }
 
-// 按用户ID查询挂载（团队成员即座席）
 export function listMountsByUser(userId) {
   return http.get(`/api/customer-service-agents/by-user/${userId}`)
 }
 
-// 按用户ID创建挂载（自动创建座席状态）
 export function createMountByUser(userId, data) {
   return http.post(`/api/customer-service-agents/by-user/${userId}`, data)
 }

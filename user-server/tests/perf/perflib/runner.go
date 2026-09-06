@@ -17,34 +17,34 @@ import (
 
 // Result 单次压测结果
 type Result struct {
-	Name          string        `json:"name"`           
-	URL           string        `json:"url"`            
-	Method        string        `json:"method"`         
-	TotalRequests int           `json:"total_requests"` 
-	Concurrency   int           `json:"concurrency"`    
-	Duration      time.Duration `json:"duration"`       
-	SuccessCount  int64         `json:"success_count"`  
-	FailedCount   int64         `json:"failed_count"`   
-	Throughput    float64       `json:"throughput"`     
-	LatencyAvg    time.Duration `json:"latency_avg"`    
-	LatencyP50    time.Duration `json:"latency_p50"`    
-	LatencyP95    time.Duration `json:"latency_p95"`    
-	LatencyP99    time.Duration `json:"latency_p99"`    
-	LatencyMax    time.Duration `json:"latency_max"`    
-	LatencyMin    time.Duration `json:"latency_min"`    
-	StatusCodes   map[int]int64 `json:"status_codes"`   
+	Name          string        `json:"name"`
+	URL           string        `json:"url"`
+	Method        string        `json:"method"`
+	TotalRequests int           `json:"total_requests"`
+	Concurrency   int           `json:"concurrency"`
+	Duration      time.Duration `json:"duration"`
+	SuccessCount  int64         `json:"success_count"`
+	FailedCount   int64         `json:"failed_count"`
+	Throughput    float64       `json:"throughput"`
+	LatencyAvg    time.Duration `json:"latency_avg"`
+	LatencyP50    time.Duration `json:"latency_p50"`
+	LatencyP95    time.Duration `json:"latency_p95"`
+	LatencyP99    time.Duration `json:"latency_p99"`
+	LatencyMax    time.Duration `json:"latency_max"`
+	LatencyMin    time.Duration `json:"latency_min"`
+	StatusCodes   map[int]int64 `json:"status_codes"`
 }
 
 // Config 压测配置
 type Config struct {
-	Name        string            
-	URL         string            
-	Method      string            
-	Headers     map[string]string 
-	Body        any               
-	Concurrency int               
-	Total       int               
-	Timeout     time.Duration     
+	Name        string
+	URL         string
+	Method      string
+	Headers     map[string]string
+	Body        any
+	Concurrency int
+	Total       int
+	Timeout     time.Duration
 }
 
 // LoadRunner 压测执行器
@@ -86,7 +86,7 @@ func (lr *LoadRunner) Run(ctx context.Context, cfg Config) (*Result, error) {
 		failedCount  int64
 		latencies    = make([]time.Duration, 0, cfg.Total)
 		statusCodes  = make(map[int]int64)
-		mu           sync.Mutex 
+		mu           sync.Mutex
 	)
 
 	var bodyReader io.Reader
@@ -227,4 +227,3 @@ func repeat(s string, n int) string {
 	}
 	return string(r)
 }
-

@@ -7,7 +7,6 @@ import (
 	"strings"
 )
 
-// vecToLiteral 把 []float32 序列化为 pgvector 字面量 '[0.1,0.2,...]'
 func vecToLiteral(v []float32) string {
 	var b strings.Builder
 	b.WriteByte('[')
@@ -21,7 +20,6 @@ func vecToLiteral(v []float32) string {
 	return b.String()
 }
 
-// parseVectorLiteral 解析 pgvector 字面量 '[0.1,0.2,...]' 为 []float32
 func parseVectorLiteral(s string) ([]float32, error) {
 	s = strings.TrimSpace(s)
 	if len(s) < 2 || s[0] != '[' || s[len(s)-1] != ']' {

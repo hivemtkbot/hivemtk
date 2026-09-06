@@ -12,7 +12,6 @@ import (
 	"hivemtk-user/internal/pkg/testutil"
 )
 
-// setupConditionEvaluatorService 本地 helper（不依赖被 build tag 隔离的 marketing_flow_test.go）
 func setupConditionEvaluatorService(t *testing.T) *contentsvc.MarketingFlowService {
 	database := testutil.NewTestDB(t,
 		&contentmodel.MarketingFlow{},

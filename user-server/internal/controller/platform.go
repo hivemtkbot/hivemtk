@@ -29,44 +29,32 @@ func NewPlatformController() *PlatformController {
 	}
 }
 
-// platformCall 统一的平台 API 代理调用入口：拉取数据并写出成功响应。
-// 当 platformClient 未初始化(配置缺失)时,返回友好错误,不 panic
 func (pc *PlatformController) platformCall(c *gin.Context, method, path string, req, resp any, errMsg string) {
 	if pc.platformData(c, method, path, req, resp, errMsg) {
 		response.Success(c, resp, "获取成功")
 	}
 }
 
-// platformData 拉取平台数据并填充 resp（GET 带短时缓存）。
-// 返回 true 表示调用方需要自行写响应；返回 false 表示本函数已经写了降级响应，
-// 调用方不应再写第二次（否则会造成响应体双写）。
-// 独立于 platformCall 存在的原因：部分接口（如最新站内信）需要对 data 做二次加工，
-// 若复用 platformCall 会先写一次完整响应再被覆盖成两段拼接的 JSON（响应体双写）。
 func (pc *PlatformController) platformData(c *gin.Context, method, path string, req, resp any, errMsg string) bool {
 	if pc.platformClient == nil {
-		// R51: 平台未初始化 → 优雅降级返回空数据，避免前端看到 502 红屏
-		// 前端展示 "暂无数据" 即可，无需每次都报网络错误
-		// resp 由调用方传入（通常是 list/total 或 zero-value struct），此处零值即为空数据
+
 		response.Success(c, resp, "平台未初始化，返回空数据")
-		return false // 已写响应，调用方无需再写
+		return false
 	}
 	ok, _ := pc.platformDataRaw(c, method, path, req, resp)
 	if ok {
-		return true // 未写响应，交给调用方
+		return true
 	}
-	// R51: 对所有平台错误也优雅降级为 200 空（开发环境下平台不可达是常态）
+
 	response.Success(c, resp, errMsg+"（平台不可达，返回空数据）")
-	return false // 已写响应，调用方无需再写
+	return false
 }
 
-// platformDataRaw R41: 不写响应的取数内核（供轮询型端点做静默降级，避免 502 已落盘后再补写无效）
 func (pc *PlatformController) platformDataRaw(c *gin.Context, method, path string, req, resp any) (bool, error) {
 	if pc.platformClient == nil {
 		return false, platform.ErrPlatformNotConfigured
 	}
 
-	// 审计 L6：对幂等的 GET 代理请求做短时缓存，降低对平台 API 的重复调用压力。
-	// 缓存命中直接返回；未命中在调用成功后写入；写类请求(POST/DELETE/...)不缓存。
 	const platformCacheTTL = 20 * time.Second
 	cacheKey := method + ":" + path
 	if method == http.MethodGet {
@@ -77,9 +65,6 @@ func (pc *PlatformController) platformDataRaw(c *gin.Context, method, path strin
 		}
 	}
 
-	// 平台端统一响应契约：{ code, msg, data:{...} }。
-	// platform.Client.Do 会把整个响应体解到 respData，但业务字段在 data 子层，
-	// 故此处先用中间结构接收，再仅将 data 解到业务 resp，避免顶层解析永远为空。
 	var wrapper struct {
 		Code int             `json:"code"`
 		Msg  string          `json:"msg"`
@@ -102,8 +87,6 @@ func (pc *PlatformController) platformDataRaw(c *gin.Context, method, path strin
 	}
 	return true, nil
 }
-
-
 
 func (pc *PlatformController) RegisterMerchant(c *gin.Context) {
 	var req struct {
@@ -236,9 +219,7 @@ func (pc *PlatformController) GetLatestMessage(c *gin.Context) {
 	var resp struct {
 		List []map[string]any `json:"list"`
 	}
-	// R41 修复：改用 platformDataRaw（不写响应内核）——此前 platformData 失败时已写 502 落盘，
-	// 本函数再补写 SUCCESS 造成双响应体（502 头 + 拼接 JSON），前端解析报"非 JSON 响应"。
-	// 轮询型端点静默降级：平台不可达/未配置 → 空消息 200。
+
 	if ok, _ := pc.platformDataRaw(c, http.MethodGet, "/platform/message/list?page=1&page_size=1", nil, &resp); !ok {
 		response.Success(c, nil, "")
 		return
@@ -337,4 +318,3 @@ func (pc *PlatformController) GetPlatformMerchantStats(c *gin.Context) {
 	path := fmt.Sprintf("/platform/stats/merchant?days=%s", days)
 	pc.platformCall(c, "GET", path, nil, &resp, "获取商户统计失败")
 }
-

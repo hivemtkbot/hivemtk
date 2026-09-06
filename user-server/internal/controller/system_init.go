@@ -95,4 +95,3 @@ func (c *SystemInitController) InitComplete(ctx *gin.Context) {
 		"next_action":    "login",
 	}, "初始化完成")
 }
-

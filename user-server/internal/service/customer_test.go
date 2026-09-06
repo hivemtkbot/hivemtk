@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupCustomerServiceTestDB 设置测试数据库
 func setupCustomerServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.Customer{},
@@ -22,7 +21,6 @@ func setupCustomerServiceTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupCustomerService 设置测试服务
 func setupCustomerService(t *testing.T) *CustomerService {
 	setupCustomerServiceTestDB(t)
 	return NewCustomerService()
@@ -351,7 +349,6 @@ func TestCustomerService_CreateOrUpdate_ThirdPartyIDOnly(t *testing.T) {
 func TestCustomerService_CreateOrUpdate_PartialUpdatePreservesFields(t *testing.T) {
 	service := setupCustomerService(t)
 
-	// 首次创建：phone + email + wechat
 	first, err := service.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone:        "13900000099",
 		Email:        "preserve@test.com",
@@ -361,7 +358,6 @@ func TestCustomerService_CreateOrUpdate_PartialUpdatePreservesFields(t *testing.
 		t.Fatalf("first create: %v", err)
 	}
 
-	// 第二次：用 phone 找 + 仅传 email
 	second, err := service.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13900000099",
 		Email: "preserve@test.com",
@@ -370,7 +366,6 @@ func TestCustomerService_CreateOrUpdate_PartialUpdatePreservesFields(t *testing.
 		t.Fatalf("second update: %v", err)
 	}
 
-	// 验证 wechat_open_id 仍保留（未被空字符串清空）
 	if second.WechatOpenID != "wx_keep_001" {
 		t.Errorf("wechat_open_id 被覆盖: got %q want %q", second.WechatOpenID, "wx_keep_001")
 	}

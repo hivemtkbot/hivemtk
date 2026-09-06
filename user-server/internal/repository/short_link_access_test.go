@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupShortLinkAccessTestDB 设置短链访问统计测试数据库
 func setupShortLinkAccessTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.ShortLinkAccess{},
@@ -21,7 +20,6 @@ func setupShortLinkAccessTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupShortLinkAccessRepository 创建测试用的短链访问统计仓库实例
 func setupShortLinkAccessRepository(t *testing.T) ShortLinkAccessRepository {
 	setupShortLinkAccessTestDB(t)
 	return NewShortLinkAccessRepository(db.GetDB())

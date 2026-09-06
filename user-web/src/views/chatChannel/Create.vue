@@ -109,7 +109,7 @@
       </el-form>
     </el-card>
 
-    <!-- 创建成功后的凭证弹窗 -->
+    
     <el-dialog
       v-model="credentialsVisible"
       :title="$t('渠道创建成功')"
@@ -171,8 +171,7 @@ const credentialsVisible = ref(false)
 const createdData = ref(null)
 const originsText = ref('')
 
-// 默认智能体下拉
-const enabledAgents = ref([])
+const enabledAgents = ref([]);
 const loadingAgents = ref(false)
 
 const getAgentTypeLabel = (type) => {
@@ -220,8 +219,7 @@ const embedCode = computed(() => {
 })
 
 const onSubmit = async () => {
-  // 校验失败会 reject，必须在 try 内处理，否则变成未捕获的 Promise 拒绝（PAGEERROR）
-  let valid = false
+  let valid = false;
   try {
     valid = await formRef.value.validate()
   } catch (e) {
@@ -238,12 +236,10 @@ const onSubmit = async () => {
       ElMessage.warning(i18n.global.t('检测到通配符 *，将允许所有域名接入，存在安全风险，建议仅用于测试'))
     }
     const payload = { ...form.value }
-    // 渠道创建时不需要传 default_agent_id（由后端忽略，绑定关系走单独接口）
-    delete payload.default_agent_id
+    delete payload.default_agent_id;
     const res = await createChannel(payload)
     createdData.value = res
-    // 如果选择了默认智能体，立即创建绑定关系
-    const channelId = res?.channel_id || res?.Channel?.channel_id
+    const channelId = res?.channel_id || res?.Channel?.channel_id;
     if (channelId && form.value.default_agent_id) {
       try {
         await createBinding({
@@ -255,8 +251,7 @@ const onSubmit = async () => {
         })
         ElMessage.success(i18n.global.t('已自动绑定默认智能体'))
       } catch (bindErr) {
-        // 绑定失败不阻塞主流程，提示用户去绑定页面手动配置
-        ElMessage.warning('渠道已创建，但默认智能体绑定失败：' + (bindErr?.message || '未知错误'))
+        ElMessage.warning('渠道已创建，但默认智能体绑定失败：' + (bindErr?.message || '未知错误'));
       }
     }
     credentialsVisible.value = true
@@ -284,7 +279,6 @@ const copy = async (text) => {
     }
     ElMessage.success(i18n.global.t('已复制'))
   } catch {
-    // 降级：临时输入框 + execCommand（非 HTTPS / 旧浏览器）
     try {
       const ta = document.createElement('textarea')
       ta.value = text
@@ -302,8 +296,7 @@ const copy = async (text) => {
 }
 
 onMounted(() => {
-  // 加载启用的智能体列表（用于默认智能体下拉）
-  loadingAgents.value = true
+  loadingAgents.value = true;
   listEnabledAgents()
     .then((res) => {
       const list = Array.isArray(res) ? res : res?.list || res?.items || []

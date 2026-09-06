@@ -76,7 +76,6 @@ func ValidateURL(rawURL string) error {
 	return nil
 }
 
-// isBlockedIP 判断 IP 是否属于应拒绝的范围
 func isBlockedIP(ip net.IP) bool {
 	if ip == nil {
 		return true
@@ -108,7 +107,6 @@ func isBlockedIP(ip net.IP) bool {
 	return false
 }
 
-// isPrivateRFC1918 校验 IPv4 私有段或 IPv6 唯一本地地址
 func isPrivateRFC1918(ip net.IP) bool {
 	if ip.IsPrivate() {
 		return true
@@ -122,4 +120,3 @@ func isPrivateRFC1918(ip net.IP) bool {
 
 	return false
 }
-

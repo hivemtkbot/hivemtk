@@ -9,33 +9,30 @@ import (
 	"time"
 )
 
-
-
 // DeadLetterEntry 死信条目
 type DeadLetterEntry struct {
-	ID         string           `json:"id"`          
-	ToolName   string           `json:"tool_name"`   
-	Args       map[string]any   `json:"args"`        
-	Error      string           `json:"error"`       
-	TraceID    string           `json:"trace_id"`    
-	ToolCtx    *ToolContext     `json:"tool_ctx"`    
-	RetryCount int              `json:"retry_count"` 
-	Status     DeadLetterStatus `json:"status"`      
-	CreatedAt  time.Time        `json:"created_at"`  
-	UpdatedAt  time.Time        `json:"updated_at"`  
+	ID         string           `json:"id"`
+	ToolName   string           `json:"tool_name"`
+	Args       map[string]any   `json:"args"`
+	Error      string           `json:"error"`
+	TraceID    string           `json:"trace_id"`
+	ToolCtx    *ToolContext     `json:"tool_ctx"`
+	RetryCount int              `json:"retry_count"`
+	Status     DeadLetterStatus `json:"status"`
+	CreatedAt  time.Time        `json:"created_at"`
+	UpdatedAt  time.Time        `json:"updated_at"`
 }
 
 // DeadLetterStatus 死信处理状态
 type DeadLetterStatus string
 
 const (
-	DeadLetterPending DeadLetterStatus = "pending"
-	DeadLetterReplaying DeadLetterStatus = "replaying"
-	DeadLetterReplayed DeadLetterStatus = "replayed"
+	DeadLetterPending      DeadLetterStatus = "pending"
+	DeadLetterReplaying    DeadLetterStatus = "replaying"
+	DeadLetterReplayed     DeadLetterStatus = "replayed"
 	DeadLetterReplayFailed DeadLetterStatus = "replay_failed"
-	DeadLetterDiscarded DeadLetterStatus = "discarded"
+	DeadLetterDiscarded    DeadLetterStatus = "discarded"
 )
-
 
 // DeadLetterQueue 死信队列（内存实现）
 //
@@ -44,7 +41,7 @@ type DeadLetterQueue struct {
 	mu      sync.Mutex
 	entries []*DeadLetterEntry
 	byID    map[string]*DeadLetterEntry
-	byTool  map[string][]*DeadLetterEntry 
+	byTool  map[string][]*DeadLetterEntry
 	maxSize int
 	ttl     time.Duration
 	idSeq   atomic.Uint64
@@ -229,7 +226,6 @@ type DeadLetterStats struct {
 	MaxSize  int                      `json:"max_size"`
 }
 
-
 // DeadLetterQueueDecorator 死信队列装饰器
 //
 // 在工具调用最终失败时（重试耗尽、超时、panic 等）推入死信队列
@@ -269,7 +265,6 @@ func DeadLetterQueueDecorator(queue *DeadLetterQueue) ToolDecorator {
 	}
 }
 
-
 // NoOpDeadLetterQueue 空操作死信队列
 // 用于不需要死信的场景（如单元测试、查询类工具）
 type NoOpDeadLetterQueue struct{}
@@ -284,7 +279,6 @@ func (NoOpDeadLetterQueue) ListAll() []*DeadLetterEntry                         
 func (NoOpDeadLetterQueue) UpdateStatus(id string, status DeadLetterStatus) error { return nil }
 func (NoOpDeadLetterQueue) Cleanup() int                                          { return 0 }
 func (NoOpDeadLetterQueue) Stats() DeadLetterStats                                { return DeadLetterStats{} }
-
 
 // DeadLetterReplayer 死信重放器
 //
@@ -347,10 +341,8 @@ func (r *DeadLetterReplayer) ReplayAll(ctx context.Context) (succeeded, failed i
 	return
 }
 
-
 // MarshalJSON 序列化死信条目
 func (e *DeadLetterEntry) MarshalJSON() ([]byte, error) {
 	type alias DeadLetterEntry
 	return json.Marshal((*alias)(e))
 }
-

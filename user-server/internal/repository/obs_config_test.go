@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupObsConfigTestDB 设置 OBS 配置测试数据库
 func setupObsConfigTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.ObsConfig{},
@@ -20,7 +19,6 @@ func setupObsConfigTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupObsConfigRepository 创建测试用的 OBS 配置仓库实例
 func setupObsConfigRepository(t *testing.T) ObsConfigRepository {
 	setupObsConfigTestDB(t)
 	return NewObsConfigRepository()

@@ -17,12 +17,12 @@ type DocumentProcessor struct {
 
 // ProcessingConfig 处理配置
 type ProcessingConfig struct {
-	ChunkSize           int     
-	ChunkOverlap        int     
-	MinChunkSize        int     
-	SimilarityThreshold float64 
-	MaxLengthPerChunk   int     
-	MinLengthPerChunk   int     
+	ChunkSize           int
+	ChunkOverlap        int
+	MinChunkSize        int
+	SimilarityThreshold float64
+	MaxLengthPerChunk   int
+	MinLengthPerChunk   int
 }
 
 // NewDocumentProcessor 创建新的文档处理器
@@ -46,7 +46,6 @@ func (dp *DocumentProcessor) ProcessDocument(ctx context.Context, doc rag_core.D
 
 	text = dp.preprocessText(text)
 
-	// 根据不同策略分割文档
 	var chunks []rag_core.Chunk
 	switch {
 	case dp.shouldUseHeadingSplit(text):
@@ -62,7 +61,6 @@ func (dp *DocumentProcessor) ProcessDocument(ctx context.Context, doc rag_core.D
 	return chunks, nil
 }
 
-// preprocessText 预处理文本
 func (dp *DocumentProcessor) preprocessText(text string) string {
 	text = regexp.MustCompile(`[ \t]+`).ReplaceAllString(text, " ")
 	text = regexp.MustCompile(`\n[ \t]*\n`).ReplaceAllString(text, "\n\n")
@@ -70,19 +68,16 @@ func (dp *DocumentProcessor) preprocessText(text string) string {
 	return text
 }
 
-// shouldUseHeadingSplit 判断是否使用标题分割策略
 func (dp *DocumentProcessor) shouldUseHeadingSplit(text string) bool {
 	headings := regexp.MustCompile(`(?m)^#+\s.*$`).FindAllString(text, -1)
-	return len(headings) > 2 
+	return len(headings) > 2
 }
 
-// shouldUseSentenceSplit 判断是否使用句子分割策略
 func (dp *DocumentProcessor) shouldUseSentenceSplit(text string) bool {
 	sentences := regexp.MustCompile(`[.!?。！？]\s+`).FindAllString(text, -1)
-	return len(sentences) > 5 
+	return len(sentences) > 5
 }
 
-// splitByHeadings 按标题分割文档
 func (dp *DocumentProcessor) splitByHeadings(text string, doc rag_core.Document) []rag_core.Chunk {
 	re := regexp.MustCompile(`(?m)^#+\s.*$`)
 	matches := re.FindAllStringIndex(text, -1)
@@ -116,7 +111,6 @@ func (dp *DocumentProcessor) splitByHeadings(text string, doc rag_core.Document)
 	return chunks
 }
 
-// splitBySentences 按句子分割文档
 func (dp *DocumentProcessor) splitBySentences(text string, doc rag_core.Document) []rag_core.Chunk {
 	sentencePattern := `[.!?。！？]\s+|[.!?。！？](?=\n)|\n\s*\n`
 	re := regexp.MustCompile(sentencePattern)
@@ -155,7 +149,6 @@ func (dp *DocumentProcessor) splitBySentences(text string, doc rag_core.Document
 	return chunks
 }
 
-// splitByFixedLength 按固定长度分割文档
 func (dp *DocumentProcessor) splitByFixedLength(text string, doc rag_core.Document) []rag_core.Chunk {
 	var chunks []rag_core.Chunk
 
@@ -197,7 +190,6 @@ func (dp *DocumentProcessor) splitByFixedLength(text string, doc rag_core.Docume
 	return chunks
 }
 
-// findBestCutPoint 寻找最佳切割点
 func (dp *DocumentProcessor) findBestCutPoint(runes []rune, start, suggestedEnd int) int {
 	totalRunes := len(runes)
 	if suggestedEnd >= totalRunes {
@@ -225,20 +217,18 @@ func (dp *DocumentProcessor) findBestCutPoint(runes []rune, start, suggestedEnd 
 	return suggestedEnd
 }
 
-// createChunk 创建分片
 func (dp *DocumentProcessor) createChunk(doc rag_core.Document, content, chunkID string) rag_core.Chunk {
 	return rag_core.Chunk{
 		ID:         chunkID,
 		DocumentID: doc.ID,
 		Content:    content,
 		Metadata:   doc.Metadata,
-		TokenCount: len(strings.Fields(content)), 
+		TokenCount: len(strings.Fields(content)),
 	}
 }
 
-// postProcessChunks 后处理分片
 func (dp *DocumentProcessor) postProcessChunks(chunks []rag_core.Chunk) []rag_core.Chunk {
-	// 过滤掉太小的分片
+
 	var filteredChunks []rag_core.Chunk
 	for _, chunk := range chunks {
 		if len(strings.TrimSpace(chunk.Content)) >= dp.config.MinChunkSize {
@@ -246,9 +236,6 @@ func (dp *DocumentProcessor) postProcessChunks(chunks []rag_core.Chunk) []rag_co
 		}
 	}
 
-	// R43 修复：短文档（如一句话 FAQ）可能被 MinChunkSize 全量过滤 → "分片结果为空"
-	// → 文档永远无法向量化。语义上内容非空就不应产出 0 分片：兜底保留最长的原始
-	// 分片（对齐 rerank ScoreFloor 的"全低于地板保留首条"设计，R31 A8 同思路）。
 	if len(filteredChunks) == 0 && len(chunks) > 0 {
 		best := chunks[0]
 		for _, c := range chunks[1:] {
@@ -300,4 +287,3 @@ func (dp *DocumentProcessor) UpdateConfig(config *ProcessingConfig) error {
 func (dp *DocumentProcessor) GetConfig() *ProcessingConfig {
 	return dp.config
 }
-

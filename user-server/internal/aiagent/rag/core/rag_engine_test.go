@@ -8,9 +8,6 @@ import (
 	"time"
 )
 
-// requireLocalEmbedding 私域部署基线：
-// 依赖真实本地 embedding 服务的测试，需要在本地启动 TEI 容器。
-// CI / 本地无 embedding 容器时，设置 EMBEDDING_ALLOW_FALLBACK=true 即可让单测用 hash 降级运行。
 func requireLocalEmbedding(t *testing.T) {
 	t.Helper()
 	if strings.EqualFold(os.Getenv("EMBEDDING_ALLOW_FALLBACK"), "true") {
@@ -22,7 +19,6 @@ func requireLocalEmbedding(t *testing.T) {
 	t.Skip("跳过依赖真实本地 embedding 的测试：未设置 EMBEDDING_ALLOW_FALLBACK=true，且本地无 embedding 服务可达")
 }
 
-// newTestRAGEngine 测试用 RAG 引擎工厂：注入 MockEmbedder 避免依赖网络 embedding 服务
 func newTestRAGEngine(config *RAGConfig) *RAGEngine {
 	dim := 768
 	if config != nil && config.VectorDimension > 0 {
@@ -532,4 +528,3 @@ func TestChunk_Score(t *testing.T) {
 		t.Errorf("Invalid chunk score: %f", chunk.Score)
 	}
 }
-

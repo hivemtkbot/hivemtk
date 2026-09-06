@@ -50,25 +50,6 @@ func SetAgentLoopTimeout(seconds int) {
 	agentLoopTotalTimeout = time.Duration(seconds) * time.Second
 }
 
-// runAgentLoop 真正的智能体 Agent Loop（核心实现）
-//
-// 流程（ReAct 模式）：
-//  1. 构造初始 messages（system + user）
-//  2. 调用 LLM，携带 tools 数组
-//  3. 若 LLM 返回 finish_reason=tool_calls：
-//     a. 将 assistant 消息（含 tool_calls）追加到对话历史
-//     b. 调用 AgentToolExecutor.DispatchToolCalls 并发执行所有 tool_call
-//     c. 将每个工具执行结果作为 role=tool 消息追加到对话历史
-//     d. 回到步骤 2，再次调用 LLM（携带更新后的 messages）
-//  4. 若 LLM 返回 finish_reason=stop（或达到最大迭代次数）：
-//     a. 取 LLM 最终文本作为候选回复
-//     b. 返回 DispatchResult（含 tool_calls 历史、token 用量、finish_reason）
-//
-// 设计要点：
-//   - 真正的智能体：LLM 自主决定调用哪些工具、何时停止；非硬编码的步骤序列
-//   - 工具调用结果回灌：将工具返回的 JSON 作为 role=tool 消息，让 LLM 基于真实业务数据生成回复
-//   - 失败降级：工具执行失败时仍把错误信息回灌给 LLM，让 LLM 决定是否重试或换工具
-//   - 迭代次数限制：防止无限循环；达到上限时使用最后一次 LLM 输出
 func (e *SalesEngine) runAgentLoop(
 	ctx context.Context,
 	scenario llm.DispatchScenario,
@@ -91,8 +72,7 @@ func (e *SalesEngine) runAgentLoop(
 	}
 
 	maxTools, maxIter := resolveAgentSettings(ctx)
-	// TL-3：按场景白名单裁剪工具（intent_recognize 只暴露 knowledge/customer 类；
-	// 其余场景全量）。见 tooluse.ScenarioAllowedCategories。
+
 	availableTools = filterToolsForScenario(scenario, availableTools)
 	filteredTools := limitToolsForAgent(availableTools, maxTools, allowed)
 	toolDefs := make([]llm.ToolDefinition, 0, len(filteredTools))
@@ -181,9 +161,6 @@ func (e *SalesEngine) runAgentLoop(
 	stopReason := stopReasonNone
 	totalToolCalls := 0
 
-	// A-2/A-3 LoopGuard 接线：跨轮次累计 LLM 成本追踪 + 结构化停止原因写 span status。
-	// 与本地 agentLoopGuard 双层互补：本地管单次运行预算熔断，LoopGuard 管累计成本
-	// 记账（RecordCost）与收尾清理（FinishTrace 防长驻进程内存累积）。
 	loopGuard := tooluse.NewLoopGuard(tooluse.DefaultLoopGuardConfig())
 	loopTraceID := req.SessionID
 	if loopTraceID == "" {
@@ -191,17 +168,10 @@ func (e *SalesEngine) runAgentLoop(
 	}
 	defer loopGuard.FinishTrace(loopTraceID)
 
-	// writeLoopSpan 收敛处写 span status（A-3）：
-	// 同时收敛内部 agentLoopGuard 的 agentLoopStopReason 与外部 tooluse.StopReasonOf(err)，
-	// 落 message_trace（NodeAgentTurn），监控侧按 stop_reason 维度聚合。
-	// 内部 guard 的 stopReason（预算/迭代/空输出）优先，因其表示的是 Agent Loop 自身的结束原因，
-	// 比 err 推断出的 StopReason（仅覆盖 LLM/审批/循环检测）更完整。
 	writeLoopSpan := func(output any, err error) {
 		sr := tooluse.StopReasonOf(err)
 		innerSR := stopReason
-		// R57: 不再显式 .TraceID(loopTraceID) — loopTraceID 是 session_id，
-		// 会覆盖 tracing.Start(ctx, ...) 从 Carrier 继承的稳定 tr-xxx。
-		// 让 traceID 从 ctx.Carrier 自然继承即可。
+
 		sp := tracing.Start(ctx, tracing.NodeAgentTurn).
 			Kind("agent_turn").
 			Agent(agentIDStr)
@@ -238,8 +208,6 @@ func (e *SalesEngine) runAgentLoop(
 	var collectedCards []model.RichCard
 	for iter := 1; iter <= maxIter; iter++ {
 
-		// P1-5: 预估先行 —— 在 check() 之前先扣减一个预估量，防止同轮内预算穿透
-		// 预估值 = 当前已用 / 当前迭代号（粗略估算单轮平均消耗）
 		if iter > 1 && guard != nil {
 			avgCost := guard.usedCost / float64(iter-1)
 			if avgCost > 0 {
@@ -247,7 +215,6 @@ func (e *SalesEngine) runAgentLoop(
 			}
 		}
 
-		// 统一护栏：先检查后消费（check before spend），任一维度触达即停止
 		if r := guard.check(); r != stopReasonNone {
 			stopReason = r
 			logger.Warnf("[AgentLoop] guard tripped at iter=%d reason=%s tokens=%d cost_usd=%.4f, fallback to last content",
@@ -255,8 +222,6 @@ func (e *SalesEngine) runAgentLoop(
 			break
 		}
 
-		// v3 审计 P3-1 修复：per-iteration 超时（业界共识：单次 LLM 调用超时）
-		// 用派生 ctx 限定单次 LLM 调用时长，不影响总 agentLoopTotalTimeout
 		iterCtx, iterCancel := context.WithTimeout(agentLoopCtx, agentLoopMaxPerIterTimeout)
 		logger.Infof("[AgentLoop] iter=%d messages=%d tools=%d prompt_len=%d max_tokens=%d used_tokens=%d", iter, len(messages), len(curTools), len(prompt), curMaxTokens, totalTokensUsed)
 		logger.Infof("[AgentLoop] prompt_preview=%s", truncate(prompt, 300))
@@ -270,9 +235,9 @@ func (e *SalesEngine) runAgentLoop(
 			ToolChoice:   "auto",
 			Messages:     messages,
 		})
-		iterCancel() // 立即释放 per-iter ctx
+		iterCancel()
 		if err != nil {
-			// 区分"总超时"vs"单次超时"
+
 			if iterCtx.Err() == context.DeadlineExceeded && agentLoopCtx.Err() == nil {
 				logger.Warnf("[AgentLoop] iter=%d per-iter timeout (budget=%s), continue with next iter", iter, agentLoopMaxPerIterTimeout)
 				continue
@@ -288,9 +253,6 @@ func (e *SalesEngine) runAgentLoop(
 		}
 		lastResult = result
 
-		// 累计消耗（token + 美元成本，供统一护栏判定）
-		// token 优先 LLM 真实 Usage.Usage.TotalTokens（业界最佳），否则退回 result.TotalTokens；
-		// 成本取 dispatcher 计算的 result.Cost（按 Provider CostPer1k 计价）
 		iterTokens := 0
 		if result.Usage.TotalTokens > 0 {
 			iterTokens = result.Usage.TotalTokens
@@ -358,7 +320,7 @@ func (e *SalesEngine) runAgentLoop(
 		totalToolCalls += len(toolResults)
 
 		for i, tr := range toolResults {
-			// 取对应的 tool_call 的 function name 用于 role=tool 的 name 字段
+
 			var toolName string
 			if i < len(result.ToolCalls) {
 				toolName = result.ToolCalls[i].Function.Name
@@ -413,15 +375,10 @@ func (e *SalesEngine) runAgentLoop(
 	return "", nil, nil, exhaustedErr
 }
 
-// emptyReplyFallback 当 LLM 返回空内容（被截断或未产出任何文本）时返回的友好降级话术。
-// 铁律：LLM 返回空必须兜底，绝对禁止向用户展示空白回复。
-// 集中定义便于回归测试守护，避免各处硬编码不一致。
 func (e *SalesEngine) emptyReplyFallback() string {
 	return "抱歉，我暂时无法处理您的请求，请稍后再试。"
 }
 
-// buildAgentSystemPrompt 构造 Agent 模式下的系统提示词
-// 在原 Persona 基础上追加工具使用指引，让 LLM 知道何时调用哪些工具
 func buildAgentSystemPrompt(persona string, intent *dto.RecognizeResult, mem *model.DialogueMemory, customer *model.Customer, ragChunks []RAGChunk, guard *agentLoopGuard) string {
 	var sb strings.Builder
 	sb.WriteString(persona)
@@ -471,10 +428,6 @@ func buildAgentSystemPrompt(persona string, intent *dto.RecognizeResult, mem *mo
 	return sb.String()
 }
 
-// limitToolsForAgent 限制注入到 LLM 的工具数量
-// 40 个工具全注入会超出上下文窗口，只保留最相关的 maxTools 个
-// agentContextToolNames 返回本 agent 配置的工具白名单（来自 AgentContext.Tools）。
-// 非空时 runAgentLoop 仅注入并放行名单内工具；空时走 limitToolsForAgent 默认优先级集。
 func agentContextToolNames(req *SalesRequest) []string {
 	if req == nil || req.AgentContext == nil {
 		return nil
@@ -482,9 +435,6 @@ func agentContextToolNames(req *SalesRequest) []string {
 	return req.AgentContext.Tools
 }
 
-// filterToolsForScenario TL-3 场景裁剪：intent_recognize 类场景只保留
-// knowledge/customer 类工具（映射表见 tooluse.scenarioToolWhitelist）；
-// 场景未配置白名单时原样返回（全量，向后兼容）。
 func filterToolsForScenario(scenario llm.DispatchScenario, defs []AgentToolDef) []AgentToolDef {
 	cats, restricted := tooluse.ScenarioAllowedCategories(string(scenario))
 	if !restricted {
@@ -504,14 +454,6 @@ func filterToolsForScenario(scenario llm.DispatchScenario, defs []AgentToolDef) 
 	return out
 }
 
-// limitToolsForAgent 计算注入给 LLM 的工具子集（双层防护之「注入期过滤」）。
-//
-// 行为：
-//   - allowed 非空（来自 AgentContext.Tools 工具白名单）：仅保留名单内工具，按白名单顺序返回，
-//     上限 30（保护 LLM 上下文）。未被 agent 授权的工具 LLM 根本看不到 → 无法发起调用。
-//   - allowed 为空：按默认优先级取前 maxTools 个工具。默认优先级已覆盖电商客服关键路径
-//     （rag/customer/order/pm/reach.card.send/reach.sms.send/aftersale.*/logistics.track 等），
-//     不再像旧版硬编码 top-10 那样把发卡片、售后、物流工具砍掉。
 func limitToolsForAgent(tools []AgentToolDef, maxTools int, allowed []string) []AgentToolDef {
 	if maxTools <= 0 {
 		maxTools = 18
@@ -583,10 +525,8 @@ func limitToolsForAgent(tools []AgentToolDef, maxTools int, allowed []string) []
 	return ensureCardShowPresent(tools, result, maxTools)
 }
 
-// cardShowToolName 是会话内结构化卡片工具的固定名称，作为通用能力始终注入 Agent Loop。
 const cardShowToolName = "card.show"
 
-// ensureToolInList 确保 name 存在于列表；若不存在则追加到末尾。
 func ensureToolInList(list []string, name string) []string {
 	for _, l := range list {
 		if l == name {
@@ -596,8 +536,6 @@ func ensureToolInList(list []string, name string) []string {
 	return append(append([]string{}, list...), name)
 }
 
-// ensureCardShowPresent 保证 card.show 工具（若已注册）出现在最终注入列表中：
-// 未满则追加；已满则替换最低优先级（末尾）工具，确保通用卡片能力不被限额挤掉。
 func ensureCardShowPresent(all, selected []AgentToolDef, maxTools int) []AgentToolDef {
 	var cardTool *AgentToolDef
 	for i := range all {
@@ -623,7 +561,6 @@ func ensureCardShowPresent(all, selected []AgentToolDef, maxTools int) []AgentTo
 	return res
 }
 
-// buildPrompt 构造 LLM prompt
 func (e *SalesEngine) buildPrompt(
 	req *SalesRequest,
 	intent *dto.RecognizeResult,
@@ -638,7 +575,6 @@ func (e *SalesEngine) buildPrompt(
 
 	sb.WriteString(fmt.Sprintf("【客户消息】: %s\n\n", req.UserMessage))
 
-	// P1g 情感分层策略提示（焦虑=进度可视化 / 满意=裂变引导），空=不注入
 	if req.EmotionHint != "" {
 		sb.WriteString(fmt.Sprintf("【情绪应对策略】: %s\n\n", req.EmotionHint))
 	}
@@ -715,7 +651,6 @@ func (e *SalesEngine) buildPrompt(
 	return sb.String()
 }
 
-// safeID 安全返回客户 ID
 func safeID(c *model.Customer) string {
 	if c == nil {
 		return ""
@@ -723,25 +658,14 @@ func safeID(c *model.Customer) string {
 	return c.ID
 }
 
-// —— A-4 TokenBudget 轻量版：历史消息按 token 预算截断（替代固定取 20 条）——
-
-// agentLoopHistoryTokenBudget 历史消息上下文 token 预算（含输出预留）
 const agentLoopHistoryTokenBudget = 4096
 
-// agentLoopHistoryOutputReservePct 为 LLM 输出预留的预算百分比（30%）
 const agentLoopHistoryOutputReservePct = 30
 
-// agentLoopHistoryMaxCandidates 单次查询的历史候选条数上限（截断前预取，防长会话全量拉取）
 const agentLoopHistoryMaxCandidates = 200
 
-// historyMsgTokenOverhead 每条历史消息的格式化开销估算 token（"客户：" / "AI：" + 换行）
 const historyMsgTokenOverhead = 6
 
-// fetchHistoryWithinTokenBudget 拉取会话历史并按 token 预算从新到旧保留：
-//   - 可用预算 = 总预算 × (1 - 输出预留 30%)
-//   - 从最新一条向前累加估算 token，超出预算即停止（保留最近上下文优先）
-//   - 保持消息对完整性：截断边界若落在 AI 回复上（其配对的客户消息已被裁掉），
-//     则丢弃该孤儿 AI 消息，保证最旧保留项一定是「客户」发言（一对的开头）
 func (e *SalesEngine) fetchHistoryWithinTokenBudget(sessionID, userMessage string) []model.SessionMessage {
 	var hist []model.SessionMessage
 	if err := e.db.Where("session_id = ?", sessionID).
@@ -749,7 +673,6 @@ func (e *SalesEngine) fetchHistoryWithinTokenBudget(sessionID, userMessage strin
 		return nil
 	}
 
-	// 与既有行为一致：最新一条若是当前消息本身则剔除
 	if hist[0].Content == userMessage {
 		hist = hist[1:]
 	}
@@ -772,9 +695,6 @@ func (e *SalesEngine) fetchHistoryWithinTokenBudget(sessionID, userMessage strin
 	truncated := keep < len(hist)
 	hist = hist[:keep]
 
-	// 消息对完整性（仅预算截断发生时）：此时 hist 从新到旧，最旧保留项在末尾；
-	// 若它是 AI 发言（其配对的客户消息已被裁掉），从末尾丢弃该孤儿回复，
-	// 保证最旧保留项一定是「客户」发言（一对的开头）
 	if truncated {
 		for len(hist) > 0 {
 			last := hist[len(hist)-1]
@@ -785,7 +705,6 @@ func (e *SalesEngine) fetchHistoryWithinTokenBudget(sessionID, userMessage strin
 		}
 	}
 
-	// 恢复时间正序
 	for i, j := 0, len(hist)-1; i < j; i, j = i+1, j-1 {
 		hist[i], hist[j] = hist[j], hist[i]
 	}

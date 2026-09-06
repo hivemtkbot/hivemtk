@@ -43,7 +43,6 @@ const LogFieldParentSpanId = "parent_span_id"
 // LogFieldOperation 日志 JSON 中 operation 字段名
 const LogFieldOperation = "operation"
 
-
 type ctxKey int
 
 const (
@@ -228,7 +227,6 @@ func TraceIDFromContext(ctx context.Context) string {
 	return logger.TraceIDFromContext(ctx)
 }
 
-
 // GinTraceMiddleware Gin 追踪中间件
 //
 // 契约：
@@ -304,7 +302,6 @@ func TraceIDFromGin(c *gin.Context) string {
 	return ""
 }
 
-
 // LogFields 返回结构化日志字段（trace_id / span_id / parent_span_id）
 // 用于 service 层手动构建结构化日志：
 //
@@ -321,4 +318,3 @@ func (t *Tracer) LogFields() map[string]any {
 		LogFieldParentSpanId: t.parentID,
 	}
 }
-

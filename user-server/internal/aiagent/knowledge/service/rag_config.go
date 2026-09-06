@@ -21,7 +21,7 @@ type RagConfigService struct {
 	ragService        *rag_service.RAGService
 	documentProcessor *etl.DocumentProcessor
 	vectorProcessor   *vector.VectorProcessor
-	ragSearcher *RagSearcher
+	ragSearcher       *RagSearcher
 }
 
 // NewRagConfigService 创建RAG配置服务
@@ -36,7 +36,7 @@ func NewRagConfigService(
 		ragService:        ragService,
 		documentProcessor: documentProcessor,
 		vectorProcessor:   vectorProcessor,
-		ragSearcher: NewRagSearcher(),
+		ragSearcher:       NewRagSearcher(),
 	}
 }
 
@@ -51,11 +51,14 @@ func (s *RagConfigService) CreateRagProduct(ctx context.Context, req *model.RagP
 	}
 
 	if req.Temperature == 0 {
-		req.Temperature = DefaultTemperature()	}
+		req.Temperature = DefaultTemperature()
+	}
 	if req.MaxTokens == 0 {
-		req.MaxTokens = DefaultMaxTokens()	}
+		req.MaxTokens = DefaultMaxTokens()
+	}
 	if req.TopP == 0 {
-		req.TopP = DefaultTopP()	}
+		req.TopP = DefaultTopP()
+	}
 	if req.FrequencyPenalty == 0 {
 		req.FrequencyPenalty = DefaultFrequencyPenalty
 	}
@@ -73,9 +76,11 @@ func (s *RagConfigService) CreateRagProduct(ctx context.Context, req *model.RagP
 		req.LLMProviderConfig.Model = req.LLMModel
 	}
 	if req.LLMProviderConfig.MaxRetries == 0 {
-		req.LLMProviderConfig.MaxRetries = DefaultMaxRetries()	}
+		req.LLMProviderConfig.MaxRetries = DefaultMaxRetries()
+	}
 	if req.LLMProviderConfig.RequestTimeout == 0 {
-		req.LLMProviderConfig.RequestTimeout = DefaultRequestTimeoutSeconds()	}
+		req.LLMProviderConfig.RequestTimeout = DefaultRequestTimeoutSeconds()
+	}
 
 	if req.EmbeddingProviderConfig.APIType == "" {
 		req.EmbeddingProviderConfig.APIType = "openai"
@@ -86,7 +91,8 @@ func (s *RagConfigService) CreateRagProduct(ctx context.Context, req *model.RagP
 	if req.EmbeddingProviderConfig.Dimension == 0 {
 		req.EmbeddingProviderConfig.Dimension = req.EmbeddingDim
 		if req.EmbeddingProviderConfig.Dimension == 0 {
-			req.EmbeddingProviderConfig.Dimension = EmbeddingDim()		}
+			req.EmbeddingProviderConfig.Dimension = EmbeddingDim()
+		}
 	}
 	req.EmbeddingProviderConfig.Enabled = true
 	if req.RerankProviderConfig.APIType == "" {
@@ -113,11 +119,10 @@ func (s *RagConfigService) CreateRagProduct(ctx context.Context, req *model.RagP
 	return req, nil
 }
 
-// sanitizeVectorTableName 把人类可读 Name 转成 PG 安全的 snake_case 表名
 func sanitizeVectorTableName(name string) string {
 	r := strings.NewReplacer(" ", "_", "-", "_", "（", "", "）", "", "(", "", ")", "", "，", "", "。", "", "、", "")
 	cleaned := r.Replace(name)
-	// 移除非字母数字下划线字符
+
 	var b strings.Builder
 	for _, c := range cleaned {
 		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' {
@@ -134,7 +139,6 @@ func sanitizeVectorTableName(name string) string {
 	return out
 }
 
-// randomHex 生成 n 字节随机十六进制字符串
 func randomHex(n int) string {
 	b := make([]byte, n)
 	_, _ = rand.Read(b)
@@ -285,7 +289,6 @@ func (s *RagConfigService) UpdateRagProduct(ctx context.Context, req *model.RagP
 	}
 	original.RerankProviderConfig.Enabled = req.RerankProviderConfig.Enabled
 
-
 	original.UpdatedAt = time.Now()
 
 	return s.repo.UpdateRagProduct(ctx, original)
@@ -295,4 +298,3 @@ func (s *RagConfigService) UpdateRagProduct(ctx context.Context, req *model.RagP
 func (s *RagConfigService) DeleteRagProduct(ctx context.Context, id string) error {
 	return s.repo.DeleteRagProduct(ctx, id)
 }
-

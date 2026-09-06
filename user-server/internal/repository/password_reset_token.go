@@ -117,7 +117,7 @@ func (h *PasswordResetUserTxHelpers) UpdatePasswordInTx(ctx context.Context, use
 	if h == nil || h.tx == nil {
 		return errors.New("password reset tx helper not initialized")
 	}
-	// PasswordResetToken.UserID 是 string，SystemUser.ID 是 uint
+
 	var uid uint
 	if _, err := fmt.Sscanf(userID, "%d", &uid); err != nil {
 		return fmt.Errorf("invalid user_id format: %w", err)

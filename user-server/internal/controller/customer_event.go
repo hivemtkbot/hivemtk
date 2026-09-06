@@ -321,7 +321,6 @@ func (c *CustomerEventController) TrackAddToCart(ctx *gin.Context) {
 	response.Success(ctx, nil, "加购事件追踪成功")
 }
 
-
 // ListGlobal R41: GET /api/customer-events/list — 全局分页事件流
 //
 // 替代前端"全客户 N+1 逐个拉取"模式（同时根除脏 conv-id 触发 Gin %2F 解码 404 的问题）。

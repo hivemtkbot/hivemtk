@@ -49,4 +49,3 @@ type GetEmailListResponse struct {
 type DeleteEmailListRequest struct {
 	ID string `uri:"id" binding:"required"`
 }
-

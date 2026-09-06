@@ -48,7 +48,6 @@ type HumanizeStats struct {
 	Total    int64
 }
 
-// tuningService 实现
 type tuningService struct {
 	signalRepo   *repository.ConfidenceSignalRepository
 	calibRepo    *repository.ConfidenceCalibrationRepository
@@ -80,10 +79,6 @@ func (s *tuningService) GetConfidenceSignal(ctx context.Context, id string) (*mo
 	return s.signalRepo.GetByID(ctx, id)
 }
 
-// StatsConfidenceSignals 统计各决策区间的信号数
-//
-// 仓储层返回 []ConfidenceBandStat，每个元素含 Band/Count。
-// Service 层做 band → count 映射后回吐给 Controller。
 func (s *tuningService) StatsConfidenceSignals(ctx context.Context, since time.Time) (map[string]int64, error) {
 	rows, err := s.signalRepo.StatsByBand(ctx, since)
 	if err != nil {
@@ -135,9 +130,6 @@ func (s *tuningService) ListFeedbackEvents(ctx context.Context, sessionID, signa
 	return s.feedbackRepo.ListFeedbackEvents(ctx, sessionID, signalKey, page, pageSize)
 }
 
-// StatsFeedbackEvents 统计各 signal_key 的反馈计数
-//
-// 仓储返回 []FeedbackEventStat，含 SignalKey/Count 字段。
 func (s *tuningService) StatsFeedbackEvents(ctx context.Context, since time.Time) (map[string]int64, error) {
 	rows, err := s.feedbackRepo.StatsFeedbackEvents(ctx, since)
 	if err != nil {

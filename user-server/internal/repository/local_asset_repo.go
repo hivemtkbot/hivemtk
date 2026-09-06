@@ -125,16 +125,6 @@ func (r *localAssetRepo) SetReportedUseCount(ctx context.Context, id int64, val 
 		Where("id = ?", id).UpdateColumn("reported_use_count", val).Error
 }
 
-// AdvanceReportedUseCount 按 delta 累加 reported_use_count
-//
-// CAS（WHERE reported_use_count = ?）在并发上报场景下会因 use_count 已被
-// IncrementUseCount 推进而失效，导致 reported_use_count 永远不前进。
-// 这里改用原子累加（UPDATE ... SET reported_use_count = reported_use_count + ?），
-// 不依赖 CAS 比较值，并发安全。delta<=0 时为 no-op（幂等保护，避免重复累加）。
-//
-// 行为：
-//   - delta > 0: reported_use_count += delta
-//   - delta <= 0: no-op（返回 nil）
 func (r *localAssetRepo) AdvanceReportedUseCount(ctx context.Context, id int64, delta int64) error {
 	if delta <= 0 {
 		return nil
@@ -144,22 +134,12 @@ func (r *localAssetRepo) AdvanceReportedUseCount(ctx context.Context, id int64, 
 		UpdateColumn("reported_use_count", gorm.Expr("reported_use_count + ?", delta)).Error
 }
 
-// SetReportedUseCountIfMatch 旧 CAS 接口
-//
-// 警告：当 use_count 被并发 IncrementUseCount 推进后，
-// CAS WHERE 条件不命中，reported_use_count 不前进，上报闭环破裂。
-// 生产路径已切到 AdvanceReportedUseCount，请勿在新代码中使用此方法。
-//
-// 行为：UPDATE ... SET reported_use_count = newVal WHERE id = ? AND use_count = expectedUseCount
-// 无行命中时不报错（返回 nil），但 reported_use_count 不变
 func (r *localAssetRepo) SetReportedUseCountIfMatch(ctx context.Context, id int64, newVal int64, expectedUseCount int64) error {
 	return r.db.WithContext(ctx).Model(&model.LocalAsset{}).
 		Where("id = ? AND use_count = ?", id, expectedUseCount).
 		UpdateColumn("reported_use_count", newVal).Error
 }
 
-// FindActiveAssetIDByType 取某类型下「生效中」(is_active=true 且未软删) 资产的 asset_id，
-// 按最近同步时间（synced_at DESC）取第一条。不存在时返回 ("", nil)。
 func (r *localAssetRepo) FindActiveAssetIDByType(ctx context.Context, assetType string) (string, error) {
 	var aid string
 	err := r.db.WithContext(ctx).
@@ -175,16 +155,6 @@ func (r *localAssetRepo) FindActiveAssetIDByType(ctx context.Context, assetType 
 	return aid, nil
 }
 
-// PurchaseAndSyncTx 封装「购买并同步」事务。
-//
-// 行为：
-//  1. upsert local_assets（含 deleted_at 恢复），避免并发购买触发 UNIQUE(asset_id) 重复键；
-//  2. upsert 命中冲突时 GORM 不回填主键，按 asset_id 取回 ID，确保子表关联正确；
-//  3. upsert local_asset_data（local_asset_id 唯一）；
-//  4. 写入同步日志（purchase_sync / success）。
-//
-// 错误处理：主表/数据保存失败返回 bizerr.CodeInternal，日志写入返回原始错误。
-// la.SyncedAt 同时用作 local_asset_data.UpdatedAt。
 func (r *localAssetRepo) PurchaseAndSyncTx(ctx context.Context, la *model.LocalAsset, data []byte, syncLog *model.LocalAssetSyncLog) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Clauses(clause.OnConflict{
@@ -213,12 +183,6 @@ func (r *localAssetRepo) PurchaseAndSyncTx(ctx context.Context, la *model.LocalA
 	})
 }
 
-// SyncDataTx 封装「同步最新版本」事务。
-//
-// 行为：保存资产主表（la 已由 service 置入新 Version/SyncedAt）
-// + upsert local_asset_data（raw SQL ON CONFLICT）。
-//
-// syncLog 纳入事务，保证资产与日志原子一致（事务失败日志回滚，事务成功日志提交）。
 func (r *localAssetRepo) SyncDataTx(ctx context.Context, la *model.LocalAsset, data []byte, syncLog *model.LocalAssetSyncLog) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Save(la).Error; err != nil {
@@ -235,10 +199,6 @@ func (r *localAssetRepo) SyncDataTx(ctx context.Context, la *model.LocalAsset, d
 	})
 }
 
-// UpdateWithDataTx 封装「编辑资产」事务。
-//
-// 行为：保存资产主表（la 已由 service 置入新
-// Name/AssetType/Industry/UpdatedAt）+ upsert local_asset_data（raw SQL ON CONFLICT）。
 func (r *localAssetRepo) UpdateWithDataTx(ctx context.Context, la *model.LocalAsset, data []byte) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Save(la).Error; err != nil {

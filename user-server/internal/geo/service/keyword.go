@@ -30,7 +30,6 @@ func NewKeywordService(kgRepo repository.GeoKeywordGroupRepository, repo reposit
 	}
 }
 
-// minedKeyword LLM 返回的挖掘关键词结构
 type minedKeyword struct {
 	Keyword        string `json:"keyword"`
 	Category       string `json:"category"`
@@ -83,14 +82,13 @@ func (s *KeywordService) MineKeywords(ctx context.Context, seedWords []string, m
 	return result, nil
 }
 
-// parseMinedKeywords 解析 LLM 返回的关键词挖掘结果
 func (s *KeywordService) parseMinedKeywords(content string, baseKeywords []string) []*minedKeyword {
 	result := make([]*minedKeyword, 0)
 	tryParse := func(jsonStr string) []*minedKeyword {
 		if jsonStr == "" {
 			return nil
 		}
-		// 形态①：对象数组 [{"keyword":..}]
+
 		var mined []minedKeyword
 		if err := json.Unmarshal([]byte(jsonStr), &mined); err == nil && len(mined) > 0 {
 			out := make([]*minedKeyword, 0, len(mined))
@@ -103,7 +101,7 @@ func (s *KeywordService) parseMinedKeywords(content string, baseKeywords []strin
 				return out
 			}
 		}
-		// 形态②：纯字符串数组 ["HiveMtk智能客服系统供应商"]（DeepSeek 常见返回）
+
 		var strs []string
 		if err := json.Unmarshal([]byte(jsonStr), &strs); err == nil && len(strs) > 0 {
 			out := make([]*minedKeyword, 0, len(strs))
@@ -125,11 +123,10 @@ func (s *KeywordService) parseMinedKeywords(content string, baseKeywords []strin
 		return nil
 	}
 
-	// ① 直接数组
 	if out := tryParse(extractJSONArray(content)); out != nil {
 		return out
 	}
-	// ② 对象包装 {"keywords":[...]}（部分模型不守 prompt 约定）
+
 	if objStr := extractJSONObject(content); objStr != "" {
 		var wrap map[string]json.RawMessage
 		if err := json.Unmarshal([]byte(objStr), &wrap); err == nil {
@@ -140,14 +137,13 @@ func (s *KeywordService) parseMinedKeywords(content string, baseKeywords []strin
 			}
 		}
 	}
-	// ③ 兜底：剥离代码围栏后再试一次数组
+
 	cleaned := strings.ReplaceAll(content, "```json", "")
 	cleaned = strings.ReplaceAll(cleaned, "```", "")
 	if out := tryParse(extractJSONArray(cleaned)); out != nil {
 		return out
 	}
 
-	// 全部失败：留痕（此前静默回退导致 100 条"其他/软件品牌"垃圾词无告警）
 	logger.Errorf("[GEO] 关键词挖掘 JSON 解析失败，回退组合词。原始返回前300字: %s", truncateForLog(content, 300))
 	for _, kw := range baseKeywords {
 		result = append(result, &minedKeyword{
@@ -165,7 +161,6 @@ func truncateForLog(s string, n int) string {
 	return string(r[:n]) + "…"
 }
 
-// generateKeywordCombinations 关键词组合工具
 func generateKeywordCombinations(seedWords []string) []string {
 	wordbanks := map[string][]string{
 		"A前缀1": {"行业上", "市场上", "市面上", "目前", "国内", "市场"},
@@ -247,7 +242,6 @@ func cartesianProduct(lists [][]string) [][]string {
 	return result
 }
 
-// expandedKeywordResult 语义扩展结果
 type expandedKeywordResult struct {
 	ExpandedKeywords []string `json:"expanded_keywords"`
 }
@@ -297,7 +291,6 @@ func (s *KeywordService) SemanticExpand(ctx context.Context, keywords []string, 
 	return result, nil
 }
 
-// parseExpandedKeywords 解析语义扩展结果
 func (s *KeywordService) parseExpandedKeywords(content string, originalKeywords []string) []string {
 	jsonStr := extractJSONObject(content)
 	if jsonStr != "" {
@@ -337,7 +330,6 @@ func deduplicateKeywords(expanded []string, original []string) []string {
 	return result
 }
 
-// clusterResult 话题聚类结果
 type clusterResult struct {
 	Clusters []struct {
 		ID          int      `json:"id"`
@@ -368,7 +360,6 @@ func (s *KeywordService) TopicCluster(ctx context.Context, keywords []string, br
 
 	clusters := s.parseClusterResult(resp.Content, keywordsToCluster)
 
-	// 持久化聚类结果（按分组名 upsert 覆盖更新）
 	for name, kws := range clusters {
 		if name == "" || len(kws) == 0 {
 			continue
@@ -381,7 +372,6 @@ func (s *KeywordService) TopicCluster(ctx context.Context, keywords []string, br
 	return clusters, nil
 }
 
-// parseClusterResult 解析聚类结果
 func (s *KeywordService) parseClusterResult(content string, originalKeywords []string) map[string][]string {
 	clusters := make(map[string][]string)
 	jsonStr := extractJSONObject(content)
@@ -431,7 +421,6 @@ func (s *KeywordService) DeleteKeyword(ctx context.Context, id string) error {
 	return s.keywordRepo.Delete(id)
 }
 
-// recordAPICall 记录 API 调用
 func (s *KeywordService) recordAPICall(ctx context.Context, resp *LLMResult, purpose string) {
 	if s.apiCallRepo == nil || resp == nil {
 		return
@@ -450,7 +439,6 @@ func (s *KeywordService) recordAPICall(ctx context.Context, resp *LLMResult, pur
 	_ = s.apiCallRepo.Create(call)
 }
 
-// --- JSON 提取辅助函数 ---
 var jsonArrayRegex = regexp.MustCompile(`\[[\s\S]*\]`)
 var jsonObjectRegex = regexp.MustCompile(`\{[\s\S]*\}`)
 

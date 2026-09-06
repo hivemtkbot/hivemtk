@@ -29,7 +29,7 @@ func NewUnifiedIDWidenMigration(db *gorm.DB) *UnifiedIDWidenMigration {
 	return &UnifiedIDWidenMigration{db: db}
 }
 
-func (m *UnifiedIDWidenMigration) Version() string { return "v3.24.0" } // 原 v3.23.0 与 alert_rule 冲突
+func (m *UnifiedIDWidenMigration) Version() string { return "v3.24.0" }
 
 func (m *UnifiedIDWidenMigration) Name() string { return "unified_id 列宽放宽为 varchar(128)" }
 

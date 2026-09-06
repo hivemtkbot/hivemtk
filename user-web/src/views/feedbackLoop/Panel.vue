@@ -43,7 +43,7 @@
     </el-row>
 
     <el-tabs v-model="activeTab" class="content-tabs">
-      <!-- 1. 反馈事件流 -->
+      
       <el-tab-pane :label="$t('反馈事件')" name="events">
         <el-card>
           <template #header>
@@ -110,7 +110,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- 2. 销冠对话 -->
+      
       <el-tab-pane label="销冠对话" name="dialogues">
         <el-card>
           <template #header>
@@ -154,7 +154,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- 3. Prompt 候选 -->
+      
       <el-tab-pane label="Prompt 迭代" name="prompts">
         <el-card>
           <template #header>
@@ -193,7 +193,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- 4. Bandit A/B -->
+      
       <el-tab-pane label="Bandit A/B" name="bandit">
         <el-card>
           <template #header>
@@ -238,7 +238,7 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- Prompt 查看弹窗 -->
+    
     <el-dialog v-model="promptDialogVisible" :title="currentPrompt?.title || 'Prompt 详情'" width="780px">
       <div v-if="currentPrompt">
         <p><strong>版本：</strong>{{ currentPrompt.version }} · <strong>场景：</strong>{{ currentPrompt.scenario }} · <strong>状态：</strong>{{ promptStatusLabel(currentPrompt.status) }}</p>
@@ -267,11 +267,9 @@ import {
 
 const activeTab = ref('events')
 
-// 顶部统计
-const stats = ref({ feedbackCount: 0, dialogueCount: 0, candidateCount: 0, banditCount: 0 })
+const stats = ref({ feedbackCount: 0, dialogueCount: 0, candidateCount: 0, banditCount: 0 });
 
-// 反馈事件
-const events = ref([])
+const events = ref([]);
 const eventPage = ref(1)
 const eventPageSize = ref(20)
 const eventTotal = ref(0)
@@ -298,8 +296,7 @@ watch([eventTypeFilter, signalKeyFilter], () => {
   loadEvents()
 })
 
-// 销冠对话
-const dialogues = ref([])
+const dialogues = ref([]);
 const dialoguePage = ref(1)
 const dialoguePageSize = ref(20)
 const dialogueTotal = ref(0)
@@ -319,8 +316,7 @@ async function loadDialogues() {
 async function triggerDialogueAnalysis() {
   try {
     await ElMessageBox.confirm('将触发销冠对话聚类 + 话术提取管道，预计耗时 1-5 分钟。是否继续？', '提示', { type: 'info' })
-    ElMessage.info(i18n.global.t('已提交分析任务（异步执行），完成后自动刷新'))
-    // 注：后端暂未提供 /trigger-analysis 接口，先用 confirm 提示用户
+    ElMessage.info(i18n.global.t('已提交分析任务（异步执行），完成后自动刷新'));
   } catch (e) {
     if (e !== 'cancel' && e !== 'close') {
       ElMessage.error('触发失败：' + (e?.message || e))
@@ -328,8 +324,7 @@ async function triggerDialogueAnalysis() {
   }
 }
 
-// Prompt 候选
-const prompts = ref([])
+const prompts = ref([]);
 const promptsLoading = ref(false)
 async function loadPrompts() {
   promptsLoading.value = true
@@ -361,8 +356,7 @@ async function approvePrompt(row) {
   }
 }
 
-// Bandit 臂
-const bandits = ref([])
+const bandits = ref([]);
 const banditsLoading = ref(false)
 async function loadBandits() {
   banditsLoading.value = true

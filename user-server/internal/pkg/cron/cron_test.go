@@ -152,12 +152,12 @@ func TestCronSpec_Validity(t *testing.T) {
 	mgr := GetTaskManager()
 
 	validSpecs := []string{
-		"*/1 * * * * *", 
-		"0 * * * * *",   
-		"0 0 * * * *",   
-		"0 0 2 * * *",   
-		"0 0 * * 1-5 *", 
-		"0 30 8 * * *",  
+		"*/1 * * * * *",
+		"0 * * * * *",
+		"0 0 * * * *",
+		"0 0 2 * * *",
+		"0 0 * * 1-5 *",
+		"0 30 8 * * *",
 	}
 
 	for _, spec := range validSpecs {
@@ -176,9 +176,9 @@ func TestCronSpec_Invalid(t *testing.T) {
 		"",
 		"invalid",
 		"* * * *",
-		"* * * * *",      
-		"60 * * * * *",   
-		"* 25 * * * * *", 
+		"* * * * *",
+		"60 * * * * *",
+		"* 25 * * * * *",
 	}
 
 	for _, spec := range invalidSpecs {
@@ -195,4 +195,3 @@ func TestTaskManager_RemoveNonExistentTask(t *testing.T) {
 
 	mgr.RemoveTask(cron.EntryID(99999))
 }
-

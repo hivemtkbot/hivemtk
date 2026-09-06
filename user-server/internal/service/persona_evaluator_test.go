@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupPersonaTestDB 初始化测试 DB（含 LowQualitySample 表）
 func setupPersonaTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.LowQualitySample{},
@@ -358,13 +357,13 @@ func TestPersonaEvaluationService_EvaluateWithRetry_ExhaustedAndCollect(t *testi
 	if result.AttemptCount != DefaultPersonaMaxRetry {
 		t.Errorf("expected %d attempts, got %d", DefaultPersonaMaxRetry, result.AttemptCount)
 	}
-	// 验证低质样本已收集
+
 	var count int64
 	db.Model(&model.LowQualitySample{}).Where("customer_id = ?", "c-exhausted").Count(&count)
 	if count != 1 {
 		t.Errorf("expected 1 low quality sample, got %d", count)
 	}
-	// 验证样本字段
+
 	var sample model.LowQualitySample
 	db.First(&sample, "customer_id = ?", "c-exhausted")
 	if sample.AttemptCount != DefaultPersonaMaxRetry {
@@ -889,7 +888,6 @@ func TestPersonaEvaluation_PRDAcceptance_RetryAndCollect(t *testing.T) {
 		t.Errorf("expected 3 attempts, got %d", result.AttemptCount)
 	}
 
-	// 验收 2：低质样本自动收集
 	var sample model.LowQualitySample
 	if err := db.First(&sample, "customer_id = ?", "c-prd").Error; err != nil {
 		t.Fatalf("PRD 验收失败：低质样本未收集: %v", err)

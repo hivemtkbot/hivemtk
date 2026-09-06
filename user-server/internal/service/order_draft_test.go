@@ -14,7 +14,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// helper: 完整环境（5 组件 + 草稿服务 + 触发器）
 func setupDraftEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService, *AITagger, *OrderIntentExtractor, *SalesEventStatsService, *OrderDraftService, *SalesActionTrigger) {
 	database := testutil.NewTestDB(t,
 		&model.Order{},

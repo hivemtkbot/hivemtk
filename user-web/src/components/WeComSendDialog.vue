@@ -42,11 +42,8 @@ import { ElMessage } from 'element-plus'
 import { wecomAccountApi } from '@/api/wecomAccount'
 
 const props = defineProps({
-  // 控制显隐（v-model:visible）
   visible: { type: Boolean, default: false },
-  // 企微账号 ID
   accountId: { type: [Number, String], default: null },
-  // 预填的接收人 external_userid（从客户列表带入）
   externalUserid: { type: String, default: '' }
 })
 const emit = defineEmits(['update:visible', 'sent'])
@@ -74,7 +71,6 @@ const resetForm = () => {
   sendForm.pic_url = ''
 }
 
-// 打开时若带预填 external_userid 则填入接收人
 watch(
   () => props.visible,
   (v) => {
@@ -83,7 +79,7 @@ watch(
       if (props.externalUserid) sendForm.to_user = props.externalUserid
     }
   }
-)
+);
 
 const submit = async () => {
   if (!props.accountId) {

@@ -159,4 +159,3 @@ func TestPlatformAccountConfig_WithReplyRules(t *testing.T) {
 func strPtr(s string) *string {
 	return &s
 }
-

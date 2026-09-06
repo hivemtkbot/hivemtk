@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -10,17 +9,13 @@ import (
 	"gorm.io/gorm"
 )
 
-// bridgeUnifyV2Map 历史渠道名 -> 全名（2026-08-05 统一编码）
-//
-// 终态：所有"桥接渠道"= 平台全名（无 _web 后缀）。
-// tiktok 历史上 bridge 直接用 tiktok（不带 _web），无需迁移但保留 entry 以便 Down() 反向兼容。
 var bridgeUnifyV2Map = map[string]string{
 	"xhs_web":      "xiaohongshu",
 	"douyin_web":   "douyin",
 	"kuaishou_web": "kuaishou",
 	"xianyu_web":   "xianyu",
 	"tiktok_web":   "tiktok",
-	"xhs":          "xiaohongshu", 
+	"xhs":          "xiaohongshu",
 }
 
 type BridgeChannelUnifyV2Migration struct {
@@ -153,4 +148,3 @@ func (m *BridgeChannelUnifyV2Migration) Down(ctx context.Context) error {
 }
 
 var _ migration.Migration = (*BridgeChannelUnifyV2Migration)(nil)
-

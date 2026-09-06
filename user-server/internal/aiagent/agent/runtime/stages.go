@@ -5,14 +5,12 @@ import (
 	"time"
 )
 
-
 // InferenceStage 推理阶段接口
 type InferenceStage interface {
 	Name() string
 
 	Execute(ctx context.Context, ic *InferenceContext) StageResult
 }
-
 
 // PerceptionStage 感知阶段
 //
@@ -32,18 +30,15 @@ type IntentRecognizer interface {
 	Recognize(ctx context.Context, text string, hint map[string]string) IntentResult
 }
 
-
 // AlignmentScorer 6维拟人度评分器
 type AlignmentScorer interface {
 	Score(ctx context.Context, ic *InferenceContext) AlignmentScore
 }
 
-
 // CrisisDetector 危机感检测器
 type CrisisDetector interface {
 	Detect(ctx context.Context, ic *InferenceContext) CrisisSignal
 }
-
 
 // EscalationHandler 转人工处理器
 //
@@ -54,14 +49,13 @@ type EscalationHandler interface {
 
 // EscalationResult 转人工结果
 type EscalationResult struct {
-	Locked        bool      `json:"locked"`                   
-	Notified      bool      `json:"notified"`                 
-	NotifiedStaff []string  `json:"notified_staff,omitempty"` 
-	FallbackReply string    `json:"fallback_reply"`           
-	Reason        string    `json:"reason"`                   
+	Locked        bool      `json:"locked"`
+	Notified      bool      `json:"notified"`
+	NotifiedStaff []string  `json:"notified_staff,omitempty"`
+	FallbackReply string    `json:"fallback_reply"`
+	Reason        string    `json:"reason"`
 	StartedAt     time.Time `json:"started_at"`
 }
-
 
 // TaskPlanner 任务规划器
 //
@@ -70,7 +64,6 @@ type EscalationResult struct {
 type TaskPlanner interface {
 	Plan(ctx context.Context, ic *InferenceContext) (*ActionPlan, error)
 }
-
 
 // ActionExecutor 动作执行器
 //
@@ -83,7 +76,7 @@ type ActionExecutor interface {
 // ActionResult 动作执行结果
 type ActionResult struct {
 	Reply       string         `json:"reply"`
-	ReplyType   string         `json:"reply_type"` 
+	ReplyType   string         `json:"reply_type"`
 	ToolsCalled []string       `json:"tools_called"`
 	LLMModel    string         `json:"llm_model"`
 	TokensUsed  int            `json:"tokens_used"`
@@ -104,19 +97,18 @@ type Reviewer interface {
 
 // ReviewCheck 单项审查项
 type ReviewCheck struct {
-	Name      string  `json:"name"`
-	Passed    bool    `json:"passed"`
-	Score     float64 `json:"score"`
-	Reason    string  `json:"reason,omitempty"`
+	Name   string  `json:"name"`
+	Passed bool    `json:"passed"`
+	Score  float64 `json:"score"`
+	Reason string  `json:"reason,omitempty"`
 }
 
 // ReviewResult 审查结果
 type ReviewResult struct {
-	Passed       bool            `json:"passed"`
-	OverallScore float64         `json:"overall_score"`
-	Checks       []ReviewCheck   `json:"checks,omitempty"`
+	Passed        bool          `json:"passed"`
+	OverallScore  float64       `json:"overall_score"`
+	Checks        []ReviewCheck `json:"checks,omitempty"`
 	AdjustedReply string        `json:"adjusted_reply,omitempty"`
-	AdjustReason  string         `json:"adjust_reason,omitempty"`
-	ReviewedAt   time.Time       `json:"reviewed_at"`
+	AdjustReason  string        `json:"adjust_reason,omitempty"`
+	ReviewedAt    time.Time     `json:"reviewed_at"`
 }
-

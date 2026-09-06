@@ -95,8 +95,6 @@ const loadConnectors = async () => {
   try {
     const res = await http.get('/api/knowledge/connectors')
     connectors.value = res?.list || res?.data?.list || []
-    // R46 修复: 密钥字段不回填脱敏值（此前把 ****xxxx 回填表单，保存时会把掩码存回毁掉真凭据）
-    // 非密钥字段正常回显；密钥字段留空 + placeholder 提示"已配置(输入以更换)"
     for (const c of connectors.value) {
       const cfg = c.config || {}
       const form = { ...emptyCred(), enabled: c.enabled }
@@ -128,8 +126,7 @@ const loadKBs = async () => {
 
 const saveCred = async (source) => {
   try {
-    // R46: 密钥留空 = 保持原值（剔除空密钥字段再提交，避免空串覆盖真实凭据）
-    const payload = { ...credForm.value[source] }
+    const payload = { ...credForm.value[source] };
     const cfg = { ...(payload.config || {}) }
     for (const [k, v] of Object.entries(cfg)) {
       if (typeof v === 'string' && v.trim() === '') delete cfg[k]

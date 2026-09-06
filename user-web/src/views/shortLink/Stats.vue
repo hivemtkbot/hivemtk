@@ -1,6 +1,6 @@
 <template>
   <div class="short-link-stats-container">
-    <!-- 页面标题和操作按钮 -->
+    
     <div class="page-header">
       <h2>{{ $t('短链统计') }}</h2>
       <div class="action-buttons">
@@ -11,7 +11,7 @@
       </div>
     </div>
 
-    <!-- 搜索表单 -->
+    
     <div class="search-form">
       <el-form :inline="true" :model="searchForm" class="search-form-content">
         <el-form-item :label="$t('短码')">
@@ -33,7 +33,7 @@
       </el-form>
     </div>
 
-    <!-- 短链列表 -->
+    
     <el-table :data="shortLinkList" border style="width: 100%" v-loading="loading">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="short_code" :label="$t('短码')" width="120" />
@@ -61,7 +61,7 @@
       </el-table-column>
     </el-table>
 
-    <!-- 分页 -->
+    
     <div class="pagination-container">
       <el-pagination
         :current-page="pagination.page"
@@ -74,7 +74,7 @@
       />
     </div>
 
-    <!-- 单个短链统计对话框 -->
+    
     <el-dialog
       v-model="statsDialogVisible"
       title="短链统计"
@@ -138,7 +138,7 @@
       </div>
     </el-dialog>
 
-    <!-- 总体统计对话框 -->
+    
     <el-dialog
       v-model="allStatsDialogVisible"
       title="总体统计"
@@ -202,7 +202,7 @@
       </div>
     </el-dialog>
 
-    <!-- 分享对话框 -->
+    
     <el-dialog
       v-model="shareDialogVisible"
       title="分享短链"
@@ -239,8 +239,7 @@ import { shortLinkApi } from '@/api/shortLink'
 import * as echarts from 'echarts'
 import { safeInit } from '@/utils/echarts'
 
-// 响应式数据
-const loading = ref(false)
+const loading = ref(false);
 const statsLoading = ref(false)
 const allStatsLoading = ref(false)
 const shareLoading = ref(false)
@@ -252,37 +251,31 @@ const currentStats = ref({})
 const allStats = ref({})
 const shareData = ref({})
 
-// 图表引用
-const trendChartRef = ref(null)
+const trendChartRef = ref(null);
 const deviceChartRef = ref(null)
 const allTrendChartRef = ref(null)
 const allDeviceChartRef = ref(null)
 
-// 图表实例
-let trendChart = null
+let trendChart = null;
 let deviceChart = null
 let allTrendChart = null
 let allDeviceChart = null
 
-// 搜索表单
 const searchForm = reactive({
   short_code: '',
   original_url: ''
-})
+});
 
-// 分页
 const pagination = reactive({
   page: 1,
   pageSize: 10,
   total: 0
-})
+});
 
-// 生命周期
 onMounted(() => {
   fetchShortLinkList()
-})
+});
 
-// 方法
 const fetchShortLinkList = async () => {
   loading.value = true
   try {
@@ -293,8 +286,7 @@ const fetchShortLinkList = async () => {
       original_url: searchForm.original_url
     }
     const res = await shortLinkApi.getList(params)
-    // 拦截器已解包，res 直接就是数据对象
-    shortLinkList.value = res.list || []
+    shortLinkList.value = res.list || [];
     pagination.total = res.total || 0
   } catch (error) {
     ElMessage.error(i18n.global.t('获取短链列表失败'))
@@ -302,12 +294,14 @@ const fetchShortLinkList = async () => {
   } finally {
     loading.value = false
   }
-}
+};
 
 const getStatusType = (row) => {
-  if (row.status === 2) return 'danger' // 禁用
-  if (row.expire_time && new Date(row.expire_time) < new Date()) return 'warning' // 已过期
-  return 'success' // 正常
+  if (row.status === 2)
+    return 'danger';
+  if (row.expire_time && new Date(row.expire_time) < new Date())
+    return 'warning';
+  return 'success';
 }
 
 const handleSearch = () => {
@@ -338,8 +332,7 @@ const handleStats = async (row) => {
   statsLoading.value = true
   
   try {
-    // 获取最近7天的统计数据
-    const endDate = new Date()
+    const endDate = new Date();
     const startDate = new Date()
     startDate.setDate(endDate.getDate() - 6)
     
@@ -349,11 +342,9 @@ const handleStats = async (row) => {
     }
     
     const res = await shortLinkApi.getStats(row.id, params)
-    // 拦截器已解包，res 直接就是数据对象
-    currentStats.value = res
+    currentStats.value = res;
 
-    // 等待DOM更新后初始化图表
-    await nextTick()
+    await nextTick();
     initCharts(res)
   } catch (error) {
     ElMessage.error(i18n.global.t('获取统计数据失败'))
@@ -368,8 +359,7 @@ const handleAllStats = async () => {
   allStatsLoading.value = true
   
   try {
-    // 获取最近7天的统计数据
-    const endDate = new Date()
+    const endDate = new Date();
     const startDate = new Date()
     startDate.setDate(endDate.getDate() - 6)
     
@@ -379,11 +369,9 @@ const handleAllStats = async () => {
     }
     
     const res = await shortLinkApi.getAllStats(params)
-    // 拦截器已解包，res 直接就是数据对象
-    allStats.value = res
+    allStats.value = res;
 
-    // 等待DOM更新后初始化图表
-    await nextTick()
+    await nextTick();
     initAllCharts(res)
   } catch (error) {
     ElMessage.error(i18n.global.t('获取统计数据失败'))
@@ -399,8 +387,7 @@ const handleShare = async (row) => {
   
   try {
     const res = await shortLinkApi.share(row.id)
-    // 拦截器已解包，res 直接就是数据对象
-    shareData.value = res
+    shareData.value = res;
   } catch (error) {
     ElMessage.error(i18n.global.t('获取分享信息失败'))
     console.error(error)
@@ -417,8 +404,7 @@ const copyToClipboard = (text) => {
       ElMessage.error(i18n.global.t('复制失败'))
     })
   } else {
-    // 兼容性处理
-    const textarea = document.createElement('textarea')
+    const textarea = document.createElement('textarea');
     textarea.value = text
     document.body.appendChild(textarea)
     textarea.select()
@@ -436,12 +422,11 @@ const formatDate = (date) => {
 }
 
 const initCharts = (data) => {
-  // 销毁已存在的图表实例
-  if (trendChart) trendChart.dispose()
+  if (trendChart)
+    trendChart.dispose();
   if (deviceChart) deviceChart.dispose()
   
-  // 初始化趋势图
-  trendChart = safeInit(trendChartRef.value)
+  trendChart = safeInit(trendChartRef.value);
   const trendOption = {
     title: {
       show: false
@@ -478,8 +463,7 @@ const initCharts = (data) => {
   }
   trendChart.setOption(trendOption)
   
-  // 初始化设备分布图
-  deviceChart = safeInit(deviceChartRef.value)
+  deviceChart = safeInit(deviceChartRef.value);
   const deviceOption = {
     title: {
       show: false
@@ -521,20 +505,18 @@ const initCharts = (data) => {
   }
   deviceChart.setOption(deviceOption)
   
-  // 监听窗口大小变化，调整图表大小
   window.addEventListener('resize', () => {
     trendChart.resize()
     deviceChart.resize()
-  })
+  });
 }
 
 const initAllCharts = (data) => {
-  // 销毁已存在的图表实例
-  if (allTrendChart) allTrendChart.dispose()
+  if (allTrendChart)
+    allTrendChart.dispose();
   if (allDeviceChart) allDeviceChart.dispose()
   
-  // 初始化趋势图
-  allTrendChart = safeInit(allTrendChartRef.value)
+  allTrendChart = safeInit(allTrendChartRef.value);
   const trendOption = {
     title: {
       show: false
@@ -571,8 +553,7 @@ const initAllCharts = (data) => {
   }
   allTrendChart.setOption(trendOption)
   
-  // 初始化设备分布图
-  allDeviceChart = safeInit(allDeviceChartRef.value)
+  allDeviceChart = safeInit(allDeviceChartRef.value);
   const deviceOption = {
     title: {
       show: false
@@ -614,11 +595,10 @@ const initAllCharts = (data) => {
   }
   allDeviceChart.setOption(deviceOption)
   
-  // 监听窗口大小变化，调整图表大小
   window.addEventListener('resize', () => {
     allTrendChart.resize()
     allDeviceChart.resize()
-  })
+  });
 }
 </script>
 

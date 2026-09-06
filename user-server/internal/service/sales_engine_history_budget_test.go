@@ -12,8 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// A-4 TokenBudget 轻量版：历史消息按 token 预算截断（替代固定取 20 条）
-
 // TestFetchHistoryWithinTokenBudget_AllKept_SmallHistory 短历史全保留
 func TestFetchHistoryWithinTokenBudget_AllKept_SmallHistory(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.SessionMessage{})
@@ -65,7 +63,6 @@ func TestFetchHistoryWithinTokenBudget_BudgetRespected(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.SessionMessage{})
 	e := &SalesEngine{db: db}
 
-	// 每条 400 个中文字符 ≈ 200 token + 6 开销 = 206 token
 	long := strings.Repeat("销", 400)
 	for i := 0; i < 30; i++ {
 		st := "customer"
@@ -90,11 +87,11 @@ func TestFetchHistoryWithinTokenBudget_BudgetRespected(t *testing.T) {
 	if len(got) >= 20 {
 		t.Fatalf("budget truncation should keep fewer than the old fixed-20, got %d", len(got))
 	}
-	// 最旧保留项必须是客户发言（消息对完整性）
+
 	if got[0].SenderType == "ai" || got[0].SenderType == "agent" {
 		t.Fatalf("oldest kept message must start a pair (customer), got sender=%s", got[0].SenderType)
 	}
-	// 最新消息必须保留
+
 	if got[len(got)-1].Content != long {
 		t.Fatal("newest message must always be kept")
 	}
@@ -105,10 +102,6 @@ func TestFetchHistoryWithinTokenBudget_PairIntegrity(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.SessionMessage{})
 	e := &SalesEngine{db: db}
 
-	// 构造截断边界落在 AI 回复上的场景：
-	// 时间正序 C1,A1,C2,A2,C3,A3，每条 1600 中文字符 ≈ 806 token（含开销）。
-	// 从新到旧累加：A3=806, +C3=1612, +A2=2418(≤2867)，+C2=3224(>2867) 截断
-	// → 最旧保留项是 A2（孤儿 AI 回复）→ 应被丢弃，剩 [C3, A3]
 	long := strings.Repeat("测", 1600)
 	seq := []string{"customer", "ai", "customer", "ai", "customer", "ai"}
 	for _, sender := range seq {
@@ -128,7 +121,6 @@ func TestFetchHistoryWithinTokenBudget_PairIntegrity(t *testing.T) {
 	}
 }
 
-// estimateHistoryTokens 与 fetchHistoryWithinTokenBudget 相同口径的单条估算
 func estimateHistoryTokens(content string) int {
 	return textutil.EstimateTokens(content) + historyMsgTokenOverhead
 }

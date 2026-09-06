@@ -30,10 +30,10 @@ func (WorkflowVersion) TableName() string { return "workflow_versions" }
 // status: running / completed / failed / terminated
 // context (JSONB): 运行时上下文（变量、循环计数等）
 type WorkflowExecution struct {
-	ID            uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	WorkflowID    string     `gorm:"type:varchar(64);not null;index:idx_workflow_executions_wf_id" json:"workflow_id"`
-	Version       int        `gorm:"not null" json:"version"`
-	TriggerPayload JSONMap   `gorm:"type:jsonb" json:"trigger_payload"`
+	ID             uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	WorkflowID     string     `gorm:"type:varchar(64);not null;index:idx_workflow_executions_wf_id" json:"workflow_id"`
+	Version        int        `gorm:"not null" json:"version"`
+	TriggerPayload JSONMap    `gorm:"type:jsonb" json:"trigger_payload"`
 	Status         string     `gorm:"type:varchar(16);not null;index:idx_workflow_executions_status" json:"status"`
 	CurrentNodeID  string     `gorm:"type:varchar(64)" json:"current_node_id"`
 	Context        JSONMap    `gorm:"type:jsonb" json:"context"`
@@ -54,19 +54,19 @@ func (WorkflowExecution) TableName() string { return "workflow_executions" }
 // node_type: trigger / action / condition / subflow
 // status: pending / running / completed / failed / skipped
 type WorkflowNodeExecution struct {
-	ID         uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	ExecutionID uint      `gorm:"not null;index:idx_wf_node_exec_exec_id" json:"execution_id"`
-	NodeID     string     `gorm:"type:varchar(64);not null;index:idx_wf_node_exec_node_id" json:"node_id"`
-	NodeType   string     `gorm:"type:varchar(32);not null" json:"node_type"`
-	NodeName   string     `gorm:"type:varchar(200)" json:"node_name"`
-	InputData  JSONMap    `gorm:"type:jsonb" json:"input_data"`
-	OutputData JSONMap    `gorm:"type:jsonb" json:"output_data"`
-	Status     string     `gorm:"type:varchar(16);not null" json:"status"`
-	StartedAt  *time.Time `json:"started_at"`
-	FinishedAt *time.Time `json:"finished_at"`
-	DurationMs int        `json:"duration_ms"`
-	Error      string     `gorm:"type:text" json:"error"`
-	CreatedAt  time.Time  `gorm:"autoCreateTime" json:"created_at"`
+	ID          uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	ExecutionID uint       `gorm:"not null;index:idx_wf_node_exec_exec_id" json:"execution_id"`
+	NodeID      string     `gorm:"type:varchar(64);not null;index:idx_wf_node_exec_node_id" json:"node_id"`
+	NodeType    string     `gorm:"type:varchar(32);not null" json:"node_type"`
+	NodeName    string     `gorm:"type:varchar(200)" json:"node_name"`
+	InputData   JSONMap    `gorm:"type:jsonb" json:"input_data"`
+	OutputData  JSONMap    `gorm:"type:jsonb" json:"output_data"`
+	Status      string     `gorm:"type:varchar(16);not null" json:"status"`
+	StartedAt   *time.Time `json:"started_at"`
+	FinishedAt  *time.Time `json:"finished_at"`
+	DurationMs  int        `json:"duration_ms"`
+	Error       string     `gorm:"type:text" json:"error"`
+	CreatedAt   time.Time  `gorm:"autoCreateTime" json:"created_at"`
 }
 
 // TableName 指定表名
@@ -78,23 +78,23 @@ const (
 	WorkflowStatusPublished = "published"
 	WorkflowStatusArchived  = "archived"
 
-	WorkflowExecRunning     = "running"
-	WorkflowExecCompleted   = "completed"
-	WorkflowExecFailed      = "failed"
-	WorkflowExecWaiting     = "waiting"
-	WorkflowExecTerminated  = "terminated"
+	WorkflowExecRunning    = "running"
+	WorkflowExecCompleted  = "completed"
+	WorkflowExecFailed     = "failed"
+	WorkflowExecWaiting    = "waiting"
+	WorkflowExecTerminated = "terminated"
 
-	WorkflowNodePending  = "pending"
-	WorkflowNodeRunning  = "running"
+	WorkflowNodePending   = "pending"
+	WorkflowNodeRunning   = "running"
 	WorkflowNodeCompleted = "completed"
-	WorkflowNodeFailed   = "failed"
-	WorkflowNodeSkipped  = "skipped"
+	WorkflowNodeFailed    = "failed"
+	WorkflowNodeSkipped   = "skipped"
 )
 
 // 节点类型常量
 const (
 	WorkflowNodeTypeTrigger   = "trigger"
-	WorkflowNodeTypeAction   = "action"
+	WorkflowNodeTypeAction    = "action"
 	WorkflowNodeTypeCondition = "condition"
 	WorkflowNodeTypeSubflow   = "subflow"
 )

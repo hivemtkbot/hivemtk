@@ -114,7 +114,6 @@ func (s *RecoveryQueueService) ListReadyForAttempt(ctx context.Context, limit in
 	return s.repo.ListReadyForAttempt(ctx, s.nowFunc(), limit)
 }
 
-// nextDelayPtr 工具：nextDelay 为 0 时返回 nil，否则返回 now+nextDelay
 func nextDelayPtr(now time.Time, nextDelay time.Duration) *time.Time {
 	if nextDelay <= 0 {
 		return nil

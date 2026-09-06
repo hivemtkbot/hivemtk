@@ -8,9 +8,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// === 二.6 工作流调度器 / 节点执行器 单元测试 ===
-// 大部分用例为纯逻辑测试，不依赖 DB；涉及 DB 的用例在无 DB 时优雅跳过。
-
 // 1. WorkflowRetryPolicy Backoff 默认值
 func TestWorkflowRetryPolicy_Backoff(t *testing.T) {
 	p := DefaultWorkflowRetryPolicy()
@@ -51,7 +48,6 @@ func TestWorkflowExecutorRegistry_RegisterAndGet(t *testing.T) {
 		t.Errorf("NodeType=%s want=trigger", got.NodeType())
 	}
 
-	// 必须能取出 4 种
 	all := r.AllRegistered(context.Background())
 	if len(all) != 4 {
 		t.Errorf("registered count=%d want=4 (got=%v)", len(all), all)
@@ -127,7 +123,6 @@ func TestActionNodeExecutor_LogWritesMessage(t *testing.T) {
 		t.Errorf("expect at least 1 side effect, got 0")
 	}
 
-	// 再次执行相同节点 -> 幂等返回 _already_executed
 	res2, _ := (&ActionNodeExecutor{}).Execute(context.Background(), wctx)
 	if res2.Output["_already_executed"] != true {
 		t.Errorf("expect idempotent _already_executed=true, got %v", res2.Output["_already_executed"])
@@ -244,7 +239,7 @@ func TestParseWorkflowDefinition_Valid(t *testing.T) {
 	if parsed.Edges[0].Source != "n1" || parsed.Edges[0].Target != "n2" {
 		t.Errorf("edge=%+v want source=n1 target=n2", parsed.Edges[0])
 	}
-	// 确认 parse 后与原结构等价（取唯一边比对）
+
 	if parsed.Edges[0].Label != def.Edges[0].Label {
 		t.Errorf("Label=%s want=%s", parsed.Edges[0].Label, def.Edges[0].Label)
 	}

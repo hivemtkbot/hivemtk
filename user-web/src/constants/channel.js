@@ -1,47 +1,12 @@
-/**
- * 统一渠道/平台常量
- *
- * 单一事实源（Single Source of Truth）：所有渠道 label/tag/icon/group 都从本文件读取，
- * 业务视图（reachPipeline / messageHub / unifiedInbox / customerSession / customer360 /
- * QuickReply / AgentStatus / AgentBindingDialog / ReachChannelSelector 等）禁止再各自维护
- * 独立的 platformLabelMap / channelOptions / inline map。
- *
- * 设计要点：
- * 1. value 统一使用后端 channel_type 字段原值（wecom/weixin/whatsapp/...），不做大小写转换
- * 2. label 优先以"后端最常用"语义为准（wecom => 企业微信；与 messageHub/unifiedInbox 一致），
- *    reachPipeline 早期使用的"企微"通过 alias 兼容，确保存量代码无视觉跳变
- * 3. tagType 对齐 Element Plus el-tag 的 type：success/warning/danger/info/primary/''（空=默认）
- * 4. group 用于渠道分类（reach/im/card/web），便于按场景过滤子集
- * 5. icon 是 Element Plus 图标组件名（ReachChannelSelector 渲染使用）
- * 6. getChannelLabel 找不到时回退 value，绝不返回"未知"以避免歧义
- *
- * 历史背景：原项目 6 处独立定义（reachPipeline/channelOptions 9 条、messageHub/platformLabelMap 10 条、
- * unifiedInbox/platformLabelMap 10 条、ReachChannelSelector/allChannels 11 条、AgentBindingDialog inline 9 条、
- * QuickReply/<el-option> 6 条）互不一致，wecom 一处显"企微"、另一处显"企业微信"；
- * weixin/xianyu/tiktok/telegram 等渠道在多处缺漏。
- *
- * 维护规则：新增/修改渠道时只需修改本文件即可全局生效。
- */
-
-// 渠道分组（用于按场景过滤子集）
 export const CHANNEL_GROUP = Object.freeze({
-  IM: 'im',           // 即时通讯：wecom/weixin/whatsapp/telegram/feishu
-  SOCIAL: 'social',   // 社交内容：douyin/kuaishou/xiaohongshu/xianyu/tiktok/personal_wx
-  NOTIFY: 'notify',   // 通知触达：sms/email
-  COLLAB: 'collab',   // 协作办公：dingtalk/feishu
-  CARD: 'card',       // 卡片：card
-  WEB: 'web'          // Web Widget：web
-})
+  IM: 'im',
+  SOCIAL: 'social',
+  NOTIFY: 'notify',
+  COLLAB: 'collab',
+  CARD: 'card',
+  WEB: 'web'
+});
 
-// 主渠道定义（权威列表）
-// value     后端 channel_type 原值
-// label     渠道中文标签（唯一显示文案）
-// alias     兼容旧 label（reachPipeline 早期 "企微" 风格），如需历史兼容可读 CHANNEL_LABEL_ALIAS
-// tagType   Element Plus el-tag 类型
-// group     所属分组
-// icon      Element Plus 图标组件名
-// description  渠道描述
-// newBadge  是否显示 NEW 角标（ReachChannelSelector 用）
 export const CHANNEL_OPTIONS = Object.freeze([
   { value: 'wecom',         label: '企业微信', tagType: 'success', group: CHANNEL_GROUP.IM,     icon: 'OfficeBuilding', description: '企业微信（外部联系人）', alias: ['企微'] },
   { value: 'weixin',        label: '微信公众号', tagType: 'success', group: CHANNEL_GROUP.IM,   icon: 'ChatDotRound',    description: '微信公众号（客服消息）', alias: ['微信'] },
@@ -50,9 +15,14 @@ export const CHANNEL_OPTIONS = Object.freeze([
   { value: 'telegram',      label: 'Telegram',  tagType: 'primary', group: CHANNEL_GROUP.IM,     icon: 'Promotion',       description: 'Telegram Bot API（境外 IM）', newBadge: true },
   { value: 'feishu',        label: '飞书',      tagType: 'primary', group: CHANNEL_GROUP.COLLAB, icon: 'ChatLineSquare',  description: '飞书 Open API（协作）', newBadge: true },
   { value: 'dingtalk',      label: '钉钉',      tagType: 'primary', group: CHANNEL_GROUP.COLLAB, icon: 'Connection',      description: '钉钉机器人' },
-  // ===== 社交平台渠道（2026-08-05 渠道编码统一：去掉 _web 后缀）=====
-  // 抖音 / 快手 / 小红书 / 闲鱼 / TikTok 全部使用全名（与 user-server model.Channel* 一一对应）。
-  { value: 'douyin',        label: '抖音',      tagType: '',        group: CHANNEL_GROUP.SOCIAL, icon: 'Share',           description: '抖音私信' },
+  {
+    value: 'douyin',
+    label: '抖音',
+    tagType: '',
+    group: CHANNEL_GROUP.SOCIAL,
+    icon: 'Share',
+    description: '抖音私信'
+  },
   { value: 'kuaishou',      label: '快手',      tagType: '',        group: CHANNEL_GROUP.SOCIAL, icon: 'Share',           description: '快手私信' },
   { value: 'xiaohongshu',   label: '小红书',    tagType: 'danger',  group: CHANNEL_GROUP.SOCIAL, icon: 'Postcard',        description: '小红书私信' },
   { value: 'xianyu',        label: '闲鱼',      tagType: 'warning', group: CHANNEL_GROUP.SOCIAL, icon: 'Goods',           description: '闲鱼私信' },
@@ -62,28 +32,22 @@ export const CHANNEL_OPTIONS = Object.freeze([
   { value: 'card',          label: '卡片',      tagType: 'info',    group: CHANNEL_GROUP.CARD,   icon: 'Postcard',        description: '卡片消息（子渠道）' },
   { value: 'web',           label: 'Web Widget', tagType: 'info',   group: CHANNEL_GROUP.WEB,    icon: 'Monitor',         description: '客服 Web Widget 渠道' },
   { value: 'web_embed',     label: '网页',      tagType: 'info',   group: CHANNEL_GROUP.WEB,    icon: 'Monitor',         description: 'Web Widget 嵌入访客端（第三方网站访客）' }
-])
+]);
 
-// ===== 平台归并（仅用于统一收件箱"展示层"）=====
-// 2026-08-05 渠道编码统一：去掉 *_web 历史值，每个社交平台只保留一个 platform 值。
-// PLATFORM_GROUP_MEMBERS：归并展示项（下拉 value） -> 底层 platform 值（迁移期仍兼容旧值查询）。
 export const PLATFORM_GROUP_MEMBERS = Object.freeze({
   douyin: ['douyin', 'douyin_web'],
   xiaohongshu: ['xiaohongshu', 'xhs_web'],
   tiktok: ['tiktok', 'tiktok_web'],
   kuaishou: ['kuaishou', 'kuaishou_web'],
   xianyu: ['xianyu', 'xianyu_web']
-})
+});
 
-// 反向映射：网页桥接版底层 value -> 归并展示项（仅分布图聚合展示用，不影响查询/标签）
 export const PLATFORM_GROUP_MEMBERS_REVERSE = Object.freeze(
   Object.fromEntries(
     Object.entries(PLATFORM_GROUP_MEMBERS).flatMap(([g, list]) => list.map((v) => [v, g]))
   )
-)
+);
 
-// 兼容历史 label（如 reachPipeline 旧的"企微"），用于内部展示/迁移判断
-// 注意：此 alias 仅用于历史数据/迁移期，业务 UI 一律使用 getChannelLabel 取标准 label
 export const CHANNEL_LABEL_ALIAS = Object.freeze(
   CHANNEL_OPTIONS.reduce((acc, o) => {
     if (o.alias && o.alias.length) {
@@ -91,16 +55,12 @@ export const CHANNEL_LABEL_ALIAS = Object.freeze(
     }
     return acc
   }, {})
-)
+);
 
-// value -> label 快查（性能优化：避免在 table 渲染时每次 .find）
 export const CHANNEL_LABEL_MAP = Object.freeze(
   CHANNEL_OPTIONS.reduce((acc, o) => { acc[o.value] = o.label; return acc }, {})
-)
+);
 
-// 历史 _web 后缀值（及早期 xhs 简写）-> 来源平台全名。
-// 2026-08-13 渠道编码统一收尾：即使 DB 仍残留 *_web 行（历史数据未迁移干净），
-// getChannelLabel 也一律归一到来源平台全名展示，绝不显示「抖音web / 闲鱼web / 快手web / 小红书web」。
 export const CHANNEL_LEGACY_WEB_TO_CANONICAL = Object.freeze({
   'douyin_web': 'douyin',
   'xhs_web': 'xiaohongshu',
@@ -108,76 +68,44 @@ export const CHANNEL_LEGACY_WEB_TO_CANONICAL = Object.freeze({
   'xianyu_web': 'xianyu',
   'tiktok_web': 'tiktok',
   'xhs': 'xiaohongshu'
-})
+});
 
-// value -> tagType 快查
 export const CHANNEL_TAG_TYPE_MAP = Object.freeze(
   CHANNEL_OPTIONS.reduce((acc, o) => { acc[o.value] = o.tagType; return acc }, {})
-)
+);
 
-// value -> 完整定义 快查
 export const CHANNEL_MAP = Object.freeze(
   CHANNEL_OPTIONS.reduce((acc, o) => { acc[o.value] = o; return acc }, {})
-)
+);
 
-/**
- * 获取渠道中文标签
- * @param {string|undefined|null} value 渠道 value
- * @returns {string} label；找不到时回退 value，未知值返回 '-' 避免渲染 undefined
- */
 export const getChannelLabel = (value) => {
   if (value === undefined || value === null || value === '') return '-'
-  // 历史 _web 后缀值（及 xhs 简写）一律归一到来源平台全名，避免显示「xxweb」
-  if (CHANNEL_LEGACY_WEB_TO_CANONICAL[value]) return getChannelLabel(CHANNEL_LEGACY_WEB_TO_CANONICAL[value])
+  if (CHANNEL_LEGACY_WEB_TO_CANONICAL[value])
+    return getChannelLabel(CHANNEL_LEGACY_WEB_TO_CANONICAL[value]);
   if (CHANNEL_LABEL_MAP[value]) return CHANNEL_LABEL_MAP[value]
-  // 兼容历史 alias（极少情况）
-  if (CHANNEL_LABEL_ALIAS[value]) return CHANNEL_LABEL_ALIAS[value]
+  if (CHANNEL_LABEL_ALIAS[value])
+    return CHANNEL_LABEL_ALIAS[value];
   return value
-}
+};
 
-/**
- * 获取渠道 el-tag 类型
- * @param {string} value
- * @returns {string} tag type，找不到时返回 ''（el-tag 默认色）
- */
-export const getChannelTagType = (value) => CHANNEL_TAG_TYPE_MAP[value] || 'info'
+export const getChannelTagType = (value) => CHANNEL_TAG_TYPE_MAP[value] || 'info';
 
-/**
- * 获取渠道完整定义
- * @param {string} value
- * @returns {object|null}
- */
-export const getChannelOption = (value) => CHANNEL_MAP[value] || null
+export const getChannelOption = (value) => CHANNEL_MAP[value] || null;
 
-/**
- * 按 group 过滤渠道列表
- * @param {string|string[]} groups 一个或多个 group 名
- * @returns {Array}
- */
 export const filterChannelsByGroup = (groups) => {
   const list = Array.isArray(groups) ? groups : [groups]
   return CHANNEL_OPTIONS.filter((o) => list.includes(o.group))
-}
+};
 
-/**
- * 排除指定渠道（按 value）
- * @param {string[]} excludeValues
- * @returns {Array}
- */
 export const excludeChannels = (excludeValues = []) => {
   const set = new Set(excludeValues)
   return CHANNEL_OPTIONS.filter((o) => !set.has(o.value))
-}
+};
 
-/**
- * 仅包含指定渠道（按 value）
- * @param {string[]} includeValues
- * @returns {Array}
- */
 export const includeChannels = (includeValues = []) => {
   const set = new Set(includeValues)
   return CHANNEL_OPTIONS.filter((o) => set.has(o.value))
-}
+};
 
 export default {
   CHANNEL_GROUP,

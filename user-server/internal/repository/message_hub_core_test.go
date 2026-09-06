@@ -22,14 +22,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// ============================================================
-// 辅助：创建独立 MessageHub 测试库
-// ============================================================
-
 func setupMessageHubTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := testutil.NewTestDB(t, &model.MessageHub{})
-	// 清空保证幂等
+
 	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
 		t.Fatalf("清空 message_hub: %v", err)
 	}
@@ -56,10 +52,6 @@ func newHub(platform, accountID, msgID, direction, msgType, content string, stat
 	}
 }
 
-// ============================================================
-// 1. Create — 消息入库
-// ============================================================
-
 func TestMessageHubRepository_Create_Inbound(t *testing.T) {
 	db := setupMessageHubTestDB(t)
 	repo := &MessageHubRepository{db: db}
@@ -73,7 +65,6 @@ func TestMessageHubRepository_Create_Inbound(t *testing.T) {
 		t.Error("入库后 ID 应自动生成")
 	}
 
-	// DB 实际验证
 	var got model.MessageHub
 	if err := db.First(&got, hub.ID).Error; err != nil {
 		t.Fatalf("DB 查询失败: %v", err)
@@ -113,7 +104,6 @@ func TestMessageHubRepository_Create_DedupHash(t *testing.T) {
 	repo := &MessageHubRepository{db: db}
 	ctx := context.Background()
 
-	// 同 platform + dedupHash 重复插入 → 唯一键冲突
 	hub1 := newHub("xhs_web", "acc_dedup", "m_d1", "inbound", "text", "重复消息", "pending")
 	hub1.DedupHash = "dedup_abc"
 	if err := repo.Create(ctx, hub1); err != nil {
@@ -121,11 +111,11 @@ func TestMessageHubRepository_Create_DedupHash(t *testing.T) {
 	}
 
 	hub2 := newHub("xhs_web", "acc_dedup", "m_d2", "inbound", "text", "重复消息2", "pending")
-	hub2.DedupHash = "dedup_abc" // 同 hash
-	// Create 直接调 db.Create → 应报唯一键冲突
+	hub2.DedupHash = "dedup_abc"
+
 	err := repo.Create(ctx, hub2)
 	if err == nil {
-		// 可能 PK 不同没冲突，但 dedupHash 有 uniqueIndex
+
 		t.Logf("dedupHash 冲突未触发 (可能 index 非严格): hub2.ID=%d", hub2.ID)
 	}
 }
@@ -139,23 +129,18 @@ func TestMessageHubRepository_Create_NilRepo(t *testing.T) {
 }
 
 func TestMessageHubRepository_Create_NilDB(t *testing.T) {
-	repo := &MessageHubRepository{} // db 为 nil
+	repo := &MessageHubRepository{}
 	err := repo.Create(context.Background(), &model.MessageHub{})
 	if err != nil {
 		t.Errorf("nil db Create 应返回 nil, 实际 %v", err)
 	}
 }
 
-// ============================================================
-// 2. ListRecentInboundBySender — 按发送者查询入站
-// ============================================================
-
 func TestMessageHubRepository_ListRecentInboundBySender(t *testing.T) {
 	db := setupMessageHubTestDB(t)
 	repo := &MessageHubRepository{db: db}
 	ctx := context.Background()
 
-	// 种入：同 sender 3 条 inbound + 2 条 outbound
 	for i := 1; i <= 3; i++ {
 		h := newHub("wechat", "acc_r1", fmt.Sprintf("m_in_%d", i), "inbound", "text",
 			fmt.Sprintf("入站消息%d", i), "delivered")
@@ -168,7 +153,7 @@ func TestMessageHubRepository_ListRecentInboundBySender(t *testing.T) {
 	for i := 1; i <= 2; i++ {
 		h := newHub("wechat", "acc_r1", fmt.Sprintf("m_out_%d", i), "outbound", "text",
 			fmt.Sprintf("出站消息%d", i), "pending")
-		h.SenderID = "s_customer_a" // 同 sender 但 direction=outbound
+		h.SenderID = "s_customer_a"
 		if err := db.Create(h).Error; err != nil {
 			t.Fatal(err)
 		}
@@ -182,14 +167,12 @@ func TestMessageHubRepository_ListRecentInboundBySender(t *testing.T) {
 		t.Fatalf("期望 3 条 inbound, 实际 %d", len(hubs))
 	}
 
-	// 验证排序 DESC
 	for i := 1; i < len(hubs); i++ {
 		if hubs[i-1].SentAt.Before(hubs[i].SentAt) {
 			t.Errorf("排序错误: hubs[%d].SentAt 应 >= hubs[%d].SentAt", i-1, i)
 		}
 	}
 
-	// 验证 direction 过滤
 	for _, h := range hubs {
 		if h.Direction != "inbound" {
 			t.Errorf("不应返回 outbound: msg_id=%s", h.MsgID)
@@ -226,7 +209,6 @@ func TestMessageHubRepository_ListRecentInboundBySender_PlatformIsolation(t *tes
 	repo := &MessageHubRepository{db: db}
 	ctx := context.Background()
 
-	// 同 sender 跨 platform
 	for _, plat := range []string{"wechat", "douyin_web", "xhs_web"} {
 		h := newHub(plat, "acc_iso", "m_"+plat, "inbound", "text", "iso", "pending")
 		h.SenderID = "s_multi_platform"
@@ -243,10 +225,6 @@ func TestMessageHubRepository_ListRecentInboundBySender_PlatformIsolation(t *tes
 		t.Errorf("platform 隔离: 期望 1 条 wechat, 实际 %d", len(hubs))
 	}
 }
-
-// ============================================================
-// 3. Get 系列 — 多种查询方式
-// ============================================================
 
 func TestMessageHubRepository_GetByID(t *testing.T) {
 	db := setupMessageHubTestDB(t)
@@ -266,7 +244,6 @@ func TestMessageHubRepository_GetByID(t *testing.T) {
 		t.Errorf("MsgID 期望 m_id_1, 实际 %s", got.MsgID)
 	}
 
-	// 不存在
 	_, err = repo.GetByID(ctx, 99999)
 	if err == nil {
 		t.Error("GetByID 不存在应返回错误")
@@ -297,17 +274,14 @@ func TestMessageHubRepository_GetByPlatformAccountMsgID(t *testing.T) {
 	repo := &MessageHubRepository{db: db}
 	ctx := context.Background()
 
-	// 跨账号同 msg_id — 应严格按 (platform, account_id, msg_id) 定位
-	// 注意: uniqueIndex(platform, msg_id, conversation_id) 要求不同 conv_id
 	for i, acc := range []string{"acc_A", "acc_B"} {
 		h := newHub("wechat", acc, "m_shared", "inbound", "text", "shared", "pending")
-		h.ConversationID = fmt.Sprintf("conv_%d", i) // 唯一键绕开
+		h.ConversationID = fmt.Sprintf("conv_%d", i)
 		if err := db.Create(h).Error; err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	// 查 acc_A
 	gotA, err := repo.GetByPlatformAccountMsgID(ctx, "wechat", "acc_A", "m_shared")
 	if err != nil {
 		t.Fatalf("acc_A 查询失败: %v", err)
@@ -316,7 +290,6 @@ func TestMessageHubRepository_GetByPlatformAccountMsgID(t *testing.T) {
 		t.Errorf("应返回 acc_A, 实际 %s", gotA.AccountID)
 	}
 
-	// 查 acc_B
 	gotB, err := repo.GetByPlatformAccountMsgID(ctx, "wechat", "acc_B", "m_shared")
 	if err != nil {
 		t.Fatalf("acc_B 查询失败: %v", err)
@@ -325,7 +298,6 @@ func TestMessageHubRepository_GetByPlatformAccountMsgID(t *testing.T) {
 		t.Errorf("应返回 acc_B, 实际 %s", gotB.AccountID)
 	}
 
-	// 不存在组合
 	_, err = repo.GetByPlatformAccountMsgID(ctx, "wechat", "acc_C", "m_shared")
 	if err == nil {
 		t.Error("不存在应返回错误")
@@ -339,10 +311,6 @@ func TestMessageHubRepository_GetByPlatformAccountMsgID_NilSafety(t *testing.T) 
 		t.Errorf("nil repo 应返回 ErrRecordNotFound, 实际 %v", err)
 	}
 }
-
-// ============================================================
-// 4. Update / Delete
-// ============================================================
 
 func TestMessageHubRepository_Update(t *testing.T) {
 	db := setupMessageHubTestDB(t)
@@ -386,7 +354,6 @@ func TestMessageHubRepository_Delete(t *testing.T) {
 		t.Fatalf("Delete 失败: %v", err)
 	}
 
-	// 验证 DB 中确实不存在
 	var count int64
 	db.Model(&model.MessageHub{}).Where("msg_id = ?", "m_del_1").Count(&count)
 	if count != 0 {
@@ -401,10 +368,6 @@ func TestMessageHubRepository_Delete_NilSafety(t *testing.T) {
 		t.Errorf("nil repo Delete 应返回 nil, 实际 %v", err)
 	}
 }
-
-// ============================================================
-// 5. MarkRead — 标记已读 (单条 + 批量)
-// ============================================================
 
 func TestMessageHubRepository_MarkReadByID(t *testing.T) {
 	db := setupMessageHubTestDB(t)
@@ -448,7 +411,6 @@ func TestMessageHubRepository_MarkReadByIDs(t *testing.T) {
 		t.Fatalf("MarkReadByIDs 失败: %v", err)
 	}
 
-	// 验证所有都已读
 	var allUnread int64
 	db.Model(&model.MessageHub{}).Where("id IN ? AND is_read = false", ids).Count(&allUnread)
 	if allUnread != 0 {
@@ -456,16 +418,11 @@ func TestMessageHubRepository_MarkReadByIDs(t *testing.T) {
 	}
 }
 
-// ============================================================
-// 6. AckOutboundDelivered — 出库确认 (核心链路)
-// ============================================================
-
 func TestMessageHubRepository_AckOutboundDeliveredBatch(t *testing.T) {
 	db := setupMessageHubTestDB(t)
 	repo := &MessageHubRepository{db: db}
 	ctx := context.Background()
 
-	// 种入 3 条 outbound pending
 	var msgIDs []string
 	for i := 1; i <= 3; i++ {
 		h := newHub("wechat", "ack_acc", fmt.Sprintf("m_ack_%d", i), "outbound", "text",
@@ -484,7 +441,6 @@ func TestMessageHubRepository_AckOutboundDeliveredBatch(t *testing.T) {
 		t.Errorf("AffectedRows 期望 3, 实际 %d", affected)
 	}
 
-	// DB 验证 status 已变 delivered
 	var deliveredCount int64
 	db.Model(&model.MessageHub{}).
 		Where("msg_id IN ? AND status = 'delivered'", msgIDs).
@@ -524,7 +480,6 @@ func TestMessageHubRepository_AckOutboundDeliveredBatchReturning(t *testing.T) {
 	repo := &MessageHubRepository{db: db}
 	ctx := context.Background()
 
-	// 种入 2 pending + 1 inflight
 	for _, status := range []string{"pending", "inflight", "delivered"} {
 		h := newHub("douyin_web", "ret_acc", "m_ret_"+status, "outbound", "text", "ret", status)
 		if err := db.Create(h).Error; err != nil {
@@ -540,7 +495,6 @@ func TestMessageHubRepository_AckOutboundDeliveredBatchReturning(t *testing.T) {
 		t.Fatalf("Returning Ack 失败: %v", err)
 	}
 
-	// 只有 pending + inflight 被翻转 → 2 条
 	if affected != 2 {
 		t.Errorf("affectedRows 期望 2, 实际 %d", affected)
 	}
@@ -548,7 +502,6 @@ func TestMessageHubRepository_AckOutboundDeliveredBatchReturning(t *testing.T) {
 		t.Errorf("updatedIDs 期望 2, 实际 %d", len(updatedIDs))
 	}
 
-	// delivered 和 notexist 不应出现在 updatedIDs
 	for _, id := range updatedIDs {
 		if id == "m_ret_delivered" || id == "m_ret_notexist" {
 			t.Errorf("不应翻转 %s", id)
@@ -561,7 +514,6 @@ func TestMessageHubRepository_AckOutboundDeliveredBatchReturning_AccountIsolatio
 	repo := &MessageHubRepository{db: db}
 	ctx := context.Background()
 
-	// 同 msg_id 被两账号持有 — 需要不同 conversation_id 绕过唯一键
 	for i, acc := range []string{"acc_A", "acc_B"} {
 		h := newHub("wechat", acc, "m_cross_ack", "outbound", "text", "cross", "pending")
 		h.ConversationID = fmt.Sprintf("conv_ack_%d", i)
@@ -570,7 +522,6 @@ func TestMessageHubRepository_AckOutboundDeliveredBatchReturning_AccountIsolatio
 		}
 	}
 
-	// 只 ack acc_A
 	updatedIDs, _, err := repo.AckOutboundDeliveredBatchReturning(
 		ctx, "wechat", "acc_A", []string{"m_cross_ack"},
 	)
@@ -581,7 +532,6 @@ func TestMessageHubRepository_AckOutboundDeliveredBatchReturning_AccountIsolatio
 		t.Errorf("跨账号隔离: 只应 ack acc_A 那 1 条, 实际 %d", len(updatedIDs))
 	}
 
-	// acc_B 仍 pending
 	var accBStatus string
 	db.Raw("SELECT status FROM message_hub WHERE account_id = 'acc_B' AND msg_id = 'm_cross_ack'").Scan(&accBStatus)
 	if accBStatus != "pending" {
@@ -589,16 +539,11 @@ func TestMessageHubRepository_AckOutboundDeliveredBatchReturning_AccountIsolatio
 	}
 }
 
-// ============================================================
-// 7. ClaimPendingOutbound — 认领待发送消息
-// ============================================================
-
 func TestMessageHubRepository_ClaimPendingOutbound(t *testing.T) {
 	db := setupMessageHubTestDB(t)
 	repo := &MessageHubRepository{db: db}
 	ctx := context.Background()
 
-	// 种入 5 条 pending outbound
 	for i := 1; i <= 5; i++ {
 		h := newHub("wechat", "claim_acc", fmt.Sprintf("m_claim_%d", i), "outbound", "text", "claim", "pending")
 		if err := db.Create(h).Error; err != nil {
@@ -614,14 +559,12 @@ func TestMessageHubRepository_ClaimPendingOutbound(t *testing.T) {
 		t.Fatalf("limit=3 应认领 3 条, 实际 %d", len(claimed))
 	}
 
-	// 验证 status → inflight, claimed_at 非空
 	for _, h := range claimed {
 		if h.Status != "inflight" {
 			t.Errorf("认领后 status 应为 inflight, msg_id=%s 实际 %s", h.MsgID, h.Status)
 		}
 	}
 
-	// 剩下 2 条仍是 pending
 	var pendingCount int64
 	db.Model(&model.MessageHub{}).
 		Where("platform = 'wechat' AND account_id = 'claim_acc' AND direction = 'outbound' AND status = 'pending'").
@@ -660,7 +603,6 @@ func TestMessageHubRepository_ClaimPendingOutbound_TimeoutReclaim(t *testing.T) 
 	repo := &MessageHubRepository{db: db}
 	ctx := context.Background()
 
-	// 种入 2 条 inflight 但 claimed_at 很久以前（超时）
 	oldTime := time.Now().Add(-2 * time.Minute)
 	for i := 1; i <= 2; i++ {
 		h := newHub("wechat", "reclaim_acc", fmt.Sprintf("m_reclaim_%d", i), "outbound", "text",
@@ -671,30 +613,23 @@ func TestMessageHubRepository_ClaimPendingOutbound_TimeoutReclaim(t *testing.T) 
 		}
 	}
 
-	// 种入 1 条新鲜 pending
 	fresh := newHub("wechat", "reclaim_acc", "m_reclaim_fresh", "outbound", "text", "reclaim", "pending")
 	if err := db.Create(fresh).Error; err != nil {
 		t.Fatal(err)
 	}
 
-	// claimTimeout=1分钟 → 超时的 2 条应被回收再认领
 	claimed, err := repo.ClaimPendingOutbound(ctx, "wechat", "reclaim_acc", 5, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// 应回收 2 条超时 + 1 条新鲜 = 3 条
 	if len(claimed) != 3 {
 		t.Errorf("应认领 3 条(2 超时回收 + 1 新鲜), 实际 %d", len(claimed))
 	}
 }
 
-// ============================================================
-// 8. CreateWithInboxTx — 事务创建 (幂等性 + 事务回滚)
-// ============================================================
-
 func TestMessageHubRepository_CreateWithInboxTx_Idempotent(t *testing.T) {
-	// 需要同时 AutoMigrate InboxConversation 表
+
 	db := testutil.NewTestDB(t, &model.MessageHub{}, &model.InboxConversation{})
 	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
 		t.Fatal(err)
@@ -708,7 +643,6 @@ func TestMessageHubRepository_CreateWithInboxTx_Idempotent(t *testing.T) {
 
 	hub := newHub("wechat", "acc_idem", "m_idem_1", "inbound", "text", "idem", "pending")
 
-	// UpsertFromMessageInput 最小必填
 	input := UpsertFromMessageInput{
 		Platform:           "wechat",
 		AccountID:          "acc_idem",
@@ -720,7 +654,6 @@ func TestMessageHubRepository_CreateWithInboxTx_Idempotent(t *testing.T) {
 		LastMessageFrom:    "customer",
 	}
 
-	// 第一次
 	if err := repo.CreateWithInboxTx(ctx, hub, inboxRepo, input); err != nil {
 		t.Fatalf("首次 CreateWithInboxTx 不应失败: %v", err)
 	}
@@ -729,13 +662,11 @@ func TestMessageHubRepository_CreateWithInboxTx_Idempotent(t *testing.T) {
 		t.Error("首次应写入 DB，ID 不应为 0")
 	}
 
-	// 第二次（同 msg_id）— 幂等预检查应命中直接 return nil
 	hub2 := newHub("wechat", "acc_idem", "m_idem_1", "inbound", "text", "idem2", "pending")
 	if err := repo.CreateWithInboxTx(ctx, hub2, inboxRepo, input); err != nil {
 		t.Fatalf("重复 CreateWithInboxTx 应幂等返回 nil: %v", err)
 	}
 
-	// DB 只有 1 条 message_hub
 	var count int64
 	db.Model(&model.MessageHub{}).Where("msg_id = 'm_idem_1'").Count(&count)
 	if count != 1 {
@@ -750,10 +681,6 @@ func TestMessageHubRepository_CreateWithInboxTx_NilRepo(t *testing.T) {
 		t.Errorf("nil repo 不应报错: %v", err)
 	}
 }
-
-// ============================================================
-// 9. GetByPlatformContent — 按内容哈希查询 (md5)
-// ============================================================
 
 func TestMessageHubRepository_GetByPlatformContent(t *testing.T) {
 	db := setupMessageHubTestDB(t)
@@ -773,9 +700,8 @@ func TestMessageHubRepository_GetByPlatformContent(t *testing.T) {
 		t.Errorf("MsgID 期望 m_md5_1, 实际 %s", got.MsgID)
 	}
 
-	// inbound 方向找不到
 	_, err = repo.GetByPlatformContent(ctx, "wechat", "精确内容")
-	// seed 是 outbound，能找到；但如果种入 inbound 同样内容...
+
 }
 
 func TestMessageHubRepository_GetByPlatformContent_EmptyArgs(t *testing.T) {
@@ -792,10 +718,6 @@ func TestMessageHubRepository_GetByPlatformContent_EmptyArgs(t *testing.T) {
 		t.Errorf("空 content 应返回 ErrRecordNotFound, 实际 %v", err)
 	}
 }
-
-// ============================================================
-// 10. ListByConversation — 按会话分页
-// ============================================================
 
 func TestMessageHubRepository_ListByConversation(t *testing.T) {
 	db := setupMessageHubTestDB(t)
@@ -823,7 +745,6 @@ func TestMessageHubRepository_ListByConversation(t *testing.T) {
 		t.Errorf("pageSize=5 应返回 5, 实际 %d", len(items))
 	}
 
-	// 第二页
 	items2, _, err := repo.ListByConversation(ctx, convID, 2, 5)
 	if err != nil {
 		t.Fatal(err)
@@ -832,7 +753,6 @@ func TestMessageHubRepository_ListByConversation(t *testing.T) {
 		t.Errorf("page 2 应返回 5, 实际 %d", len(items2))
 	}
 
-	// 第三页空
 	items3, _, err := repo.ListByConversation(ctx, convID, 3, 5)
 	if err != nil {
 		t.Fatal(err)
@@ -841,10 +761,6 @@ func TestMessageHubRepository_ListByConversation(t *testing.T) {
 		t.Errorf("page 3 应空, 实际 %d", len(items3))
 	}
 }
-
-// ============================================================
-// 11. GetLastByConversation — 会话最后一条
-// ============================================================
 
 func TestMessageHubRepository_GetLastByConversation(t *testing.T) {
 	db := setupMessageHubTestDB(t)
@@ -855,7 +771,7 @@ func TestMessageHubRepository_GetLastByConversation(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		h := newHub("wechat", "acc_last", fmt.Sprintf("m_last_%d", i), "inbound", "text", "last", "pending")
 		h.ConversationID = convID
-		h.SentAt = time.Now().Add(-time.Minute * time.Duration(3-i)) // m_last_3 最新
+		h.SentAt = time.Now().Add(-time.Minute * time.Duration(3-i))
 		if err := db.Create(h).Error; err != nil {
 			t.Fatal(err)
 		}
@@ -869,10 +785,6 @@ func TestMessageHubRepository_GetLastByConversation(t *testing.T) {
 		t.Errorf("应返回最新的 m_last_3, 实际 %s", got.MsgID)
 	}
 }
-
-// ============================================================
-// 12. GetOutboundByPlatformSenderContent — 出站消息查找
-// ============================================================
 
 func TestMessageHubRepository_GetOutboundByPlatformSenderContent(t *testing.T) {
 	db := setupMessageHubTestDB(t)
@@ -893,28 +805,22 @@ func TestMessageHubRepository_GetOutboundByPlatformSenderContent(t *testing.T) {
 		t.Errorf("MsgID 期望 m_ob_1, 实际 %s", got.MsgID)
 	}
 
-	// inbound 同样内容 — 不应找到
 	inbound := newHub("wechat", "acc_ob2", "m_ob_in", "inbound", "text", "出站查找内容", "delivered")
 	inbound.SenderName = "客服小王"
 	db.Create(inbound)
 
 	_, err = repo.GetOutboundByPlatformSenderContent(ctx, "wechat", "客服小王", "出站查找内容")
-	// 先匹配到 outbound 那条，应还能返回
+
 	if err != nil {
 		t.Logf("第二次查询: %v", err)
 	}
 }
-
-// ============================================================
-// 13. GetByMsgIDsInScope — 多 msg_id 批量查询
-// ============================================================
 
 func TestMessageHubRepository_GetByMsgIDsInScope(t *testing.T) {
 	db := setupMessageHubTestDB(t)
 	repo := &MessageHubRepository{db: db}
 	ctx := context.Background()
 
-	// 同 msg_id 跨账号 — 需要不同 conversation_id
 	for _, acc := range []string{"acc_scope_A", "acc_scope_B"} {
 		for i, m := range []string{"m_same_1", "m_same_2"} {
 			h := newHub("wechat", acc, m, "outbound", "text", "scope", "pending")
@@ -925,7 +831,6 @@ func TestMessageHubRepository_GetByMsgIDsInScope(t *testing.T) {
 		}
 	}
 
-	// 按 (platform, account) 限定 scope
 	list, err := repo.GetByMsgIDsInScope(ctx, "wechat", "acc_scope_A", []string{"m_same_1", "m_same_2", "m_notexist"})
 	if err != nil {
 		t.Fatal(err)
@@ -939,10 +844,6 @@ func TestMessageHubRepository_GetByMsgIDsInScope(t *testing.T) {
 		}
 	}
 }
-
-// ============================================================
-// 14. FetchOutboundSince — 增量拉取出站
-// ============================================================
 
 func TestMessageHubRepository_FetchOutboundSince(t *testing.T) {
 	db := setupMessageHubTestDB(t)
@@ -958,7 +859,6 @@ func TestMessageHubRepository_FetchOutboundSince(t *testing.T) {
 		ids = append(ids, uint64(h.ID))
 	}
 
-	// sinceID=3 → 应返回 ID > 3 的 2 条
 	list, err := repo.FetchOutboundSince(ctx, "wechat", "acc_since", 3, 10)
 	if err != nil {
 		t.Fatal(err)
@@ -972,10 +872,6 @@ func TestMessageHubRepository_FetchOutboundSince(t *testing.T) {
 		}
 	}
 }
-
-// ============================================================
-// 15. GetByContentHash — 空 hash 边界
-// ============================================================
 
 func TestMessageHubRepository_GetByContentHash_Empty(t *testing.T) {
 	db := setupMessageHubTestDB(t)
@@ -1007,13 +903,11 @@ func TestMessageHubRepository_GetByDedupHash(t *testing.T) {
 		t.Errorf("MsgID 期望 m_dh_1, 实际 %s", got.MsgID)
 	}
 
-	// 空 hash
 	_, err = repo.GetByDedupHash(ctx, "wechat", "")
 	if err != gorm.ErrRecordNotFound {
 		t.Errorf("空 dedupHash 应返回 ErrRecordNotFound, 实际 %v", err)
 	}
 
-	// nil repo
 	var nilRepo *MessageHubRepository
 	_, err = nilRepo.GetByDedupHash(ctx, "wechat", "x")
 	if err != gorm.ErrRecordNotFound {

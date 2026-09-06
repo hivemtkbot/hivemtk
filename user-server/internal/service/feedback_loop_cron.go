@@ -82,16 +82,6 @@ func (c *FeedbackLoopCron) runChampionBaselineMonthly(ctx context.Context, _ *go
 	}
 }
 
-// refreshChampionBaselineRows 从 humanize_scores 聚合 5 维指标并写入 champion_baselines
-//
-// 对每个 (persona, industry, intent) 三元组：
-//  1. 查询最近 30 天该三元组下所有评分
-//  2. 计算 5 维均值（naturalness/conciseness/empathy/professionalism/persuasiveness）
-//  3. 计算样本数 + 标准差
-//  4. Save 一个新版本（version 自动 +1，enabled=true）
-//
-// 五层架构归属: L3 业务层（通过 L4 Repository 访问数据）
-// 私域独立部署：无 merchant_id 字段
 func (c *FeedbackLoopCron) refreshChampionBaselineRows(
 	ctx context.Context,
 	persona, industry, intent string,
@@ -215,19 +205,11 @@ func (c *FeedbackLoopCron) runPromptIteratorDaily(ctx context.Context) {
 	}
 }
 
-// sopGraphNode SOPGraph 中的节点结构（多种命名兼容）
 type sopGraphNode struct {
 	ID   string `json:"id"`
 	Type string `json:"type"`
 }
 
-// extractSOPNodesFromGraph 从 SOPGraph JSONMap 提取 nodes 列表
-//
-// 兼容以下 JSON 结构：
-//
-//	{"nodes": [{"id":"n1","type":"llm"}, ...]}
-//	{"steps": [{"id":"n1","type":"llm"}, ...]}
-//	{"node_list": [{"id":"n1","type":"llm"}, ...]}
 func extractSOPNodesFromGraph(graph model.JSONMap) []sopGraphNode {
 	if len(graph) == 0 {
 		return nil
@@ -262,7 +244,6 @@ func extractSOPNodesFromGraph(graph model.JSONMap) []sopGraphNode {
 	return nil
 }
 
-// stringOf 任意 JSON 值 → string（无法转则空串）
 func stringOf(v any) string {
 	if v == nil {
 		return ""
@@ -273,7 +254,6 @@ func stringOf(v any) string {
 	return ""
 }
 
-// isPromptableNodeType 判断节点类型是否需要做 Prompt 迭代
 func isPromptableNodeType(t string) bool {
 	switch t {
 	case "llm", "generation", "prompt", "ai_response", "ai_message":
@@ -334,11 +314,6 @@ func (c *FeedbackLoopCron) runBanditConvergence(ctx context.Context) {
 	}
 }
 
-// runOptimizerCycle R55 T1：定时驱动 SOPAutoOptimizer 主循环（6h/轮）
-//
-// 此前 Optimizer.ProcessPendingSuggestions 从未被任何 cron/端点调度，
-// 自动优化建议生成后永远停在 pending，闭环断链。现挂入 feedback loop cron：
-// 自动应用（过验证门）+ AB 回滚检查 + bandit 收敛选优。
 func (c *FeedbackLoopCron) runOptimizerCycle(ctx context.Context) {
 	defer c.wg.Done()
 	for {
@@ -366,7 +341,6 @@ func (c *FeedbackLoopCron) runOptimizerCycle(ctx context.Context) {
 	}
 }
 
-// nextMonthlyRun 下一次月跑（day 1, hour 02:00）
 func nextMonthlyRun(day, hour, minute int) time.Time {
 	now := time.Now()
 	next := time.Date(now.Year(), now.Month(), day, hour, minute, 0, 0, now.Location())
@@ -376,7 +350,6 @@ func nextMonthlyRun(day, hour, minute int) time.Time {
 	return next
 }
 
-// nextWeeklyRun 下一次周跑（指定 weekday, hour 03:00）
 func nextWeeklyRun(weekday time.Weekday, hour, minute int) time.Time {
 	now := time.Now()
 	next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
@@ -388,7 +361,6 @@ func nextWeeklyRun(weekday time.Weekday, hour, minute int) time.Time {
 	return next
 }
 
-// nextDailyRun 下一次日跑（hour 04:00）
 func nextDailyRun(hour, minute int) time.Time {
 	now := time.Now()
 	next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())

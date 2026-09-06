@@ -59,26 +59,23 @@ const (
 	InitStateLicenseRevoked   = "LICENSE_REVOKED"
 )
 
-// isInitWhitelist 初始化白名单（无需 InitGuard 校验）
-// 这些路径是初始化流程的必经节点，必须始终可访问
 func isInitWhitelist(path string) bool {
 	whitelist := map[string]bool{
-		"/api/system/init-status": true,
-		"/api/system/info":        true,
-		"/api/system/init-admin":    true,
-		"/api/system/init-complete": true,
-		"/api/auth/login":           true,
-		"/api/auth/refresh-token":   true,
-		"/api/auth/change-password": true, 
-		"/api/auth/current-user":    true,
-		"/api/merchant/init": true,
+		"/api/system/init-status":          true,
+		"/api/system/info":                 true,
+		"/api/system/init-admin":           true,
+		"/api/system/init-complete":        true,
+		"/api/auth/login":                  true,
+		"/api/auth/refresh-token":          true,
+		"/api/auth/change-password":        true,
+		"/api/auth/current-user":           true,
+		"/api/merchant/init":               true,
 		"/api/system/create-default-admin": true,
-		"/s/:code": true,
-		"/l/:code": true,
-		"/health":  true,
-		"/healthz": true,
-		"/readyz":  true,
+		"/s/:code":                         true,
+		"/l/:code":                         true,
+		"/health":                          true,
+		"/healthz":                         true,
+		"/readyz":                          true,
 	}
 	return whitelist[path]
 }
-

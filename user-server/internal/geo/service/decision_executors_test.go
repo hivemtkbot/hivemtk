@@ -10,8 +10,6 @@ import (
 	"hivemtk-user/internal/geo/model"
 )
 
-// ---- SearchProbe ----
-
 const ourDomain = "https://oursite.example.com/post"
 
 type fakeProbe struct{}
@@ -32,8 +30,6 @@ func TestNewDefaultSearchProbe_NoopFailClosed(t *testing.T) {
 		t.Fatal("未配置探针必须显式报错（红队 F1：禁止 LLM 模拟冒充真实引擎）")
 	}
 }
-
-// ---- 决策链执行器 ----
 
 type stubChainRepo struct{ rows []*model.GeoQueryChain }
 
@@ -119,9 +115,6 @@ func TestQueryProbeExecutor_EndToEnd(t *testing.T) {
 	}
 }
 
-// TestAttributionAndGapFill_Pipeline 归因 + 补位两步串联（模拟上游产物结构）。
-// upstreamJSON 的真实运行时输入是 map[string]*dto.StepResult；
-// 测试中用同构 map 注入以覆盖解析分支。
 type stepResultShim struct {
 	StepType string
 	Result   string
@@ -166,7 +159,6 @@ func TestAttributionAndGapFill_Pipeline(t *testing.T) {
 		t.Fatalf("缺口应含 rival.example.com: %+v", attr.CoverageGap)
 	}
 
-	// content_gap_fill：直接验证任务落库路径（上游注入同上）
 	fillExec := s.executors["content_gap_fill"]
 	gapJSON, _ := json.Marshal(attr)
 	if _, err := fillExec(context.Background(), map[string]interface{}{

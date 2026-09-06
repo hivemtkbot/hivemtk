@@ -8,8 +8,8 @@ import (
 
 	"hivemtk-user/internal/dto"
 	"hivemtk-user/internal/model"
-	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/pkg/tracing"
+	"hivemtk-user/internal/pkg/utils"
 	"hivemtk-user/internal/repository"
 
 	"gorm.io/gorm"
@@ -72,7 +72,6 @@ func (s *WorkflowOrchestratorService) CreateVersion(ctx context.Context, req *dt
 		return nil, utils.ErrInvalidInput
 	}
 
-	// 获取当前最大版本号
 	count, err := s.versionRepo.CountByWorkflowID(ctx, req.WorkflowID)
 	if err != nil {
 		return nil, fmt.Errorf("count versions failed: %w", err)
@@ -213,7 +212,6 @@ func (s *WorkflowOrchestratorService) Execute(ctx context.Context, req *dto.Work
 		req.TriggerPayload = model.JSONMap{}
 	}
 
-	// 获取最新已发布版本
 	version, err := s.versionRepo.GetLatestPublished(ctx, req.WorkflowID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -222,7 +220,6 @@ func (s *WorkflowOrchestratorService) Execute(ctx context.Context, req *dto.Work
 		return nil, fmt.Errorf("get latest published version failed: %w", err)
 	}
 
-	// 创建执行实例
 	exec := &model.WorkflowExecution{
 		WorkflowID:     req.WorkflowID,
 		Version:        version.Version,
@@ -239,7 +236,6 @@ func (s *WorkflowOrchestratorService) Execute(ctx context.Context, req *dto.Work
 		return nil, fmt.Errorf("create execution failed: %w", err)
 	}
 
-	// 异步派发节点执行
 	if s.dispatcher != nil {
 		traceID := tracing.TraceIDFromContext(ctx)
 		if traceID == "" {
@@ -264,13 +260,11 @@ func (s *WorkflowOrchestratorService) GetExecution(ctx context.Context, execID u
 		return nil, err
 	}
 
-	// 获取节点执行详情
 	nodeExecs, err := s.nodeExecRepo.ListByExecutionID(ctx, execID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 由于模型中没有 NodeExecutions 字段，这里暂时返回
 	_ = nodeExecs
 	return exec, nil
 }

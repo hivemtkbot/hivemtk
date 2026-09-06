@@ -93,7 +93,6 @@ func ParseOffset(c *gin.Context) (offset, limit int, err error) {
 	return (page - 1) * pageSize, pageSize, nil
 }
 
-// parsePositiveInt 解析字符串为正整数，空字符串返回 defaultVal。
 func parsePositiveInt(s string, defaultVal int) (int, error) {
 	if s == "" {
 		return defaultVal, nil
@@ -104,4 +103,3 @@ func parsePositiveInt(s string, defaultVal int) (int, error) {
 	}
 	return v, nil
 }
-

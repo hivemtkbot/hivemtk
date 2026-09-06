@@ -1,6 +1,5 @@
 import { http } from '@/utils/request';
 
-// 话术库 - 匹配后端 /api/scripts/* 路径
 export function getScriptTemplateList(params) {
   return http.get('/api/scripts', params)
 }
@@ -29,7 +28,6 @@ export function recommendScript(data) {
   return http.post('/api/scripts/recommend', data)
 }
 
-// 兼容旧接口
 export function getScripts(params) {
   return getScriptTemplateList(params)
 }

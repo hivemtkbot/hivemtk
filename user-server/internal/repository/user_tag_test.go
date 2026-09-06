@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupUserTagTestDB 设置用户标签测试数据库
 func setupUserTagTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.UserTag{},
@@ -20,7 +19,6 @@ func setupUserTagTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupUserTagRepository 创建测试用的仓库实例
 func setupUserTagRepository(t *testing.T) *userTagRepo {
 	setupUserTagTestDB(t)
 	return &userTagRepo{db: db.GetDB()}
@@ -387,7 +385,6 @@ func TestUserTagRepository_DeleteTagsByName(t *testing.T) {
 				t.Errorf("DeleteTagsByName() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			// 获取所有剩余标签
 			var allTags []model.UserTag
 			db.GetDB().Find(&allTags)
 

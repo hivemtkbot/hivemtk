@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupSystemUserServiceTestDB 设置系统用户服务测试数据库
 func setupSystemUserServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.SystemUser{},
@@ -521,7 +520,6 @@ func TestSystemUserService_ResetPassword(t *testing.T) {
 		t.Fatalf("ResetPassword failed: %v", err)
 	}
 
-	// 验证密码已更新（通过检查数据库中的密码是否已更改）
 	var updatedUser model.SystemUser
 	database.First(&updatedUser, user.ID)
 
@@ -569,7 +567,6 @@ func TestSystemUserService_ResetPassword_PasswordHashing(t *testing.T) {
 		t.Fatalf("ResetPassword failed: %v", err)
 	}
 
-	// 验证密码在数据库中是加密的（不应该等于明文）
 	var updatedUser model.SystemUser
 	database.First(&updatedUser, user.ID)
 
@@ -992,7 +989,6 @@ func TestSystemUserService_ResetPassword_MultipleTimes(t *testing.T) {
 			t.Fatalf("ResetPassword failed: %v", err)
 		}
 
-		// 验证新密码有效
 		var updatedUser model.SystemUser
 		database.First(&updatedUser, user.ID)
 		if !CheckPassword(&updatedUser, pwd) {
@@ -1000,7 +996,6 @@ func TestSystemUserService_ResetPassword_MultipleTimes(t *testing.T) {
 		}
 	}
 
-	// 验证只有最后一个密码有效
 	var finalUser model.SystemUser
 	database.First(&finalUser, user.ID)
 	if !CheckPassword(&finalUser, "password4") {

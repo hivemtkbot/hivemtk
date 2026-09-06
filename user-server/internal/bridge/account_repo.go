@@ -55,7 +55,7 @@ func (r *BridgeAccountRepository) Upsert(ctx context.Context, u BridgeAccountUps
 			acc.LastSyncAt = &now
 			if cerr := r.db.WithContext(ctx).Create(&acc).Error; cerr != nil {
 				if isUniqueViolation(cerr) {
-					continue 
+					continue
 				}
 				return cerr
 			}
@@ -95,12 +95,10 @@ func (r *BridgeAccountRepository) Upsert(ctx context.Context, u BridgeAccountUps
 	return nil
 }
 
-// isUniqueViolation 判断是否为唯一索引冲突（Postgres: duplicate key value）。
 func isUniqueViolation(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "duplicate key value")
 }
 
-// upsertBinding 维护单一主绑定：先取消同渠道同账号其他主选，再写入/更新本条。
 func (r *BridgeAccountRepository) upsertBinding(ctx context.Context, channel, accountID string, agentID uint) error {
 	r.db.Model(&model.ChannelAgentBinding{}).WithContext(ctx).
 		Where("channel_type = ? AND account_id = ? AND agent_id <> ?", channel, accountID, agentID).
@@ -179,22 +177,6 @@ func runtimeOnlineGraceWindow(ctx context.Context) time.Duration {
 	return service.GlobalConfigParam().GetDuration(ctx, "bridge", "online_grace_window", OnlineGraceWindow)
 }
 
-// isOnlineByLastSync 基于 last_sync_at 判定账号是否在线
-//
-// HTTP-only 模式下，bridge 端每个 /api/bridge/ingest 请求都会经由 Upsert 刷新 last_sync_at。
-// 此函数纯粹从 DB 字段判断"是否仍在活跃"，不再依赖任何 in-memory hub 状态。
-//
-// 输入：
-//   - ctx: 用于 DB 参数读取
-//   - lastSyncAt: DB 中存的最近同步时间（可能为 nil）
-//   - status: 业务状态（"online" / "offline"）
-//   - now: 判定时间（测试可注入）
-//
-// 规则（短路）：
-//  1. status == "offline" → 离线（不论 last_sync_at 多新）
-//  2. lastSyncAt == nil → 离线（从未同步过）
-//  3. now - lastSyncAt < runtimeOnlineGraceWindow(ctx) → 在线
-//  4. 否则 → 离线（心跳超时）
 func isOnlineByLastSync(ctx context.Context, lastSyncAt *time.Time, status string, now time.Time) bool {
 	if status == "offline" {
 		return false
@@ -239,7 +221,7 @@ func (r *BridgeAccountRepository) IsOnline(ctx context.Context, channel, account
 	var acc model.BridgeAccount
 	if err := r.db.WithContext(ctx).Where("channel = ? AND account_id = ?", channel, accountID).First(&acc).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, nil 
+			return false, nil
 		}
 		return false, err
 	}
@@ -257,4 +239,3 @@ func (r *BridgeAccountRepository) GetByChannelAccount(ctx context.Context, chann
 }
 
 var _ BridgeAccountRepo = (*BridgeAccountRepository)(nil)
-

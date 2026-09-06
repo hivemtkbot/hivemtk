@@ -120,7 +120,6 @@ func (c *BatchImportController) DownloadTemplate(ctx *gin.Context) {
 	ctx.String(http.StatusOK, buf.String())
 }
 
-// stringBuilderWriter 实现 io.Writer 用于将 csv 写入 strings.Builder
 type stringBuilderWriter struct {
 	b *strings.Builder
 }
@@ -409,4 +408,3 @@ func (c *BatchOperationController) Preview(ctx *gin.Context) {
 		"preview":        true,
 	}, "预览成功")
 }
-

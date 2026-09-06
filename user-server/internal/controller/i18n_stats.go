@@ -1,6 +1,5 @@
 package controller
 
-
 import (
 	"strconv"
 
@@ -34,7 +33,6 @@ func (ctrl *I18nStatsController) RegisterRoutes(router *gin.RouterGroup) {
 	}
 }
 
-// parseDays 解析 days 查询参数，缺省/非法时返回 def。
 func parseDays(c *gin.Context, def int) int {
 	raw := c.Query("days")
 	if raw == "" {
@@ -138,4 +136,3 @@ func (ctrl *I18nStatsController) GetFallbackRate(c *gin.Context) {
 		"fallback_rate": rate,
 	}, "获取成功")
 }
-

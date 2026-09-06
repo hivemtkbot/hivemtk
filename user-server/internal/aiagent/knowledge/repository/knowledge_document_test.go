@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"context"
 	"testing"
@@ -209,4 +208,3 @@ func TestKnowledgeDocumentRepository_AgentIsolation_ListWithFilter(t *testing.T)
 		t.Errorf("List no AgentID expected 3, got %d", len(got))
 	}
 }
-

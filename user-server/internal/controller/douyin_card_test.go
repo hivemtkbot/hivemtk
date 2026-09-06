@@ -18,7 +18,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupDouyinCardTestDB 设置抖音卡片测试数据库
 func setupDouyinCardTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.DouyinCard{},
@@ -185,7 +184,7 @@ func TestDouyinCardController_Update_IDMismatch(t *testing.T) {
 	router.PUT("/douyin/cards/:id", ctrl.Update)
 
 	updateReq := dto.DouyinCardUpdateRequest{
-		ID:    999, 
+		ID:    999,
 		Title: "Test",
 	}
 	body, _ := json.Marshal(updateReq)
@@ -518,7 +517,7 @@ func TestDouyinCardController_Update_ViewCount(t *testing.T) {
 		Title:        "Card",
 		Description:  "Description",
 		ImageURL:     "https://example.com/image.jpg",
-		DomainPoolID: 1, 
+		DomainPoolID: 1,
 		ViewCount:    1000,
 		IsActive:     true,
 	}
@@ -533,4 +532,3 @@ func TestDouyinCardController_Update_ViewCount(t *testing.T) {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
-

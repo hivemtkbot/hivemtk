@@ -227,8 +227,7 @@ import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh } from '@element-plus/icons-vue'
 import { TagSegmentationApi } from '@/api/tagSegmentation.js'
-// 统一枚举：标签启用/禁用（兼容 enabled/disabled 与 1/0）
-import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled'
+import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled';
 
 const getStatusLabel = (s) => getEnabledLabel(s)
 const getStatusTagType = (s) => getEnabledTagType(s)
@@ -401,13 +400,12 @@ const submitTag = async () => {
   await tagFormRef.value.validate(async (valid) => {
     if (!valid) return
     try {
-      // session_tags 真实列：name / code(必填) / group / description
       const payload = {
         name: tagForm.value.name,
         code: tagForm.value.code || genTagCode(tagForm.value.name),
         group: tagForm.value.category || 'default',
         description: tagForm.value.description || ''
-      }
+      };
       if (tagForm.value.id) {
         await TagSegmentationApi.updateTags({ id: tagForm.value.id, ...payload })
       } else {
@@ -478,11 +476,10 @@ const deleteRule = async (row) => {
 
 const saveStrategy = async () => {
   try {
-    // 仅提交后端所需的 layer/description，避免把绑定的 tagIds 等前端字段误传
     const payload = strategyList.value.map(r => ({
       layer: r.layer,
       description: r.description || ''
-    }))
+    }));
     await TagSegmentationApi.saveLayerStrategy(payload)
     ElMessage.success(i18n.global.t('策略已保存'))
   } catch (e) {

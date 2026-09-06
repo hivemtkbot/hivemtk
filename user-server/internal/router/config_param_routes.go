@@ -8,10 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupConfigParamRoutes 动态阈值参数管理路由
-//
-// 权限约束：必须在 router.go 的 AdminAuthMiddleware 分组下调用。
-// 路由前缀：/api/manage/config-params*
 func setupConfigParamRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	svc := service.GlobalConfigParam()
 	ctrl := controller.NewConfigParamController(svc)

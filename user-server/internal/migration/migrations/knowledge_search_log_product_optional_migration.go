@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -59,6 +58,4 @@ func (m *KnowledgeSearchLogProductOptionalMigration) Down(ctx context.Context) e
 	return nil
 }
 
-// compile-time 接口断言
 var _ migration.Migration = (*KnowledgeSearchLogProductOptionalMigration)(nil)
-

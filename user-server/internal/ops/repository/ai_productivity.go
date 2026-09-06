@@ -134,4 +134,3 @@ func (r *AIProductivityRepository) GetLLMUsageCostSum(ctx context.Context, day, 
 	}
 	return 0, nil
 }
-

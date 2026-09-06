@@ -1,10 +1,9 @@
 package controller
 
-
 import (
-	"os"
 	"crypto/subtle"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -44,11 +43,6 @@ func (c *EmailOpenTrackerController) TrackingPixel(ctx *gin.Context) {
 	ctx.Data(http.StatusOK, contentType, pixel)
 }
 
-// PostmarkWebhook POST /api/email/track/webhook/postmark
-
-// verifyWebhookSharedSecret 供应商 webhook 共享密钥校验（v3 审计 P2）：
-// 配置 EMAIL_WEBHOOK_SECRET 后要求请求头 X-Webhook-Secret 精确匹配；
-// 未配置时放行并告警（各供应商签名口径不同，共享密钥为通用兜底方案）。
 func verifyWebhookSharedSecret(ctx *gin.Context) bool {
 	want := os.Getenv("EMAIL_WEBHOOK_SECRET")
 	if want == "" {
@@ -135,4 +129,3 @@ func (c *EmailOpenTrackerController) RegisterRoutes(public *gin.RouterGroup, aut
 		authed.GET("/email/track/open-metrics", c.GetOpenMetrics)
 	}
 }
-

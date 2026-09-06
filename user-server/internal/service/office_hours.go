@@ -15,7 +15,7 @@ import (
 // OfficeHoursConfig 办公时间策略（KV: office.hours）
 type OfficeHoursConfig struct {
 	Enabled     bool        `json:"enabled"`
-	DailyRanges [][2]string `json:"daily_ranges"` // [{start:"09:00", end:"18:00"}]
+	DailyRanges [][2]string `json:"daily_ranges"`
 	AwayMessage string      `json:"away_message"`
 }
 

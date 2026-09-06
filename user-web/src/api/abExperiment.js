@@ -1,6 +1,5 @@
 import { http } from '@/utils/request';
 
-// A/B 测试 - 匹配后端 /api/ab-experiments/* 路径
 export function getExperimentList(params) {
   return http.get('/api/ab-experiments', params)
 }
@@ -32,7 +31,6 @@ export function getConversionEvents(id) {
   return http.get(`/api/ab-experiments/${id}/conversion-events`)
 }
 
-// 兼容旧接口
 export function getExperiments(params) {
   return getExperimentList(params)
 }

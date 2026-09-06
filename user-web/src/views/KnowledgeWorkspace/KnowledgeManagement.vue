@@ -1,6 +1,6 @@
 <template>
   <div class="knowledge-v2-management">
-    <!-- 顶部统计卡片 -->
+    
     <el-row :gutter="16" class="overview-row">
       <el-col :span="4">
         <el-card class="stat-card">
@@ -40,7 +40,7 @@
       </el-col>
     </el-row>
 
-    <!-- 关联AI工具 -->
+    
     <el-card class="tools-card" shadow="never">
       <template #header>
         <div class="card-header">
@@ -67,7 +67,7 @@
       </el-row>
     </el-card>
 
-    <!-- 工具栏 -->
+    
     <el-card class="toolbar-card">
       <div class="toolbar">
         <div class="toolbar-left">
@@ -96,7 +96,7 @@
       </div>
     </el-card>
 
-    <!-- 文档列表 -->
+    
     <el-card>
       <el-table :data="documents" v-loading="loading" stripe>
         <el-table-column prop="id" label="ID" width="80" />
@@ -167,10 +167,10 @@
       />
     </el-card>
 
-    <!-- 导入对话框 -->
+    
     <el-dialog v-model="showImportDialog" title="导入资料数据" width="640px" :close-on-click-modal="false">
       <el-tabs v-model="importTab">
-        <!-- 文件上传 -->
+        
         <el-tab-pane label="文件上传" name="upload">
           <el-form label-width="80px">
             <el-form-item label="产品" required>
@@ -204,7 +204,7 @@
           </el-form>
         </el-tab-pane>
 
-        <!-- 文本粘贴 -->
+        
         <el-tab-pane label="文本粘贴" name="text">
           <el-form label-width="80px">
             <el-form-item label="产品" required>
@@ -221,7 +221,7 @@
           </el-form>
         </el-tab-pane>
 
-        <!-- URL 抓取 -->
+        
         <el-tab-pane label="URL 抓取" name="url">
           <el-form label-width="80px">
             <el-form-item label="产品" required>
@@ -244,7 +244,7 @@
       </template>
     </el-dialog>
 
-    <!-- 文档详情对话框 -->
+    
     <el-dialog v-model="showDetailDialog" :title="`文档详情 - ${currentDoc?.title || ''}`" width="800px">
       <el-descriptions v-if="currentDoc" :column="2" border>
         <el-descriptions-item label="文档ID">{{ currentDoc.id }}</el-descriptions-item>
@@ -292,8 +292,7 @@ import { knowledgeAPI } from '@/api/knowledge'
 import { http } from '@/utils/request'
 import { ragProductConfigAPI } from '@/api/ragProductConfig'
 import { listTools } from '@/api/aiTool'
-// 统一枚举：知识库嵌入状态、来源类型
-import { EMBED_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status'
+import { EMBED_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status';
 import { getSourceLabel, getSourceTagType } from '@/constants/source'
 
 const router = useRouter()
@@ -357,13 +356,12 @@ const loadProducts = async () => {
   }
 }
 
-// 所属知识库名称（product_id → 名称）
 const getKBName = (productId) => {
   if (productId == null || productId === '' || productId === 0) return ''
   const p = productList.value.find((x) => String(x.id) === String(productId))
   if (!p) return ''
   return p.kb_code ? `[${p.kb_code}] ${p.name}` : p.name
-}
+};
 
 const loadKnowledgeTools = async () => {
   try {
@@ -528,7 +526,6 @@ const handleDelete = async (row) => {
   }
 }
 
-// 轮询处理进度
 const startPolling = () => {
   if (pollTimer) return
   pollTimer = setInterval(async () => {
@@ -541,7 +538,7 @@ const startPolling = () => {
     await loadDocuments()
     await loadOverview()
   }, 3000)
-}
+};
 
 onMounted(() => {
   loadAll()
@@ -554,19 +551,14 @@ onUnmounted(() => {
   }
 })
 
-// 工具函数
-// 嵌入状态 label/type：取自统一 status 集
-const getEmbedStatusLabel = (s) => getStatusLabel(s, EMBED_STATUS)
+const getEmbedStatusLabel = (s) => getStatusLabel(s, EMBED_STATUS);
 const getEmbedStatusTagType = (s) => getStatusTagType(s, EMBED_STATUS)
-// 模板别名：详情弹窗使用 embedStatusTag/embedStatusLabel 命名（R41 全链路扫描发现未定义崩溃）
-const embedStatusLabel = getEmbedStatusLabel
+const embedStatusLabel = getEmbedStatusLabel;
 const embedStatusTag = getEmbedStatusTagType
-// 来源类型 label/type：取自统一 source 常量
-const sourceTypeLabel = (t) => getSourceLabel(t)
+const sourceTypeLabel = (t) => getSourceLabel(t);
 const sourceTypeTag = (t) => getSourceTagType(t)
 const formatNumber = (n) => n == null ? '-' : Number(n).toLocaleString()
 const formatPercent = (n) => n == null ? '-' : (n * 100).toFixed(1) + '%'
-// R48 T1: 发布/取消发布到公开帮助中心
 const togglePublic = async (row, visible) => {
   try {
     await http.patch(`/api/knowledge/documents/${row.id}/public-visibility`, { visible })
@@ -575,7 +567,7 @@ const togglePublic = async (row, visible) => {
   } catch (e) {
     ElMessage.error(e?.message || '操作失败')
   }
-}
+};
 
 const formatFileSize = (b) => {
   if (!b || b <= 0) return '-'

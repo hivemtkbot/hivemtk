@@ -18,7 +18,6 @@ type ConfigReader interface {
 	GetDuration(ctx context.Context, group, key string, fallback time.Duration) time.Duration
 }
 
-// globalReader 启动时由 internal/service 注入
 var globalReader ConfigReader
 
 // SetConfigReader 装配层注入 DB 驱动的 ConfigParamService
@@ -26,8 +25,6 @@ var globalReader ConfigReader
 func SetConfigReader(r ConfigReader) {
 	globalReader = r
 }
-
-// -------- Knowledge 核心参数 --------
 
 // EmbeddingDim 默认 embedding 维度（bge-m3 / TEI 1024 维）
 // seed: knowledge.embedding_dimension
@@ -110,8 +107,6 @@ func DefaultSimilarityThreshold() float64 {
 	return 0.5
 }
 
-// -------- LLM 参数（DB 驱动，Group: agent_llm） --------
-
 // DefaultTemperature 默认 temperature
 // seed: agent_llm.temperature
 func DefaultTemperature() float64 {
@@ -156,8 +151,6 @@ func DefaultMaxRetries() int {
 	}
 	return 3
 }
-
-// -------- 保留为 const（无种子 / 语义为常量） --------
 
 // DefaultPageSize 默认分页大小
 const DefaultPageSize = 20

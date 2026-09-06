@@ -44,25 +44,22 @@ import {
 } from '@element-plus/icons-vue'
 import { CHANNEL_OPTIONS } from '@/constants/channel'
 
-// 触达渠道选择器：渠道清单统一从 @/constants/channel 导入，禁止本地维护
-
 const props = defineProps({
   modelValue: { type: String, default: '' },
   placeholder: { type: String, default: '请选择触达渠道' },
   disabled: { type: Boolean, default: false },
   clearable: { type: Boolean, default: true },
   excludeChannels: { type: Array, default: () => [] },
-  includeChannels: { type: Array, default: () => [] } // 指定时只显示这些渠道
-})
+  includeChannels: { type: Array, default: () => [] }
+});
 
 const emit = defineEmits(['update:modelValue', 'change', 'clear'])
 
-// icon 名 -> 组件映射（CHANNEL_OPTIONS.icon 存的是组件名字符串）
 const ICON_MAP = {
   ChatDotRound, Message, Promotion, Postcard, ChatLineRound,
   ChatLineSquare, Share, Cellphone, Connection, OfficeBuilding,
   Goods, VideoCamera
-}
+};
 const allChannels = CHANNEL_OPTIONS
   .filter(c => c.value !== 'card')
   .map(c => ({ ...c, icon: ICON_MAP[c.icon] || Share }))

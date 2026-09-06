@@ -19,7 +19,6 @@ func HandleServiceError(ctx *gin.Context, err error) bool {
 	return errhttp.HandleServiceError(ctx, err)
 }
 
-// isNotFoundError 判断错误是否表示记录不存在（包内私有版）。
 func isNotFoundError(err error) bool {
 	return errhttp.IsNotFoundError(err)
 }
@@ -28,4 +27,3 @@ func isNotFoundError(err error) bool {
 func IsNotFoundError(err error) bool {
 	return isNotFoundError(err)
 }
-

@@ -15,8 +15,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
-
 // TestD1_AgentLoopTimeoutConstant 验证 Agent Loop 已注入 wall-clock 总超时
 // 注：D1 通过代码审查 + 间接行为验证（不真实等待 30s，避免测试耗时过长）
 // 真实超时行为在集成测试中验证
@@ -33,7 +31,6 @@ func TestD1_AgentLoopTimeoutConstant(t *testing.T) {
 	t.Logf("✅ D1 SalesEngine 已就位，agentLoopTotalTimeout 常量在 sales_engine.go:785 定义为 30s")
 	t.Logf("   验证方式：1) 代码审查常量定义 2) runAgentLoop 使用 context.WithTimeout 3) 循环检查 ctx.Err()")
 }
-
 
 // TestD2_ToolResultTruncation 验证工具结果超过 4000 字符时被截断
 // 场景：预置 200 个客户，customer.segment 返回全部，验证 Content ≤ 4500 字符
@@ -74,7 +71,6 @@ func TestD2_ToolResultTruncation(t *testing.T) {
 	t.Logf("✅ D2 工具结果截断成功，原始 40KB+，截断后 %d 字符", contentLen)
 }
 
-
 // TestD3_LLMFailureFallback 验证 LLM 调用失败时不抛 error，返回降级提示
 // 场景：使用 stubErrorLLMDispatcher 让 LLM 持续失败，验证 generateCandidate 返回降级内容
 func TestD3_LLMFailureFallback(t *testing.T) {
@@ -82,7 +78,7 @@ func TestD3_LLMFailureFallback(t *testing.T) {
 	engine, _ := setupAgentLoopSalesEngine(t, db, stubLLMDispatcher(t, nil, ""))
 
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() 
+	cancel()
 
 	if engine == nil {
 		t.Fatalf("SalesEngine 应非 nil")
@@ -99,7 +95,6 @@ func TestD3_LLMFailureFallback(t *testing.T) {
 		t.Errorf("LLM 失败降级应快速返回，不应卡死")
 	}
 }
-
 
 // TestD4_ToolCallObservability 验证工具调用后可观测性已记录
 // 场景：执行 customer.search，验证 audit_logs 表已写入 (私域部署: 无外部监控，
@@ -128,7 +123,6 @@ func TestD4_ToolCallObservability(t *testing.T) {
 	t.Logf("✅ D4 工具调用可观测性验证：dispatch 成功 (audit 落库由 audit_persister 装饰器保证)")
 }
 
-
 // TestD5_TraceIDPropagation 验证同一 Agent Loop 内多次工具调用共享同一 TraceID
 // 场景：注入 TraceID 到 context，调用 2 次工具，验证 AuditEntry.TraceID 一致
 func TestD5_TraceIDPropagation(t *testing.T) {
@@ -136,13 +130,13 @@ func TestD5_TraceIDPropagation(t *testing.T) {
 
 	registry := tooluse.NewToolRegistry()
 	customerDeps := tooluse.NewCustomerToolDepsWithDB(db)
-	// P2-3 重构后 customer.search 依赖 CustomerDataStore 端口，注入与生产一致的实现
+
 	customerDeps.CustomerRepo = NewCustomerDataStore()
 	if err := tooluse.RegisterCustomerTools(registry, customerDeps); err != nil {
 		t.Fatalf("注册客户工具失败：%v", err)
 	}
 
-	traceIDCaptured := make(map[string]int) 
+	traceIDCaptured := make(map[string]int)
 	var mu sync.Mutex
 	customLogger := &captureTraceIDAuditLogger{
 		onLog: func(entry tooluse.AuditEntry) {
@@ -202,7 +196,6 @@ func TestD5_TraceIDPropagation(t *testing.T) {
 	t.Logf("✅ D5 TraceID 贯穿成功：trace_id=%s 被记录 %d 次", traceID, count)
 }
 
-// captureTraceIDAuditLogger 捕获 TraceID 的 AuditLogger
 type captureTraceIDAuditLogger struct {
 	onLog func(entry tooluse.AuditEntry)
 }
@@ -210,7 +203,6 @@ type captureTraceIDAuditLogger struct {
 func (l *captureTraceIDAuditLogger) Log(ctx context.Context, entry tooluse.AuditEntry) {
 	l.onLog(entry)
 }
-
 
 // TestD6_ConcurrencyLimit 验证并发执行上限为 5
 // 场景：提交 10 个 tool_calls，验证全部成功完成（不超过并发上限导致资源耗尽）
@@ -255,7 +247,6 @@ func TestD6_ConcurrencyLimit(t *testing.T) {
 	}
 	t.Logf("✅ D6 并发上限测试通过：10 个 tool_calls 在 %v 内完成（并发上限 5）", elapsed)
 }
-
 
 // TestD7_TokenUsageRecorded 验证 DispatchResult 含 Usage 字段
 //
@@ -332,11 +323,9 @@ func TestD7_TokenUsageRecorded(t *testing.T) {
 	t.Logf("   JSON 序列化验证：%s", jsonStr)
 }
 
-
 func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
 	return s[:n] + "..."
 }
-

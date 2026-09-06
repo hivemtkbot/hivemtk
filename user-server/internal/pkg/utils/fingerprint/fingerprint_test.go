@@ -65,4 +65,3 @@ func TestFingerprintUniqueness(t *testing.T) {
 		t.Error("All fingerprints from same machine should be identical")
 	}
 }
-

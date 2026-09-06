@@ -11,7 +11,7 @@ type SessionTag struct {
 	Color         string    `gorm:"type:varchar(20)" json:"color"`
 	Description   string    `gorm:"type:varchar(200)" json:"description"`
 	SortOrder     int       `gorm:"default:0" json:"sort_order"`
-	RuleCondition string    `gorm:"type:varchar(500)" json:"rule_condition"` // 规则条件 JSON（如 {"keywords":["退款"]}；空=仅手动）
+	RuleCondition string    `gorm:"type:varchar(500)" json:"rule_condition"`
 	CreatedAt     time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 
@@ -19,4 +19,3 @@ type SessionTag struct {
 func (SessionTag) TableName() string {
 	return "session_tags"
 }
-

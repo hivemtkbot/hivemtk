@@ -22,8 +22,7 @@ func TestDiagUnifiedIDLookup(t *testing.T) {
 	}
 	t.Logf("created unified_id=%q id=%q", c.UnifiedID, c.ID)
 	repo := repository.NewCustomerRepository()
-	// v7 修复: P0-2 后 unified_id 为盐化哈希，查找必须用创建时返回的 UnifiedID，
-	// 旧断言 "phone:"+明文 是过时契约（盐化哈希恒不等于明文拼接）。
+
 	got, gerr := repo.GetByUnifiedID(context.Background(), c.UnifiedID)
 	t.Logf("GetByUnifiedID err=%v got=%v", gerr, got)
 	if got == nil {

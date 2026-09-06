@@ -62,7 +62,6 @@ type VetoLowRAG struct {
 	Threshold float64
 }
 
-// defaultVetoLowRAGThreshold VetoLowRAG 兜底阈值
 const defaultVetoLowRAGThreshold = 0.1
 
 // Check 实现 VetoRule
@@ -123,12 +122,6 @@ func (r *VetoLoop) Check(_ *dto.FiveSignals, ctx *VetoContext) (bool, string) {
 // VetoExplicit 客户显式请求转人工
 type VetoExplicit struct{}
 
-// explicitKeywordMatcher 显式转人工关键词匹配函数（S-5 单源化 2026-08-26）。
-//
-// 本包不再维护独立关键词清单，由 service 包初始化时注入
-// （nlp_keywords.go 的 Transfer/Explicit 词表 + 否定窗口处理为单一来源；
-// 注入的匹配器为两者并集，与历史 explicitKeywords 行为等价）。
-// 未注入时（如本包单测外的异常装配）VetoExplicit 不触发，由链路后续规则兜底。
 var explicitKeywordMatcher func(string) bool
 
 // SetExplicitKeywordMatcher 注入显式转人工关键词匹配函数（S-5 运行时单一来源）。

@@ -9,7 +9,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-
 // ToolExecutorAdapter 适配器实现
 type ToolExecutorAdapter struct {
 	executor *tooluse.ToolExecutor
@@ -78,8 +77,6 @@ func (a *ToolExecutorAdapter) DispatchToolCalls(ctx context.Context, calls []ser
 	return out
 }
 
-// structToMap 将结构体（或任意值）转为 map[string]any
-// 用于将 ToolParameters 序列化为 OpenAI 兼容的 JSON Schema map
 func structToMap(v any) (map[string]any, error) {
 	if v == nil {
 		return map[string]any{"type": "object"}, nil
@@ -94,4 +91,3 @@ func structToMap(v any) (map[string]any, error) {
 	}
 	return m, nil
 }
-

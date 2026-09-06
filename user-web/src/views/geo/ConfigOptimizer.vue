@@ -2,7 +2,7 @@
   <div class="geo-page">
 
     <el-row :gutter="16">
-      <!-- 配置表单 -->
+      
       <el-col :xs="24" :lg="14">
         <el-card shadow="never" class="form-card" v-loading="loading">
           <template #header>
@@ -93,7 +93,7 @@
         </el-card>
       </el-col>
 
-      <!-- 优化建议 -->
+      
       <el-col :xs="24" :lg="10">
         <el-card shadow="never" class="suggest-card">
           <template #header><span class="card-title">优化建议</span></template>
@@ -131,8 +131,8 @@ const loadModelOptions = async () => {
     const options = list
       .filter((m) => {
         if (!m || m.enabled === false) return false
-        // 排除本地推理 provider（vendor=local 或 base_url 是本地地址）
-        if (m.vendor === 'local') return false
+        if (m.vendor === 'local')
+          return false;
         const url = (m.base_url || m.baseURL || '').toLowerCase()
         if (url.includes('127.0.0.1') || url.includes('localhost') || url.includes('0.0.0.0')) return false
         return true
@@ -142,12 +142,10 @@ const loadModelOptions = async () => {
         value: m.name
       }))
     modelOptions.value = options
-    // 默认选中第一个 provider 作为 default_model
     if (options.length) {
       if (!config.default_model || !options.some((o) => o.value === config.default_model)) {
         config.default_model = options[0].value
       }
-      // verify_models 过滤掉已下线的
       if (Array.isArray(config.verify_models)) {
         config.verify_models = config.verify_models.filter((v) =>
           options.some((o) => o.value === v)
@@ -205,13 +203,10 @@ const addTag = (arr, type = 'adv') => {
   visible.value = false
 }
 
-// 模板中不能直接调用 setTimeout（Web API 不在 Vue3 模板全局白名单，
-// 会被编译成 _ctx.setTimeout → undefined is not a function）。故在 setup 中
-// 暴露包装方法，事件直接绑定到此方法。
 const onBlurAddTag = (type = 'adv') => {
   const arr = type === 'comp' ? config.competitors : config.advantages
   setTimeout(() => addTag(arr, type), 100)
-}
+};
 
 const splitCN = (s) => String(s || '').split(/[、,，]/).map((x) => x.trim()).filter(Boolean)
 
@@ -221,8 +216,7 @@ const loadConfig = async () => {
     const res = await geoApi.getConfig()
     config.brand = res?.brand_name || ''
     config.description = res?.brand_description || ''
-    // 后端以顿号分隔字符串存储，前端拆为数组便于标签编辑
-    config.advantages = splitCN(res?.advantages)
+    config.advantages = splitCN(res?.advantages);
     config.competitors = splitCN(res?.competitors)
     config.default_model = res?.default_model || config.default_model || modelOptions.value?.[0]?.value || ''
     const verifyFromDB = splitCN(res?.verify_models)

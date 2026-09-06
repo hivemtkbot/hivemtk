@@ -11,14 +11,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupShortLinkTestDB 设置短链测试数据库
 func setupShortLinkTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.ShortLink{},
 	)
 }
 
-// setupShortLinkRepository 创建测试用的短链仓库实例
 func setupShortLinkRepository(t *testing.T) ShortLinkRepository {
 	database := setupShortLinkTestDB(t)
 	return NewShortLinkRepository(database)

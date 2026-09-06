@@ -17,7 +17,7 @@ type GeoKeyword struct {
 	Difficulty   float64 `gorm:"default:0" json:"difficulty"`
 	Intent       string  `gorm:"type:varchar(50)" json:"intent"`
 	Cluster      string  `gorm:"type:varchar(100);index" json:"cluster"`
-	FunnelStage  string  `gorm:"column:funnel_stage;size:20;index" json:"funnel_stage"` // Awareness/Consideration/Conversion
+	FunnelStage  string  `gorm:"column:funnel_stage;size:20;index" json:"funnel_stage"`
 	Status       string  `gorm:"type:varchar(20);default:'active'" json:"status"`
 
 	CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`
@@ -41,7 +41,7 @@ type GeoKeywordGroup struct {
 	ID           string `gorm:"type:varchar(36);primaryKey" json:"id"`
 	Name         string `gorm:"type:varchar(200);not null" json:"name"`
 	Description  string `gorm:"type:text" json:"description"`
-	KeywordCount  int    `gorm:"default:0" json:"keyword_count"`
+	KeywordCount int    `gorm:"default:0" json:"keyword_count"`
 	// KeywordList 关键词分组内的关键词 JSON 数组文本（避免 GORM text[] 特殊处理）
 	KeywordList string `gorm:"type:text" json:"keyword_list"`
 

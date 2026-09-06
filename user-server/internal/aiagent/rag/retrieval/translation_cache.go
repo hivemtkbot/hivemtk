@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"crypto/sha256"
@@ -83,7 +82,7 @@ func (c *TranslationCache) Set(ctx context.Context, internalLang, targetLang, qu
 		return nil
 	}
 	if strings.TrimSpace(reply) == "" {
-		return nil 
+		return nil
 	}
 	key := c.buildKey(internalLang, targetLang, query, kbVersion)
 	if err := c.redis.Set(ctx, key, reply, c.ttl); err != nil {
@@ -112,12 +111,12 @@ func (c *TranslationCache) Invalidate(ctx context.Context, lang string) error {
 
 // CacheStats 缓存统计信息
 type CacheStats struct {
-	HitCount int64 `json:"hit_count"`
-	MissCount int64 `json:"miss_count"`
-	HitRate float64 `json:"hit_rate"`
-	TTLLSeconds int64 `json:"ttl_seconds"`
-	KeyPrefix string `json:"key_prefix"`
-	MaxEntries int `json:"max_entries"`
+	HitCount    int64   `json:"hit_count"`
+	MissCount   int64   `json:"miss_count"`
+	HitRate     float64 `json:"hit_rate"`
+	TTLLSeconds int64   `json:"ttl_seconds"`
+	KeyPrefix   string  `json:"key_prefix"`
+	MaxEntries  int     `json:"max_entries"`
 }
 
 // Stats 缓存统计
@@ -138,13 +137,8 @@ func (c *TranslationCache) Stats(ctx context.Context) (*CacheStats, error) {
 	}, nil
 }
 
-// buildKey 构造缓存 key
-//
-// 格式: {keyPrefix}{hex(sha256(internal_lang|target_lang|query|kb_version))[:32]}
-// 截取 sha256 前 16 字节（32 hex 字符），平衡碰撞率与 key 长度。
 func (c *TranslationCache) buildKey(internalLang, targetLang, query, kbVersion string) string {
 	raw := internalLang + "|" + targetLang + "|" + query + "|" + kbVersion
 	h := sha256.Sum256([]byte(raw))
 	return fmt.Sprintf("%s%s", c.keyPrefix, hex.EncodeToString(h[:16]))
 }
-

@@ -10,7 +10,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// mockFlagRepo FeatureFlagRepository 测试桩
 type mockFlagRepo struct {
 	flags map[string]*model.FeatureFlag
 	logs  []model.FeatureFlagEvalLog
@@ -77,34 +76,33 @@ func TestFeatureFlag_Evaluate_Semantics(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, _ = svc.Create(ctx, &FlagCreateRequest{Key: "ff_off", Enabled: false}, 1)
-	_, _ = svc.Create(ctx, &FlagCreateRequest{Key: "ff_full", Enabled: true}, 1) // 默认 100%
+	_, _ = svc.Create(ctx, &FlagCreateRequest{Key: "ff_full", Enabled: true}, 1)
 
-	// kill switch 优先
 	if r := svc.Evaluate(ctx, "ff_off", map[string]any{"user_id": "u1"}); r.Enabled || r.Reason != "disabled" {
 		t.Fatalf("禁用 flag 应 disabled, got %+v", r)
 	}
-	// 100% 全量
+
 	if r := svc.Evaluate(ctx, "ff_full", nil); !r.Enabled || r.Reason != "rollout" {
 		t.Fatalf("100%% flag 应开启, got %+v", r)
 	}
-	// 0% 全关
+
 	zero := 0
 	_, _ = svc.Create(ctx, &FlagCreateRequest{Key: "ff_zero", Enabled: true, RolloutPercentage: &zero}, 1)
 	if r := svc.Evaluate(ctx, "ff_zero", nil); r.Enabled || r.Reason != "rollout_excluded" {
 		t.Fatalf("0%% flag 应排除, got %+v", r)
 	}
-	// not_found fail-closed
+
 	if r := svc.Evaluate(ctx, "ff_missing", nil); r.Enabled || r.Reason != "not_found" {
 		t.Fatalf("未知 flag 应 not_found, got %+v", r)
 	}
-	// 分桶粘性
+
 	r1 := svc.Evaluate(ctx, "ff_on", map[string]any{"user_id": "sticky-user"})
 	for i := 0; i < 10; i++ {
 		if r2 := svc.Evaluate(ctx, "ff_on", map[string]any{"user_id": "sticky-user"}); r2.Enabled != r1.Enabled {
 			t.Fatalf("分桶不粘性: %v vs %v", r1, r2)
 		}
 	}
-	// payload 透传
+
 	_, _ = svc.Create(ctx, &FlagCreateRequest{Key: "ff_payload", Enabled: true, Payload: `{"theme":"dark"}`}, 1)
 	if r := svc.Evaluate(ctx, "ff_payload", nil); !r.Enabled {
 		t.Fatalf("payload flag 应开启")

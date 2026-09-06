@@ -63,7 +63,6 @@ func (s *DataExportService) Export(ctx context.Context, customerID string) (*Exp
 		CustomerID: customerID,
 	}
 
-	// 1. customers 主表
 	var customer model.Customer
 	if err := s.db.WithContext(ctx).Where("id = ?", customerID).First(&customer).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -73,7 +72,6 @@ func (s *DataExportService) Export(ctx context.Context, customerID string) (*Exp
 	}
 	bundle.Customer = &customer
 
-	// 2. customer_sessions（用 unified_id 关联 one_id）
 	var sessions []*model.CustomerSession
 	if err := s.db.WithContext(ctx).
 		Where("one_id = ?", customer.UnifiedID).
@@ -83,7 +81,6 @@ func (s *DataExportService) Export(ctx context.Context, customerID string) (*Exp
 	}
 	bundle.Sessions = sessions
 
-	// 3. session_messages（按 session_id 批量拉）
 	if len(sessions) > 0 {
 		sessionIDs := make([]string, 0, len(sessions))
 		for _, s := range sessions {
@@ -100,7 +97,6 @@ func (s *DataExportService) Export(ctx context.Context, customerID string) (*Exp
 		bundle.MessageCount = len(messages)
 	}
 
-	// 4. customer_tags（标签定义表，全部返回供客户理解系统标签）
 	var tags []*model.CustomerTag
 	if err := s.db.WithContext(ctx).
 		Order("name ASC").
@@ -109,7 +105,6 @@ func (s *DataExportService) Export(ctx context.Context, customerID string) (*Exp
 	}
 	bundle.Tags = tags
 
-	// 5. memory_items（按 customer_id 拉）
 	var memories []*model.MemoryItem
 	if err := s.db.WithContext(ctx).
 		Where("customer_id = ?", customerID).

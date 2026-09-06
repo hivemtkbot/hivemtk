@@ -19,7 +19,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// fakeRAGSearcher 记录是否被调用，并返回带唯一标记的知识库片段（用于断言 RAG→回复 接线）
 type fakeRAGSearcher struct {
 	mu        sync.Mutex
 	calls     int
@@ -35,7 +34,6 @@ func (f *fakeRAGSearcher) Search(ctx context.Context, query string, topK int) ([
 	return f.chunks, nil
 }
 
-// 知识库唯一标记：若 LLM 回复包含该标记，证明 RAG 召回片段确实进入了 prompt 并被回复引用
 const ragMarker = "KZ-8848"
 
 func newFakeRAG() *fakeRAGSearcher {
@@ -52,7 +50,6 @@ func newFakeRAG() *fakeRAGSearcher {
 	}
 }
 
-// fakeIntentRecognizer 返回高置信度价格咨询意图（> 编排器阈值 0.7，走 AI 自动回复）
 type fakeIntentRecognizer struct{}
 
 func (fakeIntentRecognizer) Recognize(ctx context.Context, sessionID, customerID, text string) (*dto.RecognizeResult, error) {
@@ -63,7 +60,6 @@ func (fakeIntentRecognizer) Recognize(ctx context.Context, sessionID, customerID
 	}, nil
 }
 
-// fakeMemory 对话记忆（空实现）
 type fakeMemory struct{}
 
 func (fakeMemory) AppendMessage(ctx context.Context, sessionID, customerID string, msg dto.Message) error {
@@ -73,21 +69,18 @@ func (fakeMemory) GetOrCreateMemory(ctx context.Context, sessionID, customerID s
 	return &model.DialogueMemory{}, nil
 }
 
-// fakeSOP SOP 匹配（空实现）
 type fakeSOP struct{}
 
 func (fakeSOP) MatchByIntent(ctx context.Context, intentType string) ([]model.SOPAgent, error) {
 	return nil, nil
 }
 
-// fakeScript 话术库（空实现）
 type fakeScript struct{}
 
 func (fakeScript) MatchScript(ctx context.Context, intent string, scenario string) (*dto.ScriptTemplate, error) {
 	return nil, nil
 }
 
-// fakeCustomerLookup 客户查询（空实现：无需真实客户档案即可跑通）
 type fakeCustomerLookup struct{}
 
 func (fakeCustomerLookup) GetByOneID(ctx context.Context, oneID string) (*model.Customer, error) {
@@ -97,8 +90,6 @@ func (fakeCustomerLookup) GetByID(ctx context.Context, id string) (*model.Custom
 	return nil, nil
 }
 
-// newFakeLLMDispatcher 创建真实 *llm.Dispatcher，但所有场景路由到本地 httptest 仿 OpenAI 服务。
-// 仿服务：若 prompt 含 RAG 标记则把标记写回回复，用于断言 RAG→LLM→回复 接线。
 func newFakeLLMDispatcher(t *testing.T) *llm.Dispatcher {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -343,7 +334,6 @@ func TestE2E_WebChat_FullBusinessLine(t *testing.T) {
 		t.Fatalf("步骤3 坐席回复失败: %v", err)
 	}
 
-	// 校验最终会话状态
 	var sess model.CustomerSession
 	if err := database.Where("session_id = ?", sid).First(&sess).Error; err != nil {
 		t.Fatalf("会话状态校验失败: %v", err)

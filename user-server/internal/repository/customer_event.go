@@ -38,7 +38,6 @@ type CustomerEventRepository interface {
 	ListGlobal(ctx context.Context, eventType string, limit, offset int) ([]*model.CustomerEvent, int64, error)
 }
 
-// customerEventRepository implements CustomerEventRepository
 type customerEventRepository struct{}
 
 // NewCustomerEventRepository creates a new CustomerEventRepository instance
@@ -46,16 +45,10 @@ func NewCustomerEventRepository() CustomerEventRepository {
 	return &customerEventRepository{}
 }
 
-// Record records a new customer event
 func (r *customerEventRepository) Record(ctx context.Context, event *model.CustomerEvent) error {
 	return dbFromCtx(ctx).Create(event).Error
 }
 
-// RecordBatch 批量插入事件（CC- N+1 优化）
-//
-// 使用 gorm.Create 批量插入，单次 SQL 取代 N 次单条插入。
-//   - events 为空时直接返回 nil（noop）
-//   - events 中含 nil 元素时跳过
 func (r *customerEventRepository) RecordBatch(ctx context.Context, events []*model.CustomerEvent) error {
 	if len(events) == 0 {
 		return nil
@@ -75,8 +68,6 @@ func (r *customerEventRepository) RecordBatch(ctx context.Context, events []*mod
 	return dbFromCtx(ctx).Create(filtered).Error
 }
 
-// ReassignCustomerID 将次要客户的事件流水整体迁移到主客户（UPDATE 移动而非复制，
-// 避免事件翻倍与孤儿行；经 dbFromCtx 参与外层合并事务）。
 func (r *customerEventRepository) ReassignCustomerID(ctx context.Context, fromCustomerID, toCustomerID string) (int64, error) {
 	if fromCustomerID == "" || toCustomerID == "" || fromCustomerID == toCustomerID {
 		return 0, nil
@@ -87,7 +78,6 @@ func (r *customerEventRepository) ReassignCustomerID(ctx context.Context, fromCu
 	return res.RowsAffected, res.Error
 }
 
-// GetByCustomerID retrieves events for a specific customer
 func (r *customerEventRepository) GetByCustomerID(ctx context.Context, customerID string, limit int) ([]*model.CustomerEvent, error) {
 	var events []*model.CustomerEvent
 
@@ -102,7 +92,6 @@ func (r *customerEventRepository) GetByCustomerID(ctx context.Context, customerI
 	return events, nil
 }
 
-// GetByTimeRange retrieves events within a time range
 func (r *customerEventRepository) GetByTimeRange(ctx context.Context, start, end time.Time) ([]*model.CustomerEvent, error) {
 	var events []*model.CustomerEvent
 
@@ -116,7 +105,6 @@ func (r *customerEventRepository) GetByTimeRange(ctx context.Context, start, end
 	return events, nil
 }
 
-// DeleteByCustomerID deletes all events for a specific customer, returns deleted count
 func (r *customerEventRepository) DeleteByCustomerID(ctx context.Context, customerID string) (int64, error) {
 	result := dbFromCtx(ctx).Where("customer_id = ?", customerID).Delete(&model.CustomerEvent{})
 	return result.RowsAffected, result.Error
@@ -125,7 +113,6 @@ func (r *customerEventRepository) DeleteByCustomerID(ctx context.Context, custom
 func (r *customerEventRepository) GetStats(ctx context.Context, start, end time.Time) (*EventStats, error) {
 	stats := &EventStats{}
 
-	// Get total events
 	var total int64
 	if err := dbFromCtx(ctx).
 		Model(&model.CustomerEvent{}).
@@ -135,7 +122,6 @@ func (r *customerEventRepository) GetStats(ctx context.Context, start, end time.
 	}
 	stats.TotalEvents = total
 
-	// Get events by type
 	var typeCounts []struct {
 		EventType model.EventType `gorm:"column:event_type"`
 		Count     int64           `gorm:"column:count"`
@@ -156,7 +142,6 @@ func (r *customerEventRepository) GetStats(ctx context.Context, start, end time.
 		})
 	}
 
-	// Get events by source
 	var sourceCounts []struct {
 		EventSource model.EventSource `gorm:"column:event_source"`
 		Count       int64             `gorm:"column:count"`
@@ -180,8 +165,6 @@ func (r *customerEventRepository) GetStats(ctx context.Context, start, end time.
 	return stats, nil
 }
 
-// ListGlobal R41: 全局分页事件列表（替代前端 N+1 全客户逐个拉取，
-// 同时根除"会话名含 / 的脏 id 触发 Gin 解码 404"问题）
 func (r *customerEventRepository) ListGlobal(ctx context.Context, eventType string, limit, offset int) ([]*model.CustomerEvent, int64, error) {
 	q := _db.GetDB().WithContext(ctx).Model(&model.CustomerEvent{})
 	if eventType != "" {

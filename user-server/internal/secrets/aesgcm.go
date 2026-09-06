@@ -27,8 +27,8 @@ import (
 
 const (
 	envMasterKey = "MASTER_KEY"
-	keyLen       = 32 // AES-256
-	nonceLen     = 12 // GCM standard
+	keyLen       = 32
+	nonceLen     = 12
 
 	stringEncPrefix = "enc:v1:"
 )

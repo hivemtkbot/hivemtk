@@ -3,9 +3,9 @@ package controller
 
 import (
 	"context"
-	"time"
 	"net/http"
 	"strconv"
+	"time"
 
 	ksvc "hivemtk-user/internal/aiagent/knowledge/service"
 	"hivemtk-user/internal/pkg/utils/response"
@@ -13,8 +13,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
-
-// ==================== Backup 契约适配 ====================
 
 // BackupGapController backup 页面端点组
 type BackupGapController struct {
@@ -78,8 +76,6 @@ func (c *BackupGapController) Create(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"id": b.ID, "status": b.Status}, "备份已启动")
 }
-
-// ==================== RAG Eval ====================
 
 // RagEvalGapController RAG 评测端点组
 type RagEvalGapController struct {
@@ -164,8 +160,6 @@ func (c *RagEvalGapController) Diff(ctx *gin.Context) {
 	response.Success(ctx, res, "ok")
 }
 
-// ==================== Analytics ====================
-
 // AnalyticsGapController cohort/path 端点组
 type AnalyticsGapController struct {
 	svc *service.CohortGapService
@@ -194,8 +188,6 @@ func (c *AnalyticsGapController) Path(ctx *gin.Context) {
 	}
 	response.Success(ctx, res, "ok")
 }
-
-// ==================== Email 送达分析 ====================
 
 // EmailGapController 邮件送达端点组
 type EmailGapController struct {
@@ -265,8 +257,6 @@ func (c *EmailGapController) TestSend(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"sent": sent, "failed": failed}, "测试发送完成")
 }
 
-// ==================== RFM 矩阵 ====================
-
 // RFMMatrix GET /api/user-segments/rfm（矩阵行 [{recency, frequency, count}]）
 func (c *EmailGapController) RFMMatrix(ctx *gin.Context) {
 	rows, _, err := c.svc.RFMMatrix(ctx.Request.Context())
@@ -284,8 +274,6 @@ func (c *EmailGapController) RFMMatrixStats(ctx *gin.Context) {
 	}
 	response.Success(ctx, stats, "ok")
 }
-
-// ==================== 零散 ====================
 
 // DLQBatchRetry POST /api/message-hub/dlq/batch-retry（重试全部死信）
 func (c *EmailGapController) DLQBatchRetry(ctx *gin.Context) {
@@ -313,16 +301,16 @@ func (c *EmailGapController) PlaygroundPresets(ctx *gin.Context) {
 func (c *EmailGapController) ClueApplySuggestions(ctx *gin.Context) {
 	var req struct {
 		Duplicates []struct {
-			ExistingClueID int64           `json:"existingClueId"`
-			Row            map[string]any  `json:"row"`
+			ExistingClueID int64          `json:"existingClueId"`
+			Row            map[string]any `json:"row"`
 		} `json:"duplicates"`
-		Action string `json:"action"` // merge/skip
+		Action string `json:"action"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误："+err.Error())
 		return
 	}
-		res, err := c.svc.ClueApplySuggestions(ctx.Request.Context(), req.Action, req.Duplicates)
+	res, err := c.svc.ClueApplySuggestions(ctx.Request.Context(), req.Action, req.Duplicates)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -367,8 +355,6 @@ func (c *EmailGapController) ClueForceCreate(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"created": ok}, "已强制创建")
 }
 
-// ==================== R47: backup preview/restore/delete 补齐（前端 Enhanced.vue 契约） ====================
-
 // BackupPreview GET /api/backup/:id/preview
 func (c *BackupGapController) Preview(ctx *gin.Context) {
 	id, ok := parseUintParam(ctx, "id")
@@ -380,8 +366,7 @@ func (c *BackupGapController) Preview(ctx *gin.Context) {
 	if HandleServiceError(ctx, err) {
 		return
 	}
-	// R47 契约对齐: 前端 el-table :data 期望数组行 [{table, rows}]
-	// 行数估算走 pg_stat 实时统计（诚实口径:估算值）
+
 	out, err := c.svc.PreviewTableStats(ctx.Request.Context())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())

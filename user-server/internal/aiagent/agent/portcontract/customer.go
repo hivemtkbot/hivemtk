@@ -6,7 +6,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-
 // ErrCustomerNotFound 客户不存在错误（sentinel）
 //
 // 工具层（tooluse）依赖此 sentinel 区分"客户不存在"与其他错误，
@@ -49,4 +48,3 @@ type CustomerPort interface {
 	AddTags(customerID string, tags []string) error
 	RemoveTags(customerID string, tags []string) error
 }
-

@@ -11,14 +11,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupDomainPoolTestDB 设置域名池测试数据库
 func setupDomainPoolTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.DomainPool{},
 	)
 }
 
-// setupDomainPoolRepository 创建测试用的域名池仓库实例
 func setupDomainPoolRepository(t *testing.T) DomainPoolRepository {
 	database := setupDomainPoolTestDB(t)
 	return NewDomainPoolRepository(database)

@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 	"errors"
@@ -8,7 +7,6 @@ import (
 	"testing"
 )
 
-// mockLLMChatClient mock LLMChatClient
 type mockLLMChatClient struct {
 	resp       string
 	err        error
@@ -65,6 +63,4 @@ func TestMockLLMChatClient_WithError(t *testing.T) {
 	}
 }
 
-// 接口编译时断言（确保 mock 实现接口）
 var _ LLMChatClient = (*mockLLMChatClient)(nil)
-

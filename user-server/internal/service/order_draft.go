@@ -79,7 +79,6 @@ type DraftConfirmResult struct {
 	FollowUpID    string       `json:"followup_id,omitempty"`
 }
 
-// orderRecord 订单快照（避免直接依赖 model.Order 以保持模块解耦）
 type orderRecord struct {
 	ID          string    `json:"id"`
 	AccountID   string    `json:"account_id"`
@@ -106,7 +105,6 @@ type OrderDraftService struct {
 	followup     *FollowUpService
 	trigger      *SalesActionTrigger
 
-	// R55 T5: 成单时自动回写话术 AB 转化归因（nil 跳过）
 	scriptConversionHook func(ctx context.Context, oneID, conversationID, outcome string)
 
 	defaultExpiry time.Duration
@@ -136,12 +134,11 @@ func NewOrderDraftService(cfg *OrderDraftConfig) *OrderDraftService {
 		byCustomer:    make(map[string][]*OrderDraft),
 		byOwner:       make(map[string][]*OrderDraft),
 		defaultExpiry: cfg.DefaultExpiry,
-		// R55 T5: 默认装配话术 AB 转化归因 hook（成单即回写曝光转化）
+
 		scriptConversionHook: defaultScriptConversionHook,
 	}
 }
 
-// defaultScriptConversionHook R55 T5：默认转化归因 hook（懒初始化 ScriptABService）
 func defaultScriptConversionHook(ctx context.Context, oneID, conversationID, outcome string) {
 	if scriptABSvc == nil {
 		return
@@ -459,8 +456,6 @@ func (s *OrderDraftService) Confirm(ctx context.Context, draftID, confirmedBy st
 		}
 	}
 
-	// R55 T5: 成单 → 话术 AB 转化自动归因（异步，不影响主链路）
-	// conversation_id 可从 Metadata 携带（AI 谈单来源时由引擎写入）
 	if s.scriptConversionHook != nil && draft.OneID != "" {
 		oneID := draft.OneID
 		convID, _ := draft.Metadata["conversation_id"].(string)
@@ -652,7 +647,6 @@ func (s *OrderDraftService) ExpireOverdue(ctx context.Context) int {
 	return count
 }
 
-// findPendingDraftByProduct 查找客户某产品的 pending 草稿（去重用）
 func (s *OrderDraftService) findPendingDraftByProduct(ctx context.Context, customerID, productName string) *OrderDraft {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -672,8 +666,6 @@ func (s *OrderDraftService) findPendingDraftByProduct(ctx context.Context, custo
 	return nil
 }
 
-// createOrderFromDraft 由草稿生成正式订单
-// 解耦：直接用 OrderService.CreateOrderFromRequest，不依赖具体 model
 func (s *OrderDraftService) createOrderFromDraft(ctx context.Context, draft *OrderDraft) (*orderRecord, error) {
 	if s.orderService == nil {
 		return nil, errors.New("orderService 未注入")
@@ -699,7 +691,6 @@ func (s *OrderDraftService) createOrderFromDraft(ctx context.Context, draft *Ord
 	}, nil
 }
 
-// 草稿 ID 生成器
 var draftCounter int64
 
 func generateDraftID() string {
@@ -707,11 +698,8 @@ func generateDraftID() string {
 	return fmt.Sprintf("draft_%d_%d", time.Now().UnixNano(), n)
 }
 
-// 订单 ID 生成器
 var orderCounter int64
 
-// generateTempOrderID 生成本会话内的临时内存订单 ID（真实唯一，非伪造）。
-// 仅用于未注入 orderService 的纯内存/测试场景；真实下单请注入 orderService 落库。
 func generateTempOrderID() string {
 	n := atomic.AddInt64(&orderCounter, 1)
 	return fmt.Sprintf("ord_%d_%d", time.Now().UnixNano(), n)

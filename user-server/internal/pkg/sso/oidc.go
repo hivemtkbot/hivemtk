@@ -53,32 +53,32 @@ import (
 //   - 标准 OIDC Discovery（Issuer 可公开访问 /.well-known/openid-configuration）
 //   - 显式端点配置（飞书 / 钉钉 / 企微等不提供标准 Discovery 的 IdP 必填）
 type OIDCConfig struct {
-	Issuer string
-	ClientID string
-	ClientSecret string
-	RedirectURL string
-	Scopes []string
+	Issuer        string
+	ClientID      string
+	ClientSecret  string
+	RedirectURL   string
+	Scopes        []string
 	UsernameClaim string
-	EmailClaim string
-	RoleClaim string
-	DefaultRole string
+	EmailClaim    string
+	RoleClaim     string
+	DefaultRole   string
 	AutoProvision bool
-	HTTPTimeout time.Duration
+	HTTPTimeout   time.Duration
 
 	AuthorizationEndpoint string
-	TokenEndpoint string
-	UserInfoEndpoint string
-	JWKSURI string
+	TokenEndpoint         string
+	UserInfoEndpoint      string
+	JWKSURI               string
 }
 
 // OIDCProvider OIDC 提供方（运行时实例）
 type OIDCProvider struct {
-	cfg OIDCConfig
-	mu  sync.RWMutex
-	discovery *DiscoveryDoc
-	jwks *JWKS
+	cfg         OIDCConfig
+	mu          sync.RWMutex
+	discovery   *DiscoveryDoc
+	jwks        *JWKS
 	lastRefresh time.Time
-	http *http.Client
+	http        *http.Client
 }
 
 // DiscoveryDoc OIDC Discovery 文档
@@ -98,12 +98,12 @@ type JWKS struct {
 
 // JWK 单个 JWK
 type JWK struct {
-	Kty string `json:"kty"` 
+	Kty string `json:"kty"`
 	Use string `json:"use"`
 	Kid string `json:"kid"`
 	Alg string `json:"alg"`
-	N string `json:"n"`
-	E string `json:"e"`
+	N   string `json:"n"`
+	E   string `json:"e"`
 	Crv string `json:"crv"`
 	X   string `json:"x"`
 	Y   string `json:"y"`
@@ -171,7 +171,6 @@ func NewOIDCProvider(cfg OIDCConfig) *OIDCProvider {
 	return &OIDCProvider{cfg: cfg}
 }
 
-// httpClient 返回可用的 HTTP 客户端（优先使用注入的 client，否则按配置超时新建）
 func (p *OIDCProvider) httpClient() *http.Client {
 	if p.http != nil {
 		return p.http
@@ -179,7 +178,6 @@ func (p *OIDCProvider) httpClient() *http.Client {
 	return &http.Client{Timeout: p.cfg.HTTPTimeout}
 }
 
-// refreshDiscovery 拉取 /.well-known/openid-configuration
 func (p *OIDCProvider) refreshDiscovery(ctx context.Context) error {
 	wellKnownURL := strings.TrimRight(p.cfg.Issuer, "/") + "/.well-known/openid-configuration"
 	req, err := http.NewRequestWithContext(ctx, "GET", wellKnownURL, nil)
@@ -213,7 +211,6 @@ func (p *OIDCProvider) refreshDiscovery(ctx context.Context) error {
 	return nil
 }
 
-// loadExplicitEndpoints 使用显式端点配置填充 discovery（跳过标准 Discovery 拉取）
 func (p *OIDCProvider) loadExplicitEndpoints() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -227,7 +224,6 @@ func (p *OIDCProvider) loadExplicitEndpoints() {
 	p.lastRefresh = time.Now()
 }
 
-// refreshJWKS 拉取 JWKS（公钥集合，用于 ID Token 签名验证）
 func (p *OIDCProvider) refreshJWKS(ctx context.Context) error {
 	p.mu.RLock()
 	jwksURI := ""
@@ -269,7 +265,6 @@ func (p *OIDCProvider) refreshJWKS(ctx context.Context) error {
 	return nil
 }
 
-// ensureFresh 确保 discovery 和 jwks 已加载（5 分钟内不重复拉取）
 func (p *OIDCProvider) ensureFresh(ctx context.Context) error {
 	p.mu.RLock()
 	stale := time.Since(p.lastRefresh) > 5*time.Minute
@@ -368,7 +363,6 @@ func (p *OIDCProvider) CallbackHandler() gin.HandlerFunc {
 			return
 		}
 
-		// v3 审计 P1-3：nonce 必须与登录时写入的 cookie 一致（防授权码注入/重放）
 		expectedNonce, _ := c.Cookie("sso_nonce")
 		if expectedNonce == "" || claims.Nonce != expectedNonce {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "nonce mismatch"})
@@ -382,16 +376,16 @@ func (p *OIDCProvider) CallbackHandler() gin.HandlerFunc {
 		_ = tok.AccessToken
 
 		c.JSON(http.StatusOK, gin.H{
-			"sub":                claims.Subject,
-			"username":           mapUsername(claims, p.cfg),
-			"email":              mapEmail(claims, p.cfg),
-			"role":               mapRole(claims, p.cfg),
-			"groups":             claims.Groups,
-			"id_token":           tok.IDToken,
-			"access_token":       tok.AccessToken,
-			"refresh_token":      tok.RefreshToken,
-			"expires_in":         tok.ExpiresIn,
-			"auto_provision":     p.cfg.AutoProvision,
+			"sub":            claims.Subject,
+			"username":       mapUsername(claims, p.cfg),
+			"email":          mapEmail(claims, p.cfg),
+			"role":           mapRole(claims, p.cfg),
+			"groups":         claims.Groups,
+			"id_token":       tok.IDToken,
+			"access_token":   tok.AccessToken,
+			"refresh_token":  tok.RefreshToken,
+			"expires_in":     tok.ExpiresIn,
+			"auto_provision": p.cfg.AutoProvision,
 		})
 	}
 }
@@ -445,7 +439,6 @@ func (p *OIDCProvider) exchangeCode(ctx context.Context, code, verifier string) 
 	return &tr, nil
 }
 
-// verifyIDToken 验证 ID Token 签名 / issuer / audience / exp
 func (p *OIDCProvider) verifyIDToken(ctx context.Context, idToken string) (*IDTokenClaims, error) {
 	parts := strings.Split(idToken, ".")
 	if len(parts) != 3 {
@@ -546,8 +539,6 @@ func (p *OIDCProvider) verifyIDToken(ctx context.Context, idToken string) (*IDTo
 		claims.Extra[k] = v
 	}
 
-	// v3 审计 P1-3：iss/aud 强校验，防令牌混淆（同 IdP 发给其他 client_id 的合法
-	// ID Token 此前会被接受）。exp 已由 jwt 库默认校验。
 	if claims.Issuer != p.cfg.Issuer {
 		return nil, fmt.Errorf("issuer mismatch: got %q want %q", claims.Issuer, p.cfg.Issuer)
 	}
@@ -564,7 +555,6 @@ func (p *OIDCProvider) verifyIDToken(ctx context.Context, idToken string) (*IDTo
 	return claims, nil
 }
 
-// findKey 找指定 kid 的公钥
 func (p *OIDCProvider) findKey(ctx context.Context, kid string) (interface{}, error) {
 	p.mu.RLock()
 	jwks := p.jwks
@@ -649,8 +639,6 @@ func jwkToEC(k JWK) (*ecdsa.PublicKey, error) {
 	}, nil
 }
 
-
-// randString 生成密码学安全随机字符串
 func randString(n int) string {
 	b := make([]byte, n)
 	_, _ = io.ReadFull(readerFunc(func(p []byte) (int, error) {
@@ -659,19 +647,11 @@ func randString(n int) string {
 	return base64.RawURLEncoding.EncodeToString(b)[:n]
 }
 
-// pkceS256 PKCE S256 challenge
 func pkceS256(verifier string) string {
 	sum := sha256.Sum256([]byte(verifier))
 	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
-// mapUsername 映射本地用户名
-//
-// 优先级：
-//  1. 配置的 UsernameClaim（从 Extra claims 读取，支持钉钉 nick / 企微 userid 等非标准字段）
-//  2. preferred_username
-//  3. email
-//  4. subject（最后兜底，保证一定有值）
 func mapUsername(c *IDTokenClaims, cfg OIDCConfig) string {
 	if cfg.UsernameClaim != "" && c.Extra != nil {
 		if v, ok := c.Extra[cfg.UsernameClaim].(string); ok && v != "" {
@@ -687,7 +667,6 @@ func mapUsername(c *IDTokenClaims, cfg OIDCConfig) string {
 	return c.Subject
 }
 
-// mapEmail 映射本地邮箱
 func mapEmail(c *IDTokenClaims, cfg OIDCConfig) string {
 	if cfg.EmailClaim != "" && c.Extra != nil {
 		if v, ok := c.Extra[cfg.EmailClaim].(string); ok && v != "" {
@@ -700,7 +679,6 @@ func mapEmail(c *IDTokenClaims, cfg OIDCConfig) string {
 	return ""
 }
 
-// mapRole 映射本地角色
 func mapRole(c *IDTokenClaims, cfg OIDCConfig) string {
 	if len(c.Roles) > 0 {
 		return c.Roles[0]
@@ -803,14 +781,10 @@ func (p *OIDCProvider) SetRedirectURL(redirectURL string) {
 	p.mu.Unlock()
 }
 
-// setSecureCookie 设置安全 cookie
 func setSecureCookie(c *gin.Context, name, value string, ttl time.Duration) {
 	c.SetCookie(name, value, int(ttl.Seconds()), "/", "", true, true)
 }
 
-// clearCookie 清理 cookie
 func clearCookie(c *gin.Context, name string) {
 	c.SetCookie(name, "", -1, "/", "", true, true)
 }
-
-

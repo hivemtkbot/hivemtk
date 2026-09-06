@@ -82,14 +82,14 @@ func (s *ScriptTemplateService) GetTemplateByID(id uint) (*model.ScriptTemplate,
 
 // UpdateTemplateRequest 更新话术模板请求
 type UpdateTemplateRequest struct {
-	Name        string   `json:"name"`
-	Category    string   `json:"category"`
-	Title       string   `json:"title"`
-	Content     string   `json:"content"`
-	Variables   []string `json:"variables"`
-	Tags        string   `json:"tags"`
-	JourneyStage string  `json:"journey_stage"`
-	IsPublic    bool     `json:"is_public"`
+	Name         string   `json:"name"`
+	Category     string   `json:"category"`
+	Title        string   `json:"title"`
+	Content      string   `json:"content"`
+	Variables    []string `json:"variables"`
+	Tags         string   `json:"tags"`
+	JourneyStage string   `json:"journey_stage"`
+	IsPublic     bool     `json:"is_public"`
 }
 
 // UpdateTemplate 更新话术模板
@@ -175,7 +175,6 @@ func (s *ScriptTemplateService) GetPublicTemplates(page, pageSize int) ([]*model
 func (s *ScriptTemplateService) RecommendScript(sessionID, message string) ([]*model.ScriptTemplate, error) {
 	templates, _, _ := s.templateRepo.SearchTemplates("", 1, 100)
 
-	// 计算相关性得分
 	type scoredTemplate struct {
 		template *model.ScriptTemplate
 		score    float64
@@ -197,7 +196,6 @@ func (s *ScriptTemplateService) RecommendScript(sessionID, message string) ([]*m
 		}
 	}
 
-	// 返回前 5 个推荐
 	var result []*model.ScriptTemplate
 	for i := 0; i < len(scored) && i < 5; i++ {
 		result = append(result, scored[i].template)
@@ -206,7 +204,6 @@ func (s *ScriptTemplateService) RecommendScript(sessionID, message string) ([]*m
 	return result, nil
 }
 
-// calculateRelevance 计算相关性得分
 func (s *ScriptTemplateService) calculateRelevance(message string, template *model.ScriptTemplate) float64 {
 	message = strings.ToLower(message)
 	content := strings.ToLower(template.Content)
@@ -232,4 +229,3 @@ func (s *ScriptTemplateService) calculateRelevance(message string, template *mod
 
 	return score
 }
-

@@ -15,7 +15,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupCustomReportServiceTestDB 设置测试数据库
 func setupCustomReportServiceTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.CustomReport{},
@@ -27,7 +26,6 @@ func setupCustomReportServiceTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// setupCustomReportService 设置测试服务
 func setupCustomReportService(t *testing.T, testDB *gorm.DB) *CustomReportService {
 	db.SetTestDB(testDB)
 	return &CustomReportService{
@@ -443,8 +441,8 @@ func TestCustomReportService_QueryReportData_RFM(t *testing.T) {
 		TotalScore:        15,
 		LastTransactionAt: &now,
 		TransactionCount:  5,
-		TotalAmount:       100000, 
-		AvgAmount:         20000,  
+		TotalAmount:       100000,
+		AvgAmount:         20000,
 	}
 	db.Create(rfm)
 
@@ -606,4 +604,3 @@ func TestIsValidChartType(t *testing.T) {
 		}
 	}
 }
-

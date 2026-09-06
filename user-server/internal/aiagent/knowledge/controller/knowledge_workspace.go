@@ -89,7 +89,6 @@ func (ctrl *KnowledgeWorkspaceController) RegisterRoutes(router *gin.RouterGroup
 		kb.POST("/openapi/sources/:id/test", ctrl.TestOpenAPISource)
 		kb.POST("/openapi/sources/:id/toggle", ctrl.ToggleOpenAPISource)
 
-		// R39: knowledgeImport.js 按 KB 导入适配
 		kb.POST("/:id/upload", ctrl.UploadImportToKB)
 		kb.POST("/:id/import/url", ctrl.URLImportToKB)
 		kb.POST("/:id/import/notion", ctrl.NotionImportToKB)
@@ -105,7 +104,6 @@ func (ctrl *KnowledgeWorkspaceController) RegisterRoutes(router *gin.RouterGroup
 		kb.GET("/stats/openapi", ctrl.GetOpenAPIStats)
 	}
 }
-
 
 // UploadImport 上传文件导入
 func (ctrl *KnowledgeWorkspaceController) UploadImport(c *gin.Context) {
@@ -231,7 +229,7 @@ func (ctrl *KnowledgeWorkspaceController) DocumentImport(c *gin.Context) {
 		ProductID string         `json:"product_id" binding:"required"`
 		Title     string         `json:"title" binding:"required"`
 		Content   string         `json:"content" binding:"required"`
-		Format    string         `json:"format"` 
+		Format    string         `json:"format"`
 		Category  string         `json:"category"`
 		Tags      []string       `json:"tags"`
 		BatchNo   string         `json:"batch_no"`
@@ -262,7 +260,6 @@ func (ctrl *KnowledgeWorkspaceController) DocumentImport(c *gin.Context) {
 	}
 	response.Success(c, result, "文档已接收，切片/向量化/入库处理已启动")
 }
-
 
 // ListDocuments 列出文档
 func (ctrl *KnowledgeWorkspaceController) ListDocuments(c *gin.Context) {
@@ -453,7 +450,6 @@ func (ctrl *KnowledgeWorkspaceController) GetProductOverview(c *gin.Context) {
 	response.Success(c, overview, "获取成功")
 }
 
-
 // Search 检索知识库
 // 兼容字段名:threshold / similarity_threshold, top_k / limit
 func (ctrl *KnowledgeWorkspaceController) Search(c *gin.Context) {
@@ -510,7 +506,6 @@ func (ctrl *KnowledgeWorkspaceController) Search(c *gin.Context) {
 	}, "检索成功")
 }
 
-
 // ListImportLogs 列出导入日志
 func (ctrl *KnowledgeWorkspaceController) ListImportLogs(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -535,8 +530,6 @@ func (ctrl *KnowledgeWorkspaceController) ListImportLogs(c *gin.Context) {
 	}, "获取成功")
 }
 
-
-// requireOpenAPIPort 端口未注入时 fail-closed（P2-3）
 func (ctrl *KnowledgeWorkspaceController) requireOpenAPIPort(c *gin.Context) bool {
 	if ctrl.openapiService == nil {
 		response.Error(c, http.StatusServiceUnavailable, "OpenAPI 数据源服务未装配")
@@ -706,7 +699,6 @@ func (ctrl *KnowledgeWorkspaceController) ToggleOpenAPISource(c *gin.Context) {
 	response.Success(c, nil, "切换成功")
 }
 
-
 // GetOverviewStats 总览统计
 func (ctrl *KnowledgeWorkspaceController) GetOverviewStats(c *gin.Context) {
 	productID := ctrl.resolveProductID(c.Query("product_id"))
@@ -774,8 +766,6 @@ func (ctrl *KnowledgeWorkspaceController) GetOpenAPIStats(c *gin.Context) {
 	response.Success(c, data, "获取成功")
 }
 
-
-// getOperator 从 gin Context 提取操作者标识（按 user_id → username → anonymous 顺序回退）
 func (ctrl *KnowledgeWorkspaceController) getOperator(c *gin.Context) string {
 	if v, ok := c.Get("user_id"); ok {
 		return fmt.Sprintf("%v", v)
@@ -786,18 +776,9 @@ func (ctrl *KnowledgeWorkspaceController) getOperator(c *gin.Context) string {
 	return "anonymous"
 }
 
-// resolveProductID 将前端传入的 product_id 统一解析为字符串。
-// 知识库 product_id 现已统一为 RagProduct.ID(string UUID)，直接透传即可。
 func (ctrl *KnowledgeWorkspaceController) resolveProductID(raw string) string {
 	return raw
 }
-
-
-// ---------- R39: knowledgeImport.js 按 KB 导入适配端点 ----------
-//
-// 前端契约：POST /api/knowledge/:kbId/upload|import/url|import/notion|import/feishu|import/dingtalk|import/crm
-// 语义：URL 型直接走 URL 抓取管线；非 URL 型（notion/feishu/dingtalk/crm）若无 url 则要求 content，
-// 连接器凭据化对接由外部导入 job（knowledge-merchant/external/*）承载。
 
 // UploadImportToKB POST /api/knowledge/:id/upload
 func (ctrl *KnowledgeWorkspaceController) UploadImportToKB(c *gin.Context) {
@@ -842,7 +823,6 @@ func (ctrl *KnowledgeWorkspaceController) UploadImportToKB(c *gin.Context) {
 	response.Success(c, result, "文件已接收,处理已启动")
 }
 
-// connectorImportToKB 通用连接器导入（url 优先，content 兜底）
 func (ctrl *KnowledgeWorkspaceController) connectorImportToKB(c *gin.Context, source string) {
 	productID := c.Param("id")
 	if productID == "" {
@@ -899,19 +879,29 @@ func (ctrl *KnowledgeWorkspaceController) connectorImportToKB(c *gin.Context, so
 }
 
 // URLImportToKB POST /api/knowledge/:id/import/url
-func (ctrl *KnowledgeWorkspaceController) URLImportToKB(c *gin.Context) { ctrl.connectorImportToKB(c, "url") }
+func (ctrl *KnowledgeWorkspaceController) URLImportToKB(c *gin.Context) {
+	ctrl.connectorImportToKB(c, "url")
+}
 
 // NotionImportToKB POST /api/knowledge/:id/import/notion
-func (ctrl *KnowledgeWorkspaceController) NotionImportToKB(c *gin.Context) { ctrl.connectorImportToKB(c, "notion") }
+func (ctrl *KnowledgeWorkspaceController) NotionImportToKB(c *gin.Context) {
+	ctrl.connectorImportToKB(c, "notion")
+}
 
 // FeishuImportToKB POST /api/knowledge/:id/import/feishu
-func (ctrl *KnowledgeWorkspaceController) FeishuImportToKB(c *gin.Context) { ctrl.connectorImportToKB(c, "feishu") }
+func (ctrl *KnowledgeWorkspaceController) FeishuImportToKB(c *gin.Context) {
+	ctrl.connectorImportToKB(c, "feishu")
+}
 
 // DingtalkImportToKB POST /api/knowledge/:id/import/dingtalk
-func (ctrl *KnowledgeWorkspaceController) DingtalkImportToKB(c *gin.Context) { ctrl.connectorImportToKB(c, "dingtalk") }
+func (ctrl *KnowledgeWorkspaceController) DingtalkImportToKB(c *gin.Context) {
+	ctrl.connectorImportToKB(c, "dingtalk")
+}
 
 // CRMImportToKB POST /api/knowledge/:id/import/crm
-func (ctrl *KnowledgeWorkspaceController) CRMImportToKB(c *gin.Context) { ctrl.connectorImportToKB(c, "crm") }
+func (ctrl *KnowledgeWorkspaceController) CRMImportToKB(c *gin.Context) {
+	ctrl.connectorImportToKB(c, "crm")
+}
 
 // ListDocumentTypes GET /api/knowledge/document-types — 支持的文档类型枚举
 func (ctrl *KnowledgeWorkspaceController) ListDocumentTypes(c *gin.Context) {

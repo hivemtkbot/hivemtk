@@ -55,4 +55,3 @@ func TestSetup_WeComRoutes(t *testing.T) {
 		}
 	}
 }
-

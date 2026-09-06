@@ -15,7 +15,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupTikTokCardTestDB 设置 TikTok 卡片测试数据库
 func setupTikTokCardTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.TikTokCard{},
@@ -24,7 +23,6 @@ func setupTikTokCardTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// setupTikTokCardTestRouter 设置 TikTok 卡片测试路由
 func setupTikTokCardTestRouter(t *testing.T) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
@@ -471,4 +469,3 @@ func TestTikTokCardController_RoutesRegistration(t *testing.T) {
 		_ = w
 	}
 }
-

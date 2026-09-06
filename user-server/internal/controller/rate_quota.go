@@ -18,7 +18,7 @@ func NewRateQuotaController() *RateQuotaController {
 
 // QuotaSnapshot 配额快照（复用 middleware.GetQuotaSnapshots 返回的结构）
 type QuotaSnapshot struct {
-	Path            string `json:"path"`
+	Path            string  `json:"path"`
 	ConfiguredRPS   float64 `json:"configured_rps"`
 	ConfiguredBurst int     `json:"configured_burst"`
 	CurrentMinute   int64   `json:"current_minute"`
@@ -31,7 +31,7 @@ type QuotaSnapshot struct {
 // GET /api/system/rate-quota
 func (c *RateQuotaController) GetRateQuota(ctx *gin.Context) {
 	snapshots := middleware.GetQuotaSnapshots()
-	// 包装成前端友好的结构：全局配置 + 路径列表
+
 	data := gin.H{
 		"global": gin.H{
 			"rps":         1000,

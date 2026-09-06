@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"context"
 )
@@ -20,4 +19,3 @@ func RerankChunks(ctx context.Context, reranker RerankerInterface, query string,
 	}
 	return applyRerank(chunks, results), nil
 }
-

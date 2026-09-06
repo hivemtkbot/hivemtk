@@ -125,4 +125,3 @@ func (r *KnowledgeOpenAPIRepository) ListEnabled(ctx context.Context) ([]model.K
 	}
 	return sources, nil
 }
-

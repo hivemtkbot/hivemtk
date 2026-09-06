@@ -56,7 +56,7 @@ func (p *ProductionReachAdapter) SendWeixin(ctx context.Context, openID, msgType
 	if err != nil {
 		return "", err
 	}
-	// 使用 accountID=0 表示默认账号（由注册中心使用第一个 active 账号）
+
 	return svc.SendCustomMessage(ctx, 0, openID, msgType, content)
 }
 
@@ -158,7 +158,6 @@ func (p *ProductionReachAdapter) ListAccounts(ctx context.Context, channel strin
 	return nil, nil
 }
 
-// sendBridge 统一的 Bridge 下发
 func (p *ProductionReachAdapter) sendBridge(ctx context.Context, channel, accountID, receiverID, msgType, content string) (string, error) {
 	if err := deliverBridgeOutbound(ctx, channel, accountID, receiverID, msgType, content, ""); err != nil {
 		return "", fmt.Errorf("%s bridge deliver: %w", channel, err)

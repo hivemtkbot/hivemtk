@@ -9,9 +9,9 @@ import (
 )
 
 type stubTool struct {
-	name string
+	name     string
 	category ToolCategory
-	exec func(ctx context.Context, args map[string]any) (ToolResult, error)
+	exec     func(ctx context.Context, args map[string]any) (ToolResult, error)
 }
 
 func (s *stubTool) Name() string               { return s.name }

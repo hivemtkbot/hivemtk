@@ -62,7 +62,7 @@ func TestGetAdminConfig_Login(t *testing.T) {
 
 func TestGetAdminConfig_NoPasswordField(t *testing.T) {
 	cfg := GetAdminConfig()
-	_ = cfg.DefaultAdmin 
+	_ = cfg.DefaultAdmin
 
 	if hasPasswordField("DefaultAdminConfig") {
 		t.Error("DefaultAdminConfig 不应再有 Password 字段")
@@ -157,7 +157,6 @@ func TestGetAdminConfig_InvalidBoolEnv(t *testing.T) {
 	}
 }
 
-// hasPasswordField 反射检查结构体是否含 Password 字段（防止回归）
 func hasPasswordField(typeName string) bool {
 	t := reflectTypeByName(typeName)
 	if t == nil {
@@ -171,7 +170,6 @@ func hasPasswordField(typeName string) bool {
 	return false
 }
 
-// reflectTypeByName 按类型名查找 reflect.Type（同包内）
 func reflectTypeByName(name string) reflect.Type {
 	switch name {
 	case "DefaultAdminConfig":
@@ -186,7 +184,7 @@ func reflectTypeByName(name string) reflect.Type {
 func clearEnv() {
 	envVars := []string{
 		"ADMIN_USERNAME",
-		"PLATFORM_ADMIN_PASSWORD", 
+		"PLATFORM_ADMIN_PASSWORD",
 		"ADMIN_EMAIL",
 		"ADMIN_REAL_NAME",
 		"AUTO_LOGIN_ENABLED",
@@ -199,4 +197,3 @@ func clearEnv() {
 		os.Unsetenv(v)
 	}
 }
-

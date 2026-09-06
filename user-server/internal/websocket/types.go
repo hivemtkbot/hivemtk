@@ -10,8 +10,8 @@ import (
 type ClientType string
 
 const (
-	ClientTypeAgent   ClientType = "agent"   
-	ClientTypeVisitor ClientType = "visitor" 
+	ClientTypeAgent   ClientType = "agent"
+	ClientTypeVisitor ClientType = "visitor"
 )
 
 // MsgType WebSocket 消息类型常量
@@ -19,31 +19,21 @@ const (
 // 统一管理各业务模块推送的消息类型字符串，
 // 避免散落在调用方导致命名不一致。
 const (
-	MsgTypeNewSession    = "new_session"    
-	MsgTypeNewMessage    = "new_message"    
-	MsgTypeSessionUpdate = "session_update" 
-	MsgTypeAgentStatus   = "agent_status"   
-	MsgTypeAISuggestion  = "ai_suggestion"  
-	MsgTypeHeartbeat     = "heartbeat"      
-	MsgTypeSOP           = "sop_message"    
-	MsgTypeError         = "error"          
+	MsgTypeNewSession    = "new_session"
+	MsgTypeNewMessage    = "new_message"
+	MsgTypeSessionUpdate = "session_update"
+	MsgTypeAgentStatus   = "agent_status"
+	MsgTypeAISuggestion  = "ai_suggestion"
+	MsgTypeHeartbeat     = "heartbeat"
+	MsgTypeSOP           = "sop_message"
+	MsgTypeError         = "error"
 )
 
-// WebSocket 连接超时与心跳常量（gorilla/websocket 官方推荐模式）
-//
-// 设计依据：
-//   - pongWait：等待对端 Pong 的最大间隔；超过即认为连接僵死，主动关闭。
-//     客户端需在 pongWait 内回 Pong 或发消息以维持连接。
-//   - pingPeriod：服务端发送 Ping 的周期；必须严格小于 pongWait，
-//     否则会出现 Ping 尚未发出、ReadDeadline 已超时的死锁。
-//   - writeWait：单次写操作（含 Ping/Pong/普通消息）的超时，
-//     防止对端 TCP 窗口关闭时本协程永久阻塞。
-//   - maxMessageSize：单条上行消息最大字节数，防止恶意大帧耗尽内存。
 const (
-	pongWait       = 60 * time.Second    
-	pingPeriod     = (pongWait * 9) / 10 
-	writeWait      = 10 * time.Second    
-	maxMessageSize = 8192                
+	pongWait       = 60 * time.Second
+	pingPeriod     = (pongWait * 9) / 10
+	writeWait      = 10 * time.Second
+	maxMessageSize = 8192
 )
 
 // Envelope 信封：所有 WebSocket 下行消息统一外层结构
@@ -81,4 +71,3 @@ type AgentSessionExecutor interface {
 	TransferSession(ctx context.Context, fromAgentID uint, sessionID string, toAgentID uint) error
 	CloseSession(ctx context.Context, agentID uint, sessionID string) error
 }
-

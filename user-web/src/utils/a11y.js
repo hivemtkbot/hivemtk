@@ -6,9 +6,6 @@
 
 let _focusTrapStack = []
 
-/**
- * 焦点陷阱（弹窗）
- */
 export const trapFocus = (container) => {
   if (!container) return () => {}
   const focusable = container.querySelectorAll(
@@ -43,12 +40,9 @@ export const trapFocus = (container) => {
     if (previousActive && previousActive.focus) previousActive.focus()
     _focusTrapStack = _focusTrapStack.filter((x) => x.container !== container)
   }
-}
+};
 
-/**
- * ARIA 公告器（live region）
- */
-let _announcer = null
+let _announcer = null;
 export const announce = (message, priority = 'polite') => {
   if (typeof document === 'undefined') return
   if (!_announcer) {
@@ -63,9 +57,6 @@ export const announce = (message, priority = 'polite') => {
   setTimeout(() => (_announcer.textContent = message), 100)
 }
 
-/**
- * 颜色对比度检查（WCAG AA: 4.5:1）
- */
 export const checkContrast = (foreground, background) => {
   const lum = (rgb) => {
     const [r, g, b] = rgb.map((v) => {
@@ -86,7 +77,7 @@ export const checkContrast = (foreground, background) => {
   const l1 = lum(fg) + 0.05
   const l2 = lum(bg) + 0.05
   return l1 > l2 ? l1 / l2 : l2 / l1
-}
+};
 
 export const isAccessible = (fg, bg) => checkContrast(fg, bg) >= 4.5
 

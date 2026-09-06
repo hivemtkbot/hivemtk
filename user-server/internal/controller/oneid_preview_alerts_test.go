@@ -37,7 +37,6 @@ func TestCustomerOneIDController_PreviewMergeRules(t *testing.T) {
 	router := gin.New()
 	router.POST("/api/oneid/merge-rules/preview", ctrl.PreviewMergeRules)
 
-	// 种子数据：c1/c2 同手机号（应产生 1 个候选对），c3 不同手机号
 	customers := []*model.Customer{
 		{ID: "cust-1", UnifiedID: "u1", Name: "A", Phone: "13800001111"},
 		{ID: "cust-2", UnifiedID: "u2", Name: "B", Phone: "13800001111"},

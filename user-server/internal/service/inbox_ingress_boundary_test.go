@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// seedPendingOutbound 直接插入一条待下发出站消息（绕过 DeliverOutbound 的 TraceID 依赖）。
 func seedPendingOutbound(t *testing.T, db *gorm.DB, channel, accountID, conv, content string) *model.MessageHub {
 	t.Helper()
 	h := &model.MessageHub{
@@ -99,7 +98,6 @@ func TestInboxIngress_ClaimPendingOutbound_ConcurrentNoDuplicate(t *testing.T) {
 		}
 	}
 
-	// 收尾：全部 ack 后不应再被认领
 	var msgIDs []string
 	for _, id := range order {
 		var h model.MessageHub
@@ -229,7 +227,7 @@ func TestInboxIngress_AckOutboundDelivered_CrossSession(t *testing.T) {
 	assertStatus(t, db, channel, accountID, "conv_x1", msgID, "delivered")
 	assertStatus(t, db, channel, accountID, "conv_x2", msgID, "delivered")
 	assertStatus(t, db, channel, accountID, "conv_other", ContentHashMsgID(channel, "conv_other", "另一条内容"), "pending")
-	// 越权账号行仍 pending
+
 	var o model.MessageHub
 	if err := db.First(&o, oth.ID).Error; err != nil {
 		t.Fatalf("取回越权行失败: %v", err)

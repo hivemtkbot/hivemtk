@@ -1,6 +1,6 @@
 <template>
   <div class="config-params-page">
-    <!-- 顶部统计卡片 -->
+    
     <el-row :gutter="16" class="stat-row">
       <el-col :xs="12" :sm="6">
         <el-card shadow="hover" class="stat-card">
@@ -48,9 +48,9 @@
       </el-col>
     </el-row>
 
-    <!-- 主体：侧边栏 + 右侧内容 -->
+    
     <el-row :gutter="16" class="main-row">
-      <!-- 左侧分组 Tab -->
+      
       <el-col :xs="24" :md="5" :lg="4">
         <el-card shadow="hover" class="group-card">
           <template #header>
@@ -84,7 +84,7 @@
         </el-card>
       </el-col>
 
-      <!-- 右侧表格区 -->
+      
       <el-col :xs="24" :md="19" :lg="20">
         <el-card shadow="hover" class="table-card">
           <template #header>
@@ -179,7 +179,7 @@
       </el-col>
     </el-row>
 
-    <!-- 编辑对话框 -->
+    
     <el-dialog
       v-model="editDialogVisible"
       :title="`编辑参数 · ${editing?.key ?? ''}`"
@@ -206,13 +206,13 @@
         <div class="edit-field">
           <div class="edit-field__label">当前值</div>
 
-          <!-- bool -->
+          
           <template v-if="isBoolType(editing.type)">
             <el-switch v-model="editValueBool" :active-value="true" :inactive-value="false" />
             <span class="muted" style="margin-left:8px">{{ editValueBool ? 'true' : 'false' }}</span>
           </template>
 
-          <!-- int / float / duration：滑块 + 输入框 -->
+          
           <template v-else-if="isNumericType(editing.type)">
             <div v-if="hasSlider(editing)" class="slider-wrap">
               <el-slider
@@ -248,7 +248,7 @@
             />
           </template>
 
-          <!-- string / text / json -->
+          
           <template v-else>
             <el-input
               v-model="editValueStr"
@@ -275,7 +275,7 @@
       </template>
     </el-dialog>
 
-    <!-- 审计日志抽屉 -->
+    
     <el-drawer v-model="auditDrawerVisible" title="变更审计日志" size="640px">
       <template v-if="auditLoading">
         <div class="drawer-loading"><el-icon class="is-loading" :size="28"><Loading /></el-icon></div>
@@ -318,9 +318,6 @@ import { computed, ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as configParamsApi from '@/api/configParams'
 
-// ============================================================
-// 种子分组定义（18 组，数量来自题目描述）
-// ============================================================
 const SEED_GROUPS = [
   { key: 'agent_llm',    label: 'AI 大模型',      count: 16 },
   { key: 'agent_tool',   label: 'AI 工具',        count: 5  },
@@ -340,7 +337,7 @@ const SEED_GROUPS = [
   { key: 'wechat',       label: '微信',           count: 3  },
   { key: 'wecom',        label: '企业微信',       count: 2  },
   { key: 'workflow',     label: '工作流',         count: 4  }
-]
+];
 
 const groups = ref(SEED_GROUPS)
 const allParams = ref([])
@@ -349,9 +346,6 @@ const loading = ref(false)
 const saving = ref(false)
 const keyword = ref('')
 
-// ============================================================
-// 统计
-// ============================================================
 const stats = computed(() => {
   const list = allParams.value
   return {
@@ -360,7 +354,7 @@ const stats = computed(() => {
     modified: list.filter((p) => !isDefault(p)).length,
     readonly: list.filter((p) => p.readonly).length
   }
-})
+});
 
 const currentGroupLabel = computed(() => {
   const g = groups.value.find((x) => x.key === currentGroup.value)
@@ -381,14 +375,10 @@ const groupModifiedCount = computed(() => {
   return filteredList.value.filter((p) => !isDefault(p)).length
 })
 
-// ============================================================
-// 加载
-// ============================================================
 async function loadAll() {
   loading.value = true
   try {
-    // list(group) 传 undefined 代表取全部
-    const res = await configParamsApi.list(undefined)
+    const res = await configParamsApi.list(undefined);
     const list = Array.isArray(res) ? res : (res && Array.isArray(res.list) ? res.list : [])
     allParams.value = list
   } catch (e) {
@@ -403,11 +393,9 @@ async function loadGroup(groupKey) {
   try {
     const res = await configParamsApi.list(groupKey)
     const list = Array.isArray(res) ? res : (res && Array.isArray(res.list) ? res.list : [])
-    // 用分组数据替换（不清除已加载的其它分组，避免重新加载统计时闪烁）
-    const remain = allParams.value.filter((p) => p.group !== groupKey)
+    const remain = allParams.value.filter((p) => p.group !== groupKey);
     allParams.value = [...remain, ...list]
-    // 同步分组数量
-    const g = groups.value.find((x) => x.key === groupKey)
+    const g = groups.value.find((x) => x.key === groupKey);
     if (g) g.count = list.length
   } catch (e) {
     ElMessage.error('加载分组参数失败')
@@ -428,9 +416,6 @@ onMounted(() => {
   loadAll()
 })
 
-// ============================================================
-// 通用辅助
-// ============================================================
 function getGroupModified(groupKey) {
   return allParams.value.filter((p) => p.group === groupKey && !isDefault(p)).length
 }
@@ -438,7 +423,6 @@ function getGroupModified(groupKey) {
 function isDefault(p) {
   if (p.value === undefined || p.value === null) return true
   if (p.default_value === undefined || p.default_value === null) return false
-  // 数字兼容：字符串数字 vs 数字
   if (typeof p.value === 'number' || (typeof p.value === 'string' && /^-?\d+(\.\d+)?$/.test(p.value))) {
     const a = Number(p.value)
     const b = Number(p.default_value)
@@ -489,10 +473,7 @@ function hasSlider(row) {
   return hasMinMax && (isNumericType(row.type))
 }
 
-// ============================================================
-// 编辑对话框
-// ============================================================
-const editDialogVisible = ref(false)
+const editDialogVisible = ref(false);
 const editing = ref(null)
 const editValueBool = ref(false)
 const editValueNum = ref(0)
@@ -560,8 +541,7 @@ async function confirmEdit() {
   saving.value = true
   try {
     await configParamsApi.update(p.group, p.key, submitValue)
-    // 更新本地
-    const target = allParams.value.find((x) => x.group === p.group && x.key === p.key)
+    const target = allParams.value.find((x) => x.group === p.group && x.key === p.key);
     if (target) target.value = submitValue
     editDialogVisible.value = false
     ElMessage.success('参数已更新')
@@ -572,10 +552,7 @@ async function confirmEdit() {
   }
 }
 
-// ============================================================
-// 重置
-// ============================================================
-const resettingGroup = ref(false)
+const resettingGroup = ref(false);
 
 async function handleResetOne(row) {
   if (isDefault(row)) { ElMessage.info('已是默认值'); return }
@@ -607,8 +584,7 @@ async function handleBulkReset() {
     )
     resettingGroup.value = true
     await configParamsApi.bulkReset(currentGroup.value)
-    // 刷新当前分组
-    await loadGroup(currentGroup.value)
+    await loadGroup(currentGroup.value);
     ElMessage.success(`已重置 ${count} 条参数`)
   } catch (e) {
     if (e !== 'cancel') ElMessage.error('整组重置失败：' + (e.message || '未知错误'))
@@ -617,10 +593,7 @@ async function handleBulkReset() {
   }
 }
 
-// ============================================================
-// 审计日志抽屉
-// ============================================================
-const auditDrawerVisible = ref(false)
+const auditDrawerVisible = ref(false);
 const auditLoading = ref(false)
 const auditList = ref([])
 

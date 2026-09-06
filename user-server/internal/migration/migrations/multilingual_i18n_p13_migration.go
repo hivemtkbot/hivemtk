@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -67,6 +66,4 @@ func (m *MultilingualI18nP13Migration) Down(ctx context.Context) error {
 	return nil
 }
 
-// 编译期接口断言
 var _ migration.Migration = (*MultilingualI18nP13Migration)(nil)
-

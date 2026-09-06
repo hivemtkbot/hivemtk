@@ -22,10 +22,10 @@ type CustomerRFM struct {
 	CustomerID string `gorm:"type:varchar(36);not null;uniqueIndex" json:"customer_id"`
 	UnifiedID  string `gorm:"type:varchar(128);default:'';index" json:"unified_id"`
 
-	RecencyDays   int   `gorm:"type:int;not null;default:9999" json:"recency_days"`    
-	Frequency     int   `gorm:"type:int;not null;default:0" json:"frequency"`          
-	MonetaryTotal int64 `gorm:"type:bigint;not null;default:0" json:"monetary_total"`  
-	AvgOrderValue int64 `gorm:"type:bigint;not null;default:0" json:"avg_order_value"` 
+	RecencyDays   int   `gorm:"type:int;not null;default:9999" json:"recency_days"`
+	Frequency     int   `gorm:"type:int;not null;default:0" json:"frequency"`
+	MonetaryTotal int64 `gorm:"type:bigint;not null;default:0" json:"monetary_total"`
+	AvgOrderValue int64 `gorm:"type:bigint;not null;default:0" json:"avg_order_value"`
 
 	RScore int `gorm:"type:int;not null;default:1" json:"r_score"`
 	FScore int `gorm:"type:int;not null;default:1" json:"f_score"`
@@ -34,8 +34,8 @@ type CustomerRFM struct {
 	CompositeScore int    `gorm:"type:int;not null;default:0" json:"composite_score"`
 	Segment        string `gorm:"type:varchar(16);not null;default:'churn'" json:"segment"`
 
-	ChurnRiskLevel string     `gorm:"type:varchar(8);not null;default:'high'" json:"churn_risk_level"` 
-	ChurnScore     int        `gorm:"type:int;not null;default:100" json:"churn_score"`                
+	ChurnRiskLevel string     `gorm:"type:varchar(8);not null;default:'high'" json:"churn_risk_level"`
+	ChurnScore     int        `gorm:"type:int;not null;default:100" json:"churn_score"`
 	LastActiveAt   *time.Time `gorm:"index" json:"last_active_at"`
 
 	ComputedAt time.Time `gorm:"not null;default:NOW()" json:"computed_at"`
@@ -48,11 +48,11 @@ func (CustomerRFM) TableName() string { return "customer_rfm" }
 
 // RFM 分层常量
 const (
-	RFMSegmentChampion  = "champion"  
-	RFMSegmentLoyal     = "loyal"     
-	RFMSegmentPotential = "potential" 
-	RFMSegmentAtRisk    = "at_risk"   
-	RFMSegmentChurn     = "churn"     
+	RFMSegmentChampion  = "champion"
+	RFMSegmentLoyal     = "loyal"
+	RFMSegmentPotential = "potential"
+	RFMSegmentAtRisk    = "at_risk"
+	RFMSegmentChurn     = "churn"
 )
 
 // RFMSegmentDescriptions 分层描述
@@ -72,9 +72,9 @@ type RecoveryQueue struct {
 	UnifiedID  string `gorm:"type:varchar(128);default:'';index" json:"unified_id"`
 	Account    string `gorm:"type:varchar(255);default:''" json:"account"`
 
-	Reason   string `gorm:"type:varchar(32);not null;default:'churn'" json:"reason"` 
+	Reason   string `gorm:"type:varchar(32);not null;default:'churn'" json:"reason"`
 	Strategy string `gorm:"type:varchar(32);not null;default:'sms_coupon'" json:"strategy"`
-	Priority int    `gorm:"type:int;not null;default:5" json:"priority"` 
+	Priority int    `gorm:"type:int;not null;default:5" json:"priority"`
 	Stage    string `gorm:"type:varchar(16);not null;default:'queued';index" json:"stage"`
 
 	Attempts      int        `gorm:"type:int;not null;default:0" json:"attempts"`
@@ -103,4 +103,3 @@ const (
 	RecoveryStageFailed    = "failed"
 	RecoveryStageCancelled = "cancelled"
 )
-

@@ -7,14 +7,6 @@ import (
 	"strings"
 )
 
-// vectorSearch 通过 pgvector 余弦相似度检索
-//
-// SQL 关键：
-//   - WHERE embedding IS NOT NULL  → 只查已向量化的 chunk
-//   - 1 - (embedding <=> $1::vector) AS score  → 把 pgvector 余弦距离(0=完全相同,2=完全相反)
-//     转成余弦相似度(0~1)，与历史接口 Score 字段语义一致
-//   - ORDER BY embedding <=> $1::vector  → HNSW 索引命中
-//   - LIMIT $2  → 取 topK
 func (s *RagSearcher) vectorSearch(ctx context.Context, productID string, query string, topK int) ([]scored, error) {
 	if s.embeddingService == nil {
 		return nil, fmt.Errorf("embedding service 未初始化")
@@ -28,7 +20,6 @@ func (s *RagSearcher) vectorSearch(ctx context.Context, productID string, query 
 
 	vecLiteral := vecToPGString(queryVec)
 
-	// 用 GORM Raw + 参数绑定（防止 SQL 注入）
 	var rows []chunkRow
 	if productID != "" {
 		sql := `
@@ -65,10 +56,6 @@ func (s *RagSearcher) vectorSearch(ctx context.Context, productID string, query 
 	return pairs, nil
 }
 
-// vecToPGString 把 []float32 序列化为 pgvector 字面量字符串
-//
-// pgvector 支持的格式: '[1.0,2.0,3.0,...]'
-// 必须用科学计数或保留小数位，否则 PG 会报 dimension mismatch
 func vecToPGString(v []float32) string {
 	var b strings.Builder
 	b.Grow(len(v) * 12)
@@ -82,4 +69,3 @@ func vecToPGString(v []float32) string {
 	b.WriteByte(']')
 	return b.String()
 }
-

@@ -12,4 +12,3 @@ func GetBoolValue(ptr *bool, defaultValue bool) bool {
 	}
 	return defaultValue
 }
-

@@ -16,7 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupMarketingFlowServiceTestDB 设置测试数据库
 func setupMarketingFlowServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.MarketingFlow{},
@@ -27,7 +26,6 @@ func setupMarketingFlowServiceTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupMarketingFlowService 设置测试服务
 func setupMarketingFlowService(t *testing.T) *MarketingFlowService {
 	setupMarketingFlowServiceTestDB(t)
 	return NewMarketingFlowService()
@@ -394,7 +392,6 @@ func TestMarketingFlowService_TriggerFlow(t *testing.T) {
 		t.Fatalf("TriggerFlow failed: %v", err)
 	}
 
-	// 验证执行记录已创建
 	var execution model.FlowExecution
 	db.GetDB().Where("flow_id = ? AND user_id = ?", flow.ID, "user_123").First(&execution)
 	if execution.ID == 0 {
@@ -626,7 +623,6 @@ func TestMarketingFlowService_handleDelay(t *testing.T) {
 	}
 }
 
-
 // TestMarketingFlowService_sendActionAddTag 测试添加标签动作
 func TestMarketingFlowService_sendActionAddTag(t *testing.T) {
 	service := setupMarketingFlowService(t)
@@ -671,7 +667,7 @@ func TestMarketingFlowService_sendActionAddTag(t *testing.T) {
 			userID:      "user-3",
 			wantErr:     false,
 			wantSuccess: true,
-			wantTags:    []string{"vip", "active"}, 
+			wantTags:    []string{"vip", "active"},
 		},
 		{
 			name: "empty tags",
@@ -784,7 +780,7 @@ func TestMarketingFlowService_sendActionAddTag_Idempotency(t *testing.T) {
 
 // TestMarketingFlowService_sendActionWebhook 测试 Webhook 动作
 func TestMarketingFlowService_sendActionWebhook(t *testing.T) {
-	t.Setenv("MARKETING_WEBHOOK_ALLOW_INSECURE", "true") // httptest 回环服务
+	t.Setenv("MARKETING_WEBHOOK_ALLOW_INSECURE", "true")
 	service := setupMarketingFlowService(t)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -873,4 +869,3 @@ func TestMarketingFlowService_sendActionSendEmail(t *testing.T) {
 		})
 	}
 }
-

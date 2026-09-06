@@ -77,7 +77,6 @@ func (s *TechConfigService) GenerateSitemap(cfg *SitemapConfig) string {
 	return b.String()
 }
 
-
 // LLMsTxtConfig llms.txt 生成配置（v3 竞品对齐 A4）
 // llms.txt 是面向 AI 引擎的站点知识索引约定（类比 robots.txt 之于搜索引擎），
 // 帮助 LLM 快速定位品牌权威文档，提升被引用概率。

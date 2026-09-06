@@ -9,8 +9,6 @@ import (
 	"time"
 )
 
-
-
 func TestFeedbackCollectorDecorator_Success(t *testing.T) {
 	sink := NewMemoryFeedbackSink(100)
 	var callCount int32
@@ -153,7 +151,6 @@ func TestFeedbackCollectorDecorator_AsyncNoBlocking(t *testing.T) {
 	}
 }
 
-// slowFeedbackSink 慢速 FeedbackSink（用于测试异步性）
 type slowFeedbackSink struct {
 	delay     time.Duration
 	callCount atomic.Int32
@@ -164,7 +161,6 @@ func (s *slowFeedbackSink) RecordToolCall(ctx context.Context, event ToolCallEve
 	time.Sleep(s.delay)
 	return nil
 }
-
 
 func TestSanitizeArgsForFeedback_SensitiveFields(t *testing.T) {
 	args := map[string]any{
@@ -215,9 +211,8 @@ func TestSanitizeArgsForFeedback_Empty(t *testing.T) {
 	}
 }
 
-
 func TestMemoryFeedbackSink_Capacity(t *testing.T) {
-	sink := NewMemoryFeedbackSink(3) 
+	sink := NewMemoryFeedbackSink(3)
 
 	for i := 0; i < 5; i++ {
 		if err := sink.RecordToolCall(context.Background(), ToolCallEvent{
@@ -254,14 +249,12 @@ func TestMemoryFeedbackSink_Reset(t *testing.T) {
 	}
 }
 
-
 func TestNoOpFeedbackSink(t *testing.T) {
 	var sink NoOpFeedbackSink
 	if err := sink.RecordToolCall(context.Background(), ToolCallEvent{}); err != nil {
 		t.Errorf("NoOp 不应返回错误，实际 %v", err)
 	}
 }
-
 
 func TestFeedbackCollectorDecorator_ChainOrder(t *testing.T) {
 	sink := NewMemoryFeedbackSink(100)
@@ -309,7 +302,6 @@ func (s *orderingCheckSink) RecordToolCall(ctx context.Context, event ToolCallEv
 	return nil
 }
 
-
 func TestFeedbackCollectorDecorator_ConcurrentSafe(t *testing.T) {
 	sink := NewMemoryFeedbackSink(1000)
 	var callCount int32
@@ -340,8 +332,6 @@ func TestFeedbackCollectorDecorator_ConcurrentSafe(t *testing.T) {
 	}
 }
 
-
-// waitForAsync 等待异步条件满足或超时
 func waitForAsync(cond func() bool, timeout time.Duration) {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
@@ -352,6 +342,4 @@ func waitForAsync(cond func() bool, timeout time.Duration) {
 	}
 }
 
-// 确保 errors 包被使用
 var _ = errors.New
-

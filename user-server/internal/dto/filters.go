@@ -27,4 +27,3 @@ type SOPTemplateFilter struct {
 	Page     int
 	PageSize int
 }
-

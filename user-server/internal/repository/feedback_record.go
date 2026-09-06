@@ -68,8 +68,8 @@ func (r *FeedbackRecordRepository) UpdateTransferredBySession(ctx context.Contex
 		return 0, nil
 	}
 	updates := map[string]any{
-		"transferred":      true,
-		"transfer_reason":  reason,
+		"transferred":     true,
+		"transfer_reason": reason,
 	}
 	res := r.db.WithContext(ctx).
 		Model(&model.FeedbackRecordORM{}).

@@ -10,26 +10,25 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 // AssetBundleLoader 资产包加载器
 //
 // 实现 AssetLoader 接口（dataflow_orchestrator.go）
 type AssetBundleLoader struct {
-	weave    portcontract.AssetBundleWeavePort 
-	history  portcontract.ChatHistoryPort      
-	search   portcontract.KnowledgeSearchPort  
-	defaults LoaderDefaults                    
+	weave    portcontract.AssetBundleWeavePort
+	history  portcontract.ChatHistoryPort
+	search   portcontract.KnowledgeSearchPort
+	defaults LoaderDefaults
 }
 
 // LoaderDefaults 加载器默认配置
 type LoaderDefaults struct {
-	AssetID             string            
-	HistoryLimit        int               
-	RAGTopK             int               
-	MerchantVars        map[string]string 
-	StripFewShotJSON    bool              
-	IncludeMerchantVars bool              
-	RAGPosition         string            
+	AssetID             string
+	HistoryLimit        int
+	RAGTopK             int
+	MerchantVars        map[string]string
+	StripFewShotJSON    bool
+	IncludeMerchantVars bool
+	RAGPosition         string
 }
 
 // NewAssetBundleLoader 创建资产包加载器
@@ -143,13 +142,6 @@ func (l *AssetBundleLoader) LoadContext(ctx context.Context, payload CustomerMes
 	}, nil
 }
 
-// resolveAssetID 解析资产包业务键
-//
-// 优先级：
-//  1. AgentContext.Persona（约定为资产包 AssetID；与 ai_agents 表对齐）
-//  2. AgentContext.AgentCode（兜底）
-//  3. defaults.AssetID
-//  4. payload.Raw["asset_id"]（运行时动态指定）
 func (l *AssetBundleLoader) resolveAssetID(agentCtx *AgentContext) string {
 	if agentCtx != nil {
 		if agentCtx.Persona != "" {
@@ -165,14 +157,6 @@ func (l *AssetBundleLoader) resolveAssetID(agentCtx *AgentContext) string {
 	return ""
 }
 
-// resolveMerchantVars 解析商户参数
-//
-// 优先级：
-//  1. AgentContext（约定 AgentCode=shop_name, SystemPrompt 含 campaign=xxx 等）
-//  2. defaults.MerchantVars
-//
-// 设计：AgentContext 当前没有 MerchantVars 字段，约定通过 SystemPrompt 解析
-// （格式：campaign_name=xxx;discount_pct=10%）。这样不需要改 AgentContext 类型。
 func (l *AssetBundleLoader) resolveMerchantVars(agentCtx *AgentContext) map[string]string {
 	out := make(map[string]string)
 	for k, v := range l.defaults.MerchantVars {
@@ -194,6 +178,4 @@ func (l *AssetBundleLoader) resolveMerchantVars(agentCtx *AgentContext) map[stri
 	return out
 }
 
-// 编译期断言：AssetBundleLoader 实现 AssetLoader
 var _ AssetLoader = (*AssetBundleLoader)(nil)
-

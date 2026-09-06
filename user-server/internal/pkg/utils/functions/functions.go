@@ -22,7 +22,7 @@ const (
 )
 
 func StructToMap(v any, opts ...StructToMapData) map[string]any {
-	// 设置默认值
+
 	var data StructToMapData
 	if len(opts) > 0 {
 		data = opts[0]
@@ -38,7 +38,7 @@ func StructToMap(v any, opts ...StructToMapData) map[string]any {
 	ignoreNilFlag := data.IgnoreNilFlag
 
 	resultMap := make(map[string]any)
-	vValue := reflect.Indirect(reflect.ValueOf(v)) 
+	vValue := reflect.Indirect(reflect.ValueOf(v))
 
 	for i := 0; i < vValue.NumField(); i++ {
 		field := vValue.Field(i)
@@ -99,4 +99,3 @@ func ParseUUID(idString string) (uuid.UUID, error) {
 	}
 	return myUUID, nil
 }
-

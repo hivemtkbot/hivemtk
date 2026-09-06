@@ -19,24 +19,24 @@ type RagCustomerServiceImpl struct {
 	responseGenerator    ResponseGeneratorInterface
 	qualityAssessor      QualityAssessmentInterface
 	feedbackLearner      FeedbackLearningInterface
-	retrievalService     ragretrieval.RagRetrievalService 
+	retrievalService     ragretrieval.RagRetrievalService
 	config               *CustomerServiceConfig
 }
 
 // CustomerServiceConfig 客服服务配置
 type CustomerServiceConfig struct {
-	MaxHistoryLength        int           `json:"max_history_length"`         
-	DefaultMaxHistoryLength int           `json:"default_max_history_length"` 
-	DefaultTimeout          int           `json:"default_timeout"`            
-	DefaultTemperature      float64       `json:"default_temperature"`        
-	DefaultMaxTokens        int           `json:"default_max_tokens"`         
-	RetrievalTopK           int           `json:"retrieval_top_k"`            
-	RetrievalThreshold      float64       `json:"retrieval_threshold"`        
-	CacheTTL                time.Duration `json:"cache_ttl"`                  
-	MaxConcurrentSessions   int           `json:"max_concurrent_sessions"`    
-	SessionCleanupInterval  time.Duration `json:"session_cleanup_interval"`   
-	EnableFallback          bool          `json:"enable_fallback"`            
-	FallbackResponse        string        `json:"fallback_response"`          
+	MaxHistoryLength        int           `json:"max_history_length"`
+	DefaultMaxHistoryLength int           `json:"default_max_history_length"`
+	DefaultTimeout          int           `json:"default_timeout"`
+	DefaultTemperature      float64       `json:"default_temperature"`
+	DefaultMaxTokens        int           `json:"default_max_tokens"`
+	RetrievalTopK           int           `json:"retrieval_top_k"`
+	RetrievalThreshold      float64       `json:"retrieval_threshold"`
+	CacheTTL                time.Duration `json:"cache_ttl"`
+	MaxConcurrentSessions   int           `json:"max_concurrent_sessions"`
+	SessionCleanupInterval  time.Duration `json:"session_cleanup_interval"`
+	EnableFallback          bool          `json:"enable_fallback"`
+	FallbackResponse        string        `json:"fallback_response"`
 }
 
 // NewRagCustomerService 创建新的RAG客服服务
@@ -52,7 +52,7 @@ func NewRagCustomerService(
 	if config == nil {
 		config = &CustomerServiceConfig{
 			DefaultMaxHistoryLength: 10,
-			DefaultTimeout:          30 * 60, 
+			DefaultTimeout:          30 * 60,
 			DefaultTemperature:      0.7,
 			DefaultMaxTokens:        1000,
 			RetrievalTopK:           5,
@@ -138,7 +138,7 @@ func (r *RagCustomerServiceImpl) ProcessMessage(ctx context.Context, session Ses
 				SessionID:      session.ID,
 				Content:        r.config.FallbackResponse,
 				Intent:         intent.PrimaryIntent,
-				Confidence:     0.1, 
+				Confidence:     0.1,
 				Metadata:       map[string]any{},
 				Timestamp:      time.Now(),
 				ProcessingTime: time.Since(startTime),
@@ -174,10 +174,9 @@ func (r *RagCustomerServiceImpl) ProcessMessage(ctx context.Context, session Ses
 		Context:   updatedContext,
 		Session:   session,
 		Config:    session.Config,
-		LLMConfig: session.Config, 
+		LLMConfig: session.Config,
 	}
 
-	// 将searchResults转换为interface{}切片
 	var interfaceResults []any
 	for _, result := range searchResults {
 		interfaceResult := map[string]any{
@@ -200,7 +199,7 @@ func (r *RagCustomerServiceImpl) ProcessMessage(ctx context.Context, session Ses
 	qualityScore, err := r.qualityAssessor.EvaluateResponse(ctx, responseContent, message.Content, interfaceResults)
 	if err != nil {
 		logger.Warnf("Warning: failed to evaluate response quality: %v", err)
-		qualityScore = 0.5 
+		qualityScore = 0.5
 	}
 
 	response := Response{
@@ -212,7 +211,7 @@ func (r *RagCustomerServiceImpl) ProcessMessage(ctx context.Context, session Ses
 		Metadata:       map[string]any{},
 		Timestamp:      time.Now(),
 		ProcessingTime: time.Since(startTime),
-		Source:         "rag", 
+		Source:         "rag",
 	}
 
 	for _, result := range searchResults {
@@ -240,7 +239,7 @@ func (r *RagCustomerServiceImpl) ProcessMessage(ctx context.Context, session Ses
 		Content:    responseContent,
 		Timestamp:  time.Now(),
 		Metadata:   response.Metadata,
-		References: []string{}, 
+		References: []string{},
 	}
 
 	err = r.dialogManager.AddMessage(ctx, session.ID, assistantMessage)
@@ -357,13 +356,13 @@ func (r *RagCustomerServiceImpl) UpdateKnowledge(ctx context.Context, kbID strin
 func (r *RagCustomerServiceImpl) GetSessionMetrics(ctx context.Context, sessionID string) (*SessionMetrics, error) {
 	metrics := &SessionMetrics{
 		SessionID:        sessionID,
-		StartTime:        time.Now().Add(-1 * time.Hour), 
+		StartTime:        time.Now().Add(-1 * time.Hour),
 		EndTime:          time.Now(),
-		MessageCount:     5,      
-		AvgResponseTime:  1500.0, 
-		ResolutionRate:   0.8,    
-		UserSatisfaction: 4.2,    
-		FeedbackCount:    2,      
+		MessageCount:     5,
+		AvgResponseTime:  1500.0,
+		ResolutionRate:   0.8,
+		UserSatisfaction: 4.2,
+		FeedbackCount:    2,
 	}
 
 	return metrics, nil
@@ -400,7 +399,6 @@ func (r *RagCustomerServiceImpl) GetUserContext(ctx context.Context, userID, pla
 	return &latestSession.Conversation.Context, nil
 }
 
-// generateResponseID 生成回复ID
 func generateResponseID() string {
 	b := make([]byte, 4)
 	if _, err := rand.Read(b); err != nil {
@@ -409,7 +407,6 @@ func generateResponseID() string {
 	return fmt.Sprintf("resp_%d_%s", time.Now().UnixNano(), hex.EncodeToString(b))
 }
 
-// generateMessageID 生成消息ID
 func generateMessageID() string {
 	b := make([]byte, 4)
 	if _, err := rand.Read(b); err != nil {
@@ -472,4 +469,3 @@ func (sfl *SimpleFeedbackLearner) GetLearningInsights(ctx context.Context, sessi
 func (sfl *SimpleFeedbackLearner) UpdateKnowledgeBase(ctx context.Context, kbID string, insights []LearningInsight) error {
 	return nil
 }
-

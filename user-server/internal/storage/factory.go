@@ -20,19 +20,13 @@ func Factory(cfg *model.ObsConfig) (Driver, error) {
 	case model.ObsProviderLocal:
 		return newLocalFromConfig(cfg), nil
 	case model.ObsProviderAliyun, model.ObsProviderTencent, model.ObsProviderQiniu, model.ObsProviderAWS:
-		// 云存储：先返回占位实现，后续按需接 SDK
+
 		return newCloudStub(cfg), nil
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedProvider, cfg.Provider)
 	}
 }
 
-// newLocalFromConfig 根据 ObsConfig 构造 LocalDriver
-//
-// 约定：
-//   - ObsConfig.Endpoint 存本地目录（如 ./uploads 或 /data/hivemtk/uploads）
-//   - ObsConfig.Domain 存公开访问 URL 前缀（如 /files 或 http://your-domain.com/files）
-//   - 都留空时用默认值
 func newLocalFromConfig(cfg *model.ObsConfig) Driver {
 	baseDir := strings.TrimSpace(cfg.Endpoint)
 	if baseDir == "" {
@@ -53,9 +47,6 @@ func newLocalFromConfig(cfg *model.ObsConfig) Driver {
 	return NewLocalDriver(baseDir, publicURL)
 }
 
-// newCloudStub 云存储占位实现 —— 当只配了 Provider 没装 SDK 时使用，
-// 等真正调用 UploadReader / UploadMultipart 时会明确报错。
-// 这样 ObsConfig 创建通过，但不会假返回 URL。
 func newCloudStub(cfg *model.ObsConfig) Driver {
 	return &cloudStub{cfg: cfg}
 }
@@ -104,7 +95,6 @@ func (c *cloudStub) Exists(_ context.Context, storagePath string) (bool, error) 
 
 func (c *cloudStub) Type() string { return string(c.cfg.Provider) }
 
-// obsConfigAccessURL 云存储 URL 生成（从 service/obs_config.go 迁出，避免循环依赖）
 func obsConfigAccessURL(c *model.ObsConfig, filePath string) string {
 	if c.Domain != "" {
 		return c.Domain + "/" + filePath

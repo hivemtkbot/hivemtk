@@ -7,7 +7,6 @@ import (
 	"testing"
 )
 
-
 func TestWhitelistPermissionChecker_DefaultAllow(t *testing.T) {
 	c := NewWhitelistPermissionChecker()
 	ctx := context.Background()
@@ -29,7 +28,7 @@ func TestWhitelistPermissionChecker_DefaultAllow(t *testing.T) {
 
 func TestWhitelistPermissionChecker_GlobalWhitelist(t *testing.T) {
 	c := NewWhitelistPermissionChecker()
-	c.SetDefaultAllow(false) 
+	c.SetDefaultAllow(false)
 	c.AddGlobalWhitelist([]string{"global.tool1", "global.tool2"})
 	ctx := context.Background()
 	tc := &ToolContext{AgentID: "agent-1"}
@@ -48,7 +47,7 @@ func TestWhitelistPermissionChecker_GlobalWhitelist(t *testing.T) {
 
 func TestWhitelistPermissionChecker_AgentWhitelist(t *testing.T) {
 	c := NewWhitelistPermissionChecker()
-	c.SetDefaultAllow(false) 
+	c.SetDefaultAllow(false)
 	c.SetAgentWhitelist("agent-1", []string{"customer.search", "customer.get"})
 	ctx := context.Background()
 	tc1 := &ToolContext{AgentID: "agent-1"}
@@ -67,11 +66,11 @@ func TestWhitelistPermissionChecker_AgentWhitelist(t *testing.T) {
 
 func TestWhitelistPermissionChecker_SuperPermission(t *testing.T) {
 	c := NewWhitelistPermissionChecker()
-	c.SetDefaultAllow(false) 
+	c.SetDefaultAllow(false)
 	ctx := context.Background()
 	tc := &ToolContext{
 		AgentID:     "admin-agent",
-		Permissions: []string{"read", "write", "*"}, 
+		Permissions: []string{"read", "write", "*"},
 	}
 
 	if err := c.Check(ctx, "any.tool", tc); err != nil {
@@ -138,7 +137,7 @@ func TestWhitelistPermissionChecker_SetAgentWhitelistOverride(t *testing.T) {
 }
 
 func TestWhitelistPermissionChecker_NilChecker(t *testing.T) {
-	var c *WhitelistPermissionChecker 
+	var c *WhitelistPermissionChecker
 	ctx := context.Background()
 	tc := &ToolContext{AgentID: "agent-1"}
 
@@ -185,7 +184,7 @@ func TestWhitelistPermissionChecker_ConcurrentAccess(t *testing.T) {
 			c.ListGlobalWhitelist()
 		}()
 	}
-	wg.Wait() 
+	wg.Wait()
 }
 
 func TestWhitelistPermissionChecker_ListOperations(t *testing.T) {
@@ -225,7 +224,7 @@ func TestWhitelistPermissionChecker_EmptyAgentID(t *testing.T) {
 	c := NewWhitelistPermissionChecker()
 	c.SetDefaultAllow(false)
 	ctx := context.Background()
-	tc := &ToolContext{AgentID: ""} 
+	tc := &ToolContext{AgentID: ""}
 
 	c.AddGlobalWhitelist([]string{"global.tool"})
 	if err := c.Check(ctx, "global.tool", tc); err != nil {
@@ -249,4 +248,3 @@ func TestWhitelistPermissionChecker_SetAgentWhitelistEmpty(t *testing.T) {
 		t.Fatalf("空切片设置后应走 defaultAllow 拒绝")
 	}
 }
-

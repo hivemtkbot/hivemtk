@@ -31,7 +31,6 @@ import (
 	"hivemtk-user/internal/pkg/utils/logger"
 )
 
-
 // IncrementalIndexer 知识库文档增量索引器
 //
 // 职责：
@@ -44,7 +43,7 @@ import (
 // 失败：仅记录日志,不重试(主流程可重新发布事件)
 type IncrementalIndexer struct {
 	mu          sync.RWMutex
-	chunksByDoc map[string][]*eventIndexedChunk 
+	chunksByDoc map[string][]*eventIndexedChunk
 	embedder    llm.EmbeddingServiceInterface
 	processor   *etl.DocumentProcessor
 	docRepo     *knowledgerepo.KnowledgeDocumentRepository
@@ -53,7 +52,6 @@ type IncrementalIndexer struct {
 	stopped     bool
 }
 
-// eventIndexedChunk 内部索引分片
 type eventIndexedChunk struct {
 	DocumentID  string
 	ChunkIndex  int
@@ -112,13 +110,12 @@ func (i *IncrementalIndexer) Handle(evt event.Event) error {
 		if p, ok := evt.Payload.(*event.KnowledgeDocumentChangePayload); ok && p != nil {
 			return i.handlePayload(context.Background(), *p)
 		}
-		return nil 
+		return nil
 	}
 
 	return i.handlePayload(context.Background(), payload)
 }
 
-// handlePayload 处理单个变更事件
 func (i *IncrementalIndexer) handlePayload(ctx context.Context, payload event.KnowledgeDocumentChangePayload) error {
 	start := time.Now()
 
@@ -147,15 +144,6 @@ func (i *IncrementalIndexer) handlePayload(ctx context.Context, payload event.Kn
 	return nil
 }
 
-// indexDocument 索引文档(创建/更新)
-//
-// 真实实现：从 knowledge_documents 表读取文档 FilePath / FileURL / SourceType 决定内容获取方式：
-//   - FilePath 非空 → 读取本地文件内容
-//   - FileURL 非空 → HTTP GET 获取内容
-//   - 都为空 → 退化为 SourceRef（飞书/Notion 等）或 Title 占位文本
-//
-// 随后切块 → Embedding → 写 knowledge_chunks 表（事务模式）。
-// db 为 nil 或 docRepo 不可用时退化为内存索引（仅切块 + 内存存储），便于测试与离线运行。
 func (i *IncrementalIndexer) indexDocument(ctx context.Context, payload event.KnowledgeDocumentChangePayload, docIDStr string) error {
 	content, err := i.loadDocumentContent(ctx, payload, docIDStr)
 	if err != nil {
@@ -228,10 +216,6 @@ func (i *IncrementalIndexer) indexDocument(ctx context.Context, payload event.Kn
 	return nil
 }
 
-// loadDocumentContent 加载文档内容（DB / 文件 / HTTP 多源）
-//
-// 优先级：FilePath 本地文件 → FileURL HTTP GET → DB Title 字段 → SourceRef 字段。
-// 任一来源成功即返回，所有来源都失败时返回错误。
 func (i *IncrementalIndexer) loadDocumentContent(ctx context.Context, payload event.KnowledgeDocumentChangePayload, docIDStr string) (string, error) {
 	if i.docRepo != nil {
 		docID := uint64(payload.DocumentID)
@@ -253,14 +237,13 @@ func (i *IncrementalIndexer) loadDocumentContent(ctx context.Context, payload ev
 	return "", fmt.Errorf("no content source for doc %s", docIDStr)
 }
 
-// deleteDocument 删除文档的所有 chunks
 func (i *IncrementalIndexer) deleteDocument(docIDStr string) error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
 	chunks, ok := i.chunksByDoc[docIDStr]
 	if !ok {
-		return nil 
+		return nil
 	}
 
 	delete(i.chunksByDoc, docIDStr)
@@ -293,10 +276,7 @@ func (i *IncrementalIndexer) Stop() {
 	i.chunksByDoc = nil
 }
 
-
-// hashContent 计算内容 hash(SHA256)
 func hashContent(content string) string {
 	h := sha256.Sum256([]byte(content))
 	return hex.EncodeToString(h[:])
 }
-

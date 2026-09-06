@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -65,6 +64,4 @@ func (m *KnowledgeWeightMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// 编译期接口断言
 var _ migration.Migration = (*KnowledgeWeightMigration)(nil)
-

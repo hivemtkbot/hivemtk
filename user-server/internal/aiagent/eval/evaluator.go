@@ -5,28 +5,27 @@ import (
 	"time"
 )
 
-
 // EvaluationResult 批量评估结果。
 type EvaluationResult struct {
-	ChrF        float64       
-	SampleCount int           
-	PerSample   []SampleScore 
-	LangPair    string        
-	Timestamp   time.Time     
+	ChrF        float64
+	SampleCount int
+	PerSample   []SampleScore
+	LangPair    string
+	Timestamp   time.Time
 }
 
 // SampleScore 单条样本评分。
 type SampleScore struct {
-	Query     string  
-	Reference string  
-	Candidate string  
-	ChrF      float64 
+	Query     string
+	Reference string
+	Candidate string
+	ChrF      float64
 }
 
 // Evaluator 多语言评估器。
 type Evaluator struct {
 	chrF  *ChrFEvaluator
-	judge LLMJudge 
+	judge LLMJudge
 }
 
 // NewEvaluator 创建评估器。
@@ -90,4 +89,3 @@ func (e *Evaluator) EvaluateBatch(candidates, references []string, langPair stri
 func (e *Evaluator) EvaluateSingle(candidate, reference, query string) (float64, error) {
 	return e.chrF.Score(candidate, reference), nil
 }
-

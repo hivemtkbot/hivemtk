@@ -229,4 +229,3 @@ func (c *ChurnPredictionController) GetRiskDistribution(ctx *gin.Context) {
 
 	response.Success(ctx, distribution, "获取成功")
 }
-

@@ -12,8 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
-// providersRouteMockProvider 测试用 Provider
 type providersRouteMockProvider struct {
 	name  string
 	tools []tooluse.Tool
@@ -25,7 +23,6 @@ func (p *providersRouteMockProvider) Description() string            { return "m
 func (p *providersRouteMockProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.Tool, error) {
 	return p.tools, nil
 }
-
 
 func TestSetup_ToolProvidersRouteRegistered(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -97,7 +94,7 @@ func TestHandleToolProviders_HTTP_WithProviderRegistry(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("body not JSON: %v; body=%s", err, w.Body.String())
 	}
-	// 现行响应契约: {"code":0,"message":"ok","data":{...}}（顶层 success 为旧契约已废弃）
+
 	if resp["code"] != float64(0) {
 		t.Errorf("code should be 0; body=%s", w.Body.String())
 	}
@@ -117,4 +114,3 @@ func TestHandleToolProviders_HTTP_WithProviderRegistry(t *testing.T) {
 		t.Errorf("provider_name = %v, want testp", first["provider_name"])
 	}
 }
-

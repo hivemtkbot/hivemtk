@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-
 // TestDataFlow_DirectReply 场景1: 寒暄直答
 func TestDataFlow_DirectReply(t *testing.T) {
 	orch := NewCoreDataFlowOrchestrator(NewInferenceCycle(), nil)
@@ -268,7 +267,6 @@ func TestDataFlow_EndToEndPipeline(t *testing.T) {
 	}
 }
 
-
 type captureAssetLoader struct {
 	captured chan *CustomerMessagePayload
 	assetCtx *AssetContext
@@ -299,4 +297,3 @@ func (p *capturePublisher) Publish(_ context.Context, _, _, content string) erro
 	}
 	return nil
 }
-

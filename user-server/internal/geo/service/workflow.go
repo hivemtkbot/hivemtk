@@ -48,8 +48,7 @@ func NewWorkflowService(
 		executors: make(map[string]StepExecutor),
 	}
 	s.registerBuiltinExecutors()
-	// v3 GEO 决策链化：追加 query_probe / source_attribution / content_gap_fill
-	// （capture_lead 需主域端口，由装配层调用 RegisterCaptureLeadExecutor 注入）
+
 	deps := DecisionChainDeps{
 		Probe:     NewDefaultSearchProbe(),
 		ChainRepo: chainRepo,
@@ -96,7 +95,7 @@ func (s *WorkflowService) toWorkflowResponse(wf *model.GeoWorkflow) (*dto.Workfl
 		CreatedAt:  wf.CreatedAt,
 		UpdatedAt:  wf.UpdatedAt,
 	}
-	// 将 []map 转为 []WorkflowStep：用 JSON marshal/unmarshal 保留所有字段（含 Extra）
+
 	stepDTOs := make([]dto.WorkflowStep, 0, len(steps))
 	for _, st := range steps {
 		b, _ := json.Marshal(st)
@@ -257,8 +256,6 @@ func (s *WorkflowService) Run(ctx context.Context, id string) (*dto.RunWorkflowR
 		return nil, err
 	}
 
-	// 兜底落库：无论正常结束、步骤失败还是 panic 中断，都保证执行记录最终状态持久化，
-	// 避免记录永久停留在 "running"
 	defer func() {
 		if exec.Status == "running" {
 			completedAt := time.Now()
@@ -332,7 +329,7 @@ func (s *WorkflowService) Run(ctx context.Context, id string) (*dto.RunWorkflowR
 
 	var anyErr error
 	idx := 0
-	// 迭代上限守卫：防止 jump_to 条件恒真导致死循环
+
 	const maxIterations = 1000
 	iterations := 0
 	for idx < len(steps) {
@@ -376,7 +373,7 @@ func (s *WorkflowService) Run(ctx context.Context, id string) (*dto.RunWorkflowR
 		for k, v := range step {
 			stepWithResults[k] = v
 		}
-		// 合并嵌套 params 到扁平键（API 创建的步骤参数存于 params 子对象）
+
 		if params, ok := step["params"].(map[string]interface{}); ok {
 			for k, v := range params {
 				if _, exists := stepWithResults[k]; !exists {
@@ -390,8 +387,6 @@ func (s *WorkflowService) Run(ctx context.Context, id string) (*dto.RunWorkflowR
 		}
 		stepWithResults["_step_results"] = prevResults
 
-		// WithoutCancel：客户端断开/网关超时不中止执行（LLM 步骤可达分钟级），
-		// 执行记录由上方 defer 兜底落库，保证状态最终一致
 		result, err := executor(context.WithoutCancel(ctx), stepWithResults)
 		now := time.Now()
 		sr.CompletedAt = &now
@@ -440,7 +435,6 @@ func (s *WorkflowService) Run(ctx context.Context, id string) (*dto.RunWorkflowR
 	return resp, anyErr
 }
 
-// registerBuiltinExecutors 注册内置步骤执行器（迁移自 AIGEOTOOLS RegisterBuiltinExecutors）
 func (s *WorkflowService) registerBuiltinExecutors() {
 	gen := s.llm
 
@@ -457,7 +451,7 @@ func (s *WorkflowService) registerBuiltinExecutors() {
 			brand = "our brand"
 		}
 		prompt := fmt.Sprintf("请撰写一篇关于\"%s\"的高质量文章，要求：\n1. 品牌自然融入：%s\n2. 核心优势：%s\n3. 目标平台：%s\n4. 关键词：%s\n5. 字数800-1200字，结构清晰，包含标题、正文、结语\n6. 使用专业但亲切的语调", topic, brand, advantages, platform, keyword)
-		// v3 GEO 决策链化 Phase1：按关键词决策意图注入信源策略与内容形态
+
 		prompt = EnhancePromptWithIntent(prompt, keyword)
 		if gen != nil {
 			resp, err := gen.Generate(ctx, "", prompt, 0.7, 3000)
@@ -564,13 +558,11 @@ func (s *WorkflowService) registerBuiltinExecutors() {
 		return "0.5000", nil
 	}
 
-	// 控制节点 passthrough 执行器：用于 trigger / action / decision / end
-	// 这些节点不做实际 LLM 调用，仅返回标记信息，让工作流能完整跑完
 	s.executors["trigger"] = func(ctx context.Context, step map[string]interface{}) (string, error) {
 		return "trigger_fired", nil
 	}
 	s.executors["action"] = func(ctx context.Context, step map[string]interface{}) (string, error) {
-		// 尝试从上一步结果透传内容（若存在），否则返回动作标记
+
 		if prev, ok := step["_step_results"].(map[string]string); ok {
 			for _, v := range prev {
 				if v != "" {
@@ -582,8 +574,7 @@ func (s *WorkflowService) registerBuiltinExecutors() {
 		return "action_done:" + name, nil
 	}
 	s.executors["decision"] = func(ctx context.Context, step map[string]interface{}) (string, error) {
-		// decision 的 condition/jump_to 在 Run() 主循环里处理，
-		// 此处只做占位执行器，返回条件状态
+
 		cond, _ := step["condition"].(string)
 		jumpTo, _ := step["jump_to"].(string)
 		if jumpTo != "" {
@@ -596,7 +587,6 @@ func (s *WorkflowService) registerBuiltinExecutors() {
 	}
 }
 
-// stepString 安全读取步骤 map 中的字符串字段（非字符串或缺失返回空串，避免 fmt.Sprintf("%v", nil) 产出 "<nil>"）
 func stepString(step map[string]interface{}, key string) string {
 	if v, ok := step[key].(string); ok {
 		return v
@@ -604,7 +594,6 @@ func stepString(step map[string]interface{}, key string) string {
 	return ""
 }
 
-// extractStepContent 从步骤中提取内容（优先 content/article，其次取上一步结果）
 func extractStepContent(step map[string]interface{}) string {
 	if c, ok := step["content"].(string); ok && c != "" {
 		return c

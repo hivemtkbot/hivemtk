@@ -33,4 +33,3 @@ type KBDocument struct {
 func (KBDocument) TableName() string {
 	return "kb_documents"
 }
-

@@ -43,7 +43,7 @@
     </el-row>
 
     <el-tabs v-model="activeTab" class="content-tabs">
-      <!-- 1. 评估结果 -->
+      
       <el-tab-pane :label="$t('评估结果')" name="scores">
         <el-card>
           <template #header>
@@ -103,7 +103,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- 2. 销冠基线 -->
+      
       <el-tab-pane label="销冠基线" name="baselines">
         <el-card>
           <template #header>
@@ -144,7 +144,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- 3. 低质样本 -->
+      
       <el-tab-pane label="低质样本" name="lowQuality">
         <el-card>
           <template #header>
@@ -191,7 +191,7 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- 话术查看弹窗 -->
+    
     <el-dialog v-model="scriptsDialogVisible" title="销冠基线话术" width="720px">
       <div v-if="currentBaseline">
         <p><strong>场景：</strong>{{ currentBaseline.scenario }} · <strong>销冠：</strong>{{ currentBaseline.staff_id }} · <strong>平均奖励：</strong>{{ (currentBaseline.avg_reward || 0).toFixed(3) }}</p>
@@ -222,8 +222,7 @@ import {
 
 const activeTab = ref('scores')
 
-// 顶部统计
-const stats = ref({ totalScored: 0, avgScore: '0.000', lowQualityCount: 0, baselineCount: 0 })
+const stats = ref({ totalScored: 0, avgScore: '0.000', lowQualityCount: 0, baselineCount: 0 });
 const avgScoreColor = computed(() => {
   const v = parseFloat(stats.value.avgScore)
   if (v >= 0.7) return '#10B981'
@@ -231,8 +230,7 @@ const avgScoreColor = computed(() => {
   return '#EF4444'
 })
 
-// 评分
-const scores = ref([])
+const scores = ref([]);
 const scorePage = ref(1)
 const scorePageSize = ref(20)
 const scoreTotal = ref(0)
@@ -250,8 +248,7 @@ async function loadScores() {
   }
 }
 
-// 销冠基线
-const baselines = ref([])
+const baselines = ref([]);
 const baselinesLoading = ref(false)
 async function loadBaselines() {
   baselinesLoading.value = true
@@ -265,8 +262,7 @@ async function loadBaselines() {
   }
 }
 
-// 低质样本
-const lowQuality = ref([])
+const lowQuality = ref([]);
 const lowQualityPage = ref(1)
 const lowQualityPageSize = ref(20)
 const lowQualityTotal = ref(0)
@@ -299,8 +295,7 @@ async function loadStats() {
   }
 }
 
-// 话术查看
-const scriptsDialogVisible = ref(false)
+const scriptsDialogVisible = ref(false);
 const currentBaseline = ref(null)
 function viewBaselineScripts(row) {
   currentBaseline.value = row

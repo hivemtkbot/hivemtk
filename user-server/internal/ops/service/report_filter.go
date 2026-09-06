@@ -5,22 +5,15 @@ import (
 	"fmt"
 	"strings"
 
-	"hivemtk-user/internal/ops/model"
 	"gorm.io/gorm"
+	"hivemtk-user/internal/ops/model"
 )
 
-// R55 T2：报表过滤器 SQL 落地（此前 ReportFilter 存储/编辑完备但查询全不应用，
-// 用户建报表带筛选条件得到的是未过滤的错误数据）。
-//
-// 安全约束：字段必须命中数据源白名单（标识符直接拼接前强校验，防注入）；
-// 操作符仅支持 eq/ne/gt/lt/like；值走参数绑定，绝不拼接。
-
-// filterFieldWhitelist 每数据源允许过滤的字段（列名硬白名单）
 var filterFieldWhitelist = map[string]map[string]string{
 	"sessions": {
-		"status":     "status",
-		"agent_name": "agent_name",
-		"platform":   "platform",
+		"status":       "status",
+		"agent_name":   "agent_name",
+		"platform":     "platform",
 		"handler_type": "handler_type",
 	},
 	"messages": {
@@ -29,17 +22,16 @@ var filterFieldWhitelist = map[string]map[string]string{
 		"status":       "status",
 	},
 	"clues": {
-		"type":       "type",
-		"is_verify":  "is_verify",
-		"level":      "level",
-		"is_group":   "is_group",
+		"type":      "type",
+		"is_verify": "is_verify",
+		"level":     "level",
+		"is_group":  "is_group",
 	},
 	"users": {
 		"churn_risk": "churn_risk",
 	},
 }
 
-// filterOperatorSQL 操作符 → SQL 片段（值占位符由调用方绑定）
 var filterOperatorSQL = map[string]string{
 	"eq":   "= ?",
 	"ne":   "!= ?",
@@ -81,7 +73,6 @@ func BuildReportFilterSQL(dataSource string, filtersJSON string) ([]string, []an
 	return conds, args
 }
 
-// normalizeFilterValue 归一化过滤值（前端传字符串，数字列需转数值）
 func normalizeFilterValue(v any) any {
 	switch t := v.(type) {
 	case string:
@@ -106,7 +97,6 @@ func isAllDigits(s string) bool {
 	return len(s) > 0
 }
 
-// applyConds 将条件应用到 gorm 查询
 func applyConds(base *gorm.DB, conds []string, args []any) *gorm.DB {
 	if len(conds) == 0 {
 		return base

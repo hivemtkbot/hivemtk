@@ -21,8 +21,6 @@ func NewCustomerServicePlusController() *CustomerServicePlusController {
 	return &CustomerServicePlusController{svc: service.NewCustomerServicePlusServiceFromGlobal()}
 }
 
-// ---------- 编辑锁 ----------
-
 // AcquireEditLock POST /api/customer-sessions/:id/edit-lock {holder}
 func (c *CustomerServicePlusController) AcquireEditLock(ctx *gin.Context) {
 	sessionID := ctx.Param("id")
@@ -65,8 +63,6 @@ func (c *CustomerServicePlusController) GetEditLock(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"locked": true, "lock": lock}, "ok")
 }
 
-// ---------- 内部备注 ----------
-
 // AddInternalNote POST /api/customer-sessions/:id/internal-notes {content}
 func (c *CustomerServicePlusController) AddInternalNote(ctx *gin.Context) {
 	sessionID := ctx.Param("id")
@@ -94,8 +90,6 @@ func (c *CustomerServicePlusController) ListInternalNotes(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"list": list, "total": len(list)}, "ok")
 }
-
-// ---------- 标签规则 ----------
 
 // ListTagRules GET /api/session-tag/rules
 func (c *CustomerServicePlusController) ListTagRules(ctx *gin.Context) {
@@ -128,8 +122,6 @@ func (c *CustomerServicePlusController) ApplyTagRule(ctx *gin.Context) {
 	response.Success(ctx, res, "标签规则已执行")
 }
 
-// ---------- 坐席状态板 ----------
-
 // GetAgentStatusBoard GET /api/customer-service/agent-status-board
 func (c *CustomerServicePlusController) GetAgentStatusBoard(ctx *gin.Context) {
 	board, err := c.svc.GetAgentStatusBoard(ctx.Request.Context())
@@ -138,8 +130,6 @@ func (c *CustomerServicePlusController) GetAgentStatusBoard(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"list": board, "total": len(board)}, "ok")
 }
-
-// ---------- 快捷回复文件夹 ----------
 
 // ListQuickReplyFolders GET /api/quick-reply/folders
 func (c *CustomerServicePlusController) ListQuickReplyFolders(ctx *gin.Context) {
@@ -185,8 +175,6 @@ func (c *CustomerServicePlusController) ReorderQuickReplyFolder(ctx *gin.Context
 	response.Success(ctx, gin.H{"updated": true}, "顺序已更新")
 }
 
-// ---------- helpers ----------
-
 func anyToString(v any) string {
 	if v == nil {
 		return ""
@@ -224,8 +212,6 @@ func (c *CustomerServicePlusController) DeleteQuickReplyFolder(ctx *gin.Context)
 	response.Success(ctx, gin.H{"deleted": true}, "文件夹已删除")
 }
 
-// ---------- R46: 分群端点 ----------
-
 // CreateSegment POST /api/user-segments {name, rules, trigger, where_sql}
 func (c *CustomerServicePlusController) CreateSegment(ctx *gin.Context) {
 	var req service.SegmentSaveRequest
@@ -254,9 +240,6 @@ func (c *CustomerServicePlusController) ListSegments(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"list": list, "total": len(list)}, "ok")
 }
-
-
-// ---------- R46: MessageHub DLQ ----------
 
 // DLQList GET /api/message-hub/dlq?limit=50
 func (c *CustomerServicePlusController) DLQList(ctx *gin.Context) {
@@ -305,8 +288,6 @@ func (c *CustomerServicePlusController) DLQBatchRetry(ctx *gin.Context) {
 	}
 	response.Success(ctx, gin.H{"requeued": n}, "批量重试完成")
 }
-
-// ---------- R48 T2/T3: 办公时间 + 会话优先级/暂缓 ----------
 
 // GetOfficeHours GET /api/office-hours
 func (c *CustomerServicePlusController) GetOfficeHours(ctx *gin.Context) {

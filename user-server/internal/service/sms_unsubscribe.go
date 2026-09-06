@@ -11,15 +11,6 @@ import (
 	"hivemtk-user/internal/repository"
 )
 
-// smsUnsubscribeKeywords 短信退订关键词列表
-//
-// 合规依据：《通信短消息服务管理规定》第十八条：用户回复"TD/退订/T退/取消/N/Q"等
-// 关键词视为明确表示拒绝接收商业性短消息，必须停止发送。
-// 关键词匹配规则：
-//   - 大小写不敏感（N/n/Q/q 等价）
-//   - 全角/半角兼容
-//   - 关键词前后允许空格、标点（用户回复可能为 "TD, 退订" 等）
-//   - 匹配到任意一个关键词即视为退订请求
 var smsUnsubscribeKeywords = []string{
 	"TD", "td", "Td", "tD",
 	"退订", "退定", "取消订阅", "拒绝接收",
@@ -40,7 +31,7 @@ var smsUnsubscribeKeywords = []string{
 //   - ResubscribePhone：允许用户重新订阅（合规要求）
 type SmsUnsubscribeService struct {
 	repo repository.SmsUnsubscribeRepository
-	// dnc 全局跨渠道退订标志位服务（退订成功后同步写入，见 syncGlobalDoNotContact）
+
 	dnc *DoNotContactService
 }
 
@@ -98,12 +89,6 @@ func (s *SmsUnsubscribeService) UnsubscribePhone(ctx context.Context, phone, rea
 	return nil
 }
 
-// syncGlobalDoNotContact 退订落库后同步写入全局跨渠道退订标志位（R-3a）
-//
-// phone→one_id 反查由 DoNotContactService.BlockFromPhone 负责：
-// 能反查到 customer.unified_id 则写真实 OneID；无法反查时降级用
-// "phone:"+phone 归一键（见 PhoneOneIDPrefix 注释）。
-// 同步失败不阻断退订主流程（phone 维度记录已落库），仅记错误日志。
 func (s *SmsUnsubscribeService) syncGlobalDoNotContact(ctx context.Context, phone string) {
 	dnc := s.dnc
 	if dnc == nil {
@@ -213,7 +198,6 @@ func MatchUnsubscribeKeyword(content string) string {
 	return ""
 }
 
-// isAsciiKeyword 判断关键词是否为纯 ASCII（英文/数字）
 func isAsciiKeyword(kw string) bool {
 	for _, r := range kw {
 		if r > 127 {
@@ -223,8 +207,6 @@ func isAsciiKeyword(kw string) bool {
 	return true
 }
 
-// isStandaloneWord 判断关键词是否作为独立词出现
-// 独立词定义：前后为非字母数字字符（或字符串边界）
 func isStandaloneWord(content, kw string) bool {
 	if kw == "" {
 		return false
@@ -258,7 +240,6 @@ func isStandaloneWord(content, kw string) bool {
 	return false
 }
 
-// isAlnum 判断 rune 是否为字母或数字
 func isAlnum(r rune) bool {
 	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
 }

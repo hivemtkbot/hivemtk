@@ -1,7 +1,7 @@
 <template>
   <div class="geo-page">
 
-    <!-- 优化输入 -->
+    
     <el-card shadow="never" class="input-card">
       <template #header><span class="card-title">优化输入</span></template>
       <el-form :model="form" label-width="92px">
@@ -58,7 +58,7 @@
       </el-form>
     </el-card>
 
-    <!-- 对比区 -->
+    
     <el-card v-if="optimizedContent || originalContent" shadow="never" class="compare-card">
       <template #header>
         <div class="card-header">
@@ -165,8 +165,7 @@ const handleOptimize = async () => {
       article_id: form.article_id || undefined
     })
     optimizedContent.value = res?.optimized_content || res?.content || ''
-    // 后端 Suggestions 为文本，按行拆分为数组渲染
-    const raw = res?.suggestions || ''
+    const raw = res?.suggestions || '';
     suggestions.value = Array.isArray(raw) ? raw : String(raw).split('\n').map((s) => s.trim()).filter(Boolean)
     ElMessage.success('文章优化完成')
   } catch (e) {

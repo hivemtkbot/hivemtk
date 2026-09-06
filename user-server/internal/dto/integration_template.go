@@ -58,4 +58,3 @@ type IntegrationTemplateUpdateRequest struct {
 	Enabled    *bool  `json:"enabled"`
 	Remark     string `json:"remark"`
 }
-

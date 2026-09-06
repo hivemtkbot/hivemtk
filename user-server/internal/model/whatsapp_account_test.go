@@ -367,4 +367,3 @@ func TestWhatsappDraft_BasicFields(t *testing.T) {
 		t.Errorf("Expected Content 'Draft content here', got %s", draft.Content)
 	}
 }
-

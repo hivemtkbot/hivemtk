@@ -7,7 +7,6 @@ import (
 	"hivemtk-user/internal/service"
 )
 
-
 var (
 	globalMu               sync.RWMutex
 	globalDispatcher       *llm.Dispatcher
@@ -42,7 +41,6 @@ func GetGlobalProviderFailover() *llm.ProviderFailover {
 	return globalProviderFailover
 }
 
-
 var globalBridgeIngressSvc *service.InboxIngressService
 
 // SetBridgeIngressSvc 由 router.Setup 在构造 InboxIngressService 后注入
@@ -56,4 +54,3 @@ func SetBridgeIngressSvc(s *service.InboxIngressService) {
 
 // GetBridgeIngressSvc 读取桥接入站服务（装配前为 nil）
 func GetBridgeIngressSvc() *service.InboxIngressService { return globalBridgeIngressSvc }
-

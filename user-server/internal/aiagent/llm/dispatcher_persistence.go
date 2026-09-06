@@ -13,9 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// providerDB 返回用于 provider 持久化的 *gorm.DB：
-// 优先用注入的 auditDB，回退到全局 db.GetDB()，
-// 避免 auditDB 未注入时静默失败（与审计日志一致：db 未就绪时跳过）。
 func providerDB() *gorm.DB {
 	if g := getAuditDB(); g != nil {
 		return g
@@ -36,7 +33,7 @@ func (d *Dispatcher) LoadProvidersFromDB() error {
 	if err := g.Order("sort_order ASC, id ASC").Find(&rows).Error; err != nil {
 		return err
 	}
-	// T6 存量迁移：master key 可用时把明文 api_key 加密回写（幂等，已密文跳过）
+
 	migrated := 0
 	if secrets.Ready() {
 		for i := range rows {
@@ -192,14 +189,13 @@ func (d *Dispatcher) DeleteProviderFromDB(name string) error {
 	return nil
 }
 
-// providerConfigToRow 将内存配置转为 DB 行
 func providerConfigToRow(pc ProviderConfig) model.LLMProvider {
 	return model.LLMProvider{
 		Name:         pc.Name,
 		DisplayName:  pc.DisplayName,
 		BaseURL:      pc.BaseURL,
 		Model:        pc.Model,
-		APIKey:       encryptAPIKeyForStorage(pc.APIKey), // T6: 入库加密
+		APIKey:       encryptAPIKeyForStorage(pc.APIKey),
 		APIType:      pc.APIType,
 		Enabled:      pc.Enabled,
 		QualityScore: pc.QualityScore,
@@ -213,7 +209,6 @@ func providerConfigToRow(pc ProviderConfig) model.LLMProvider {
 	}
 }
 
-// rowToProviderConfig 将 DB 行转为内存配置
 func rowToProviderConfig(row *model.LLMProvider) ProviderConfig {
 	return ProviderConfig{
 		Name:         row.Name,
@@ -234,7 +229,6 @@ func rowToProviderConfig(row *model.LLMProvider) ProviderConfig {
 	}
 }
 
-// tagsToText 标签切片序列化为 JSON 文本
 func tagsToText(tags []string) string {
 	if len(tags) == 0 {
 		return ""
@@ -243,7 +237,6 @@ func tagsToText(tags []string) string {
 	return string(b)
 }
 
-// tagsFromText 解析标签文本，兼容 JSON 数组与逗号分隔旧格式
 func tagsFromText(s string) []string {
 	if s == "" {
 		return nil

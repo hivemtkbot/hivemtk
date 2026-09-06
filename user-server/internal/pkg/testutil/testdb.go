@@ -17,18 +17,8 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// dbnameRe 匹配 DSN 中的 dbname 段，用于切换到维护库（postgres）或进程级测试库。
 var dbnameRe = regexp.MustCompile(`dbname=[^\s]+`)
 
-// 进程级唯一测试库（避免多个 go test 进程并行执行 AutoMigrate 冲突）
-// 设计要点：
-//   - 每个 go test 进程拥有独立库名 user_db_test_<pid>，跨进程天然隔离，
-//     彻底消除 `go test ./...`（跨包默认并行）下多进程并发 DDL 互相踩踏的隐患
-//     （典型报错：duplicate key "pg_type_typname_nsp_index" / relation does not exist）。
-//   - 同一进程内的所有测试共享该库，与原始「共享 user_db_test」行为一致，
-//     保留同包内测试间可能的状态共享语义，不产生回归。
-//   - 进程结束后库随连接关闭而留存在 PG 中（与原始实现同样不自动 DROP 整个库），
-//     下次同 PID 进程启动时会先 DROP 同名残留再重建，避免崩溃残留累积。
 var (
 	procDBName    string
 	procDBInit    sync.Once
@@ -101,7 +91,6 @@ func NewTestDB(t *testing.T, models ...any) *gorm.DB {
 	return database
 }
 
-// ensureProcTestDB 保证当前进程级测试库已存在（仅首次调用时创建）。
 func ensureProcTestDB(t *testing.T) {
 	procDBInit.Do(func() {
 		name := fmt.Sprintf("user_db_test_%d", os.Getpid())
@@ -151,10 +140,6 @@ func NewTestDBOrSkip(t *testing.T, models ...any) *gorm.DB {
 	return NewTestDB(t, models...)
 }
 
-// getTestDSN 读取测试数据库连接串
-// 优先级：POSTGRES_TEST_DSN > 组合 POSTGRES_* 默认值（docker-compose.yml 默认值）
-// 默认端口 8202 对应 docker-compose.yml 中 mtk-postgres 服务的 port=8202 配置
-// 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8202 | PostgreSQL | Docker 部署映射端口
 func getTestDSN() string {
 	if v := os.Getenv("POSTGRES_TEST_DSN"); v != "" {
 		return v
@@ -176,7 +161,6 @@ func getEnvOr(key, fallback string) string {
 	return fallback
 }
 
-// maskedDSN 在 DSN 中隐藏密码，避免在测试日志中泄露
 func maskedDSN(dsn string) string {
 	out := []byte(dsn)
 	for i := 0; i < len(out)-8; i++ {
@@ -191,4 +175,3 @@ func maskedDSN(dsn string) string {
 	}
 	return string(out)
 }
-

@@ -15,10 +15,10 @@ type MsgHourlySummary struct {
 	HourBucket   time.Time `gorm:"type:timestamptz;not null;uniqueIndex:uni_mhs_bucket_dim,priority:1" json:"hour_bucket"`
 	MerchantID   uint      `gorm:"not null;default:0;uniqueIndex:uni_mhs_bucket_dim,priority:2" json:"merchant_id"`
 	Platform     string    `gorm:"type:varchar(30);not null;default:'';uniqueIndex:uni_mhs_bucket_dim,priority:3" json:"platform"`
-	SessionCount int64     `gorm:"not null;default:0" json:"session_count"` // COUNT(DISTINCT conversation_id)
-	AICount      int64     `gorm:"not null;default:0" json:"ai_count"`      // is_ai_reply = true 的消息数
-	HumanCount   int64     `gorm:"not null;default:0" json:"human_count"`   // outbound 且非 AI 回复（人工坐席发言）
-	MessageCount int64     `gorm:"not null;default:0" json:"message_count"` // 全量消息数
+	SessionCount int64     `gorm:"not null;default:0" json:"session_count"`
+	AICount      int64     `gorm:"not null;default:0" json:"ai_count"`
+	HumanCount   int64     `gorm:"not null;default:0" json:"human_count"`
+	MessageCount int64     `gorm:"not null;default:0" json:"message_count"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 

@@ -31,7 +31,7 @@ func TestDetector_Detect_Empty(t *testing.T) {
 // 真实 AI 输出常重复相同句式
 func TestDetector_Detect_TooRepetitive(t *testing.T) {
 	d := NewDetector()
-	// 高度重复的文本（模拟低 entropy AI 输出）
+
 	text := strings.Repeat("hello ", 100)
 	r := d.Detect(text)
 	if r.Quality != "too_ai" {
@@ -56,11 +56,11 @@ func TestDetector_Detect_Natural(t *testing.T) {
 	d := NewDetector()
 	text := "你好 我想咨询一下 订单的问题 我上周买的 那个商品 物流一直显示在途 不知道 什么时候能到"
 	r := d.Detect(text)
-	// 自然文本不应被标记为 too_natural（不是乱码）
+
 	if r.Quality == "too_natural" {
 		t.Errorf("natural text should not be too_natural, got %s (ppl=%v)", r.Quality, r.Perplexity)
 	}
-	// Perplexity 应在合理范围（不太高）
+
 	if r.Perplexity > 500 {
 		t.Errorf("perplexity too high for natural text: %v", r.Perplexity)
 	}
@@ -79,10 +79,10 @@ func TestDetector_Detect_English(t *testing.T) {
 // TestDetector_Detect_AIFormatted 验证 AI 格式典型 → too_ai
 func TestDetector_Detect_AIFormatted(t *testing.T) {
 	d := NewDetector()
-	// AI 典型格式：列表 + 编号 + 短句
+
 	text := "1. Introduction\n2. Methods\n3. Results\n4. Conclusion\nThank you for your attention."
 	r := d.Detect(text)
-	// 这种格式 entropy 偏低
+
 	if r.Perplexity > 100 {
 		t.Logf("AI format ppl: %v", r.Perplexity)
 	}
@@ -112,7 +112,7 @@ func TestDetector_SetThresholds(t *testing.T) {
 // TestDetector_SetThresholds_NilSafe 验证 nil
 func TestDetector_SetThresholds_NilSafe(t *testing.T) {
 	var d *Detector
-	d.SetThresholds(10, 500) // 不应 panic
+	d.SetThresholds(10, 500)
 }
 
 // TestDetectionResult_Score 验证 score getter
@@ -131,7 +131,7 @@ func TestDetectionResult_IsAIGenerated(t *testing.T) {
 	}{
 		{0.0, false},
 		{0.4, false},
-		{0.5, false}, // 边界：不算（严格 > 0.5）
+		{0.5, false},
 		{0.51, true},
 		{1.0, true},
 	}
@@ -160,11 +160,10 @@ func TestDetectionResult_NilSafe(t *testing.T) {
 func TestDetector_Detect_Monotonicity(t *testing.T) {
 	d := NewDetector()
 
-	// 1 唯一 token
 	r1 := d.Detect("hello")
-	// 2 唯一 token
+
 	r2 := d.Detect("hello world")
-	// 5 唯一 token
+
 	r3 := d.Detect("hello world foo bar baz")
 
 	if r1.Perplexity >= r2.Perplexity {
@@ -182,7 +181,7 @@ func TestDetector_Detect_EntropyBounds(t *testing.T) {
 	if r.CharEntropy < 0 {
 		t.Errorf("entropy should be non-negative, got %v", r.CharEntropy)
 	}
-	// 2 unique tokens → max entropy = 1.0
+
 	if r.CharEntropy > 2.0 {
 		t.Errorf("entropy for 2 tokens should be <= 1, got %v", r.CharEntropy)
 	}
@@ -191,7 +190,7 @@ func TestDetector_Detect_EntropyBounds(t *testing.T) {
 // TestDetector_Detect_HighEntropy 验证高多样性
 func TestDetector_Detect_HighEntropy(t *testing.T) {
 	d := NewDetector()
-	// 高度多样化（100 unique tokens）
+
 	uniqueTokens := []string{}
 	for i := 0; i < 100; i++ {
 		uniqueTokens = append(uniqueTokens, "word"+string(rune('A'+i%26))+string(rune('A'+(i/26)%26)))

@@ -19,7 +19,6 @@ type DialogueMemoryRepository interface {
 	ListMessageHubByConversation(ctx context.Context, conversationID string, limit int) ([]model.MessageHub, error)
 }
 
-// dialogueMemoryRepository 实现 DialogueMemoryRepository
 type dialogueMemoryRepository struct {
 	db *gorm.DB
 }
@@ -34,8 +33,6 @@ func NewDialogueMemoryRepositoryWithDB(db *gorm.DB) DialogueMemoryRepository {
 	return &dialogueMemoryRepository{db: db}
 }
 
-// GetDialogueMemoryBySession 按 session_id 取对话记忆
-// 未找到时返回 (nil, gorm.ErrRecordNotFound)，由 service 层判断是否创建
 func (r *dialogueMemoryRepository) GetDialogueMemoryBySession(ctx context.Context, sessionID string) (*model.DialogueMemory, error) {
 	var mem model.DialogueMemory
 	err := r.db.WithContext(ctx).Where("session_id = ?", sessionID).First(&mem).Error
@@ -45,18 +42,14 @@ func (r *dialogueMemoryRepository) GetDialogueMemoryBySession(ctx context.Contex
 	return &mem, nil
 }
 
-// CreateDialogueMemory 创建对话记忆
 func (r *dialogueMemoryRepository) CreateDialogueMemory(ctx context.Context, mem *model.DialogueMemory) error {
 	return r.db.WithContext(ctx).Create(mem).Error
 }
 
-// SaveDialogueMemory 保存对话记忆（全字段更新）
 func (r *dialogueMemoryRepository) SaveDialogueMemory(ctx context.Context, mem *model.DialogueMemory) error {
 	return r.db.WithContext(ctx).Save(mem).Error
 }
 
-// ListDialogueMemoriesByCustomer 列出客户对话记忆（按 updated_at DESC）
-// 返回 (列表, 总数, 错误)
 func (r *dialogueMemoryRepository) ListDialogueMemoriesByCustomer(ctx context.Context, customerID string, limit int) ([]*model.DialogueMemory, int64, error) {
 	query := r.db.WithContext(ctx).Model(&model.DialogueMemory{}).Where("customer_id = ?", customerID)
 	var total int64
@@ -70,8 +63,6 @@ func (r *dialogueMemoryRepository) ListDialogueMemoriesByCustomer(ctx context.Co
 	return mems, total, nil
 }
 
-// ListMessageHubByConversation 按 conversation_id 取最近 N 条消息（按 sent_at DESC）
-// service 层将其反转为正序后作为短期记忆返回
 func (r *dialogueMemoryRepository) ListMessageHubByConversation(ctx context.Context, conversationID string, limit int) ([]model.MessageHub, error) {
 	var records []model.MessageHub
 	err := r.db.WithContext(ctx).Where("conversation_id = ?", conversationID).

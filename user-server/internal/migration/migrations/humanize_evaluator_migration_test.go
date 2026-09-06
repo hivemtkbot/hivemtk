@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"testing"
@@ -10,7 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupHumanizeMigrationTestDB 创建迁移测试 DB（空库）
 func setupHumanizeMigrationTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	return testutil.NewTestDB(t)
@@ -238,7 +236,6 @@ func TestHumanizeMigration_InsertChampionPhrase(t *testing.T) {
 		t.Fatalf("Up() failed: %v", err)
 	}
 
-	// 先插入 baseline 获取 ID
 	var baselineID int64
 	if err := db.Exec(`
 		INSERT INTO champion_baselines
@@ -365,7 +362,6 @@ func TestHumanizeMigration_UpThenDownThenUp(t *testing.T) {
 		t.Fatalf("second Up() after Down() failed: %v", err)
 	}
 
-	// 验证表存在
 	var exists bool
 	_ = db.Raw(`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'humanize_scores')`).Scan(&exists)
 	if !exists {
@@ -399,7 +395,6 @@ func TestHumanizeMigration_ReasonJSON(t *testing.T) {
 		t.Errorf("插入含 reason_json 的 humanize_scores 失败: %v", err)
 	}
 
-	// 验证 reason_json 可被解析
 	var reason string
 	if err := db.Raw(`SELECT reason_json->>'naturalness' FROM humanize_scores WHERE score_id = 'hs-json-1'`).Scan(&reason).Error; err != nil {
 		t.Errorf("查询 reason_json 失败: %v", err)
@@ -446,4 +441,3 @@ func TestHumanizeMigration_DecimalPrecision(t *testing.T) {
 		t.Errorf("total_score=%v want 0.853", total)
 	}
 }
-

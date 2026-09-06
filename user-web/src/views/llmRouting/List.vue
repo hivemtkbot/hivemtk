@@ -18,7 +18,7 @@
     </el-card>
 
     <el-tabs v-model="activeTab" class="content-tabs">
-      <!-- Tab 1: 模型列表（字段映射 ProviderConfig） -->
+      
       <el-tab-pane label="模型列表" name="models">
         <el-table :data="models" v-loading="loading.models" stripe>
           <template #empty>
@@ -74,7 +74,7 @@
         </el-table>
       </el-tab-pane>
 
-      <!-- Tab 2: 场景路由（字段映射 ScenarioRoute + 灰度 Weight） -->
+      
       <el-tab-pane label="场景路由配置" name="routing">
         <el-card>
           <template #header>
@@ -129,7 +129,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- Tab 3: Fallback 策略（用场景路由的 fallback 列表呈现） -->
+      
       <el-tab-pane label="Fallback 策略" name="fallback">
         <el-card v-loading="loading.fallback">
           <template #header><span>当前生效的 Fallback 降级链（按场景）</span></template>
@@ -158,7 +158,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- Tab 4: 成本统计（按 scenario+provider 聚合） -->
+      
       <el-tab-pane label="成本统计" name="cost">
         <el-row :gutter="20" class="stat-row">
           <el-col :span="6">
@@ -230,7 +230,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- Tab 5: 路由审计（v3.6.0 补） -->
+      
       <el-tab-pane label="路由审计" name="audit">
         <el-card>
           <template #header>
@@ -267,7 +267,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- Tab 6: 分类统计与出域审计（v3.7.0 补：本地/云端分类 + 健康度 + 出域告警） -->
+      
       <el-tab-pane label="分类统计与出域审计" name="modeltype">
         <el-row :gutter="20" class="stat-row">
           <el-col :span="12">
@@ -386,7 +386,7 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- 模型新增/编辑 dialog（字段映射 ProviderConfig） -->
+    
     <el-dialog v-model="modelDialogVisible" :title="modelDialogTitle" width="640px">
       <el-form :model="modelForm" :rules="modelFormRules" ref="modelFormRef" label-width="100px">
         <el-form-item label="Provider 名称" prop="name">
@@ -425,7 +425,7 @@
       </template>
     </el-dialog>
 
-    <!-- 场景路由 dialog（字段映射 ScenarioRoute） -->
+    
     <el-dialog v-model="routingDialogVisible" :title="routingDialogTitle" width="600px">
       <el-form :model="routingForm" :rules="routingFormRules" ref="routingFormRef" label-width="120px">
         <el-form-item label="场景" prop="scenario">
@@ -471,26 +471,23 @@ import { LlmRoutingApi } from '@/api/llmRouting.js'
 const activeTab = ref('models')
 const loading = reactive({ models: false, routing: false, fallback: false, cost: false, audit: false, modelType: false, health: false, egress: false })
 
-// 数据
-const models = ref([])
+const models = ref([]);
 const sceneRouting = ref([])
 const costStats = ref({})
 const auditList = ref([])
 const costWindow = ref('month')
 
-// 分类统计 / 健康度 / 出域审计
-const modelTypeWindow = ref('month')
+const modelTypeWindow = ref('month');
 const modelTypeStats = ref({ by_provider_type: [], self_sufficiency: 0, total_calls: 0 })
 const llmHealth = ref({ status: 'unknown', providers: [], healthy_providers: 0, total_providers: 0 })
 const egressAlerts = ref([])
 
-// Fallback 视图：取 sceneRouting 的 provider+fallbacks
 const fallbackRows = computed(() => sceneRouting.value.map(r => ({
   scenario: r.scenario,
   provider: r.provider,
   fallbacks: r.fallbacks || [],
   version: r.version,
-})))
+})));
 
 const scenarioPresets = [
   'intent_recognize', 'sop_reply', 'objection', 'friendly_chat',
@@ -503,8 +500,7 @@ const canaryColors = [
   { color: '#EF4444', percentage: 100 },
 ]
 
-// 模型 dialog
-const modelDialogVisible = ref(false)
+const modelDialogVisible = ref(false);
 const modelDialogTitle = ref('新增模型')
 const modelFormRef = ref()
 const emptyModelForm = () => ({
@@ -519,8 +515,7 @@ const modelFormRules = {
   base_url: [{ required: true, message: '请输入接入地址', trigger: 'blur' }],
 }
 
-// 路由 dialog
-const routingDialogVisible = ref(false)
+const routingDialogVisible = ref(false);
 const routingDialogTitle = ref('新增映射')
 const routingFormRef = ref()
 const emptyRoutingForm = () => ({
@@ -538,10 +533,6 @@ const routingFormRules = {
   provider: [{ required: true, message: '请选择 Provider', trigger: 'change' }],
 }
 
-// ============================================================================
-// 加载
-// ============================================================================
-
 const loadModels = async () => {
   loading.models = true
   try {
@@ -552,7 +543,7 @@ const loadModels = async () => {
   } finally {
     loading.models = false
   }
-}
+};
 
 const loadRouting = async () => {
   loading.routing = true
@@ -569,13 +560,10 @@ const loadRouting = async () => {
 const loadFallback = async () => {
   loading.fallback = true
   try {
-    // 现在 fallback 直接从 sceneRouting 推导（不另起 API）
     if (sceneRouting.value.length === 0) {
       await loadRouting()
     }
-  } catch (e) {
-    // ignore
-  } finally {
+  } catch (e) {} finally {
     loading.fallback = false
   }
 }
@@ -604,10 +592,6 @@ const loadAudit = async () => {
   }
 }
 
-// ============================================================================
-// v3.7.0：分类统计 / 健康度 / 出域审计 加载
-// ============================================================================
-
 const loadModelType = async () => {
   loading.modelType = true
   try {
@@ -618,7 +602,7 @@ const loadModelType = async () => {
   } finally {
     loading.modelType = false
   }
-}
+};
 
 const loadHealth = async () => {
   loading.health = true
@@ -644,11 +628,10 @@ const loadEgressAlerts = async () => {
   }
 }
 
-// 从 by_provider_type 数组中取指定 model_type 的行
 const findModelTypeRow = (modelType) => {
   const arr = modelTypeStats.value.by_provider_type || []
   return arr.find(r => r.model_type === modelType) || {}
-}
+};
 
 const getModelTypeCount = (modelType) => {
   return Number(findModelTypeRow(modelType).call_count || 0)
@@ -659,8 +642,7 @@ const getModelTypeCost = (modelType) => {
 }
 
 const getSelfSufficiency = () => {
-  // 服务端可能返回 0~1 或 0~100，兼容两种
-  const raw = Number(modelTypeStats.value.self_sufficiency || 0)
+  const raw = Number(modelTypeStats.value.self_sufficiency || 0);
   return raw <= 1 ? raw * 100 : raw
 }
 
@@ -686,10 +668,6 @@ const refreshAll = () => {
   loadEgressAlerts()
 }
 
-// ============================================================================
-// 模型 CRUD
-// ============================================================================
-
 const showModelDialog = (row) => {
   if (row) {
     modelForm.value = {
@@ -711,7 +689,7 @@ const showModelDialog = (row) => {
     modelDialogTitle.value = '新增模型'
   }
   modelDialogVisible.value = true
-}
+};
 
 const submitModel = async () => {
   if (!modelFormRef.value) return
@@ -721,8 +699,7 @@ const submitModel = async () => {
       const payload = { ...modelForm.value }
       delete payload._isEdit
       if (modelForm.value._isEdit) {
-        // 更新走 :name 路径
-        await LlmRoutingApi.updateModel(modelForm.value.name, payload)
+        await LlmRoutingApi.updateModel(modelForm.value.name, payload);
         ElMessage.success('更新成功')
       } else {
         await LlmRoutingApi.createModel(payload)
@@ -750,8 +727,7 @@ const deleteModel = async (row) => {
 const toggleStatus = async (row) => {
   const next = !row.enabled
   try {
-    // 只传 enabled 字段，避免误清空 api_key（后端 UpdateModel 会用 info.APIKey 覆盖）
-    await LlmRoutingApi.updateModel(row.name, { enabled: next })
+    await LlmRoutingApi.updateModel(row.name, { enabled: next });
     ElMessage.success('状态已更新')
     loadModels()
   } catch (e) {
@@ -772,16 +748,12 @@ const testModel = async (row) => {
   }
 }
 
-// ============================================================================
-// 场景路由 CRUD
-// ============================================================================
-
 const addRoutingRow = () => {
   routingForm.value = emptyRoutingForm()
   routingEditIndex.value = -1
   routingDialogTitle.value = '新增映射'
   routingDialogVisible.value = true
-}
+};
 
 const editRoutingRow = (row, index) => {
   routingForm.value = {
@@ -803,8 +775,7 @@ const removeRoutingRow = async (index) => {
     const removed = sceneRouting.value[index]
     const next = sceneRouting.value.filter((_, i) => i !== index)
     sceneRouting.value = next
-    // 单 route 更新走 batch 接口
-    await LlmRoutingApi.saveSceneRouting(next)
+    await LlmRoutingApi.saveSceneRouting(next);
     ElMessage.success(`已删除 ${removed?.scenario || ''}`)
   } catch (e) {
     if (e !== 'cancel') ElMessage.error('删除失败')
@@ -832,14 +803,10 @@ const submitRouting = async () => {
   })
 }
 
-// ============================================================================
-// 辅助
-// ============================================================================
-
 const vendorLabel = (v) => ({
   local: '本地', deepseek: 'DeepSeek', qwen: '通义千问',
   openai: 'OpenAI', zhipu: '智谱', moonshot: '月之暗面', other: '其它',
-}[v] || v || '-')
+}[v] || v || '-');
 
 const formatNumber = (n) => {
   if (!n) return 0
@@ -853,8 +820,7 @@ const formatTime = (s) => {
 
 const calcRatio = (cost) => {
   if (!cost || !costStats.value.monthly_cost) return 0
-  // 按成本占比（柱状条用）
-  const total = costStats.value.monthly_cost
+  const total = costStats.value.monthly_cost;
   if (total <= 0) return 0
   return Math.min(100, Math.round((cost / total) * 100))
 }

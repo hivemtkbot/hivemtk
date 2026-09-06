@@ -1,6 +1,6 @@
 <template>
   <div class="chat-input">
-    <!-- 附件预览（已选择但未发送） -->
+    
     <div v-if="pendingAttachment" class="attachment-preview">
       <img v-if="pendingAttachment.mediaType === 'image'" :src="pendingAttachment.preview" class="preview-img" />
       <div v-else class="preview-file">
@@ -85,8 +85,7 @@ const uploadProgress = ref(0)
 
 const acceptString = '.jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.mp3,.wav,.mp4,.webm'
 
-// 附件：image / file / audio / video
-const pendingAttachment = ref(null)
+const pendingAttachment = ref(null);
 
 const canSend = computed(() => (text.value.trim().length > 0 || pendingAttachment.value) && !props.sending && !uploading.value)
 
@@ -136,15 +135,13 @@ const onFileSelected = async (e) => {
   const file = e.target.files?.[0]
   if (!file) return
 
-  // 前端预校验大小（20MB）
   if (file.size > 20 * 1024 * 1024) {
     ElMessage.warning(i18n.global.t('文件不能超过 20MB'))
     e.target.value = ''
     return
   }
 
-  // 1. 准备预览
-  let preview = ''
+  let preview = '';
   if (file.type.startsWith('image/')) {
     preview = await new Promise((resolve) => {
       const reader = new FileReader()
@@ -162,8 +159,7 @@ const onFileSelected = async (e) => {
     preview
   }
 
-  // 2. 立即上传到七牛（直传，不阻塞输入）
-  await uploadAttachment()
+  await uploadAttachment();
 }
 
 const uploadAttachment = async () => {
@@ -173,12 +169,10 @@ const uploadAttachment = async () => {
   uploadProgress.value = 0
 
   try {
-    // 1) 拿 token（走 API 层，避免组件内直连）
-    const tokenData = await getUploadToken({ file_type: att.mediaType, ext: att.ext, size: att.size })
+    const tokenData = await getUploadToken({ file_type: att.mediaType, ext: att.ext, size: att.size });
     const { upload_url, token, key, public_url } = tokenData
 
-    // 2) PUT 到七牛
-    const form = new FormData()
+    const form = new FormData();
     form.append('file', att.file)
     form.append('token', token)
     form.append('key', key)
@@ -194,12 +188,11 @@ const uploadAttachment = async () => {
       throw new Error('七牛返回 ' + r.status)
     }
 
-    // 3) 标记上传完成，把 CDN URL 存到 attachment
     pendingAttachment.value = {
       ...att,
       url: public_url.startsWith('http') ? public_url : `https://${public_url}`,
       key
-    }
+    };
     uploadProgress.value = 100
     emit('upload', pendingAttachment.value)
   } catch (err) {

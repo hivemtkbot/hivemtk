@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupCommunityServiceTestDB 设置社区服务测试数据库
 func setupCommunityServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.CommunityGroup{},
@@ -188,7 +187,6 @@ func TestCommunityService_CreateGroup(t *testing.T) {
 		t.Errorf("Expected member count 0, got %d", group.MemberCount)
 	}
 
-	// 验证数据库中存在
 	var count int64
 	database.Model(&model.CommunityGroup{}).Where("name = ?", req.Name).Count(&count)
 	if count != 1 {
@@ -264,7 +262,6 @@ func TestCommunityService_UpdateGroup(t *testing.T) {
 		t.Fatalf("UpdateGroup failed: %v", err)
 	}
 
-	// 验证更新
 	var updatedGroup model.CommunityGroup
 	database.Where("id = ?", group.ID).First(&updatedGroup)
 	if updatedGroup.Name != "新名称" {
@@ -301,7 +298,6 @@ func TestCommunityService_UpdateGroup_Partial(t *testing.T) {
 		t.Fatalf("UpdateGroup failed: %v", err)
 	}
 
-	// 验证更新（只更新名称）
 	var updatedGroup model.CommunityGroup
 	database.Where("id = ?", group.ID).First(&updatedGroup)
 	if updatedGroup.Name != "新名称" {
@@ -351,7 +347,6 @@ func TestCommunityService_DeleteGroup(t *testing.T) {
 		t.Fatalf("DeleteGroup failed: %v", err)
 	}
 
-	// 验证已删除
 	var count int64
 	database.Model(&model.CommunityGroup{}).Where("id = ?", group.ID).Count(&count)
 	if count != 0 {
@@ -407,7 +402,6 @@ func TestCommunityService_DeleteGroup_WithMembers(t *testing.T) {
 		t.Fatalf("DeleteGroup failed: %v", err)
 	}
 
-	// 验证群组和成员都已删除
 	var groupCount int64
 	database.Model(&model.CommunityGroup{}).Where("id = ?", group.ID).Count(&groupCount)
 	if groupCount != 0 {
@@ -591,7 +585,6 @@ func TestCommunityService_AddMember(t *testing.T) {
 		t.Errorf("Expected status 'active', got %s", member.Status)
 	}
 
-	// 验证群组成员数量已更新
 	var updatedGroup model.CommunityGroup
 	database.Where("id = ?", group.ID).First(&updatedGroup)
 	if updatedGroup.MemberCount != 1 {
@@ -669,7 +662,6 @@ func TestCommunityService_UpdateMember(t *testing.T) {
 		t.Fatalf("UpdateMember failed: %v", err)
 	}
 
-	// 验证更新
 	var updatedMember model.CommunityMember
 	database.Where("id = ?", member.ID).First(&updatedMember)
 	if updatedMember.Name != "新名称" {
@@ -714,7 +706,6 @@ func TestCommunityService_UpdateMember_Partial(t *testing.T) {
 		t.Fatalf("UpdateMember failed: %v", err)
 	}
 
-	// 验证更新（只更新名称）
 	var updatedMember model.CommunityMember
 	database.Where("id = ?", member.ID).First(&updatedMember)
 	if updatedMember.Name != "新名称" {
@@ -781,14 +772,12 @@ func TestCommunityService_RemoveMember(t *testing.T) {
 		t.Fatalf("RemoveMember failed: %v", err)
 	}
 
-	// 验证成员已删除
 	var count int64
 	database.Model(&model.CommunityMember{}).Where("id = ?", member.ID).Count(&count)
 	if count != 0 {
 		t.Errorf("Expected member to be deleted, got count %d", count)
 	}
 
-	// 验证群组成员数量已更新
 	var updatedGroup model.CommunityGroup
 	database.Where("id = ?", group.ID).First(&updatedGroup)
 	if updatedGroup.MemberCount != 0 {

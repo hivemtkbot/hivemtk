@@ -54,17 +54,16 @@ type LLMRoutingLog struct {
 	Source           string  `gorm:"type:varchar(32);column:source;not null;default:'dispatch'" json:"source"`
 	ScenarioProvider string  `gorm:"type:varchar(160);column:scenario_provider;not null;default:''" json:"scenario_provider"`
 
-	InternalLang     string  `gorm:"type:varchar(8);column:internal_lang" json:"internal_lang"`        
-	TargetLang       string  `gorm:"type:varchar(8);column:target_lang" json:"target_lang"`            
-	CrossLingual     bool    `gorm:"column:cross_lingual;default:false" json:"cross_lingual"`          
-	GlossaryVersion  string  `gorm:"type:varchar(32);column:glossary_version" json:"glossary_version"` 
-	CacheHit         bool    `gorm:"column:cache_hit;default:false" json:"cache_hit"`                  
-	QualityScore     float64 `gorm:"type:decimal(4,3);column:quality_score" json:"quality_score"`      
-	ValidationIssues JSONMap `gorm:"type:jsonb;column:validation_issues" json:"validation_issues"`     
+	InternalLang     string  `gorm:"type:varchar(8);column:internal_lang" json:"internal_lang"`
+	TargetLang       string  `gorm:"type:varchar(8);column:target_lang" json:"target_lang"`
+	CrossLingual     bool    `gorm:"column:cross_lingual;default:false" json:"cross_lingual"`
+	GlossaryVersion  string  `gorm:"type:varchar(32);column:glossary_version" json:"glossary_version"`
+	CacheHit         bool    `gorm:"column:cache_hit;default:false" json:"cache_hit"`
+	QualityScore     float64 `gorm:"type:decimal(4,3);column:quality_score" json:"quality_score"`
+	ValidationIssues JSONMap `gorm:"type:jsonb;column:validation_issues" json:"validation_issues"`
 
 	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 }
 
 // TableName 表名
 func (LLMRoutingLog) TableName() string { return "llm_routing_logs" }
-

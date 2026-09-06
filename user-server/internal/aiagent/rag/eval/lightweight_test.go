@@ -189,4 +189,4 @@ func mustWrite(t *testing.T, path, content string) {
 	}
 }
 
-var _ = json.Marshal // 保持 import 语义清晰（实际通过 LoadGoldenSet 使用 json 包）
+var _ = json.Marshal

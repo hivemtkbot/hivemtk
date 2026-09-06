@@ -67,7 +67,6 @@ import { ElMessage } from 'element-plus'
 
 const searchText = ref('')
 
-// 邮箱服务商数据
 const emailProviders = ref([
   {
     id: 1,
@@ -213,9 +212,8 @@ const emailProviders = ref([
     authNotes: ['使用邮箱完整地址作为用户名', '支持标准SMTP认证'],
     registerUrl: 'https://www.gmx.com'
   }
-])
+]);
 
-// 过滤邮箱服务商
 const filteredProviders = computed(() => {
   if (!searchText.value) return emailProviders.value
   const query = searchText.value.toLowerCase()
@@ -225,18 +223,16 @@ const filteredProviders = computed(() => {
       provider.vendor.toLowerCase().includes(query) &&
       provider.smtp.toLowerCase().includes(query)
   )
-})
+});
 
-// 获取端口类型样式
 const getPortType = type => {
   const types = { ssl: 'success', tls: 'warning', plain: 'info' }
   return types[type] || ''
-}
+};
 
-// 复制配置到剪贴板
 const goRegister = provider => {    
   window.open(provider.registerUrl, '_blank')
-}
+};
 </script>
 
 <style scoped>

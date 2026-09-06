@@ -326,4 +326,3 @@ func TestOperationLogController_NewOperationLogController(t *testing.T) {
 		t.Error("Expected controller instance, got nil")
 	}
 }
-

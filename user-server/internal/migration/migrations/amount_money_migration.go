@@ -1,6 +1,5 @@
 package migrations
 
-
 import (
 	"context"
 	"fmt"
@@ -72,14 +71,10 @@ func (m *AmountMoneyMigration) Up(ctx context.Context) error {
 	return nil
 }
 
-// migrateMarketTemplatePrice 迁移 market_templates.price 字段
-// decimal(10,2) → bigint，数据 * 100 转换为分
 func (m *AmountMoneyMigration) migrateMarketTemplatePrice(ctx context.Context) error {
 	return m.migrateDecimalToBigint(ctx, "market_templates", "price")
 }
 
-// migrateRFMRuleMAmounts 迁移 rfm_rules 表 m_amount_1 ~ m_amount_5 五个字段
-// decimal(10,2) → bigint，数据 * 100 转换为分
 func (m *AmountMoneyMigration) migrateRFMRuleMAmounts(ctx context.Context) error {
 	columns := []string{"m_amount_1", "m_amount_2", "m_amount_3", "m_amount_4", "m_amount_5"}
 	for _, col := range columns {
@@ -90,8 +85,6 @@ func (m *AmountMoneyMigration) migrateRFMRuleMAmounts(ctx context.Context) error
 	return nil
 }
 
-// migrateUserRFMAmounts 迁移 user_rfms 表 total_amount & avg_amount 两个字段
-// decimal(10,2) → bigint，数据 * 100 转换为分
 func (m *AmountMoneyMigration) migrateUserRFMAmounts(ctx context.Context) error {
 	columns := []string{"total_amount", "avg_amount"}
 	for _, col := range columns {
@@ -102,8 +95,6 @@ func (m *AmountMoneyMigration) migrateUserRFMAmounts(ctx context.Context) error 
 	return nil
 }
 
-// migrateSalesPersonaAmounts 迁移 sales_personas 表 avg_deal_amount & total_revenue 两个字段
-// decimal(12,2)/decimal(14,2) → bigint，数据 * 100 转换为分
 func (m *AmountMoneyMigration) migrateSalesPersonaAmounts(ctx context.Context) error {
 	columns := []string{"avg_deal_amount", "total_revenue"}
 	for _, col := range columns {
@@ -114,8 +105,6 @@ func (m *AmountMoneyMigration) migrateSalesPersonaAmounts(ctx context.Context) e
 	return nil
 }
 
-// migrateExternalOrderAmounts 迁移 external_orders 表 total_amount / pay_amount / discount_amount 三个字段
-// decimal(10,2) → bigint，数据 * 100 转换为分
 func (m *AmountMoneyMigration) migrateExternalOrderAmounts(ctx context.Context) error {
 	columns := []string{"total_amount", "pay_amount", "discount_amount"}
 	for _, col := range columns {
@@ -126,8 +115,6 @@ func (m *AmountMoneyMigration) migrateExternalOrderAmounts(ctx context.Context) 
 	return nil
 }
 
-// migrateExternalProductAmounts 迁移 external_products 表 price & original_price 两个字段
-// decimal(10,2) → bigint，数据 * 100 转换为分
 func (m *AmountMoneyMigration) migrateExternalProductAmounts(ctx context.Context) error {
 	columns := []string{"price", "original_price"}
 	for _, col := range columns {
@@ -138,16 +125,8 @@ func (m *AmountMoneyMigration) migrateExternalProductAmounts(ctx context.Context
 	return nil
 }
 
-// migrateDecimalToBigint 通用迁移：将指定表的指定列从 decimal/numeric → bigint（数据 * 100）
-//
-// 流程：
-//  1. 查询当前列类型（幂等：若已是 bigint 则跳过）
-//  2. 添加临时列 _new bigint
-//  3. 数据迁移：decimal * 100 → bigint（四舍五入）
-//  4. 删除旧列
-//  5. 重命名新列为原列名
 func (m *AmountMoneyMigration) migrateDecimalToBigint(ctx context.Context, table, column string) error {
-	// 检查当前列类型（幂等：若已是 bigint 则跳过）
+
 	var dataType string
 	err := m.db.WithContext(ctx).
 		Raw(`SELECT data_type FROM information_schema.columns
@@ -181,6 +160,4 @@ func (m *AmountMoneyMigration) Down(ctx context.Context) error {
 	return nil
 }
 
-// compile-time 接口断言
 var _ migration.Migration = (*AmountMoneyMigration)(nil)
-

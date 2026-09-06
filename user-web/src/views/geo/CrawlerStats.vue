@@ -1,6 +1,6 @@
 <template>
   <div class="geo-page p-4">
-    <!-- 核心大盘 -->
+    
     <el-row :gutter="12" class="mb-4">
       <el-col :span="6">
         <el-card shadow="hover" class="coverage-card">
@@ -31,7 +31,7 @@
       </el-col>
     </el-row>
 
-    <!-- HiveMTK vs 竞品 对比排名（业务核心） -->
+    
     <el-card class="mb-4">
       <template #header>
         <div class="flex items-center justify-between">
@@ -87,7 +87,7 @@
       </template>
     </el-card>
 
-    <!-- 关键词热力 -->
+    
     <el-card class="mb-4">
       <template #header>
         <div class="flex items-center justify-between">
@@ -115,7 +115,7 @@
       </el-table>
     </el-card>
 
-    <!-- 原始域名×引擎明细（保留） -->
+    
     <el-card>
       <template #header>
         <div class="flex items-center justify-between">

@@ -8,7 +8,6 @@ import (
 	"hivemtk-user/internal/model"
 )
 
-// reachSeedPipeline 为调度器/级联测试创建一个 sms 触达 Pipeline
 func reachSeedPipeline(t *testing.T, svc *ReachPipelineService) uint {
 	t.Helper()
 	pipe, err := svc.CreatePipeline(context.Background(), &CreatePipelineRequest{

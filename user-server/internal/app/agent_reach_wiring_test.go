@@ -30,4 +30,3 @@ func TestRegisterAgentReachTools_Wiring(t *testing.T) {
 	}
 	t.Logf("✅ 全局注册中心共注册 %d 个工具（含网页客服 web 渠道）", len(tools))
 }
-

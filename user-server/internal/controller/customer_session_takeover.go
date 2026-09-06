@@ -114,4 +114,3 @@ func (c *CustomerSessionController) SwitchHandler(ctx *gin.Context) {
 		"handler_type": req.HandlerType,
 	}, "切换成功")
 }
-

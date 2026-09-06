@@ -8,20 +8,20 @@ import (
 type AIGenerationType string
 
 const (
-	AIGenerationTypeCopywriting AIGenerationType = "copywriting" 
-	AIGenerationTypeTitle       AIGenerationType = "title"       
-	AIGenerationTypeSummary     AIGenerationType = "summary"     
-	AIGenerationTypeReply       AIGenerationType = "reply"       
-	AIGenerationTypeTranslation AIGenerationType = "translation" 
-	AIGenerationTypeRewrite     AIGenerationType = "rewrite"     
-	AIGenerationTypeExpand      AIGenerationType = "expand"      
-	AIGenerationTypePolish      AIGenerationType = "polish"      
-	AIGenerationTypeKeywords    AIGenerationType = "keywords"    
-	AIGenerationTypeDescription AIGenerationType = "description" 
-	AIGenerationTypeAdCopy      AIGenerationType = "ad_copy"     
-	AIGenerationTypeSocialPost  AIGenerationType = "social_post" 
-	AIGenerationTypeEmail       AIGenerationType = "email"       
-	AIGenerationTypeScript      AIGenerationType = "script"      
+	AIGenerationTypeCopywriting AIGenerationType = "copywriting"
+	AIGenerationTypeTitle       AIGenerationType = "title"
+	AIGenerationTypeSummary     AIGenerationType = "summary"
+	AIGenerationTypeReply       AIGenerationType = "reply"
+	AIGenerationTypeTranslation AIGenerationType = "translation"
+	AIGenerationTypeRewrite     AIGenerationType = "rewrite"
+	AIGenerationTypeExpand      AIGenerationType = "expand"
+	AIGenerationTypePolish      AIGenerationType = "polish"
+	AIGenerationTypeKeywords    AIGenerationType = "keywords"
+	AIGenerationTypeDescription AIGenerationType = "description"
+	AIGenerationTypeAdCopy      AIGenerationType = "ad_copy"
+	AIGenerationTypeSocialPost  AIGenerationType = "social_post"
+	AIGenerationTypeEmail       AIGenerationType = "email"
+	AIGenerationTypeScript      AIGenerationType = "script"
 )
 
 // AIGenerationRecord AI生成记录
@@ -36,7 +36,7 @@ type AIGenerationRecord struct {
 	TokensUsed int              `json:"tokens_used"`
 	IsSaved    bool             `gorm:"default:false" json:"is_saved"`
 	IsFavorite bool             `gorm:"default:false" json:"is_favorite"`
-	Rating     int              `json:"rating"` 
+	Rating     int              `json:"rating"`
 	CreatedAt  time.Time        `gorm:"autoCreateTime;index" json:"created_at"`
 }
 
@@ -51,9 +51,9 @@ type PromptTemplate struct {
 	Name        string           `gorm:"type:varchar(100);not null" json:"name"`
 	Type        AIGenerationType `gorm:"type:varchar(20);not null" json:"type"`
 	Template    string           `gorm:"type:text;not null" json:"template"`
-	Variables   string           `gorm:"type:text" json:"variables"` 
+	Variables   string           `gorm:"type:text" json:"variables"`
 	Description string           `gorm:"type:varchar(255)" json:"description"`
-	Example     string           `gorm:"type:text" json:"example"` 
+	Example     string           `gorm:"type:text" json:"example"`
 	IsSystem    bool             `gorm:"default:false" json:"is_system"`
 	Status      int              `gorm:"default:1" json:"status"`
 	UseCount    int              `gorm:"default:0" json:"use_count"`
@@ -133,4 +133,3 @@ var SystemPromptTemplates = []PromptTemplate{
 		IsSystem:    true,
 	},
 }
-

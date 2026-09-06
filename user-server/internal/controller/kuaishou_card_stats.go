@@ -64,4 +64,3 @@ func (c *KuaishouCardStatsController) GetOverallStats(ctx *gin.Context) {
 
 	response.Success(ctx, stats, "获取统计数据成功")
 }
-

@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupWeComTestDB 设置企业微信测试数据库
 func setupWeComTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.WeComAccount{},
@@ -22,7 +21,6 @@ func setupWeComTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupWeComRepositories 创建测试用的仓库实例
 func setupWeComRepositories(t *testing.T) (*WeComAccountRepository, *WeComCustomerRepository, *WeComGroupRepository) {
 	setupWeComTestDB(t)
 

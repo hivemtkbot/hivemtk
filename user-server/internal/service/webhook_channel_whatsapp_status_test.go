@@ -78,12 +78,11 @@ func TestDispatchWhatsAppStatuses_MissAndPassthrough(t *testing.T) {
 	svc := &WebhookService{db: db}
 	ctx := context.Background()
 
-	// 未命中：无报错、无副作用
 	handled, err := svc.dispatchWhatsAppStatuses(ctx, "wa-acc-t3b", []byte(`{"entry":[{"changes":[{"value":{"statuses":[{"id":"wamid.UNKNOWN9","status":"delivered"}]}}]}]}`))
 	if err != nil || !handled {
 		t.Fatalf("unknown wamid 应静默处理 handled=%v err=%v", handled, err)
 	}
-	// 普通消息推送：无 statuses → handled=false 落回主链路
+
 	handled, err = svc.dispatchWhatsAppStatuses(ctx, "wa-acc-t3b", []byte(`{"entry":[{"changes":[{"value":{"messages":[{"from":"86138","id":"wamid.INMSG1","timestamp":"1","type":"text","text":{"body":"hi"}}]}}]}]}`))
 	if err != nil {
 		t.Fatalf("msg payload err: %v", err)
@@ -91,7 +90,7 @@ func TestDispatchWhatsAppStatuses_MissAndPassthrough(t *testing.T) {
 	if handled {
 		t.Fatal("messages 推送不应被 statuses 分支吞掉")
 	}
-	// 非法 payload → handled=false
+
 	handled, _ = svc.dispatchWhatsAppStatuses(ctx, "wa-acc-t3b", []byte(`not-json`))
 	if handled {
 		t.Fatal("invalid payload should passthrough")
@@ -114,7 +113,7 @@ func TestUpdateDeliveryStatus_TerminalStateGuard(t *testing.T) {
 	if got.Status == "weird_status" {
 		t.Fatalf("unknown status must not be written")
 	}
-	// 落终态 → 迟到 sent/delivered 不回翻
+
 	if err := repo.UpdateDeliveryStatus(ctx, "whatsapp", "a", "wamid.ST9", "failed", "boom"); err != nil {
 		t.Fatalf("failed: %v", err)
 	}

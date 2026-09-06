@@ -180,8 +180,7 @@ import i18n from '@/i18n'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ragProductConfigAPI } from '@/api/ragProductConfig'
-// 卡片/线索平台：取自统一 cardPlatform 常量
-import { CARD_PLATFORM_OPTIONS } from '@/constants/cardPlatform'
+import { CARD_PLATFORM_OPTIONS } from '@/constants/cardPlatform';
 
 const cardPlatformOptions = CARD_PLATFORM_OPTIONS
 
@@ -216,16 +215,14 @@ onMounted(() => {
 const loadRagProducts = async () => {
   try {
     const response = await ragProductConfigAPI.getRagProducts()
-    // 拦截器已解包，response 直接就是数据对象
-    ragProducts.value = response.items || []
+    ragProducts.value = response.items || [];
   } catch (error) {
     ElMessage.error('加载RAG产品失败: ' + error.message)
   }
 }
 
 const onPlatformChange = () => {
-  // 平台改变时重置账号ID和配置
-  form.account_id = ''
+  form.account_id = '';
   loadCurrentConfig()
 }
 
@@ -238,8 +235,7 @@ const loadCurrentConfig = async () => {
       platform: form.platform
     })
     
-    // 修复：response 即业务数据本身（即 config 对象）
-    const config = response
+    const config = response;
     Object.assign(form, {
       ...config,
       rag_product_id: config.rag_product_id || '',
@@ -250,8 +246,7 @@ const loadCurrentConfig = async () => {
     })
     currentConfig.value = config
   } catch (error) {
-    // 如果配置不存在，使用默认值
-    form.reply_rules = []
+    form.reply_rules = [];
     currentConfig.value = null
   }
 }
@@ -285,8 +280,7 @@ const submitForm = async () => {
     await ragProductConfigAPI.updateAccountConfig(submitData)
     ElMessage.success(i18n.global.t('配置保存成功'))
     
-    // 重新加载配置以反映最新状态
-    loadCurrentConfig()
+    loadCurrentConfig();
   } catch (error) {
     ElMessage.error('保存失败: ' + error.message)
   }

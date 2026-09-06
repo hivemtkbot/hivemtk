@@ -10,14 +10,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupXianyuCardTestDB 设置闲鱼卡片测试数据库
 func setupXianyuCardTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.XianyuCard{},
 	)
 }
 
-// setupXianyuCardRepository 创建测试用的闲鱼卡片仓库实例
 func setupXianyuCardRepository(t *testing.T) XianyuCardRepository {
 	database := setupXianyuCardTestDB(t)
 	return NewXianyuCardRepository(database)

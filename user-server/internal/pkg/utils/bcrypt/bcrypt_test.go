@@ -127,4 +127,3 @@ func TestHashPassword_TooLongPassword(t *testing.T) {
 		t.Logf("HashPassword returned error for long password: %v", err)
 	}
 }
-

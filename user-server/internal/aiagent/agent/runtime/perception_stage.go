@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-
 // DefaultPerceptionStage 默认感知阶段（基于规则 + 关键词）
 //
 // 设计原则：
@@ -61,7 +60,6 @@ func (p *DefaultPerceptionStage) Execute(ctx context.Context, ic *InferenceConte
 
 	return ContinueResult()
 }
-
 
 // KeywordSentimentAnalyzer 关键词情绪分析器
 //
@@ -142,7 +140,6 @@ func (k *KeywordSentimentAnalyzer) Analyze(ctx context.Context, text string) Sen
 		}
 	}
 
-	// 找主情绪
 	var primary Sentiment = SentimentUnknown
 	maxScore := 0.0
 	for label, score := range scores {
@@ -163,7 +160,6 @@ func (k *KeywordSentimentAnalyzer) Analyze(ctx context.Context, text string) Sen
 	}
 }
 
-
 // KeywordIntentRecognizer 关键词意图识别器
 type KeywordIntentRecognizer struct {
 	IntentKeywords map[Intent][]string
@@ -172,7 +168,7 @@ type KeywordIntentRecognizer struct {
 
 // SlotPattern 槽位正则模式
 type SlotPattern struct {
-	Key string
+	Key   string
 	Words []string
 }
 
@@ -256,4 +252,3 @@ func (r *KeywordIntentRecognizer) Recognize(ctx context.Context, text string, hi
 		Tags:      tags,
 	}
 }
-

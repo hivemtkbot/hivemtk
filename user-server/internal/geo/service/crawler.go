@@ -17,7 +17,7 @@ import (
 //
 // 数据访问全部下沉到 Repository，Service 层只做编排和轻量解析。
 type CrawlerService struct {
-	sourceCatalogRepo repository.SourceCatalogRepository // alias of GeoSourceCatalogRepository
+	sourceCatalogRepo repository.SourceCatalogRepository
 }
 
 // NewCrawlerService 创建 CrawlerService
@@ -49,13 +49,12 @@ func (s *CrawlerService) RecordVisit(ctx context.Context, sourceURL string) erro
 // 返回信源等级（A/B/C/D 或空串表示未登记），以及完整的 SourceCatalog 条目。
 // 若 sourceURL 未登记，则回退到同 domain 下的任意已验证条目。
 func (s *CrawlerService) LookupSourceLevel(ctx context.Context, sourceURL string) (string, *model.GeoSourceCatalog, error) {
-	// 1) 精确 URL 命中
+
 	item, err := s.sourceCatalogRepo.FindByURL(ctx, sourceURL)
 	if err == nil && item != nil && item.Level != "" {
 		return item.Level, item, nil
 	}
 
-	// 2) 回退到同 domain
 	domain := ExtractDomain(sourceURL)
 	if domain == "" {
 		return "", item, nil
@@ -64,7 +63,7 @@ func (s *CrawlerService) LookupSourceLevel(ctx context.Context, sourceURL string
 	if err != nil || len(items) == 0 {
 		return "", nil, err
 	}
-	// 取等级最高的（按字母序：A < B < C < D）
+
 	best := items[0]
 	for _, it := range items[1:] {
 		if it.Level != "" && (best.Level == "" || it.Level < best.Level) {
@@ -85,15 +84,15 @@ func ExtractDomain(rawURL string) string {
 	if u == "" {
 		return ""
 	}
-	// 去掉 scheme
+
 	if idx := strings.Index(u, "://"); idx >= 0 {
 		u = u[idx+3:]
 	}
-	// 去掉端口（host:port 只保留 host）
+
 	if idx := strings.Index(u, ":"); idx >= 0 {
 		u = u[:idx]
 	}
-	// 去掉路径 / 查询串 / 锚点
+
 	for _, sep := range []string{"/", "?", "#"} {
 		if idx := strings.Index(u, sep); idx >= 0 {
 			u = u[:idx]

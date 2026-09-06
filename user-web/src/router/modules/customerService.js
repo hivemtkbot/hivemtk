@@ -1,28 +1,21 @@
-// 客服子功能 (坐席状态 / 快捷回复 / 会话标签 / AI 建议)
-// 依赖后端 4 个 controller (controller/customer_session.go)
-export default [
-  {
-    path: '/customerService/agentStatus',
-    name: 'AgentStatus',
-    component: () => import('@/views/customerService/AgentStatus.vue'),
-    meta: { title: '坐席状态', group: 'community', icon: 'Headset', requiresAuth: true }
-  },
-  {
-    path: '/customerService/quickReply',
-    name: 'QuickReply',
-    component: () => import('@/views/customerService/QuickReply.vue'),
-    meta: { title: '快捷回复', group: 'community', icon: 'ChatLineSquare', requiresAuth: true }
-  },
-  {
-    path: '/customerService/sessionTag',
-    name: 'SessionTag',
-    component: () => import('@/views/customerService/SessionTag.vue'),
-    meta: { title: '会话标签', group: 'community', icon: 'CollectionTag', requiresAuth: true }
-  },
-  {
-    path: '/customerService/aiSuggestion',
-    name: 'AISuggestion',
-    component: () => import('@/views/customerService/AISuggestion.vue'),
-    meta: { title: 'AI 建议', group: 'community', icon: 'MagicStick', requiresAuth: true }
-  }
-]
+export default [{
+  path: '/customerService/agentStatus',
+  name: 'AgentStatus',
+  component: () => import('@/views/customerService/AgentStatus.vue'),
+  meta: { title: '坐席状态', group: 'community', icon: 'Headset', requiresAuth: true }
+}, {
+  path: '/customerService/quickReply',
+  name: 'QuickReply',
+  component: () => import('@/views/customerService/QuickReply.vue'),
+  meta: { title: '快捷回复', group: 'community', icon: 'ChatLineSquare', requiresAuth: true }
+}, {
+  path: '/customerService/sessionTag',
+  name: 'SessionTag',
+  component: () => import('@/views/customerService/SessionTag.vue'),
+  meta: { title: '会话标签', group: 'community', icon: 'CollectionTag', requiresAuth: true }
+}, {
+  path: '/customerService/aiSuggestion',
+  name: 'AISuggestion',
+  component: () => import('@/views/customerService/AISuggestion.vue'),
+  meta: { title: 'AI 建议', group: 'community', icon: 'MagicStick', requiresAuth: true }
+}];

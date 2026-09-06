@@ -95,7 +95,6 @@ func (g *NetworkExposureGuard) resolveHost(host string) ([]net.IP, error) {
 	return r.LookupIP(ctx, "ip", host)
 }
 
-// isPrivateIP 判定 IP 是否在 IANA 私有/环回/链路本地/CGNAT 段
 func isPrivateIP(ip net.IP) bool {
 	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
 		return true

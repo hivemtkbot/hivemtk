@@ -1,6 +1,5 @@
 package ragretrieval
 
-
 import (
 	"sort"
 )
@@ -23,7 +22,6 @@ func NewRRFFusion(k int) *RRFFusion {
 // K 返回平滑常数 k
 func (f *RRFFusion) K() int { return f.k }
 
-// rrfEntry 内部聚合条目
 type rrfEntry struct {
 	chunk Chunk
 	score float64
@@ -86,7 +84,6 @@ func (f *RRFFusion) Fuse(vecResults, bm25Results []Chunk, topN int) []Chunk {
 	return out
 }
 
-// trimChunks 截断切片到 topK
 func trimChunks(chunks []Chunk, topK int) []Chunk {
 	if topK <= 0 {
 		return chunks
@@ -97,11 +94,6 @@ func trimChunks(chunks []Chunk, topK int) []Chunk {
 	return chunks
 }
 
-// mergeChunksByMaxScore 将两个 Chunk 列表按 ID 合并，重复 ID 取最高 score 保留。
-//
-// 用于 Multi-Query 变体 BM25 召回结果与主路 BM25 结果融合：
-// 同一分片被多个变体命中时，保留分数最高的那份（避免重复且强化高相关分片）。
-// 结果保持原有相对顺序：base 在前、extra 中未出现的新分片追加在后。
 func mergeChunksByMaxScore(base, extra []Chunk) []Chunk {
 	if len(extra) == 0 {
 		return base
@@ -144,4 +136,3 @@ func mergeChunksByMaxScore(base, extra []Chunk) []Chunk {
 	}
 	return out
 }
-

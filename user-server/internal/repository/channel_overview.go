@@ -21,14 +21,12 @@ func NewChannelOverviewRepository(db *gorm.DB) *ChannelOverviewRepository {
 	return &ChannelOverviewRepository{db: db}
 }
 
-// countRows 统计表全量行数
 func (r *ChannelOverviewRepository) countRows(ctx context.Context, table string) (int64, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Table(table).Count(&n).Error
 	return n, err
 }
 
-// countWhere 按条件统计表行数
 func (r *ChannelOverviewRepository) countWhere(ctx context.Context, table, query string, args ...any) (int64, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Table(table).Where(query, args...).Count(&n).Error

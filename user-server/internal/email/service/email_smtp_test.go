@@ -12,9 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupEmailSmtpServiceTestDB 设置邮件 SMTP 服务测试数据库
-// R50: 同步注入 FIELD_ENCRYPTION_KEY 测试密钥（crypto 包 once 语义下,
-// setup 先于任何 Encrypt 调用执行, 保证加密链路在测试中可用）
 func setupEmailSmtpServiceTestDB(t *testing.T) *gorm.DB {
 	t.Setenv("FIELD_ENCRYPTION_KEY", "test-field-encryption-key-0123456789abcdef")
 	database := testutil.NewTestDB(t,
@@ -66,7 +63,6 @@ func TestEmailSmtpService_CreateEmailSmtp(t *testing.T) {
 		t.Errorf("Expected limit 100, got %d", created.Limit)
 	}
 
-	// R50 fail-closed 验证: DB 中密码必须是密文（非明文原文）
 	var stored model.EmailSmtp
 	database.Where("name = ?", "test@qq.com").First(&stored)
 	if stored.Password == "test-password" {
@@ -76,7 +72,6 @@ func TestEmailSmtpService_CreateEmailSmtp(t *testing.T) {
 		t.Errorf("密码为空, 加密链路异常")
 	}
 
-	// 验证数据库中已保存
 	var count int64
 	database.Model(&model.EmailSmtp{}).Count(&count)
 	if count != 1 {
@@ -190,7 +185,6 @@ func TestEmailSmtpService_UpdateEmailSmtp(t *testing.T) {
 		t.Fatalf("UpdateEmailSmtp failed: %v", err)
 	}
 
-	// 验证更新
 	var updated model.EmailSmtp
 	database.Where("id = ?", emailSmtp.ID).First(&updated)
 	if updated.Name != "new@qq.com" {
@@ -199,7 +193,7 @@ func TestEmailSmtpService_UpdateEmailSmtp(t *testing.T) {
 	if updated.Limit != 200 {
 		t.Errorf("Expected limit 200, got %d", updated.Limit)
 	}
-	// R50 fail-closed: 更新后的密码必须是密文
+
 	if updated.Password == "old-password" {
 		t.Errorf("更新后密码明文落库! R50 fail-closed 未生效")
 	}
@@ -226,7 +220,6 @@ func TestEmailSmtpService_DeleteEmailSmtp(t *testing.T) {
 		t.Fatalf("DeleteEmailSmtp failed: %v", err)
 	}
 
-	// 验证已删除
 	var count int64
 	database.Model(&model.EmailSmtp{}).Where("id = ?", emailSmtp.ID).Count(&count)
 	if count != 0 {
@@ -377,7 +370,6 @@ func TestEmailSmtpService_UpdateEmailSmtp_NotFound(t *testing.T) {
 		t.Errorf("UpdateEmailSmtp should not fail: %v", err)
 	}
 
-	// 验证新记录被插入
 	var count int64
 	database.Model(&model.EmailSmtp{}).Count(&count)
 	if count != 1 {
@@ -395,4 +387,3 @@ func TestEmailSmtpService_DeleteEmailSmtp_NotFound(t *testing.T) {
 		t.Errorf("DeleteEmailSmtp should not fail for non-existent ID: %v", err)
 	}
 }
-

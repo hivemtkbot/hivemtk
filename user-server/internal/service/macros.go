@@ -16,12 +16,12 @@ import (
 
 // 宏动作类型
 const (
-	MacroActAddTag      = "add_tag"      // value: tag code
-	MacroActAddNote     = "add_note"     // value: 备注内容
-	MacroActAssign      = "assign"       // value: agent id
-	MacroActClose       = "close"        // value: ""
-	MacroActSendMessage = "send_message" // value: 消息内容
-	MacroActSetPriority = "set_priority" // value: "0-3"
+	MacroActAddTag      = "add_tag"
+	MacroActAddNote     = "add_note"
+	MacroActAssign      = "assign"
+	MacroActClose       = "close"
+	MacroActSendMessage = "send_message"
+	MacroActSetPriority = "set_priority"
 )
 
 // MacroAction 单动作
@@ -103,7 +103,7 @@ func (s *MacroService) Apply(ctx context.Context, macroID uint, sessionID, opera
 		var err error
 		switch a.Type {
 		case MacroActAddTag:
-			// 追加标签码到 session.Tags
+
 			err = s.appendSessionTag(ctx, sessionID, a.Value)
 		case MacroActAddNote:
 			_, err = s.csPlus.AddInternalNote(ctx, sessionID, fmt.Sprintf("[宏:%s] %s", m.Name, a.Value), "0", operator)
@@ -143,7 +143,7 @@ func (s *MacroService) appendSessionTag(ctx context.Context, sessionID, tagCode 
 	}
 	for _, t := range arr {
 		if t == tagCode {
-			return nil // 幂等
+			return nil
 		}
 	}
 	arr = append(arr, tagCode)
@@ -173,7 +173,7 @@ func (s *MacroService) enqueueOutbound(ctx context.Context, sessionID, content s
 		return fmt.Errorf("消息内容为空")
 	}
 	g := s.db
-	// 会话元信息
+
 	var sess struct {
 		Platform string
 		Account  string
@@ -183,7 +183,7 @@ func (s *MacroService) enqueueOutbound(ctx context.Context, sessionID, content s
 		Where("session_id = ?", sessionID).Scan(&sess).Error; err != nil {
 		return err
 	}
-	// R52 修复: 原手写 INSERT 含不存在的 sender_type 列→必失败（假性完成）。改用 GORM 模型对齐。
+
 	now := time.Now()
 	rec := &model.MessageHub{
 		Platform:       sess.Platform,

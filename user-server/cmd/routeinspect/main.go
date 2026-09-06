@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/config"
+	"hivemtk-user/internal/middleware"
 	"hivemtk-user/internal/pkg/db"
 	"hivemtk-user/internal/platform"
 	"hivemtk-user/internal/router"
@@ -43,4 +43,3 @@ func main() {
 	fmt.Println(string(b))
 	fmt.Fprintf(os.Stderr, "API 路由总数: %d\n", len(out))
 }
-

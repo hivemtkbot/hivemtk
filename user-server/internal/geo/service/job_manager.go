@@ -25,8 +25,6 @@ type JobScheduler interface {
 	RemoveTask(id cron.EntryID)
 }
 
-// ---- 内置任务定义 ----
-
 const (
 	JobSOVRefresh      = "sov_refresh"
 	JobNegativeMonitor = "negative_monitor"
@@ -75,10 +73,7 @@ var geoJobDefs = []geoJobDef{
 	},
 }
 
-// specParser 与 TaskManager 的 cron.New(cron.WithSeconds()) 保持一致
 var specParser = cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
-
-// ---- JobManager ----
 
 // JobManager GEO 定时任务统一管理：
 //  1. 同任务互斥防重入（上一轮未跑完则跳过本轮）
@@ -92,7 +87,7 @@ type JobManager struct {
 	cfgRepo repository.GeoConfigRepository
 
 	running map[string]*atomic.Bool
-	specs   map[string]string // name → 当前生效 spec（未注册调度时为默认值）
+	specs   map[string]string
 	entryID map[string]cron.EntryID
 	setup   bool
 }
@@ -129,7 +124,6 @@ func SetupGeoJobs(sched JobScheduler) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// 僵尸记录清理：上次进程中断遗留的 running 置为 failed
 	if err := m.runRepo.FailStaleRunning(context.Background()); err != nil {
 		logger.Warn(fmt.Sprintf("[GEO Jobs] 清理僵尸运行记录失败: %v", err))
 	}
@@ -151,7 +145,6 @@ func SetupGeoJobs(sched JobScheduler) {
 	logger.Info("[GEO Jobs] 定时任务已注册：sov_refresh/negative_monitor/source_sync/crawler_monitor（调度可经 /geo/jobs API 调整）")
 }
 
-// loadPersistedSpecs 从 GeoConfig.CronSpecs（JSON map）读取调度配置
 func (m *JobManager) loadPersistedSpecs() map[string]string {
 	cfg, err := m.cfgRepo.Get()
 	if err != nil || strings.TrimSpace(cfg.CronSpecs) == "" {
@@ -165,7 +158,6 @@ func (m *JobManager) loadPersistedSpecs() map[string]string {
 	return out
 }
 
-// registerLocked 注册/替换某任务的 cron 调度（须持 m.mu）
 func (m *JobManager) registerLocked(name, spec string) error {
 	if m.sched == nil {
 		return errors.New("调度器未初始化")
@@ -225,7 +217,6 @@ func (m *JobManager) StartJob(name, trigger string) (bool, error) {
 	return true, nil
 }
 
-// execute 执行任务体：超时控制 + panic 恢复 + 历史回写 + 旧记录清理
 func (m *JobManager) execute(def geoJobDef, runID uint, trigger string) {
 	defer m.running[def.Name].Store(false)
 
@@ -260,7 +251,6 @@ func (m *JobManager) execute(def geoJobDef, runID uint, trigger string) {
 	logger.Info(fmt.Sprintf("[GEO Jobs] 任务 %s 完成（trigger=%s status=%s 用时=%dms）%s",
 		def.Name, trigger, status, duration, summary))
 
-	// 历史保留窗口清理
 	if err := m.runRepo.DeleteBefore(context.Background(), time.Now().Add(-geoJobRunRetention)); err != nil {
 		logger.Warn(fmt.Sprintf("[GEO Jobs] 清理过期运行记录失败: %v", err))
 	}
@@ -286,7 +276,6 @@ func (m *JobManager) UpdateSchedule(name, spec string) error {
 	}
 	m.specs[name] = spec
 
-	// 持久化（读-改-写整份 specs map）
 	persisted := map[string]string{}
 	if cfg, err := m.cfgRepo.Get(); err == nil && strings.TrimSpace(cfg.CronSpecs) != "" {
 		_ = json.Unmarshal([]byte(cfg.CronSpecs), &persisted)

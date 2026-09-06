@@ -11,17 +11,16 @@ import (
 	"hivemtk-user/internal/aiagent/agent/tooluse"
 )
 
-// mockTool 测试用工具
 type mockTool struct {
-	name        string
-	desc        string
-	params      tooluse.ToolParameters
-	executeFn   func(ctx context.Context, args map[string]any) (tooluse.ToolResult, error)
+	name      string
+	desc      string
+	params    tooluse.ToolParameters
+	executeFn func(ctx context.Context, args map[string]any) (tooluse.ToolResult, error)
 }
 
-func (m *mockTool) Name() string                { return m.name }
-func (m *mockTool) Category() tooluse.ToolCategory { return tooluse.CategoryBusiness }
-func (m *mockTool) Description() string         { return m.desc }
+func (m *mockTool) Name() string                       { return m.name }
+func (m *mockTool) Category() tooluse.ToolCategory     { return tooluse.CategoryBusiness }
+func (m *mockTool) Description() string                { return m.desc }
 func (m *mockTool) Parameters() tooluse.ToolParameters { return m.params }
 func (m *mockTool) Execute(ctx context.Context, args map[string]any) (tooluse.ToolResult, error) {
 	if m.executeFn != nil {
@@ -30,7 +29,6 @@ func (m *mockTool) Execute(ctx context.Context, args map[string]any) (tooluse.To
 	return tooluse.ToolResult{Success: true, Data: map[string]any{"echo": args}}, nil
 }
 
-// send 便捷函数：发送 JSON-RPC 请求
 func send(t *testing.T, s *Server, method string, params any) JSONRPCResponse {
 	t.Helper()
 	req := JSONRPCRequest{
@@ -54,7 +52,6 @@ func send(t *testing.T, s *Server, method string, params any) JSONRPCResponse {
 	return out
 }
 
-// initializeReq 便捷函数
 func initializeReq(t *testing.T, s *Server) {
 	t.Helper()
 	send(t, s, "initialize", InitializeParams{
@@ -161,7 +158,7 @@ func TestServer_Ping(t *testing.T) {
 func TestServer_NotificationsInitialized(t *testing.T) {
 	s := NewServer(nil)
 	initializeReq(t, s)
-	// notifications/* 不应返回 response
+
 	resp, err := s.HandleRequest(context.Background(), []byte(`{"jsonrpc":"2.0","method":"notifications/initialized"}`))
 	if err != nil {
 		t.Fatal(err)
@@ -210,7 +207,7 @@ func TestServer_ToolsList(t *testing.T) {
 	if len(result.Tools) != 2 {
 		t.Errorf("expected 2 tools, got %d", len(result.Tools))
 	}
-	// 验证 echo 工具的 schema
+
 	var found bool
 	for _, t2 := range result.Tools {
 		if t2.Name == "echo" {
@@ -320,7 +317,7 @@ func TestServer_ToolsCall_EmptyName(t *testing.T) {
 // TestServer_ToolsCall_NotInitialized 验证未初始化时拒绝
 func TestServer_ToolsCall_NotInitialized(t *testing.T) {
 	s := NewServer(tooluse.NewToolRegistry())
-	// 注意：未调用 initialize
+
 	resp := send(t, s, "tools/call", CallToolParams{Name: "x"})
 	if resp.Error == nil {
 		t.Fatal("not initialized should fail")
@@ -472,7 +469,7 @@ func TestConvertParameters(t *testing.T) {
 	if !ok {
 		t.Fatal("role should be map[string]any")
 	}
-	// enum 可能是 []string 或 []any，兼容两种
+
 	switch e := role["enum"].(type) {
 	case []string:
 		if len(e) != 2 {
@@ -512,5 +509,4 @@ func TestServer_ContentBlockType(t *testing.T) {
 	}
 }
 
-// dummy reference to fmt to keep import
 var _ = fmt.Sprintf

@@ -7,8 +7,6 @@ import (
 	"testing"
 )
 
-// P1f RAGAS 四指标测试
-
 type fakeLLM struct {
 	resp string
 	err  error
@@ -30,7 +28,7 @@ func TestRAGAS_LLMJudgeMode(t *testing.T) {
 	if rep.Faithfulness != 0.95 || rep.AnswerRelevancy != 0.8 || rep.ContextRecall != 0.7 {
 		t.Errorf("scores passthrough wrong: %+v", rep)
 	}
-	// 0-100 输出自动归一化
+
 	if rep.ContextPrecision < 0.84 || rep.ContextPrecision > 0.86 {
 		t.Errorf("context_precision 应归一化为 0.85, got %v", rep.ContextPrecision)
 	}
@@ -57,9 +55,8 @@ func TestRAGAS_LLMFailureDegradesToHeuristic(t *testing.T) {
 }
 
 func TestRAGAS_HeuristicScoringBoundsAndSemantics(t *testing.T) {
-	ev := NewRAGASEvaluator(nil) // 无 LLM → 固定启发式
+	ev := NewRAGASEvaluator(nil)
 
-	// 支持性答案：忠实度高、召回可测
 	good, err := ev.Evaluate(context.Background(),
 		"如何申请退款",
 		"您可以申请退款。流程是在订单页点击申请。",
@@ -78,7 +75,6 @@ func TestRAGAS_HeuristicScoringBoundsAndSemantics(t *testing.T) {
 		t.Logf("info: faithful=%.2f precision=%.2f（未达线仅提示不阻断）", good.Faithfulness, good.ContextPrecision)
 	}
 
-	// 幻觉答案：上下文完全无关 → 忠实度低
 	bad, _ := ev.Evaluate(context.Background(),
 		"公司什么时候成立",
 		"我们公司成立于1998年，是全球500强。",
@@ -88,7 +84,6 @@ func TestRAGAS_HeuristicScoringBoundsAndSemantics(t *testing.T) {
 		t.Errorf("幻觉内容忠实度应低于目标线: %v", bad.Faithfulness)
 	}
 
-	// 无参考答案 → recall=-1 显式标注未测量
 	nogt, _ := ev.Evaluate(context.Background(), "q", "a", []string{"c"}, "")
 	if nogt.ContextRecall != -1 {
 		t.Errorf("无 ground truth 时 recall 应为 -1, got %v", nogt.ContextRecall)
@@ -97,13 +92,11 @@ func TestRAGAS_HeuristicScoringBoundsAndSemantics(t *testing.T) {
 		t.Error("未测量必须写 issues")
 	}
 
-	// 无上下文 → precision=0
 	noCtx, _ := ev.Evaluate(context.Background(), "q", "a", nil, "")
 	if noCtx.ContextPrecision != 0 {
 		t.Errorf("无上下文 precision 应为 0, got %v", noCtx.ContextPrecision)
 	}
 
-	// 排序质量：相关块在前 AP 高于相关块在后
 	q := "退货"
 	ans := "可以退货"
 	relFirst, _ := ev.Evaluate(context.Background(), q, ans, []string{"退货政策说明", "本店水果很甜"}, "")

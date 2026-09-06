@@ -56,8 +56,7 @@ func SafeGoDetached(ctx context.Context, name string, timeout time.Duration, fn 
 	if timeout > 0 {
 		var cancel context.CancelFunc
 		parent, cancel = context.WithTimeout(parent, timeout)
-		// 注：此处 cancel 不在 defer 中调用——detach 场景下我们希望任务在
-		// 内部自行管理 ctx.Done()，cancel 交由 ctx 自身在任务退出时回收。
+
 		_ = cancel
 	}
 	go runRecover(name, func(c context.Context) {
@@ -152,8 +151,6 @@ func SafeGoWithRecover(ctx context.Context, name string, fn func(ctx context.Con
 	}, ctx, false, 0, onPanic)
 }
 
-// safeCall 在独立函数中执行 fn，让 recover 覆盖 fn 自身的 panic 并转为 error 返回，
-// 让 SafeGoWithRetry 走重试分支而不是直接退出。
 func safeCall(ctx context.Context, name string, attempt int, fn func(ctx context.Context) error) (retErr error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -169,7 +166,6 @@ func safeCall(ctx context.Context, name string, attempt int, fn func(ctx context
 	return fn(ctx)
 }
 
-// panicError 把非 error 类型的 panic 值包装成 error，便于重试逻辑统一处理。
 type panicError struct {
 	val   interface{}
 	stack []byte
@@ -179,7 +175,6 @@ func (p *panicError) Error() string {
 	return "panic in SafeGoWithRetry: non-error panic value"
 }
 
-// runRecover 统一的 goroutine 包装：recover panic + 记录堆栈 + 执行 fn。
 func runRecover(name string, fn func(context.Context), ctx context.Context, detached bool, timeout time.Duration, onPanic func(string, interface{}, []byte)) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -191,7 +186,7 @@ func runRecover(name string, fn func(context.Context), ctx context.Context, deta
 		}
 	}()
 	if detached && timeout > 0 {
-		// 二次确认 timeout 在 detached 场景下被尊重
+
 		if deadline, ok := ctx.Deadline(); ok && time.Until(deadline) <= 0 {
 			log.Warn().
 				Str("goroutine", name).
@@ -215,6 +210,6 @@ func defaultBackOff() BackOff {
 	b := NewExponentialBackOff()
 	b.InitialInterval = 500 * time.Millisecond
 	b.MaxInterval = 30 * time.Second
-	b.MaxElapsedTime = 0 // 永不过期，配合 NextBackOff stop 信号
+	b.MaxElapsedTime = 0
 	return b
 }

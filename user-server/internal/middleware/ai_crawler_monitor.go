@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// aiCrawlerBots 已知 AI 引擎爬虫 UA 前缀 → 归一化引擎名
 var aiCrawlerBots = []struct {
 	prefix string
 	engine string

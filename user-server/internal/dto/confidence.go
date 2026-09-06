@@ -1,6 +1,5 @@
 package dto
 
-
 import (
 	"time"
 )
@@ -31,17 +30,17 @@ type SignalCollectionInput struct {
 	Text       string `json:"text"`
 	IntentType string `json:"intent_type"`
 
-	RawIntentConf     float64        `json:"raw_intent_conf"`      
-	RawLogits         []float64      `json:"raw_logits,omitempty"` 
+	RawIntentConf     float64        `json:"raw_intent_conf"`
+	RawLogits         []float64      `json:"raw_logits,omitempty"`
 	ExtractedEntities map[string]any `json:"extracted_entities,omitempty"`
 	ExpectedEntities  map[string]any `json:"expected_entities,omitempty"`
-	LLMLogprobs       []float64      `json:"llm_logprobs,omitempty"` 
+	LLMLogprobs       []float64      `json:"llm_logprobs,omitempty"`
 	RAGChunks         []RAGChunk     `json:"rag_chunks,omitempty"`
-	RAGExecuted       bool           `json:"rag_executed,omitempty"` 
-	LastTurns         []string       `json:"last_turns,omitempty"`   
+	RAGExecuted       bool           `json:"rag_executed,omitempty"`
+	LastTurns         []string       `json:"last_turns,omitempty"`
 
-	CustomerLevel     string  `json:"customer_level,omitempty"`     
-	AgentAvailability float64 `json:"agent_availability,omitempty"` 
+	CustomerLevel     string  `json:"customer_level,omitempty"`
+	AgentAvailability float64 `json:"agent_availability,omitempty"`
 }
 
 // ConfidenceDecision 置信度决策结果
@@ -51,7 +50,7 @@ type ConfidenceDecision struct {
 	SignalID         string      `json:"signal_id"`
 	AggregatedConf   float64     `json:"aggregated_conf"`
 	DynamicThreshold float64     `json:"dynamic_threshold"`
-	DecisionBand     string      `json:"decision_band"` 
+	DecisionBand     string      `json:"decision_band"`
 	VetoTriggered    string      `json:"veto_triggered,omitempty"`
 	Signals          FiveSignals `json:"signals"`
 	CalculatedAt     time.Time   `json:"calculated_at"`
@@ -59,10 +58,10 @@ type ConfidenceDecision struct {
 
 // 决策区间常量
 const (
-	BandHandoff     = "handoff"      
-	BandLLMFallback = "llm_fallback" 
-	BandReview      = "review"       
-	BandAuto        = "auto"         
+	BandHandoff     = "handoff"
+	BandLLMFallback = "llm_fallback"
+	BandReview      = "review"
+	BandAuto        = "auto"
 )
 
 // CalibrationResult 校准结果（dto 层暴露给上游）
@@ -101,5 +100,3 @@ type ThresholdPolicyRequest struct {
 	ReviewSLASeconds        int     `json:"review_sla_seconds" binding:"min=1"`
 	Version                 int     `json:"version" binding:"min=1"`
 }
-
-

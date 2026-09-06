@@ -26,8 +26,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ==================== Backup 形状适配 ====================
-
 // BackupGapService backup 页面契约适配（复用既有 BackupService 存储能力 + KV 策略）
 type BackupGapService struct {
 	db  *gorm.DB
@@ -110,7 +108,7 @@ func (s *BackupGapService) Stats(ctx context.Context) (*BackupStatsRow, error) {
 		row.LastSuccess = last.CreatedAt.Format("2006-01-02 15:04")
 		row.TotalSize = last.FileSize
 	}
-	// 表级行数估算（前端 tableStats: [{table, rows}]）
+
 	type tr struct {
 		Table string `gorm:"column:table_name"`
 		Rows  int64  `gorm:"column:rows"`
@@ -124,7 +122,7 @@ func (s *BackupGapService) Stats(ctx context.Context) (*BackupStatsRow, error) {
 			row.TableStats = append(row.TableStats, map[string]any{"table": r.Table, "rows": r.Rows})
 		}
 	}
-	// nextRun：策略启用则给下次计划时间
+
 	st := s.GetStrategy(ctx)
 	if st.Enabled {
 		nxt := s.nextRunTime(st)
@@ -142,8 +140,6 @@ func (s *BackupGapService) nextRunTime(st BackupStrategy) time.Time {
 	return today.AddDate(0, 0, 1)
 }
 
-// ==================== RAG Eval（评估集上传/执行/历史） ====================
-
 // RagEvalGapService RAG 评测服务（诚实口径：Recall@5 = 检索 top5 文本含答案关键词的比例；MRR/NDCG 按同口径排序）
 type RagEvalGapService struct {
 	db       *gorm.DB
@@ -160,7 +156,6 @@ func NewRagEvalGapServiceFromGlobal(searchFn func(ctx context.Context, productID
 	return NewRagEvalGapService(db.GetDB(), searchFn)
 }
 
-// searchTop5 检索 top5 文本片段
 func (s *RagEvalGapService) searchTop5(ctx context.Context, productID, question string) ([]string, error) {
 	return s.searchFn(ctx, productID, question)
 }
@@ -177,7 +172,7 @@ func (s *RagEvalGapService) UploadCSV(ctx context.Context, r io.Reader, productI
 		return 0, fmt.Errorf("CSV 为空")
 	}
 	start := 0
-	// 跳过表头（question 开头）
+
 	if len(records[0]) > 0 && strings.Contains(strings.ToLower(records[0][0]), "question") {
 		start = 1
 	}
@@ -232,7 +227,6 @@ func (s *RagEvalGapService) RunAsync(productID string) (*model.RagEvalRun, error
 	return run, nil
 }
 
-// computeRun 同步计算内核（Run/RunAsync 共用）
 func (s *RagEvalGapService) computeRun(ctx context.Context, productID string) (*model.RagEvalRun, error) {
 	g := s.db
 	var qs []model.RagEvalQuestion
@@ -248,8 +242,6 @@ func (s *RagEvalGapService) computeRun(ctx context.Context, productID string) (*
 	}
 	_ = productID
 
-	// 检索端口：复用 knowledge workspace Search（走既有 HybridSearch 管线）
-	// 通过内部函数引用，避免绕过五层
 	run := &model.RagEvalRun{Total: len(qs), EvalSetSize: len(qs)}
 	for _, qy := range qs {
 		hits, err := s.searchTop5(ctx, productID, qy.Question)
@@ -269,11 +261,10 @@ func (s *RagEvalGapService) computeRun(ctx context.Context, productID string) (*
 	return run, nil
 }
 
-// hitRank 0=未命中；1..5=首个命中排名（同时累计 MRR/NDCG 贡献）
 func hitRank(snippets []string, answer string, mrr, ndcg *float64) int {
 	ans := strings.TrimSpace(answer)
 	if ans == "" {
-		// 无答案列：按"检索返回非空"计命中（诚实降级口径）
+
 		if len(snippets) > 0 {
 			*mrr += 1.0
 			*ndcg += 1.0
@@ -290,17 +281,16 @@ func hitRank(snippets []string, answer string, mrr, ndcg *float64) int {
 				matched++
 			}
 		}
-		if len(keys) > 0 && matched*2 >= len(keys) { // 命中≥一半关键词
+		if len(keys) > 0 && matched*2 >= len(keys) {
 			rank := i + 1
 			*mrr += 1.0 / float64(rank)
-			*ndcg += 1.0 / float64(rank) // 简化 NDCG（单相关文档理想 DCG=1）
+			*ndcg += 1.0 / float64(rank)
 			return rank
 		}
 	}
 	return 0
 }
 
-// answerKeywords 答案切关键词（2字以上中文词/英文词，去重，最多 8 个）
 func answerKeywords(ans string) []string {
 	f := func(r rune) bool {
 		return r == ' ' || r == ',' || r == '，' || r == '。' || r == '、' || r == '；' || r == ';' || r == '\n'
@@ -364,8 +354,6 @@ func (s *RagEvalGapService) Diff(ctx context.Context, baselineID uint) (map[stri
 	}, nil
 }
 
-// ==================== Analytics: Cohort 留存矩阵 + Path 桑基 ====================
-
 // CohortGapService 留存/路径分析
 type CohortGapService struct {
 	db *gorm.DB
@@ -387,7 +375,7 @@ type CohortResult struct {
 type CohortBucketRow struct {
 	Label     string    `json:"label"`
 	Size      int64     `json:"size"`
-	Retention []float64 `json:"retention"` // 百分比 0-100
+	Retention []float64 `json:"retention"`
 }
 
 // Cohort 按客户注册周分群，后续周有行为事件（customer_events）即留存
@@ -397,7 +385,7 @@ func (s *CohortGapService) Cohort(ctx context.Context, weeks int) (*CohortResult
 	}
 	g := s.db
 	now := time.Now()
-	thisWeekStart := now.AddDate(0, 0, -int(now.Weekday())) // 本周起点（周日对齐）
+	thisWeekStart := now.AddDate(0, 0, -int(now.Weekday()))
 	type cohort struct {
 		label    string
 		start    time.Time
@@ -416,7 +404,7 @@ func (s *CohortGapService) Cohort(ctx context.Context, weeks int) (*CohortResult
 		})
 		periods = append(periods, fmt.Sprintf("W+%d", weeks-1-i))
 	}
-	// 每个分群：注册数 + 后续各周活跃数
+
 	for ci := range cohorts {
 		c := &cohorts[ci]
 		g.WithContext(ctx).Model(&model.Customer{}).
@@ -496,7 +484,7 @@ func (s *CohortGapService) Path(ctx context.Context, limit int) (*PathResult, er
 	for n := range nodeSet {
 		out.Nodes = append(out.Nodes, map[string]any{"name": n})
 	}
-	// top N 链接
+
 	type lk struct {
 		Key   string
 		From  string
@@ -523,8 +511,6 @@ func (s *CohortGapService) Path(ctx context.Context, limit int) (*PathResult, er
 	}
 	return out, nil
 }
-
-// ==================== Email 送达分析 ====================
 
 // EmailGapService 邮件送达分析
 type EmailGapService struct {
@@ -573,7 +559,7 @@ func (s *EmailGapService) Deliverability(ctx context.Context, days int) (*Delive
 	st.Opened = countEvent("open")
 	st.Clicked = countEvent("click")
 	st.Unsub = countEvent("unsubscribe")
-	// bounce 分软硬：5.x.x=硬退 / 4.x.x=软退（事件类型带后缀或 detail）
+
 	var bounces []model.EmailTrackingEvent
 	g.WithContext(ctx).
 		Where("event_type IN ? AND timestamp >= ?", []string{"bounce", "soft_bounce", "hard_bounce"}, since).
@@ -585,7 +571,7 @@ func (s *EmailGapService) Deliverability(ctx context.Context, days int) (*Delive
 		case "soft_bounce":
 			st.SoftBounce++
 		default:
-			// 无细分：按类型推断（postmark bounce 默认硬退口径）
+
 			st.HardBounce++
 		}
 	}
@@ -642,7 +628,7 @@ type DomainReputationRow struct {
 // DomainReputation 从 SMTP 配置取自有域名 → 24h 发送/退信聚合 + DNS 记录检查（诚实口径：无外网返回 unknown）
 func (s *EmailGapService) DomainReputation(ctx context.Context) ([]DomainReputationRow, error) {
 	g := s.db
-	// 自有发信域名：SMTP 配置表 or 邮件发送记录里的发件域
+
 	var domains []string
 	type smtpRow struct {
 		Host string `gorm:"column:host"`
@@ -659,7 +645,7 @@ func (s *EmailGapService) DomainReputation(ctx context.Context) ([]DomainReputat
 		}
 	}
 	if len(domains) == 0 {
-		// 从 tracking 邮箱域兜底
+
 		type dr struct{ Domain string }
 		var drs []dr
 		g.WithContext(ctx).Model(&model.EmailTrackingEvent{}).
@@ -700,8 +686,6 @@ func (s *EmailGapService) DomainReputation(ctx context.Context) ([]DomainReputat
 	return out, nil
 }
 
-// ==================== RFM 矩阵适配 ====================
-
 // RFMMatrixRow 矩阵行（前端 RfmMatrix: [{recency, frequency, count}]）
 type RFMMatrixRow struct {
 	Recency   int   `json:"recency"`
@@ -724,15 +708,13 @@ func (s *EmailGapService) RFMMatrix(ctx context.Context) ([]RFMMatrixRow, RFMMat
 	if err != nil {
 		return nil, RFMMatrixStats{}, err
 	}
-	// R46 修正: segment 实际枚举为 5 个英文分层（champion/loyal/at_risk/potential/churn，
-	// 见 controller/user_segment.go GetLayerDescription），并非 R5F5 网格——
-	// 映射到代表性格点（层间在 R/F 轴上的语义位置），保证矩阵可视化不失真
+
 	layerPos := map[string][2]int{
-		"champion":  {5, 5}, // 冠军: R最高 F最高
-		"loyal":     {4, 4}, // 忠诚: 高R较高F
-		"potential": {3, 2}, // 潜在: 中R低F
-		"at_risk":   {2, 3}, // 流失风险: 低R中F
-		"churn":     {1, 1}, // 已流失
+		"champion":  {5, 5},
+		"loyal":     {4, 4},
+		"potential": {3, 2},
+		"at_risk":   {2, 3},
+		"churn":     {1, 1},
 	}
 	rows := map[string]*RFMMatrixRow{}
 	st := RFMMatrixStats{}
@@ -766,8 +748,6 @@ func (s *EmailGapService) RFMMatrix(ctx context.Context) ([]RFMMatrixRow, RFMMat
 	}
 	return out, st, nil
 }
-
-// ==================== Backup 补齐: List + Preview ====================
 
 // BackupRow backup 列表行契约
 type BackupRow struct {
@@ -837,8 +817,6 @@ func (s *BackupGapService) PreviewTableStats(ctx context.Context) ([]map[string]
 	return out, nil
 }
 
-// ==================== DLQ 批量重试 ====================
-
 // RetryDeadLetters 将 message_hub 中 status='dead_letter' 的记录重置为 pending
 func (s *EmailGapService) RetryDeadLetters(ctx context.Context) (int64, error) {
 	g := s.db
@@ -851,8 +829,6 @@ func (s *EmailGapService) RetryDeadLetters(ctx context.Context) (int64, error) {
 	}
 	return res.RowsAffected, nil
 }
-
-// ==================== Clue 导入/合并/强制创建 ====================
 
 // ClueApplyResult 线索导入建议应用结果
 type ClueApplyResult struct {

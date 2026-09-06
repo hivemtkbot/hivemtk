@@ -20,7 +20,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupShortLinkControllerTestDB 设置短链控制器测试数据库
 func setupShortLinkControllerTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.ShortLink{},
@@ -29,12 +28,10 @@ func setupShortLinkControllerTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-// setupGinEngineForShortLink 设置 Gin 测试引擎
 func setupGinEngineForShortLink() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	return gin.New()
 }
-
 
 // TestShortLinkController_Create_BasicSuccess 测试创建短链基本成功场景
 func TestShortLinkController_Create_BasicSuccess(t *testing.T) {
@@ -202,7 +199,7 @@ func TestShortLinkController_Create_InvalidDomain(t *testing.T) {
 	createReq := dto.CreateShortLinkRequest{
 		ShortCode:   "abc123",
 		OriginalURL: "https://www.example.com",
-		DomainID:    999, 
+		DomainID:    999,
 	}
 	body, _ := json.Marshal(createReq)
 
@@ -418,7 +415,7 @@ func TestShortLinkController_Create_VeryLongTitle(t *testing.T) {
 	createReq := dto.CreateShortLinkRequest{
 		ShortCode:   "long-title-test",
 		OriginalURL: "https://www.example.com",
-		Title:       string(bytes.Repeat([]byte("a"), 255)), 
+		Title:       string(bytes.Repeat([]byte("a"), 255)),
 		DomainID:    1,
 	}
 	body, _ := json.Marshal(createReq)
@@ -432,7 +429,6 @@ func TestShortLinkController_Create_VeryLongTitle(t *testing.T) {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
-
 
 // TestShortLinkController_Update_BasicSuccess 测试更新短链基本成功
 func TestShortLinkController_Update_BasicSuccess(t *testing.T) {
@@ -510,7 +506,7 @@ func TestShortLinkController_Update_IDMismatch(t *testing.T) {
 	router.PUT("/shortlinks/:id", ctrl.Update)
 
 	updateReq := dto.UpdateShortLinkRequest{
-		ID:          999, 
+		ID:          999,
 		ShortCode:   "abc",
 		OriginalURL: "https://example.com",
 	}
@@ -582,7 +578,7 @@ func TestShortLinkController_Update_EmptyID(t *testing.T) {
 	router.PUT("/shortlinks/:id", ctrl.Update)
 
 	updateReq := dto.UpdateShortLinkRequest{
-		ID:          0, 
+		ID:          0,
 		ShortCode:   "abc",
 		OriginalURL: "https://example.com",
 	}
@@ -664,8 +660,8 @@ func TestShortLinkController_Update_DisabledStatus(t *testing.T) {
 	}
 	updateReq := dto.UpdateShortLinkRequest{
 		ID:          link.ID,
-		OriginalURL: "https://www.example.com", 
-		Status:      2,                         
+		OriginalURL: "https://www.example.com",
+		Status:      2,
 	}
 	body, _ := json.Marshal(updateReq)
 
@@ -678,7 +674,6 @@ func TestShortLinkController_Update_DisabledStatus(t *testing.T) {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
-
 
 // TestShortLinkController_Delete_BasicSuccess 测试删除短链基本成功
 func TestShortLinkController_Delete_BasicSuccess(t *testing.T) {
@@ -783,7 +778,6 @@ func TestShortLinkController_Delete_NegativeID(t *testing.T) {
 		t.Errorf("Expected status Bad Request, got %d", w.Code)
 	}
 }
-
 
 // TestShortLinkController_GetByID_BasicSuccess 测试根据 ID 获取短链基本成功
 func TestShortLinkController_GetByID_BasicSuccess(t *testing.T) {
@@ -916,7 +910,6 @@ func TestShortLinkController_GetByID_WithAllFields(t *testing.T) {
 		t.Errorf("Expected status OK, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
-
 
 // TestShortLinkController_GetList_BasicSuccess 测试获取短链列表基本成功
 func TestShortLinkController_GetList_BasicSuccess(t *testing.T) {
@@ -1127,7 +1120,6 @@ func TestShortLinkController_GetList_NegativePageSize(t *testing.T) {
 	}
 }
 
-
 // TestShortLinkController_AccessShortLink_BasicSuccess 测试访问短链基本成功
 func TestShortLinkController_AccessShortLink_BasicSuccess(t *testing.T) {
 	database := setupShortLinkControllerTestDB(t)
@@ -1299,7 +1291,6 @@ func TestShortLinkController_AccessShortLink_WrongPassword(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// v3 审计后 accessErrorStatus 语义化: 密码错误=401 / 禁用=403 / 过期=403
 	if w.Code != http.StatusUnauthorized && w.Code != http.StatusForbidden {
 		t.Errorf("Expected status Unauthorized or Forbidden, got %d", w.Code)
 	}
@@ -1357,7 +1348,7 @@ func TestShortLinkController_AccessShortLink_DisabledLink(t *testing.T) {
 		OriginalURL: "https://www.example.com/disabled",
 		Title:       "Disabled Access Test",
 		DomainID:    1,
-		Status:      2, 
+		Status:      2,
 	}
 	database.Create(shortLink)
 
@@ -1373,7 +1364,6 @@ func TestShortLinkController_AccessShortLink_DisabledLink(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// v3 审计后 accessErrorStatus 语义化: 密码错误=401 / 禁用=403 / 过期=403
 	if w.Code != http.StatusUnauthorized && w.Code != http.StatusForbidden {
 		t.Errorf("Expected status Unauthorized or Forbidden, got %d", w.Code)
 	}
@@ -1392,7 +1382,7 @@ func TestShortLinkController_AccessShortLink_ExpiredLink(t *testing.T) {
 	ctrl := NewShortLinkController(svc)
 	router := setupGinEngineForShortLink()
 
-	expiredTime := time.Now().Add(-24 * time.Hour) 
+	expiredTime := time.Now().Add(-24 * time.Hour)
 	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "expired-access",
 		OriginalURL: "https://www.example.com/expired",
@@ -1413,12 +1403,10 @@ func TestShortLinkController_AccessShortLink_ExpiredLink(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// v3 审计后 accessErrorStatus 语义化: 密码错误=401 / 禁用=403 / 过期=403
 	if w.Code != http.StatusUnauthorized && w.Code != http.StatusForbidden {
 		t.Errorf("Expected status Unauthorized or Forbidden, got %d", w.Code)
 	}
 }
-
 
 // TestShortLinkController_GenerateShortCode_BasicSuccess 测试生成短码基本成功
 func TestShortLinkController_GenerateShortCode_BasicSuccess(t *testing.T) {
@@ -1467,7 +1455,7 @@ func TestShortLinkController_GenerateShortCode_MinLength(t *testing.T) {
 	router.POST("/shortlinks/generate-code", ctrl.GenerateShortCode)
 
 	generateReq := dto.GenerateShortCodeRequest{
-		Length: 4, 
+		Length: 4,
 	}
 	body, _ := json.Marshal(generateReq)
 
@@ -1489,7 +1477,7 @@ func TestShortLinkController_GenerateShortCode_MaxLength(t *testing.T) {
 	router.POST("/shortlinks/generate-code", ctrl.GenerateShortCode)
 
 	generateReq := dto.GenerateShortCodeRequest{
-		Length: 10, 
+		Length: 10,
 	}
 	body, _ := json.Marshal(generateReq)
 
@@ -1511,7 +1499,7 @@ func TestShortLinkController_GenerateShortCode_TooShortLength(t *testing.T) {
 	router.POST("/shortlinks/generate-code", ctrl.GenerateShortCode)
 
 	generateReq := dto.GenerateShortCodeRequest{
-		Length: 2, 
+		Length: 2,
 	}
 	body, _ := json.Marshal(generateReq)
 
@@ -1533,7 +1521,7 @@ func TestShortLinkController_GenerateShortCode_TooLongLength(t *testing.T) {
 	router.POST("/shortlinks/generate-code", ctrl.GenerateShortCode)
 
 	generateReq := dto.GenerateShortCodeRequest{
-		Length: 15, 
+		Length: 15,
 	}
 	body, _ := json.Marshal(generateReq)
 
@@ -1570,4 +1558,3 @@ func TestShortLinkController_GenerateShortCode_MultipleGenerations(t *testing.T)
 		}
 	}
 }
-

@@ -20,7 +20,6 @@ type BridgeMetricsMigration struct {
 	db *gorm.DB
 }
 
-// 编译期断言实现 migration.Migration 接口
 var _ migration.Migration = (*BridgeMetricsMigration)(nil)
 
 // NewBridgeMetricsMigration 构造函数
@@ -51,4 +50,3 @@ func (m *BridgeMetricsMigration) Up(ctx context.Context) error {
 func (m *BridgeMetricsMigration) Down(ctx context.Context) error {
 	return nil
 }
-
