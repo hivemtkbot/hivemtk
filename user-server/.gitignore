@@ -120,3 +120,6 @@ internal/aiagent/knowledge/controller/uploads/
 seed
 /importfaq
 importfaq
+
+# ---------- 运行时密钥（平台商户 api_secret，user-server 启动时写回）----------
+config/.merchant_api_secret
