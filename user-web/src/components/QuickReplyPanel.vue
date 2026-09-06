@@ -48,17 +48,14 @@
 </template>
 
 <script setup>
-/**
- * Canned Response 组件（USR-WB-02）
- * 借鉴 libredesk Canned Responses + 模板变量插值
- */
-import { ref, computed } from 'vue'
+
+import { ref, computed } from 'vue';
 import { Search } from '@element-plus/icons-vue'
 import { render, BUILTIN_VARIABLES } from '@/utils/templateRender'
 
 const props = defineProps({
-  groups: { type: Array, default: () => [] }, // [{ id, name, items: [{id, content, variables}] }]
-  context: { type: Object, default: () => ({}) } // 当前会话上下文（customer / order / agent）
+  groups: { type: Array, default: () => [] },
+  context: { type: Object, default: () => ({}) }
 })
 
 const emit = defineEmits(['select'])
@@ -81,17 +78,16 @@ const filteredGroups = computed(() => {
 })
 
 function onSelect(item) {
-  // 渲染 + 预览
   try {
     const rendered = render(item.content, props.context, { missing: '{{' + (item.variables?.[0] || '') + '}}' })
     previewResult.value = rendered
     previewVisible.value = true
-    // 同时 emit 给父组件
-    setTimeout(() => emit('select', rendered, item), 100)
+    setTimeout(() => emit('select', rendered, item), 100);
   } catch (e) {
     console.error('模板渲染失败', e)
   }
 }
+
 </script>
 
 <style scoped>
