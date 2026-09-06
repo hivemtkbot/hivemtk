@@ -12,7 +12,7 @@ import (
 
 func TestInboxIngress_SelfEcho_ExactPlatformMsgID_Blocked(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -58,7 +58,7 @@ func TestInboxIngress_SelfEcho_ExactPlatformMsgID_Blocked(t *testing.T) {
 
 func TestInboxIngress_ExactMatch_InboundRowNotBlocked(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (

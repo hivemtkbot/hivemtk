@@ -550,6 +550,9 @@ func TestWebhookService_PendingCount(t *testing.T) {
 }
 
 func TestWebhookService_Dedup_ExpiresAfterTTL(t *testing.T) {
+	// -count=N 隔离：isDuplicate 直接读写全局缓存键 mtk:webhook:dedup:<eventID>
+	//（TTL 5 分钟），先清理上一轮残留再断言。
+	cleanupWebhookDedupKeysForTest(t, "dup-evt-A", "dup-evt-B")
 	s := &WebhookService{}
 	if s.isDuplicate(context.Background(), "dup-evt-A") {
 		t.Error("expected first occurrence not duplicate")

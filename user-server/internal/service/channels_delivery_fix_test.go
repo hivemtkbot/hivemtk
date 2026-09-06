@@ -84,6 +84,9 @@ func allowAnyDingtalkHostForTest(t *testing.T) {
 
 func TestSendOutbound_DingTalk_UsesSessionWebhook(t *testing.T) {
 	allowAnyDingtalkHostForTest(t)
+	// -count=N 隔离：固定 EventID 会被 sendOutbound 的 claim-before-confirm
+	// 幂等守卫在上一轮认领并保留，第二轮需先释放。
+	releaseReplyClaimForTest(t, "evt-dt-a")
 	var mu sync.Mutex
 	var captured []map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -130,6 +133,7 @@ func TestSendOutbound_DingTalk_UsesSessionWebhook(t *testing.T) {
 // 未过期的毫秒时间戳必须正常放行（防秒/毫秒口径混淆误杀）。
 func TestSendOutbound_DingTalk_MsExpiryTimestampSends(t *testing.T) {
 	allowAnyDingtalkHostForTest(t)
+	releaseReplyClaimForTest(t, "e-ms")
 	var mu sync.Mutex
 	calls := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -157,6 +161,7 @@ func TestSendOutbound_DingTalk_MsExpiryTimestampSends(t *testing.T) {
 }
 
 func TestSendOutbound_DingTalk_ForeignHostRejected(t *testing.T) {
+	releaseReplyClaimForTest(t, "e-ssrf")
 	var mu sync.Mutex
 	calls := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -181,6 +186,7 @@ func TestSendOutbound_DingTalk_ForeignHostRejected(t *testing.T) {
 
 func TestSendOutbound_DingTalk_MissingOrExpiredWebhook_NoCall(t *testing.T) {
 	allowAnyDingtalkHostForTest(t)
+	releaseReplyClaimForTest(t, "e1", "e2")
 	var mu sync.Mutex
 	calls := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

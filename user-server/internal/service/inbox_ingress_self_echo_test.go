@@ -11,7 +11,7 @@ import (
 
 func TestHandleIngress_SelfEcho_BridgeRelay_Blocked(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -69,7 +69,7 @@ func TestHandleIngress_SelfEcho_BridgeRelay_Blocked(t *testing.T) {
 // 反向回归：真实客户消息（内容不匹配本账号任何出站）必须正常入库并触发 AI，不被误杀。
 func TestHandleIngress_SelfEcho_RealCustomer_NotBlocked(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (

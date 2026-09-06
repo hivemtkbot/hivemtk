@@ -9,7 +9,7 @@ import (
 )
 
 func TestReproduce_XhsWeb_NoAITrigger(t *testing.T) {
-	svc := NewInboxIngressServiceWithDB(nil, nil)
+	svc := NewInboxIngressServiceWithDB(nil, newIsolatedCacheForTest(t))
 	tr := &fakeAITrigger{}
 	svc.SetAITrigger(tr)
 

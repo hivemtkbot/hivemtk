@@ -10,7 +10,7 @@ import (
 
 func TestInboxIngress_DeliverOutbound_OutboxLifecycle(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 
 	const (
 		channel        = "douyin_web"

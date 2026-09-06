@@ -62,6 +62,8 @@ func TestSendOutbound_WechatChannel_DeliversCustomerServiceMessage(t *testing.T)
 		openID    = "openid-fix-a"
 		conv      = "wechat:3:" + openID
 	)
+	// -count=N 隔离：释放上一轮固定 EventID 的出站认领
+	releaseReplyClaimForTest(t, "evt-wx-fix-a")
 	acc := &model.WechatAccount{
 		ID:        3,
 		AppID:     "wx-test-appid",

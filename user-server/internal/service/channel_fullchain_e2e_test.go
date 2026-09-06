@@ -606,6 +606,8 @@ func withCaptureHTTPClient(t *testing.T) (*[]capturedHTTP, *int64, func()) {
 func TestE2E_SendOutbound_Feishu_RealPath(t *testing.T) {
 	calls, counter, restore := withCaptureHTTPClient(t)
 	defer restore()
+	// -count=N 隔离：固定 EventID 的出站认领（reply guard）需测试前后释放
+	releaseReplyClaimForTest(t, "evt_1")
 	db := setupChannelFullDB(t)
 	now := time.Now()
 	exp := now.Add(time.Hour)
@@ -679,6 +681,8 @@ func TestE2E_SendOutbound_Feishu_RealPath(t *testing.T) {
 func TestE2E_SendOutbound_Telegram_RealPath(t *testing.T) {
 	calls, counter, restore := withCaptureHTTPClient(t)
 	defer restore()
+	// -count=N 隔离：释放上一轮 "tg1" 的出站认领
+	releaseReplyClaimForTest(t, "tg1")
 	db := setupChannelFullDB(t)
 	acc := &model.TelegramAccount{
 		AccountName:    "TG-OB",
@@ -734,6 +738,8 @@ func TestE2E_SendOutbound_Telegram_RealPath(t *testing.T) {
 func TestE2E_SendOutbound_WhatsApp_RealPath(t *testing.T) {
 	calls, counter, restore := withCaptureHTTPClient(t)
 	defer restore()
+	// -count=N 隔离：释放上一轮 "w1" 的出站认领
+	releaseReplyClaimForTest(t, "w1")
 	db := setupChannelFullDB(t)
 	acc := &model.WhatsAppCloudAccount{
 		AccountName:        "WA-OB",

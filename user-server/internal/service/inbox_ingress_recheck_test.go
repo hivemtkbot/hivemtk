@@ -12,13 +12,13 @@ import (
 
 // TestRecheck_NoHubRepo_SafelySkips 验证 hubRepo==nil 时 RecheckUnrepliedAndTrigger 安全跳过不 panic。
 func TestRecheck_NoHubRepo_SafelySkips(t *testing.T) {
-	svc := NewInboxIngressServiceWithDB(nil, nil)
+	svc := NewInboxIngressServiceWithDB(nil, newIsolatedCacheForTest(t))
 	svc.RecheckUnrepliedAndTrigger(context.Background(), "conv1", "sess1")
 }
 
 // TestRecheck_EmptyConvID_SafelySkips 验证 conversationID 为空时安全跳过。
 func TestRecheck_EmptyConvID_SafelySkips(t *testing.T) {
-	svc := NewInboxIngressServiceWithDB(nil, nil)
+	svc := NewInboxIngressServiceWithDB(nil, newIsolatedCacheForTest(t))
 	svc.RecheckUnrepliedAndTrigger(context.Background(), "", "sess1")
 }
 
@@ -273,7 +273,7 @@ func TestRecheck_FullScenario_OrphanMessage(t *testing.T) {
 
 // TestRecheck_ContextCanceled_NoBlock 验证 context 取消时 RecheckUnrepliedAndTrigger 不阻塞。
 func TestRecheck_ContextCanceled_NoBlock(t *testing.T) {
-	svc := NewInboxIngressServiceWithDB(nil, nil)
+	svc := NewInboxIngressServiceWithDB(nil, newIsolatedCacheForTest(t))
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	done := make(chan struct{})

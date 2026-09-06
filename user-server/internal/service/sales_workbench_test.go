@@ -18,7 +18,7 @@ func setupWorkbenchEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService,
 		&model.SalesEvent{},
 	)
 	dbutil.SetTestDB(memDB)
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	stats := NewSalesEventStatsServiceWithRepo(repository.NewSalesEventRepositoryWithDB(memDB))

@@ -7,7 +7,7 @@ import (
 )
 
 func TestCustomerJourney_NewCustomerIsStranger(t *testing.T) {
-	s := NewCustomerJourneyService()
+	s := newIsolatedJourneyService(t)
 	state := s.GetState(context.Background(), "cust_001")
 	if state.CurrentStage != StageStranger {
 		t.Errorf("new customer should be stranger, got %s", state.CurrentStage)
@@ -15,7 +15,7 @@ func TestCustomerJourney_NewCustomerIsStranger(t *testing.T) {
 }
 
 func TestCustomerJourney_Transition(t *testing.T) {
-	s := NewCustomerJourneyService()
+	s := newIsolatedJourneyService(t)
 	event, err := s.Transition(context.Background(), "cust_002", StageLead, "ai_chat", "ai", "留资成功", nil)
 	if err != nil {
 		t.Fatalf("transition failed: %v", err)
@@ -30,7 +30,7 @@ func TestCustomerJourney_Transition(t *testing.T) {
 }
 
 func TestCustomerJourney_InvalidStage(t *testing.T) {
-	s := NewCustomerJourneyService()
+	s := newIsolatedJourneyService(t)
 	_, err := s.Transition(context.Background(), "cust_003", JourneyStage("invalid"), "", "", "", nil)
 	if err == nil {
 		t.Error("should reject invalid stage")
@@ -38,7 +38,7 @@ func TestCustomerJourney_InvalidStage(t *testing.T) {
 }
 
 func TestCustomerJourney_AutoTagOnTransition(t *testing.T) {
-	s := NewCustomerJourneyService()
+	s := newIsolatedJourneyService(t)
 	_, _ = s.Transition(context.Background(), "cust_004", StageQuoted, "ai_chat", "ai", "已报价", nil)
 	state := s.GetState(context.Background(), "cust_004")
 	hasTag := false
@@ -54,7 +54,7 @@ func TestCustomerJourney_AutoTagOnTransition(t *testing.T) {
 }
 
 func TestCustomerJourney_Touch(t *testing.T) {
-	s := NewCustomerJourneyService()
+	s := newIsolatedJourneyService(t)
 	s.Touch(context.Background(), "cust_005", "ai_chat")
 	s.Touch(context.Background(), "cust_005", "ai_chat")
 	s.Touch(context.Background(), "cust_005", "ai_chat")
@@ -65,7 +65,7 @@ func TestCustomerJourney_Touch(t *testing.T) {
 }
 
 func TestCustomerJourney_ListByStage(t *testing.T) {
-	s := NewCustomerJourneyService()
+	s := newIsolatedJourneyService(t)
 	_, _ = s.Transition(context.Background(), "a", StageLead, "ai", "ai", "", nil)
 	_, _ = s.Transition(context.Background(), "b", StageLead, "ai", "ai", "", nil)
 	_, _ = s.Transition(context.Background(), "c", StageInterested, "ai", "ai", "", nil)
@@ -76,7 +76,7 @@ func TestCustomerJourney_ListByStage(t *testing.T) {
 }
 
 func TestCustomerJourney_AutoDetectSleeping(t *testing.T) {
-	s := NewCustomerJourneyService()
+	s := newIsolatedJourneyService(t)
 	_, _ = s.Transition(context.Background(), "old_cust", StageWon, "ai", "ai", "", nil)
 	s.mu.Lock()
 	state := s.states["old_cust"]
@@ -95,7 +95,7 @@ func TestCustomerJourney_AutoDetectSleeping(t *testing.T) {
 }
 
 func TestFollowUp_Schedule(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	svc := NewFollowUpService(journey)
 	r, err := svc.Schedule(context.Background(), "cust_001", "sales_001", ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
 		Title: "首次跟进",
@@ -109,7 +109,7 @@ func TestFollowUp_Schedule(t *testing.T) {
 }
 
 func TestFollowUp_Complete(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	svc := NewFollowUpService(journey)
 	r, _ := svc.Schedule(context.Background(), "cust_001", "sales_001", ReminderFirstContact, 1*time.Hour, nil)
 	err := svc.Complete(context.Background(), r.ID)
@@ -125,7 +125,7 @@ func TestFollowUp_Complete(t *testing.T) {
 }
 
 func TestFollowUp_ListPendingByOwner(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	svc := NewFollowUpService(journey)
 	_, _ = svc.Schedule(context.Background(), "a", "sales_001", ReminderFirstContact, 1*time.Hour, nil)
 	_, _ = svc.Schedule(context.Background(), "b", "sales_002", ReminderFirstContact, 1*time.Hour, nil)
@@ -136,7 +136,7 @@ func TestFollowUp_ListPendingByOwner(t *testing.T) {
 }
 
 func TestFollowUp_Overdue(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	svc := NewFollowUpService(journey)
 	r, _ := svc.Schedule(context.Background(), "a", "sales_001", ReminderFirstContact, -1*time.Hour, nil)
 	_ = r
@@ -147,7 +147,7 @@ func TestFollowUp_Overdue(t *testing.T) {
 }
 
 func TestFollowUp_DailyCalendar(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	svc := NewFollowUpService(journey)
 	now := time.Now()
 	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
@@ -165,7 +165,7 @@ func TestFollowUp_DailyCalendar(t *testing.T) {
 
 // TestFollowUp_WeeklyCalendar 验证 7 天日历分组
 func TestFollowUp_WeeklyCalendar(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	svc := NewFollowUpService(journey)
 	_, _ = svc.Schedule(context.Background(), "a", "sales_001", ReminderFirstContact, 1*time.Minute, nil)
 	_, _ = svc.Schedule(context.Background(), "b", "sales_001", ReminderFirstContact, 25*time.Hour, nil)

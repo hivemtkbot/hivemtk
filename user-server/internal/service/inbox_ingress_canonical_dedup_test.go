@@ -11,7 +11,7 @@ import (
 
 func TestHandleIngress_CanonicalContentHash_AlreadyExists_Skipped(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -62,7 +62,7 @@ func TestHandleIngress_CanonicalContentHash_AlreadyExists_Skipped(t *testing.T) 
 
 func TestHandleIngress_CrossConv_SameInboundContent_NotSkipped(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -114,7 +114,7 @@ func TestHandleIngress_CrossConv_SameInboundContent_NotSkipped(t *testing.T) {
 
 func TestHandleIngress_CrossConv_SameAlgo2MsgID_NotSkipped(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -167,7 +167,7 @@ func TestHandleIngress_CrossConv_SameAlgo2MsgID_NotSkipped(t *testing.T) {
 // 对照（防过度跳过）：全新内容必须正常入库为 inbound（不要误拦真实新消息）。
 func TestHandleIngress_NewContent_NotSkipped(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -203,7 +203,7 @@ func TestHandleIngress_NewContent_NotSkipped(t *testing.T) {
 
 func TestPersistBridgeHistory_NormalizedDedup_DOMWhitespaceVariance_Skipped(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -257,7 +257,7 @@ func TestPersistBridgeHistory_NormalizedDedup_DOMWhitespaceVariance_Skipped(t *t
 
 func TestPersistBridgeHistory_NewContent_Persisted(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (

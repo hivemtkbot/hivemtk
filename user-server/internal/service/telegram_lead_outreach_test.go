@@ -32,7 +32,9 @@ func TestDMOutreachCooldown_FirstAllowed_SecondBlocked(t *testing.T) {
 		gid = "-100cooldown"
 	)
 	dmOutreachTestCleanup(t, acc, uid, gid)
+	dmOutreachTestCleanup(t, acc, uid+1, gid)
 	defer dmOutreachTestCleanup(t, acc, uid, gid)
+	defer dmOutreachTestCleanup(t, acc, uid+1, gid)
 
 	if !svc.dmOutreachCooldownAllowed(ctx, acc, uid, gid) {
 		t.Fatal("首次调用应被允许")

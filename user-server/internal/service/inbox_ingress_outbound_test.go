@@ -14,7 +14,7 @@ import (
 // 本测试直接覆盖其底层 DB 逻辑（本地 PG 8232，连接失败时 t.Skip）。
 func TestInboxIngress_OutboundRoundTrip(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	if err := db.Create(&model.MessageHub{
@@ -55,7 +55,7 @@ func TestInboxIngress_OutboundRoundTrip(t *testing.T) {
 // 越权 ack 归属校验：用其它 account 确认他人消息不生效（通道B 归属校验）。
 func TestInboxIngress_AckOutboundScopeIsolation(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	db.Create(&model.MessageHub{

@@ -21,7 +21,7 @@ func setupE2EStats(t *testing.T) *SalesEventStatsService {
 
 // TestE2E_MedicalBeauty_PriceInquiry 场景 1：医美客户从价格咨询到跟进闭环
 func TestE2E_MedicalBeauty_PriceInquiry(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	extractor := NewOrderIntentExtractor()
@@ -90,7 +90,7 @@ func TestE2E_MedicalBeauty_PriceInquiry(t *testing.T) {
 
 // TestE2E_Education_Reactivation 场景 2：教培客户沉睡 → 激活 → 成交
 func TestE2E_Education_Reactivation(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	extractor := NewOrderIntentExtractor()
@@ -170,7 +170,7 @@ func TestE2E_Education_Reactivation(t *testing.T) {
 
 // TestE2E_Ecommerce_HighFrequency 场景 3：电商高频 AI 自动成交
 func TestE2E_Ecommerce_HighFrequency(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	extractor := NewOrderIntentExtractor()
@@ -233,7 +233,7 @@ func TestE2E_Ecommerce_HighFrequency(t *testing.T) {
 
 // TestE2E_Complaint_LostFlow 边界场景：投诉/流失自动识别
 func TestE2E_Complaint_LostFlow(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	extractor := NewOrderIntentExtractor()
@@ -292,7 +292,7 @@ func TestE2E_Complaint_LostFlow(t *testing.T) {
 
 // TestE2E_OrderIntent_AutoExtract 验证订单意向自动提取
 func TestE2E_OrderIntent_AutoExtract(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	extractor := NewOrderIntentExtractor()

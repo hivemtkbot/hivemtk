@@ -12,7 +12,7 @@ import (
 
 func TestInboxIngress_SelfEcho_RecentOutboundByContent_Blocked(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -66,7 +66,7 @@ func TestInboxIngress_SelfEcho_RecentOutboundByContent_Blocked(t *testing.T) {
 // 真实客户消息:内容与本账号近期 outbound 不同,必须放行(不误伤)
 func TestInboxIngress_RealCustomer_NotBlockedByContentEcho(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -111,7 +111,7 @@ func TestInboxIngress_RealCustomer_NotBlockedByContentEcho(t *testing.T) {
 // 跨账号:同内容但不同 account_id,不应被本账号的 outbound 误判为回环
 func TestInboxIngress_DifferentAccount_NotBlockedByContentEcho(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -159,7 +159,7 @@ func TestInboxIngress_DifferentAccount_NotBlockedByContentEcho(t *testing.T) {
 // 不应被旧会话的 outbound 误判为回环(否则新客户首条消息永远进不来)
 func TestInboxIngress_DifferentConversation_NotBlockedByContentEcho(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -206,7 +206,7 @@ func TestInboxIngress_DifferentConversation_NotBlockedByContentEcho(t *testing.T
 // 时间窗:2h 之前的 outbound 不应触发(避免无限期拦所有历史内容)
 func TestInboxIngress_OldOutbound_NotBlockedByContentEcho(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -252,7 +252,7 @@ func TestInboxIngress_OldOutbound_NotBlockedByContentEcho(t *testing.T) {
 // 端到端:HandleIngressMessage 对回环消息必须 Accepted=true 但 QueuedForAI=false
 func TestInboxIngress_HandleIngress_SelfEcho_NotQueuedForAI(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (

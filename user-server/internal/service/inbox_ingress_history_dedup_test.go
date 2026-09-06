@@ -11,7 +11,7 @@ import (
 
 func TestPersistBridgeHistory_HistoryEchoDedupHit_Skipped(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -79,7 +79,7 @@ func TestPersistBridgeHistory_HistoryEchoDedupHit_Skipped(t *testing.T) {
 // 证明修复仅对已存在 msg_id 生效，不会误拦真实历史消息。
 func TestPersistBridgeHistory_NewHistoryMessage_NotSkipped(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -116,7 +116,7 @@ func TestPersistBridgeHistory_NewHistoryMessage_NotSkipped(t *testing.T) {
 // 这间接验证：修复后不会因 history 回填而触发新一轮 outbound（消息无新增）。
 func TestPersistBridgeHistory_HistoryEcho_NoNewOutboundAppended(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (

@@ -13,6 +13,8 @@ import (
 
 func TestSendOutbound_BridgeChannel_ExtraMetadata_P1_4(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{}, &model.InboxConversation{})
+	// -count=N 隔离：释放上一轮固定 EventID 的出站认领
+	releaseReplyClaimForTest(t, "evt-p14-1")
 	svc := NewWebhookService(db)
 	defer svc.Stop(context.Background())
 
@@ -94,6 +96,8 @@ func TestSendOutbound_BridgeChannel_ExtraMetadata_P1_4(t *testing.T) {
 // 直接落 status=failed，避免污染 pending 出库队列。
 func TestSendOutbound_PlaceholderAccount_Undeliverable_P1_4(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{}, &model.InboxConversation{})
+	// -count=N 隔离：释放上一轮固定 EventID 的出站认领
+	releaseReplyClaimForTest(t, "evt-p14-undel")
 	svc := NewWebhookService(db)
 	defer svc.Stop(context.Background())
 
@@ -148,6 +152,8 @@ func TestSendOutbound_PlaceholderAccount_Undeliverable_P1_4(t *testing.T) {
 // 显式填空为 "unknown"（不允许 nil，否则 trace_learning group by key 漂移）。
 func TestSendOutbound_NoCtxResult_StillFillsStableFields_P1_4(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{}, &model.InboxConversation{})
+	// -count=N 隔离：释放上一轮固定 EventID 的出站认领
+	releaseReplyClaimForTest(t, "evt-p14-noctx")
 	svc := NewWebhookService(db)
 	defer svc.Stop(context.Background())
 

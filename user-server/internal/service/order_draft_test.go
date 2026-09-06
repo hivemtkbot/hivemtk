@@ -21,7 +21,7 @@ func setupDraftEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService, *AI
 	)
 	db.SetTestDB(database)
 
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	extractor := NewOrderIntentExtractor()

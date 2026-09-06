@@ -43,7 +43,7 @@ func TestInboxIngress_ClaimPendingOutbound_ConcurrentNoDuplicate(t *testing.T) {
 	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
 		t.Fatalf("清理失败: %v", err)
 	}
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -125,7 +125,7 @@ func TestInboxIngress_ClaimPendingOutbound_RespectsLimit(t *testing.T) {
 	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
 		t.Fatalf("清理失败: %v", err)
 	}
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -172,7 +172,7 @@ func TestInboxIngress_AckOutboundDelivered_CrossSession(t *testing.T) {
 	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
 		t.Fatalf("清理失败: %v", err)
 	}
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -244,7 +244,7 @@ func TestInboxIngress_AckOutboundDelivered_OwnershipIsolation(t *testing.T) {
 	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
 		t.Fatalf("清理失败: %v", err)
 	}
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -282,7 +282,7 @@ func TestInboxIngress_AckOutboundDelivered_Idempotent(t *testing.T) {
 	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
 		t.Fatalf("清理失败: %v", err)
 	}
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -315,7 +315,7 @@ func TestInboxIngress_ClaimPendingOutbound_InflightThenAck(t *testing.T) {
 	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
 		t.Fatalf("清理失败: %v", err)
 	}
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -346,7 +346,7 @@ func TestInboxIngress_ClaimPendingOutbound_AckReclaimRace(t *testing.T) {
 	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
 		t.Fatalf("清理失败: %v", err)
 	}
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -389,7 +389,7 @@ func TestInboxIngress_ClaimPendingOutbound_GuardZeroNegative(t *testing.T) {
 	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
 		t.Fatalf("清理失败: %v", err)
 	}
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	for _, lim := range []int{0, -1, -100} {

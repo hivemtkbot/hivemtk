@@ -9,7 +9,7 @@ import (
 
 // TestFollowUp_CompleteWithResult_StageAdvance 跟进结果推进客户旅程
 func TestFollowUp_CompleteWithResult_StageAdvance(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 	stats := setupE2EStats(t)
 	followup.SetStats(context.Background(), stats)
@@ -47,7 +47,7 @@ func TestFollowUp_CompleteWithResult_StageAdvance(t *testing.T) {
 
 // TestFollowUp_CompleteWithResult_Quoted 报价后推进到报价阶段
 func TestFollowUp_CompleteWithResult_Quoted(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 
 	custID := "cust_close_002"
@@ -69,7 +69,7 @@ func TestFollowUp_CompleteWithResult_Quoted(t *testing.T) {
 
 // TestFollowUp_CompleteWithResult_Converted 成交后推进到成交阶段
 func TestFollowUp_CompleteWithResult_Converted(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 
 	custID := "cust_close_003"
@@ -91,7 +91,7 @@ func TestFollowUp_CompleteWithResult_Converted(t *testing.T) {
 
 // TestFollowUp_CompleteWithResult_Lost 拒绝后进入流失
 func TestFollowUp_CompleteWithResult_Lost(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 
 	custID := "cust_close_004"
@@ -113,7 +113,7 @@ func TestFollowUp_CompleteWithResult_Lost(t *testing.T) {
 
 // TestFollowUp_CompleteWithResult_NoResponse 未回应进入沉睡
 func TestFollowUp_CompleteWithResult_NoResponse(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 
 	custID := "cust_close_005"
@@ -135,7 +135,7 @@ func TestFollowUp_CompleteWithResult_NoResponse(t *testing.T) {
 
 // TestFollowUp_CompleteWithResult_DashboardRealtime 仪表盘实时更新
 func TestFollowUp_CompleteWithResult_DashboardRealtime(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 	stats := setupE2EStats(t)
 	followup.SetStats(context.Background(), stats)
@@ -170,7 +170,7 @@ func TestFollowUp_CompleteWithResult_DashboardRealtime(t *testing.T) {
 
 // TestFollowUp_CompleteWithResult_DashboardNil 仪表盘 nil 时安全
 func TestFollowUp_CompleteWithResult_DashboardNil(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 
 	custID := "cust_safe_001"
@@ -187,7 +187,7 @@ func TestFollowUp_CompleteWithResult_DashboardNil(t *testing.T) {
 
 // TestFollowUp_CompleteWithResult_NotFound 不存在的跟进
 func TestFollowUp_CompleteWithResult_NotFound(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 	err := followup.CompleteWithResult(context.Background(), "not_exist_id", FollowUpResultInterested, "")
 	if err == nil {
@@ -198,7 +198,7 @@ func TestFollowUp_CompleteWithResult_NotFound(t *testing.T) {
 
 // TestFollowUp_CompleteWithResult_DefaultContacted 默认跟进结果
 func TestFollowUp_CompleteWithResult_DefaultContacted(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 
 	custID := "cust_def_001"
@@ -219,7 +219,7 @@ func TestFollowUp_CompleteWithResult_DefaultContacted(t *testing.T) {
 
 // TestFollowUp_CompleteWithResult_NoteRecorded 备注被记录
 func TestFollowUp_CompleteWithResult_NoteRecorded(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 
 	custID := "cust_note_001"
@@ -251,7 +251,7 @@ func TestFollowUp_CompleteWithResult_NoteRecorded(t *testing.T) {
 
 // TestFollowUp_CompleteWithResult_MultipleCustomers 多客户并发
 func TestFollowUp_CompleteWithResult_MultipleCustomers(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 	stats := setupE2EStats(t)
 	followup.SetStats(context.Background(), stats)
@@ -293,7 +293,7 @@ func TestFollowUp_CompleteWithResult_MultipleCustomers(t *testing.T) {
 
 // TestFollowUp_CompleteWithResult_FunnelTracking 漏斗统计
 func TestFollowUp_CompleteWithResult_FunnelTracking(t *testing.T) {
-	journey := NewCustomerJourneyService()
+	journey := newIsolatedJourneyService(t)
 	followup := NewFollowUpService(journey)
 
 	for i := 0; i < 50; i++ {

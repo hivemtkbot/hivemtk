@@ -4,11 +4,22 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 )
 
 func newOpenTracker(t *testing.T) *EmailOpenTrackerService {
 	t.Helper()
 	return NewEmailOpenTrackerService(nil, nil)
+}
+
+// resetPixelCacheForTest 清空 MarkOpenSeen 的进程级防重 map。
+// 固定 token 在 -count=2 第二轮会被上一轮残留记录拦截（utils.DefaultHTTPTimeout 内），
+// 导致 "First call should return true" 断言失败。
+func resetPixelCacheForTest(t *testing.T) {
+	t.Helper()
+	pixelCacheMu.Lock()
+	pixelCache = make(map[string]time.Time)
+	pixelCacheMu.Unlock()
 }
 
 // 1) 构造
@@ -202,6 +213,8 @@ func TestEmailOpenTracker_GetOpenRateMetrics_EmptyJobID(t *testing.T) {
 
 // 8) MarkOpenSeen 防重
 func TestEmailOpenTracker_MarkOpenSeen(t *testing.T) {
+	resetPixelCacheForTest(t)
+	defer resetPixelCacheForTest(t)
 	token := "test-token-1"
 	if !MarkOpenSeen(token) {
 		t.Error("First call should return true")

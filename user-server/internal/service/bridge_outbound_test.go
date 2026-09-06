@@ -27,7 +27,7 @@ func setupBridgeWhitelistForTest(t *testing.T, channels ...string) {
 func TestDeliverBridgeOutbound_DirectToOutbox(t *testing.T) {
 	setupBridgeWhitelistForTest(t, "douyin")
 	db := testutil.NewTestDB(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	SetGlobalInboxIngressService(svc)
 	defer SetGlobalInboxIngressService(nil)
 
@@ -88,7 +88,7 @@ func TestDeliverBridgeOutbound_DirectToOutbox(t *testing.T) {
 func TestDeliverBridgeOutbound_RejectsPlaceholderAccount(t *testing.T) {
 	setupBridgeWhitelistForTest(t, "douyin")
 	db := testutil.NewTestDB(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	SetGlobalInboxIngressService(svc)
 	defer SetGlobalInboxIngressService(nil)
 
@@ -112,7 +112,7 @@ func TestDeliverBridgeOutbound_RejectsPlaceholderAccount(t *testing.T) {
 // TestDeliverBridgeOutbound_RejectsUnsupportedChannel 验证：非白名单渠道直接拒绝。
 func TestDeliverBridgeOutbound_RejectsUnsupportedChannel(t *testing.T) {
 	db := testutil.NewTestDB(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	SetGlobalInboxIngressService(svc)
 	defer SetGlobalInboxIngressService(nil)
 

@@ -16,7 +16,7 @@ func TestInboxIngress_ClaimPendingOutbound_NoDuplicateForward(t *testing.T) {
 	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
 		t.Fatalf("清理失败: %v", err)
 	}
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -96,7 +96,7 @@ func TestInboxIngress_ClaimPendingOutbound_StaleReset(t *testing.T) {
 	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
 		t.Fatalf("清理失败: %v", err)
 	}
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -153,7 +153,7 @@ func TestInboxIngress_InterceptEcho_DistinguishesSelfAndCustomer(t *testing.T) {
 	if err := db.Exec("DELETE FROM message_hub").Error; err != nil {
 		t.Fatalf("清理失败: %v", err)
 	}
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (

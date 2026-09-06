@@ -13,7 +13,7 @@ import (
 // ContentHashMsgID 逐字节一致 → GetByMsgID 命中 → 跳过入库 + 不触发 AI。
 func TestInboxIngress_PlatformEchoAcrossDays(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -72,7 +72,7 @@ func TestInboxIngress_PlatformEchoAcrossDays(t *testing.T) {
 // 证明修复没有"过度跳过"——只跳过真正命中平台出站回显的内容。
 func TestInboxIngress_GenuineCustomerNotSkipped(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (
@@ -116,7 +116,7 @@ func TestInboxIngress_GenuineCustomerNotSkipped(t *testing.T) {
 // 修改后的文本 = 新消息。
 func TestInboxIngress_PlatformEchoTextModified(t *testing.T) {
 	db := testutil.NewTestDBOrSkip(t, &model.MessageHub{})
-	svc := NewInboxIngressServiceWithDB(db, nil)
+	svc := NewInboxIngressServiceWithDB(db, newIsolatedCacheForTest(t))
 	ctx := context.Background()
 
 	const (

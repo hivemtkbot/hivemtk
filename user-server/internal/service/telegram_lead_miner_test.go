@@ -290,6 +290,8 @@ func TestIsTelegramBotMentioned(t *testing.T) {
 }
 
 func TestTgLeadOutreachAllowed(t *testing.T) {
+	// -count=N 隔离：冷却键落在全局缓存（TTL 30 分钟），先清理上一轮残留
+	cleanupTgOutreachKeysForTest(t, "acc1", "-100", "u1", "u2")
 	svc := &WebhookService{}
 
 	if !svc.tgLeadOutreachAllowed(context.Background(), "acc1", "-100", "u1") {

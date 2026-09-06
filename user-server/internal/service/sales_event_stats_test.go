@@ -12,7 +12,7 @@ import (
 
 func setupStatsEnv(t *testing.T) (*CustomerJourneyService, *SalesEventStatsService) {
 	database := testutil.NewTestDB(t, &model.SalesEvent{})
-	return NewCustomerJourneyService(),
+	return newIsolatedJourneyService(t),
 		NewSalesEventStatsServiceWithRepo(repository.NewSalesEventRepositoryWithDB(database))
 }
 
