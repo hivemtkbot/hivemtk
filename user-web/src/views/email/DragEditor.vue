@@ -183,21 +183,30 @@ function previewMobile() {
   previewVisible.value = true
 }
 
+// 邮件模板可能来自资产市场导入(他人设计),所有插值必须转义,
+// URL 属性走协议白名单,否则预览/发送构成存储型 XSS 与属性注入
+const esc = (s) => String(s ?? '')
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+const escUrl = (u) => {
+  const s = esc(u)
+  return /^(https?:|mailto:|tel:|#|\/)/i.test(s.trim()) ? s : '#'
+}
+
 function compileToHTML() {
   const parts = blocks_state.value.map((b) => {
-    if (b.type === 'text') return `<mj-text>${b.content || ''}</mj-text>`
-    if (b.type === 'image') return `<mj-image src="${b.src || ''}" alt="${b.alt || ''}" />`
-    if (b.type === 'button') return `<mj-button href="${b.url || '#'}" background-color="${b.color || '#4F46E5'}">${b.text || 'Button'}</mj-button>`
+    if (b.type === 'text') return `<mj-text>${esc(b.content)}</mj-text>`
+    if (b.type === 'image') return `<mj-image src="${escUrl(b.src)}" alt="${esc(b.alt)}" />`
+    if (b.type === 'button') return `<mj-button href="${escUrl(b.url)}" background-color="${esc(b.color || '#4F46E5')}">${esc(b.text || 'Button')}</mj-button>`
     if (b.type === 'divider') return '<mj-divider />'
-    if (b.type === 'social') return `<mj-social><mj-social-element name="${b.networks?.[0] || 'wechat'}" /></mj-social>`
-    if (b.type === 'coupon') return `<mj-text>优惠券：${b.code}（减 ${b.amount}，${b.expires} 内有效）</mj-text>`
+    if (b.type === 'social') return `<mj-social><mj-social-element name="${esc(b.networks?.[0] || 'wechat')}" /></mj-social>`
+    if (b.type === 'coupon') return `<mj-text>优惠券：${esc(b.code)}（减 ${esc(b.amount)}，${esc(b.expires)} 内有效）</mj-text>`
     return ''
   });
   const mjml = `<mjml><mj-body>${parts.join('\n')}</mj-body></mjml>`
   try {
     return mjml2html(mjml).html
   } catch (e) {
-    return `<pre>${e.message}</pre>`
+    return `<pre>${esc(e.message)}</pre>`
   }
 }
 </script>

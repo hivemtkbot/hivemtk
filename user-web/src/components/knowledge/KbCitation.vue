@@ -50,12 +50,22 @@ function scoreTag(score) {
   return 'info'
 }
 
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 function highlightedContent(cite) {
-  let content = cite.content || ''
+  // 安全:知识库内容可能来自外部导入,必须先 HTML 转义再进 v-html,
+  // 高亮针对转义后的文本匹配(查询词同样转义),否则构成存储型 XSS
+  let content = escapeHtml(cite.content || '')
   if (!props.query) return content
   const tokens = props.query.split(/\s+/).filter((t) => t.length > 1);
   tokens.forEach((t) => {
-    const re = new RegExp(`(${escape(t)})`, 'gi')
+    const re = new RegExp(`(${escape(escapeHtml(t))})`, 'gi')
     content = content.replace(re, '<mark>$1</mark>')
   })
   return content
