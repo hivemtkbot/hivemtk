@@ -191,7 +191,8 @@ const submitDraft = () => {
           id: draftForm.id,
           subject: draftForm.subject,
           content: draftForm.content,
-          attachments: []
+          // 编辑时回填已有附件，避免清空；后端 nil=不更新
+          attachments: dialogType.value === 'edit' ? (draftForm.attachments || []) : undefined
         };
 
         let response

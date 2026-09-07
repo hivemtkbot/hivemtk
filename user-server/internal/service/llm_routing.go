@@ -274,10 +274,11 @@ func (s *LLMRoutingService) UpdateModel(ctx context.Context, identifier string, 
 		Enabled:      info.Enabled,
 		QualityScore: nonZero(info.QualityScore, old.QualityScore),
 		MaxRPM:       nonZeroInt(info.MaxRPM, old.MaxRPM),
-		CostPer1k:    info.CostPer1k,
-		NoFC:         info.NoFC,
-		Vendor:       orDefault(info.Vendor, old.Vendor),
-		Tags:         info.Tags,
+		// 零值=保留原值：前端开关切换只发 {enabled}，不能把成本/NoFC/tags 打掉
+		CostPer1k: nonZero(info.CostPer1k, old.CostPer1k),
+		NoFC:      info.NoFC || old.NoFC,
+		Vendor:    orDefault(info.Vendor, old.Vendor),
+		Tags:      nonEmptyTags(info.Tags, old.Tags),
 	}
 	s.dispatcher.AddProvider(updated)
 	if err := s.dispatcher.UpsertProviderToDB(updated); err != nil {
@@ -511,6 +512,14 @@ func nonZero(v, def float64) float64 {
 
 func nonZeroInt(v, def int) int {
 	if v == 0 {
+		return def
+	}
+	return v
+}
+
+// nonEmptyTags 空 tags=保留原值（前端开关切换只发 {enabled}，不得把 tags 打掉）
+func nonEmptyTags(v, def []string) []string {
+	if len(v) == 0 {
 		return def
 	}
 	return v

@@ -85,17 +85,28 @@ func (s *EmailDraftService) GetEmailDraftByIDDTO(ctx context.Context, id uuid.UU
 }
 
 // UpdateEmailDraftDTO 通过请求 DTO 更新草稿
+//
+// Attachments PATCH 语义：nil=未传=保留原附件（前端提交时硬编码 attachments:[]，
+// 全量覆盖会把已有附件清空）；非 nil 空切片=显式清空。
 func (s *EmailDraftService) UpdateEmailDraftDTO(ctx context.Context, req dto.UpdateEmailDraftRequest) error {
 	id, err := uuid.Parse(req.ID)
 	if err != nil {
 		return err
 	}
-	return s.UpdateEmailDraft(ctx, model.EmailDraft{
-		ID:          id,
-		Subject:     req.Subject,
-		Content:     req.Content,
-		Attachments: strings.Join(req.Attachments, ","),
-	})
+	draft, err := s.GetEmailDraftByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if req.Subject != "" {
+		draft.Subject = req.Subject
+	}
+	if req.Content != "" {
+		draft.Content = req.Content
+	}
+	if req.Attachments != nil {
+		draft.Attachments = strings.Join(req.Attachments, ",")
+	}
+	return s.UpdateEmailDraft(ctx, *draft)
 }
 
 func toEmailDraftResponse(d *model.EmailDraft) *dto.EmailDraftResponse {

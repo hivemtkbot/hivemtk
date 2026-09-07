@@ -209,8 +209,13 @@ func (ctrl *TelegramAccountController) Update(c *gin.Context) {
 	if req.BotUsername != "" {
 		acc.BotUsername = req.BotUsername
 	}
-	acc.WebhookURL = req.WebhookURL
-	acc.WebhookSecret = req.WebhookSecret
+	// webhook_secret 从不回显（VO 掩码），前端编辑表单回填空串：空值=保留原值，防止每次编辑把 secret 清空
+	if req.WebhookSecret != "" {
+		acc.WebhookSecret = req.WebhookSecret
+	}
+	if req.WebhookURL != "" {
+		acc.WebhookURL = req.WebhookURL
+	}
 	acc.WebhookEnabled = req.WebhookEnabled
 	acc.AIAgentEnabled = req.AIAgentEnabled
 	if req.Status != 0 {
