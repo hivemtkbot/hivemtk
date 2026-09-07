@@ -31,6 +31,7 @@ type DomainPoolService interface {
 	RotateToBackup(ctx context.Context, id int) (*model.DomainPool, error)
 	ListAlerts(ctx context.Context) ([]*model.DomainPool, error)
 	ResolveAlert(ctx context.Context, id int) (*model.DomainPool, error)
+	SetAutoSwitch(ctx context.Context, id int, enabled bool) (*model.DomainPool, error)
 }
 
 type domainPoolService struct {
@@ -103,6 +104,20 @@ func (s *domainPoolService) Update(ctx context.Context, id int, domain string, p
 		return nil, err
 	}
 
+	return domainPool, nil
+}
+
+// SetAutoSwitch 更新自动切换开关
+func (s *domainPoolService) SetAutoSwitch(ctx context.Context, id int, enabled bool) (*model.DomainPool, error) {
+	domainPool, err := s.domainPoolRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	domainPool.AutoSwitchEnabled = enabled
+	domainPool.UpdatedAt = time.Now()
+	if err := s.domainPoolRepo.Update(ctx, domainPool); err != nil {
+		return nil, err
+	}
 	return domainPool, nil
 }
 

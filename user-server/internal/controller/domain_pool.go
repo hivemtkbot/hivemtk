@@ -57,6 +57,13 @@ func (c *DomainPoolController) Update(ctx *gin.Context) {
 	if HandleServiceError(ctx, err) {
 		return
 	}
+	// AutoSwitchEnabled 此前被 handler 忽略，经此接口永远无法更新；nil=不更新
+	if req.AutoSwitchEnabled != nil {
+		if _, err := c.domainPoolService.SetAutoSwitch(context.Background(), req.ID, *req.AutoSwitchEnabled); err != nil {
+			response.Error(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
 
 	response.Success(ctx, domainPool, "更新成功")
 }

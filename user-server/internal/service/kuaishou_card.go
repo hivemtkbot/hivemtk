@@ -97,7 +97,11 @@ func (s *kuaishouCardService) Update(ctx context.Context, req *dto.KuaishouCardU
 
 	redirectURL := req.RedirectURL
 	if redirectURL == "" {
-		redirectURL = "https://www.kuaishou.com"
+		// 空串=保留原跳转地址，不重置为站点默认
+		redirectURL = card.RedirectURL
+		if redirectURL == "" {
+			redirectURL = "https://www.kuaishou.com"
+		}
 	}
 
 	card.Title = req.Title
