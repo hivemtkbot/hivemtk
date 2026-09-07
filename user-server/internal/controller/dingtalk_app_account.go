@@ -173,13 +173,23 @@ func (ctrl *DingTalkAppAccountController) Update(c *gin.Context) {
 	}
 	acc.AccountName = req.AccountName
 	acc.AppKey = req.AppKey
-	acc.AppSecret = req.AppSecret
 	acc.AgentID = req.AgentID
-	acc.Token = req.Token
-	acc.AESKey = req.AESKey
+	// 密钥类字段前端编辑表单不回填（VO 只回掩码），提交时缺字段：空值=保留原值，防止编辑把密钥清空
+	if req.AppSecret != "" {
+		acc.AppSecret = req.AppSecret
+	}
+	if req.Token != "" {
+		acc.Token = req.Token
+	}
+	if req.AESKey != "" {
+		acc.AESKey = req.AESKey
+	}
 	acc.InboundEnabled = req.InboundEnabled
 	acc.AIAgentID = req.AIAgentID
-	acc.Status = req.Status
+	// 前端编辑不传 status：0=保留原值，防止编辑把账号状态打回禁用
+	if req.Status != 0 {
+		acc.Status = req.Status
+	}
 	if err := ctrl.svc.UpdateAccount(context.Background(), acc); err != nil {
 		response.ErrorFromDB(c, err, "更新失败", err.Error())
 		return

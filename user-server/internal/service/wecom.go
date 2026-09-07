@@ -110,7 +110,8 @@ func (s *WeComService) GetAccessToken(ctx context.Context, account *model.WeComA
 // CreateAccountRequest 创建账号请求
 type CreateAccountRequest struct {
 	CorpID         string `json:"corp_id" binding:"required"`
-	CorpSecret     string `json:"corp_secret" binding:"required"`
+	// CorpSecret 更新时允许留空=保留原值（与 UpdateAccount 的密钥保留语义配套）；创建由 handler 单独校验
+	CorpSecret     string `json:"corp_secret"`
 	AgentID        int    `json:"agent_id"`
 	AgentSecret    string `json:"agent_secret"`
 	CallbackToken  string `json:"callback_token"`
@@ -122,6 +123,9 @@ type CreateAccountRequest struct {
 
 // CreateAccount 创建企业微信账号
 func (s *WeComService) CreateAccount(ctx context.Context, req *CreateAccountRequest) (*model.WeComAccount, error) {
+	if req.CorpSecret == "" {
+		return nil, fmt.Errorf("corp_secret 不能为空")
+	}
 	account := &model.WeComAccount{
 		CorpID:         req.CorpID,
 		CorpSecret:     req.CorpSecret,
@@ -160,11 +164,20 @@ func (s *WeComService) UpdateAccount(ctx context.Context, id uint, req *CreateAc
 	}
 
 	account.CorpID = req.CorpID
-	account.CorpSecret = req.CorpSecret
 	account.AgentID = req.AgentID
-	account.AgentSecret = req.AgentSecret
-	account.CallbackToken = req.CallbackToken
-	account.EncodingAESKey = req.EncodingAESKey
+	// 密钥类字段空串=保留原值（前端虽然从列表回填明文，但密钥不该被意外清空）
+	if req.CorpSecret != "" {
+		account.CorpSecret = req.CorpSecret
+	}
+	if req.AgentSecret != "" {
+		account.AgentSecret = req.AgentSecret
+	}
+	if req.CallbackToken != "" {
+		account.CallbackToken = req.CallbackToken
+	}
+	if req.EncodingAESKey != "" {
+		account.EncodingAESKey = req.EncodingAESKey
+	}
 	account.WebhookEnabled = req.WebhookEnabled
 	account.AIAgentEnabled = req.AIAgentEnabled
 	if req.WebhookPath != "" {

@@ -96,7 +96,12 @@ func (s *douyinCardService) Update(ctx context.Context, req *dto.DouyinCardUpdat
 	redirectURL := req.RedirectURL
 
 	if redirectURL == "" {
-		redirectURL = "https://www.douyin.com"
+		// 空串=保留原跳转地址，而不是重置为站点默认；只有明确需要默认值时才用默认
+		if card.RedirectURL == "" {
+			redirectURL = "https://www.douyin.com"
+		} else {
+			redirectURL = card.RedirectURL
+		}
 	}
 
 	card.Title = req.Title

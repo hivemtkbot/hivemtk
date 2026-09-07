@@ -503,8 +503,9 @@ type channelBindingReq struct {
 	ChannelType string `json:"channel_type" binding:"required"`
 	AccountID   string `json:"account_id" binding:"required"`
 	AgentID     uint   `json:"agent_id" binding:"required"`
-	IsPrimary   bool   `json:"is_primary"`
-	Enabled     bool   `json:"enabled"`
+	// PATCH 语义：nil = 未传 = Update 保留原值 / Create 走默认
+	IsPrimary *bool `json:"is_primary"`
+	Enabled   *bool `json:"enabled"`
 }
 
 func (ctrl *ChannelAgentBindingController) Create(c *gin.Context) {
@@ -517,11 +518,13 @@ func (ctrl *ChannelAgentBindingController) Create(c *gin.Context) {
 		ChannelType: service.NormalizeChannelType(req.ChannelType),
 		AccountID:   req.AccountID,
 		AgentID:     req.AgentID,
-		IsPrimary:   req.IsPrimary,
 		Enabled:     true,
 	}
-	if !req.Enabled {
-		b.Enabled = false
+	if req.IsPrimary != nil {
+		b.IsPrimary = *req.IsPrimary
+	}
+	if req.Enabled != nil {
+		b.Enabled = *req.Enabled
 	}
 	if err := ctrl.svc.Create(c.Request.Context(), b); err != nil {
 		response.Error(c, http.StatusBadRequest, "创建失败", err.Error())
@@ -549,8 +552,13 @@ func (ctrl *ChannelAgentBindingController) Update(c *gin.Context) {
 	existing.ChannelType = service.NormalizeChannelType(req.ChannelType)
 	existing.AccountID = req.AccountID
 	existing.AgentID = req.AgentID
-	existing.IsPrimary = req.IsPrimary
-	existing.Enabled = req.Enabled
+	// PATCH 语义：未传保留原值，防止漏字段把绑定意外停用
+	if req.IsPrimary != nil {
+		existing.IsPrimary = *req.IsPrimary
+	}
+	if req.Enabled != nil {
+		existing.Enabled = *req.Enabled
+	}
 	if err := ctrl.svc.Update(c.Request.Context(), existing); err != nil {
 		response.Error(c, http.StatusBadRequest, "更新失败", err.Error())
 		return
@@ -634,8 +642,9 @@ func (ctrl *CustomerServiceAgentController) ListByAIAgent(c *gin.Context) {
 type csAgentMountReq struct {
 	AgentStatusID uint `json:"agent_status_id" binding:"required"`
 	AIAgentID     uint `json:"ai_agent_id" binding:"required"`
-	IsPrimary     bool `json:"is_primary"`
-	Enabled       bool `json:"enabled"`
+	// PATCH 语义：nil = 未传 = Update 保留原值 / Create 走默认
+	IsPrimary *bool `json:"is_primary"`
+	Enabled   *bool `json:"enabled"`
 }
 
 func (ctrl *CustomerServiceAgentController) Create(c *gin.Context) {
@@ -647,11 +656,13 @@ func (ctrl *CustomerServiceAgentController) Create(c *gin.Context) {
 	m := &model.CustomerServiceAgent{
 		AgentStatusID: req.AgentStatusID,
 		AIAgentID:     req.AIAgentID,
-		IsPrimary:     req.IsPrimary,
 		Enabled:       true,
 	}
-	if !req.Enabled {
-		m.Enabled = false
+	if req.IsPrimary != nil {
+		m.IsPrimary = *req.IsPrimary
+	}
+	if req.Enabled != nil {
+		m.Enabled = *req.Enabled
 	}
 	if err := ctrl.svc.Create(c.Request.Context(), m); err != nil {
 		response.Error(c, http.StatusBadRequest, "创建失败", err.Error())
@@ -680,8 +691,13 @@ func (ctrl *CustomerServiceAgentController) Update(c *gin.Context) {
 	}
 	existing.AgentStatusID = req.AgentStatusID
 	existing.AIAgentID = req.AIAgentID
-	existing.IsPrimary = req.IsPrimary
-	existing.Enabled = req.Enabled
+	// PATCH 语义：未传保留原值，防止漏字段把挂载意外停用
+	if req.IsPrimary != nil {
+		existing.IsPrimary = *req.IsPrimary
+	}
+	if req.Enabled != nil {
+		existing.Enabled = *req.Enabled
+	}
 	if err := ctrl.svc.Update(c.Request.Context(), existing); err != nil {
 		response.Error(c, http.StatusBadRequest, "更新失败", err.Error())
 		return

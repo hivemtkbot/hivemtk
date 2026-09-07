@@ -278,8 +278,9 @@ func (c *IntentController) GetConfig(ctx *gin.Context) {
 }
 
 // UpdateConfigRequest 更新意图识别配置请求体
+// Enabled 用 *bool 表达必填：nil = 未传（空 body {} 不得把开关静默置为 false）
 type UpdateConfigRequest struct {
-	Enabled bool `json:"enabled"`
+	Enabled *bool `json:"enabled" binding:"required"`
 }
 
 // UpdateConfig 更新意图识别配置
@@ -295,6 +296,10 @@ func (c *IntentController) UpdateConfig(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
+	if req.Enabled == nil {
+		response.Error(ctx, http.StatusBadRequest, "enabled 必填")
+		return
+	}
 
 	updatedBy := "admin"
 	if v, ok := ctx.Get("username"); ok && v != nil {
@@ -304,7 +309,7 @@ func (c *IntentController) UpdateConfig(ctx *gin.Context) {
 	}
 
 	cfg := &service.IntentConfig{
-		Enabled:   req.Enabled,
+		Enabled:   *req.Enabled,
 		UpdatedAt: time.Now().Format(time.RFC3339),
 		UpdatedBy: updatedBy,
 	}

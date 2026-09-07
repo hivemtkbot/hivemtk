@@ -139,15 +139,20 @@ func (c *AccountController) UpdateAccount(ctx *gin.Context) {
 	}
 
 	account := model.Account{
-		ID:               accountIDStr,
-		TgName:           req.TgName,
-		TgBotToken:       req.TgBotToken,
-		Price:            req.Price,
-		GroupID:          req.GroupID,
-		ProxyEnableProxy: req.ProxyEnableProxy,
-		ProxyProtoclo:    req.ProxyProtoclo,
-		ProxyHost:        req.ProxyHost,
-		ProxyPort:        req.ProxyPort,
+		ID:            accountIDStr,
+		TgName:        req.TgName,
+		TgBotToken:    req.TgBotToken,
+		Price:         req.Price,
+		GroupID:       req.GroupID,
+		ProxyProtoclo: req.ProxyProtoclo,
+		ProxyHost:     req.ProxyHost,
+		ProxyPort:     req.ProxyPort,
+	}
+	// PATCH 语义：未传 proxy_enable_proxy 保留原值，防止漏字段把代理开关意外关闭
+	if req.ProxyEnableProxy != nil {
+		account.ProxyEnableProxy = *req.ProxyEnableProxy
+	} else if existing, getErr := c.svc.GetAccount(context.Background(), accountIDStr); getErr == nil && existing != nil {
+		account.ProxyEnableProxy = existing.ProxyEnableProxy
 	}
 	err := c.svc.UpdateAccount(context.Background(), account)
 	if err != nil {

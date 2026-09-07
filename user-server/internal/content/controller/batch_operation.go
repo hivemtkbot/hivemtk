@@ -169,6 +169,12 @@ func (c *BatchExportController) ExportData(ctx *gin.Context) {
 		}
 	}
 
+	// 防御空请求全量导出（数据暴露）：必须显式指定要导出的记录 ID
+	if len(ids) == 0 {
+		response.Error(ctx, http.StatusBadRequest, "请至少指定一个要导出的记录 ID（ids）")
+		return
+	}
+
 	switch format {
 	case "csv":
 		buf, err := c.svc.GenerateCSV(ctx.Request.Context(), service.ExportType(exportType), ids)

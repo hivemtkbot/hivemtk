@@ -602,6 +602,10 @@ func (ctrl *KnowledgeWorkspaceController) UpdateOpenAPISource(c *gin.Context) {
 	src.ID = id
 
 	if err := ctrl.openapiService.UpdateSource(c.Request.Context(), &src); err != nil {
+		if isNotFoundError(err) {
+			response.Error(c, http.StatusNotFound, err.Error())
+			return
+		}
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}

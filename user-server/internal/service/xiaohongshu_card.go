@@ -94,7 +94,11 @@ func (s *xiaohongshuCardService) Update(ctx context.Context, req *dto.Xiaohongsh
 
 	redirectURL := req.RedirectURL
 	if redirectURL == "" {
-		redirectURL = "https://www.xiaohongshu.com"
+		// 空串=保留原跳转地址，不重置为站点默认
+		redirectURL = card.RedirectURL
+		if redirectURL == "" {
+			redirectURL = "https://www.xiaohongshu.com"
+		}
 	}
 
 	card.Title = req.Title

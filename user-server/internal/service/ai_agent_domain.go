@@ -279,11 +279,18 @@ func (s *ChannelAgentBindingService) UpdateChannelBindingFromJSON(ctx context.Co
 	if err := json.Unmarshal(rawJSON, &req); err != nil {
 		return nil, err
 	}
+	// PATCH 语义：未传的字段保留原值，防止漏字段把绑定意外停用
+	var rawKeys map[string]json.RawMessage
+	_ = json.Unmarshal(rawJSON, &rawKeys)
 	existing.ChannelType = NormalizeChannelType(req.ChannelType)
 	existing.AccountID = req.AccountID
 	existing.AgentID = req.AgentID
-	existing.IsPrimary = req.IsPrimary
-	existing.Enabled = req.Enabled
+	if _, ok := rawKeys["is_primary"]; ok {
+		existing.IsPrimary = req.IsPrimary
+	}
+	if _, ok := rawKeys["enabled"]; ok {
+		existing.Enabled = req.Enabled
+	}
 	if err := s.Update(ctx, existing); err != nil {
 		return nil, err
 	}
@@ -328,10 +335,17 @@ func (s *CustomerServiceAgentService) UpdateCSAgentMountFromJSON(ctx context.Con
 	if err := json.Unmarshal(rawJSON, &req); err != nil {
 		return nil, err
 	}
+	// PATCH 语义：未传的字段保留原值，防止漏字段把挂载意外停用
+	var rawKeys map[string]json.RawMessage
+	_ = json.Unmarshal(rawJSON, &rawKeys)
 	existing.AgentStatusID = req.AgentStatusID
 	existing.AIAgentID = req.AIAgentID
-	existing.IsPrimary = req.IsPrimary
-	existing.Enabled = req.Enabled
+	if _, ok := rawKeys["is_primary"]; ok {
+		existing.IsPrimary = req.IsPrimary
+	}
+	if _, ok := rawKeys["enabled"]; ok {
+		existing.Enabled = req.Enabled
+	}
 	if err := s.Update(ctx, existing); err != nil {
 		return nil, err
 	}

@@ -124,6 +124,19 @@ func (s *EmailSmtpService) UpdateEmailSmtpDTO(ctx context.Context, req dto.Updat
 		}
 		req.Password = old.Password
 	}
+	// 零值=保留原值：防止部分字段漏传把端口/限额静默清零（对齐 Password 的保留语义）
+	if req.Port == 0 || req.Limit == 0 {
+		old, err := s.GetEmailSmtp(ctx, req.ID)
+		if err != nil {
+			return err
+		}
+		if req.Port == 0 {
+			req.Port = old.Port
+		}
+		if req.Limit == 0 {
+			req.Limit = old.Limit
+		}
+	}
 	return s.UpdateEmailSmtp(ctx, model.EmailSmtp{
 		ID:       req.ID,
 		Name:     req.Name,
